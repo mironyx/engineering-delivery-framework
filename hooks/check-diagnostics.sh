@@ -18,7 +18,7 @@
 #
 # Configuration (in .claude/settings.json):
 #   "hooks": { "PostToolUse": [{ "matcher": "Write|Edit",
-#     "hooks": [{ "type": "command", "command": ".claude/hooks/check-diagnostics.sh", "timeout": 10 }] }] }
+#     "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check-diagnostics.sh", "timeout": 10 }] }] }
 
 set -euo pipefail
 
@@ -29,14 +29,6 @@ const path = require('path');
 // Record when the hook started — used to distinguish fresh vs stale diagnostics
 const hookStartTime = Date.now();
 
-// Debug log helper — append to .claude/hooks/hook.log
-// Remove this function and all log() calls once the pipeline is validated
-function log(cwd, msg) {
-  try {
-    const logFile = path.join(cwd || '.', '.claude', 'hooks', 'hook.log');
-    fs.appendFileSync(logFile, new Date().toISOString() + ' ' + msg + '\n');
-  } catch (_) {}
-}
 
 // --- Read the JSON payload that Claude Code pipes to stdin ---
 let chunks = [];
@@ -46,10 +38,8 @@ process.stdin.on('end', () => {
   const filePath = input.tool_input?.file_path || '';
   const cwd = input.cwd || '';
 
-  log(cwd, 'Hook fired for: ' + filePath);
 
   if (!filePath || !cwd) {
-    log(cwd, 'Skipped: no filePath or cwd');
     process.exit(0);
   }
 
@@ -57,7 +47,6 @@ process.stdin.on('end', () => {
   // worktree, so polling here will always time out with no result.
   const diagRoot = path.join(cwd, '.diagnostics');
   if (!fs.existsSync(diagRoot)) {
-    log(cwd, 'Skipped: no .diagnostics dir (likely a worktree)');
     process.exit(0);
   }
 
@@ -74,7 +63,6 @@ process.stdin.on('end', () => {
   // Check TypeScript/JavaScript, YAML, and Dockerfile
   const basename = relPath.split('/').pop() || '';
   if (!/\\.(tsx?|jsx?|ya?ml)$/.test(relPath) && basename !== 'Dockerfile') {
-    log(cwd, 'Skipped non-source file: ' + relPath);
     process.exit(0);
   }
 
@@ -108,7 +96,6 @@ process.stdin.on('end', () => {
             const summary = 'VS Code diagnostics for ' + diag.file
               + ' (' + diag.diagnostics.length + ' issues):\\n' + lines.join('\\n');
 
-            log(cwd, 'Found ' + diag.diagnostics.length + ' diagnostics for ' + relPath + ' (attempt ' + attempts + ')');
 
             // --- Write response using Claude Code's hook protocol ---
             process.stdout.write(JSON.stringify({
@@ -120,7 +107,6 @@ process.stdin.on('end', () => {
             process.exit(0);
           } else {
             // Fresh analysis, no issues — exit silently
-            log(cwd, 'Fresh analysis: no issues for ' + relPath + ' (attempt ' + attempts + ')');
             process.exit(0);
           }
         }
@@ -133,7 +119,6 @@ process.stdin.on('end', () => {
     if (attempts < maxAttempts) {
       setTimeout(check, intervalMs);
     } else {
-      log(cwd, 'No fresh diagnostics after ' + maxAttempts + ' attempts for ' + relPath);
       process.exit(0);
     }
   }

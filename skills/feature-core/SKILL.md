@@ -18,7 +18,7 @@ Executes the implementation cycle from design reading through PR review. Called 
 
 These override any conflicting instinct. Violations are the top cost drivers.
 
-1. **Never run `npx vitest run` without a file filter in Step 4.** Use `npx vitest run <test-file>`. The full suite runs once in Step 5 — nowhere else.
+1. **Never run `./scripts/run-tests.sh` without a file filter in Step 4.** Use `./scripts/run-tests.sh <test-file>`. The full suite runs once in Step 5 — nowhere else.
 2. **Step 5 uses `test-runner` agent, not Bash.** All verification commands run inside the agent — zero test output reaches the main context. This applies to single-file runs during the fix loop too.
 3. **Pass pointers to sub-agents, not content.** File paths, issue numbers, LLD paths. Never paste diffs or file contents into agent prompts.
 4. **Never invoke `/simplify`.** Only if the user explicitly asks.
@@ -160,7 +160,7 @@ Run only the target test file after each increment:
 
 ```
 Launch Agent: test-runner
-Input: command="npx vitest run <test-file>"
+Input: command="./scripts/run-tests.sh <test-file>"
 ```
 
 ##### Step 4d: Self-check coverage before Step 5
@@ -177,14 +177,14 @@ This keeps verbose output out of the main context.
 
 ```
 Launch Agent: test-runner
-Input: command="npx vitest run && npx tsc --noEmit && npm run lint"
+Input: command="./scripts/run-tests.sh command="npx vitest run && npx tsc --noEmit && npm run lint"command="npx vitest run && npx tsc --noEmit && npm run lint" ./scripts/run-typecheck.sh command="npx vitest run && npx tsc --noEmit && npm run lint"command="npx vitest run && npx tsc --noEmit && npm run lint" ./scripts/run-lint.sh"
 ```
 
 If E2E tests exist (`tests/e2e/` is non-empty), also run:
 
 ```
 Launch Agent: test-runner
-Input: command="NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-publishable-key SUPABASE_SECRET_KEY=placeholder-secret-key npm run build && npx playwright test"
+Input: command="./scripts/run-build.sh command="NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-publishable-key SUPABASE_SECRET_KEY=placeholder-secret-key npm run build && npx playwright test"command="NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-publishable-key SUPABASE_SECRET_KEY=placeholder-secret-key npm run build && npx playwright test" ./scripts/run-e2e.sh"
 ```
 
 All must pass — zero failures, including integration tests — before proceeding.

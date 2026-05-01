@@ -12,7 +12,7 @@ Reads diagnostics exported by the diagnostics-exporter extension from `.diagnost
 
 The `diagnostics-exporter` extension exports diagnostics for files that are **open in the editor**. A PostToolUse hook fires after every Write/Edit, waits 3 s, then reads whatever the extension has exported. If the file is not open in the editor, the hook fires but the extension has nothing to export — the `.diagnostics/` file is either missing or reflects an earlier open session.
 
-This means: after making fixes in a CLI session, the diagnostics file may be **stale** (shows old issues) or **missing** entirely. The fix is to open the file in the editor using `.claude/hooks/open-in-editor.sh <file>`, which triggers a fresh CodeScene pass, then wait for the export.
+This means: after making fixes in a CLI session, the diagnostics file may be **stale** (shows old issues) or **missing** entirely. The fix is to open the file in the editor using `${CLAUDE_PLUGIN_ROOT}/hooks/open-in-editor.sh <file>`, which triggers a fresh CodeScene pass, then wait for the export.
 
 ## Instructions
 
@@ -25,7 +25,7 @@ This means: after making fixes in a CLI session, the diagnostics file may be **s
    Do this **before reading diagnostics or making any fixes**. Once a file is open, the editor detects every subsequent on-disk save and triggers a fresh CodeScene pass automatically — so diagnostics will be live as you edit.
 
    ```bash
-   .claude/hooks/open-in-editor.sh src/app/api/fcs/service.ts src/lib/github/client.ts
+   ${CLAUDE_PLUGIN_ROOT}/hooks/open-in-editor.sh src/app/api/fcs/service.ts src/lib/github/client.ts
    sleep 5
    ```
 
@@ -53,7 +53,7 @@ This means: after making fixes in a CLI session, the diagnostics file may be **s
 
    If a file's diagnostics timestamp has not advanced since before your edits (stale), run:
    ```bash
-   .claude/hooks/open-in-editor.sh <file>
+   ${CLAUDE_PLUGIN_ROOT}/hooks/open-in-editor.sh <file>
    sleep 5
    ```
    then re-read once more as a safety net.

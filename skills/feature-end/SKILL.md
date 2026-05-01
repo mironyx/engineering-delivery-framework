@@ -69,7 +69,7 @@ If an issue number argument was provided:
    - Switch into it and register this recovery session under the same feature ID for cost aggregation:
      ```bash
      cd "$ORPHAN_WORKTREE"
-     .claude/hooks/run-python.sh scripts/tag-session.py <issue-number> --cont
+     ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh scripts/tag-session.py <issue-number> --cont
      ```
    - Proceed with all remaining steps from inside the worktree. `IS_WORKTREE=yes` will be detected automatically in Step 5+6, which handles self-cleanup.
 5. **If no orphaned worktree is found** (normal mode — e.g. triggered by lead via SendMessage):
@@ -174,7 +174,7 @@ Derive the issue number from the git log and run the shared script:
 ```bash
 ISSUE=$(git log --oneline -10 | grep -o '#[0-9]*' | head -1 | tr -d '#')
 PR=$(gh pr view --json number --jq .number 2>/dev/null || echo "")
-COST_OUTPUT=$(.claude/hooks/run-python.sh scripts/query-feature-cost.py FCS-$ISSUE --issue $ISSUE ${PR:+--pr $PR} --stage final)
+COST_OUTPUT=$(${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh scripts/query-feature-cost.py FCS-$ISSUE --issue $ISSUE ${PR:+--pr $PR} --stage final)
 echo "$COST_OUTPUT"
 ```
 

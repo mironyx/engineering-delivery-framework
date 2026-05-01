@@ -586,7 +586,7 @@ for the current session and append the result to the terminal output. Do NOT app
 reporting only.
 
 ```bash
-.claude/hooks/run-python.sh scripts/query-feature-cost.py "$(.claude/hooks/run-python.sh scripts/get-session-id.py)"
+${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh scripts/query-feature-cost.py "$(${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh scripts/get-session-id.py)"
 ```
 
 If the script returns "Prometheus unreachable" or "No session data found", print the message

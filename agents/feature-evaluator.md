@@ -165,7 +165,7 @@ Keep tests focused — one assertion per test where possible.
 ### Step 5: Run all tests
 
 ```bash
-npx vitest run
+./scripts/run-tests.sh
 ```
 
 This runs the full suite including your new evaluation tests. Record results.
