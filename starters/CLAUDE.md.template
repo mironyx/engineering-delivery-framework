@@ -1,0 +1,37 @@
+# CLAUDE.md
+
+<!-- Project-specific: tech stack, domain context, key directories, things to never do -->
+
+## Verification Commands
+
+| Command | Purpose |
+| --- | --- |
+| `./scripts/run-tests.sh` | Unit tests |
+| `./scripts/run-typecheck.sh` | Type check |
+| `./scripts/run-lint.sh` | Lint |
+| `./scripts/run-build.sh` | Build |
+| `./scripts/run-markdown-lint.sh` | Markdown lint |
+| `./scripts/run-format-check.sh` | Format check |
+| `./scripts/run-e2e.sh` | E2E tests |
+
+## Path Conventions
+
+- Test file convention: `tests/<area>/<unit>.test.ts`
+- Source directory: `src/`
+- Eval test path convention: `tests/eval/`
+
+## Engineering Process
+
+Pipeline: `idea → /discovery → /requirements → /kickoff → /architect → /feature → /feature-end → /retro`.
+
+## Task Tracking
+
+<!-- Project-specific board and issue tracking setup -->
+
+## Coding Principles
+
+<!-- Project-specific principles -->
+
+## Key Directories
+
+<!-- Project-specific directory layout -->
