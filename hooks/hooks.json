@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PROJECT_DIR}/scripts/pre-compact-session-log.py",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/pre-compact-session-log.py",
             "timeout": 15
           }
         ]
