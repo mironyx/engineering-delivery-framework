@@ -107,7 +107,7 @@ Capture from the entry:
 
 - `req:` — the REQ anchor
 - `lld:` — the stable LLD anchor (`LLD-<epic-id>-<section-slug>`, per
-  [ADR-0026](../../docs/adr/0026-stable-lld-anchors.md))
+  [ADR-0026](../../docs/adr/0026-stable-ids-requirements-lld.md))
 - `status:` — `Draft` | `Approved` | `Implemented` | `Revised`
 - `lld_revision:` — last shipped revision (e.g. `r1`)
 
@@ -212,7 +212,7 @@ describe('[context]', () => {
 ## Design reference
 
 `docs/design/lld-<epic-slug>.md#LLD-<epic-id>-<section-slug>` (stable anchor
-per [ADR-0026](../../docs/adr/0026-stable-lld-anchors.md))
+per [ADR-0026](../../docs/adr/0026-stable-ids-requirements-lld.md))
 
 Or: none — new LLD section needed.
 ```

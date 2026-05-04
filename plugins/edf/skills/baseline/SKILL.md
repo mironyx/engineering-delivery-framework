@@ -99,12 +99,13 @@ For each epic/story in the requirements docs, determine its actual status by cro
 
 **Code is primary.** When code and docs disagree, record what the code does and flag the discrepancy. Do not silently adopt the doc version.
 
-**Use REQ- anchors when present (per ADR-0026).** Stories in v11+ requirements docs
-have a stable `REQ-<epic-slug>-<story-slug>` anchor immediately above their heading.
-When citing such a story in the report, reference the anchor as well as the story
-number (e.g. `Story 1.1 — REQ-project-management-create-project`). Older versions
-(v1–v10) have no anchors; cite by epic + story number only. Do not retrofit anchors —
-that decision is owned by ADR-0026 Stage 7 retro.
+**Use REQ- anchors when present (per ADR-0026, project-wide).** Stories in
+requirements docs from the project's adoption point onwards have a stable
+`REQ-<epic-slug>-<story-slug>` anchor immediately above their heading. When citing
+such a story in the report, reference the anchor as well as the story number
+(e.g. `Story 1.1 — REQ-project-management-create-project`). Older requirements
+docs predating adoption have no anchors; cite by epic + story number only. Do not
+retrofit anchors — historical artefacts are not churned per ADR-0026 scope.
 
 **AC-level verification, not file-level.** For any story you are about to classify as Delivered or Partial, enumerate its acceptance criteria and check each one against the code — not just whether the relevant file exists. A page that exists but queries the wrong data scope fails an AC and is Divergent, not Partial. A route that exists but skips an auth or ownership check fails an AC. File existence is necessary but not sufficient.
 
@@ -164,8 +165,8 @@ Save to `docs/reports/baseline/YYYY-MM-DD-baseline.md` using this structure:
 
 | Requirements version | Coverage manifest? | Notes |
 |----------------------|-------------------|-------|
-| v1 | No | Pre-ADR-0026 — anchors not retrofitted |
-| v11 | Yes (per-epic) | Pilot scope per ADR-0026 |
+| <pre-adoption version> | No | Predates ADR-0026 adoption — anchors not retrofitted |
+| <adoption version onwards> | Yes (per-epic) | Standard per ADR-0026 (project-wide) |
 | ... |
 
 Versions without a manifest rely on code-vs-spec inference for delivery classification —

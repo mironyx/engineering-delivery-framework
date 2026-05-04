@@ -16,9 +16,9 @@ plan that sequences epics and creates one GitHub issue per epic. It does
 **not** produce per-task issues — `/architect` handles task breakdown
 within each epic.
 
-See [ADR-0021](../../../docs/adr/0021-project-bootstrap-pipeline.md) for
-the pipeline rationale, [ADR-0018](../../../docs/adr/0018-epic-task-organisation.md)
-for the epic model, and [ADR-0026](../../../docs/adr/0026-stable-ids-requirements-lld.md)
+See [ADR-0021](../../docs/adr/0021-project-bootstrap-pipeline.md) for
+the pipeline rationale, [ADR-0018](../../docs/adr/0018-epic-task-organisation.md)
+for the epic model, and [ADR-0026](../../docs/adr/0026-stable-ids-requirements-lld.md)
 for stable REQ- anchors. Every epic produced by this skill — both in the plan and
 in its issue body — must list the `REQ-` anchors of the stories it covers, so
 traceability survives into the issue tracker and downstream drift scans.
