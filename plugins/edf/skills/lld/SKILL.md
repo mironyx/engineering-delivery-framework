@@ -12,10 +12,11 @@ Generates implementation-ready Low-Level Design documents from the implementatio
 
 `$ARGUMENTS` determines the scope:
 
-- **Epic mode** (e.g., `epic 45`, `epic <number>`): Generate **one LLD per epic** containing one Part B section per task. This is the primary mode for new work. Reads the epic issue, identifies tasks, and produces `docs/design/lld-<epic-id>-<short-name>.md` (e.g. `lld-v11-e11-2-fcs-scoped-to-projects.md`).
+- **Epic mode** (e.g., `epic 45`, `epic <number>`): Generate **one LLD per epic** containing one Part B section per task. This is the primary mode for new work. Reads the epic issue, identifies tasks, and produces `docs/design/lld-<epic-id>-<short-name>.md`.
 - **Phase mode** (e.g., `phase2`, `phase 2`): Generate LLDs for ALL sections in the phase. Legacy mode for existing phase-based work.
 - **Section mode** (e.g., `2.3`, `2.1`): Regenerate or refine a single section's LLD. Use after reviewing phase output.
 - **No arguments**: Ask the user which epic, phase, or section to target.
+- **`--non-interactive`** (optional, with epic mode): Skip the Step 1 overview and confirmation. Used by `/architect` when it calls `/lld` — the parent skill already obtained user approval on the batch. Example: `epic 462 v12 --non-interactive`.
 
 ## Process
 
@@ -33,7 +34,7 @@ If any of these are missing, stop and ask. Do not guess.
 
 **Always read first (both modes):** `docs/design/kernel.md` — the curated catalogue of canonical helpers, types, and composition roots. The LLD must reference kernel entries by import path in its "Reused helpers — DO NOT re-implement" table at the top of Part B; code samples elsewhere must call kernel symbols by name, never inline their bodies. If a topic in scope is not yet covered by the kernel, flag it as an Open Question and propose the entry — do not silently invent a new helper.
 
-`/architect` inherits this step via "Follow the LLD template from /lld" — do not duplicate the rule there.
+`/architect` now calls `/lld` directly (see `--non-interactive` flag) rather than duplicating LLD generation inline.
 
 **Epic mode:**
 
@@ -71,7 +72,9 @@ For small epics (1–3 tasks, single layer), skip the subagent and read directly
 
 ### Step 1: Overview (epic mode or phase mode)
 
-Before generating individual LLDs, produce a brief analysis for the user:
+**When `--non-interactive` is set:** skip this step. Proceed directly to Step 2 (Generate LLD). The calling skill already obtained user approval.
+
+**Otherwise,** before generating individual LLDs, produce a brief analysis for the user:
 
 - List all sections in the phase with their inferred layers (DB / BE / FE)
 - Identify cross-cutting concerns (e.g., auth touches DB + BE + FE)
@@ -83,20 +86,22 @@ Present this overview and **wait for user confirmation** before generating the L
 
 ### Step 2: Generate LLD
 
-**Epic mode:** Generate **one file per epic**, with one Part B section per task within it. File naming: `docs/design/lld-<epic-id>-<short-name>.md` where `<epic-id>` is the canonical epic identifier (`v11-e11-2`) and `<short-name>` is a lower-kebab-case description (`fcs-scoped-to-projects`). Established convention — see existing `lld-v11-e11-1-project-management.md` and `lld-v11-e11-2-fcs-scoped-to-projects.md`.
+**Epic mode:** Generate **one file per epic**, with one Part B section per task within it. File naming: `docs/design/lld-<epic-id>-<short-name>.md` where `<epic-id>` is the canonical epic identifier (format: `v<N>-e<X>` for top-level epics, `v<N>-e<X>-<Y>` for nested epics) and `<short-name>` is a lower-kebab-case domain phrase. Reuse the convention of existing LLDs in `docs/design/`.
+
+**Deriving `<short-name>`:** take the epic title's distinguishing nouns and reduce to a 1–3-word lower-kebab phrase that names the domain concept. Drop filler words (the, a, and, of, for), version prefixes (`v<N>-`), epic-id prefixes (`e<N>-`), and process verbs (build, implement, add). Generic example: epic title *"V<N> E<X> — <Domain Concept>"* → `<domain-concept>`. The short-name must be unique among existing LLDs in `docs/design/`.
 
 **Phase mode:** Generate a **single file per phase** containing all sections. Each implementation plan section becomes a top-level heading within the file. File naming: `docs/design/lld-phase-<N>-<short-name>.md`.
 
 **Stable LLD anchors (per ADR-0026):** every Part B section heading must be preceded by an HTML anchor:
 
 ```markdown
-<a id="LLD-v11-e11-2-fcs-create-api"></a>
+<a id="LLD-<epic-id>-<section-slug>"></a>
 
-### B.2 — Task T2.2: FCS create API
+### B.<N> — Task T<N>.<M>: <Section title>
 ```
 
 - Format: `LLD-<epic-id>-<section-slug>` — uppercase `LLD-` prefix, the epic identifier as in the file name, then a section slug.
-- `<section-slug>` is lower-kebab-case of the Part B section heading (e.g. `fcs-create-api`, `schema`, `pending-queue`). It must be unique within the file.
+- `<section-slug>` is lower-kebab-case of the Part B section heading (e.g. `schema`, `create-api`, `pending-queue`). It must be unique within the file.
 - Emit anchors only on Part B section headings — not on Part A, not on the document title, not on sub-sub-headings inside a section.
 - On collision, append `-2`, `-3` and add an HTML comment explaining the collision.
 - **Scope:** pilot epics only (those tagged for the structured-prompt rollout). Existing LLDs are not retrofitted unless the Stage 7 retro promotes the convention project-wide.
@@ -107,7 +112,7 @@ Present this overview and **wait for user confirmation** before generating the L
 - **FE**: Mentions pages, components, UI, forms, navigation, client-side state
 
 **DRY principle** — do NOT duplicate content from the HLD. Instead:
-- Reference HLD sections by link: `See [v1-design.md §4.2](v1-design.md#42-database-schema---l4-contracts)`
+- Reference HLD sections by link: `See [v<N>-design.md §<X.Y>](v<N>-design.md#<X.Y>-<section-anchor>)`
 - Only add implementation-level detail the HLD does not contain: file paths, internal function signatures, component trees, state machines, error handling strategies, internal types not in the public contract
 
 **Section mode** (`/lld 2.3`): Update the relevant section within the existing phase LLD file rather than creating a new file.
@@ -122,16 +127,16 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 
 - **Acceptance ↔ BDD ↔ Invariant coverage.** Does every Acceptance Criterion map to at least one BDD spec? Does every Invariant have a `Verification` method that is *executable* (test, type check, grep, lint) — not "code review" or "manual check"?
 - **Internal decomposition is concrete.** For every non-trivial route or component, is every function/class/helper named with a signature? "Service does X" is a failure — name `serviceFn(ctx, params): Promise<T>` and its private helpers.
-- **Type contracts match the DB.** For any type referencing a DB column or enum, did I grep `src/types/database.types.ts` and confirm the LLD type matches? Mismatches cause `as unknown as` casts downstream.
-- **Test seams.** No `fetchImpl?: typeof fetch` or similar HTTP-injection seams in `*Deps` interfaces. Use MSW. Only inject genuine behavioural dependencies (e.g. `getInstallationToken`).
+- **Type contracts match the DB.** For any type referencing a DB column or enum, did I confirm the LLD type matches the canonical DB-types file in this project (e.g. a generated `database.types.ts` if Supabase, ORM-generated types, or hand-authored DB type modules)? Mismatches cause `as unknown as` casts downstream.
+- **Test seams.** Do not introduce HTTP-injection seams (e.g. `fetchImpl?: typeof fetch`) in `*Deps` interfaces — use the project's HTTP-mocking convention instead (e.g. MSW). Only inject genuine behavioural dependencies (auth-token providers, clocks, ID generators).
 - **Task sizing.** Does each task plausibly fit in < 200 lines of diff? If unsure, split. Tasks > 200 lines are the single biggest cause of bad `/feature` runs.
 - **No HLD duplication.** Is anything in Part B copy-pasted from the HLD? Replace with a link.
 - **Open decisions surfaced.** Are there design questions still unresolved that the LLD silently picks a side on? List them at the top of the LLD as "Open questions" and flag to the user — do not decide in the LLD.
 - **Layer placement.** For each behaviour, is it in the right layer (DB constraint vs API guard vs UI guard)? Defence-in-depth is fine but the *primary* enforcement layer must be explicit.
 - **Error paths.** Is there at least one BDD spec per non-trivial error case, or did I only spec the happy path?
 - **Existing code reuse.** Did I grep for existing helpers/types/services that already do part of this work? Re-implementing what exists is the second-biggest cause of bad `/feature` runs.
-- **Reused helpers table is mandatory** when the LLD touches any module that already has helpers (auth/membership/gate, API context, validation, response, error handling, supabase clients). Add a "Reused helpers — DO NOT re-implement" table to Part B.0 listing each helper, its import path, and what re-implementing pattern it replaces. Inline code samples elsewhere in the LLD must call these helpers by name — not show the inlined query body. Rationale: `/feature` agents follow LLD code samples literally; if the sample reads `from('user_organisations').select('github_role, ...')`, the agent will write that query even when a `getOrgRole` helper exists. The table at B.0 is the agent's first stop.
-- **No raw queries against shared tables in code samples.** For `user_organisations`, `projects`, `repositories`, or any RLS-gated table, the LLD's code samples must use the canonical helper from the Reused helpers table, not an inline `.from(...).select(...)`. The only exception is when no helper covers the exact shape needed — and in that case, the LLD must explicitly say so and propose either extending an existing helper or adding a new one (with its signature) to the table.
+- **Reused helpers table is mandatory** when the LLD touches any module that already has helpers (auth/membership/gate, request-context, validation, response, error handling, DB clients). Add a "Reused helpers — DO NOT re-implement" table to Part B.0 listing each helper, its import path, and what re-implementing pattern it replaces. Inline code samples elsewhere in the LLD must call these helpers by name — not inline the equivalent query/logic. Rationale: `/feature` agents follow LLD code samples literally; if the sample inlines a raw query against a shared table, the agent writes that query even when a canonical helper already exists. The table at B.0 is the agent's first stop.
+- **No raw queries against shared / access-controlled tables in code samples.** For any table that is RLS-gated, multi-tenant-scoped, or sits behind a canonical accessor in this project's kernel, LLD code samples must use the helper from the Reused helpers table, not an inline `.from(...).select(...)` (or the equivalent in this stack's ORM). The only exception is when no helper covers the exact shape needed — and in that case, the LLD must explicitly say so and propose either extending an existing helper or adding a new one (with its signature) to the table.
 
 ### Step 3: Task breakdown
 
@@ -213,7 +218,7 @@ graph LR
 ### Step 3c: Coverage manifest (epic mode, pilot epics only)
 
 After the LLD is generated, write a coverage manifest at
-`docs/design/coverage-<epic-id>.yaml` (e.g. `coverage-v11-e11-2.yaml`) linking requirements stories to LLD sections.
+`docs/design/coverage-<epic-id>.yaml` linking requirements stories to LLD sections.
 
 Schema:
 
@@ -249,6 +254,7 @@ Rules:
   emit the entry with `lld: null` and `status: Draft`, and flag it in the Step 1 overview.
 - Do NOT add fields outside the schema. `fix_issue:`, `fix_pr:`, and similar are not valid. Use YAML comments for notes.
 - Do NOT invent status values — `Regression`, `Pending`, etc. are not valid. Use `Revised` + a comment when an LLD is corrected.
+
 **Verify before exit:**
 
 1. Every REQ- anchor in the requirements doc has a manifest row.
@@ -286,4 +292,4 @@ Key points the template encodes (do not violate):
 - Task granularity: each task should be completable in one `/feature` cycle. If a task would produce > 200 lines of changes, split it.
 - BDD specs in tasks should be concrete enough for the `/feature` skill to write tests directly from them.
 - Use British English in all documentation.
-- **No `fetchImpl` in dependency interfaces.** Do not add `fetchImpl?: typeof fetch` to `*Deps` interfaces as a test seam — use MSW for HTTP mocking instead (project convention, CLAUDE.md). Only inject real behavioural dependencies (e.g. `getInstallationToken`).
+- **No HTTP-injection seams in dependency interfaces.** Do not add `fetchImpl?: typeof fetch` (or equivalents) to `*Deps` interfaces as a test seam — use the project's HTTP-mocking convention instead (typically MSW or its equivalent; check the project's CLAUDE.md / testing docs). Only inject real behavioural dependencies (auth-token providers, clocks, ID generators).
