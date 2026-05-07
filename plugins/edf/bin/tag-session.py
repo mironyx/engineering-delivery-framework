@@ -36,14 +36,31 @@ def git_root() -> pathlib.Path:
 def derive_project_key(root: pathlib.Path) -> str:
     """Convert a git root path to a Claude project key.
 
-    Windows: C:\\projects\\feature-comprehension-score -> c--projects-feature-comprehension-score
-    WSL:     /home/user/projects/feature-comprehension-score -> -home-user-projects-feature-comprehension-score
+    Windows: C:\\projects\\my-project -> c--projects-my-project
+    WSL:     /home/user/projects/my-project -> -home-user-projects-my-project
     """
     path_str = str(root).lower()
     # On Windows, "c:\projects\foo" must become "c--projects-foo".
     # The drive-letter "c:\" maps to "c--", so replace ":\\" first.
     path_str = path_str.replace(":\\", "--")
     return path_str.replace("\\", "-").replace("/", "-").replace(":", "")
+
+
+def derive_feature_prefix(root: pathlib.Path) -> str:
+    """Derive a feature-id prefix from the repo name.
+
+    "feature-comprehension-score" -> "FCS"
+    "engineering-delivery-framework" -> "EDF"
+    "myproject" -> "MYPROJECT" (no separator)
+
+    Override with the EDF_FEATURE_PREFIX env var when the derivation isn't what
+    you want.
+    """
+    name = root.name
+    parts = [p for p in name.replace("_", "-").split("-") if p]
+    if len(parts) >= 2:
+        return "".join(p[0].upper() for p in parts)
+    return name.upper() or "FEAT"
 
 
 def find_session_jsonl_via_proc(claude_dir: pathlib.Path) -> pathlib.Path | None:
@@ -95,18 +112,21 @@ def _first_user_message_text(jsonl_path: pathlib.Path) -> str:
     return ""
 
 
-def find_session_jsonl(claude_dir: pathlib.Path, issue_hint: str | None = None) -> pathlib.Path | None:
+def find_session_jsonl(claude_dir: pathlib.Path, issue_hint: str | None = None, feature_prefix: str = "") -> pathlib.Path | None:
     all_jsonl = sorted(claude_dir.glob("*.jsonl"), key=os.path.getmtime, reverse=True)
     if not all_jsonl:
         return None
     if not issue_hint or len(all_jsonl) == 1:
         return all_jsonl[0]
 
-    # Parallel mode: each teammate's spawn prompt contains "issue #N" and "FCS-N" as the
-    # first user message. The lead's JSONL also contains these strings (in Agent tool-call
-    # payloads later in the file), so we must only match against the FIRST user message —
-    # which for teammates is the spawn prompt, and for the lead is the human's input.
-    search_terms = [f"issue #{issue_hint}", f"FCS-{issue_hint}"]
+    # Parallel mode: each teammate's spawn prompt contains "issue #N" and "<prefix>-N" as
+    # the first user message. The lead's JSONL also contains these strings (in Agent
+    # tool-call payloads later in the file), so we must only match against the FIRST user
+    # message — which for teammates is the spawn prompt, and for the lead is the human's
+    # input.
+    search_terms = [f"issue #{issue_hint}"]
+    if feature_prefix:
+        search_terms.append(f"{feature_prefix}-{issue_hint}")
     cutoff = time.time() - 600  # only consider sessions started in the last 10 minutes
     recent = [f for f in all_jsonl if os.path.getmtime(f) > cutoff]
 
@@ -164,14 +184,15 @@ def main() -> None:
     parser.add_argument("--cont", action="store_true", help="Continuation session — appends (cont) to title")
     args = parser.parse_args()
 
-    feature_id = f"FCS-{args.issue}"
     root = git_root()
+    feature_prefix = os.environ.get("EDF_FEATURE_PREFIX") or derive_feature_prefix(root)
+    feature_id = f"{feature_prefix}-{args.issue}"
     project_key = derive_project_key(root)
 
     claude_dir = pathlib.Path.home() / ".claude" / "projects" / project_key
     jsonl_path = (
         find_session_jsonl_via_proc(claude_dir)
-        or find_session_jsonl(claude_dir, issue_hint=args.issue)
+        or find_session_jsonl(claude_dir, issue_hint=args.issue, feature_prefix=feature_prefix)
     )
     if not jsonl_path:
         print("No session JSONL found — skipping session tagging")
@@ -184,10 +205,10 @@ def main() -> None:
     write_custom_title(jsonl_path, session_id, title)
 
     # 2. Update Prometheus textfile
-    # FCS_FEATURE_PROM_DIR overrides the default path — set this in WSL to point to
+    # EDF_FEATURE_PROM_DIR overrides the default path — set this in WSL to point to
     # the Windows-accessible folder that node exporter reads from, e.g.:
-    # export FCS_FEATURE_PROM_DIR=/mnt/c/projects/feature-comprehension-score/monitoring/textfile_collector
-    textfile_dir = pathlib.Path(os.environ.get("FCS_FEATURE_PROM_DIR") or root / "monitoring" / "textfile_collector")
+    # export EDF_FEATURE_PROM_DIR=/mnt/c/projects/myproject/monitoring/textfile_collector
+    textfile_dir = pathlib.Path(os.environ.get("EDF_FEATURE_PROM_DIR") or root / "monitoring" / "textfile_collector")
     textfile_dir.mkdir(parents=True, exist_ok=True)
     update_prom_file(textfile_dir / "session_feature.prom", session_id, feature_id)
 

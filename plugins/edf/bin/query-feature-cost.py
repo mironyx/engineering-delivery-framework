@@ -2,11 +2,15 @@
 
 Usage:
   py scripts/query-feature-cost.py <feature_id> [--issue N] [--pr N] [--stage pr|final]
+  py scripts/query-feature-cost.py --issue N [--pr N] [--stage pr|final]
 
 Arguments:
-  feature_id     Feature ID to look up, e.g. FCS-55
-  --issue N      GitHub issue number; if given, applies stage-namespaced cost labels
-  --pr N         GitHub PR number; if given, also applies labels to PR and outputs time-to-PR
+  feature_id     Optional. Feature ID to look up, e.g. EDF-55. When omitted, derived from
+                 --issue plus a prefix taken from $EDF_FEATURE_PREFIX or the repo name
+                 (e.g. "engineering-delivery-framework" -> "EDF").
+  --issue N      GitHub issue number; if given, applies stage-namespaced cost labels.
+                 Required when feature_id is omitted.
+  --pr N         GitHub PR number; if given, also applies labels to PR and outputs time-to-PR.
   --stage        Label stage: 'pr' (at PR creation) or 'final' (post-merge). Default: pr.
                  Labels are named ai-cost-<stage>:X, input-tokens-<stage>:X, etc.
                  Two stages per PR let external tools (e.g. Monocle) measure rework overhead.
@@ -249,14 +253,38 @@ def apply_labels(issue: int, metrics: UsageMetrics, stage: str, pr: int | None =
         print(f"Label applied: {label} -> {targets}")
 
 
+def _derive_feature_prefix() -> str:
+    """Derive a feature-id prefix from $EDF_FEATURE_PREFIX or the repo name."""
+    env_prefix = os.environ.get("EDF_FEATURE_PREFIX")
+    if env_prefix:
+        return env_prefix
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=True,
+        )
+        name = pathlib.Path(result.stdout.strip()).name
+        parts = [p for p in name.replace("_", "-").split("-") if p]
+        if len(parts) >= 2:
+            return "".join(p[0].upper() for p in parts)
+        return name.upper() or "FEAT"
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return "FEAT"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("feature_id", help="e.g. FCS-55")
+    parser.add_argument("feature_id", nargs="?", help="e.g. EDF-55. Derived from --issue if omitted.")
     parser.add_argument("--issue", type=int, help="GitHub issue number for cost label")
     parser.add_argument("--pr", type=int, help="GitHub PR number to also apply cost labels to")
     parser.add_argument("--stage", choices=["pr", "final"], default="pr",
                         help="Label stage suffix: 'pr' at PR creation, 'final' post-merge")
     args = parser.parse_args()
+
+    if not args.feature_id:
+        if args.issue is None:
+            parser.error("either feature_id or --issue must be provided")
+        args.feature_id = f"{_derive_feature_prefix()}-{args.issue}"
 
     session_ids = read_session_ids(args.feature_id)
     sessions_note = f" ({len(session_ids)} sessions)" if len(session_ids) > 1 else ""
