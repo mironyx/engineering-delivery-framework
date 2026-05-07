@@ -1,15 +1,15 @@
 ---
-name: pr-review-v2
-description: Review code changes for bugs, design principles, contract adherence, framework best practices, and design conformance. Use before committing (/pr-review-v2) or on a PR (/pr-review-v2 123). Adaptive: 1 agent for small diffs, 2 agents for large diffs. Agent B (framework patterns) only runs when framework files changed.
+name: pr-review
+description: Review code changes for bugs, design principles, contract adherence, framework best practices, and design conformance. Use before committing (/pr-review) or on a PR (/pr-review 123). Adaptive: 1 agent for small diffs, 2 agents for large diffs. Agent B (framework patterns) only runs when framework files changed.
 allowed-tools: Read, Write, Bash, Glob, Grep, Agent, TodoWrite, WebSearch
 ---
 
-# PR Review v2
+# PR Review
 
 Two modes:
 
-- `/pr-review-v2` — reviews local uncommitted changes (`git diff HEAD`)
-- `/pr-review-v2 <pr-number>` — reviews a pull request; posts the result as a PR comment
+- `/pr-review` — reviews local uncommitted changes (`git diff HEAD`)
+- `/pr-review <pr-number>` — reviews a pull request; posts the result as a PR comment
 
 **Cost-adaptive architecture.** Agent count scales with diff size:
 - Diff < 150 lines → **1 agent** (Quality, covering all checks)
@@ -596,7 +596,7 @@ Append to terminal output (not to the PR comment):
 
 ```
 ---
-### Review cost (pr-review-v2 — adaptive)
+### Review cost (pr-review — adaptive)
 <script output>
 ```
 
@@ -617,6 +617,5 @@ Append to terminal output (not to the PR comment):
   even when RLS policies exist. This is a security issue, not a style preference.
 - Add new static anti-patterns to this SKILL.md as the team discovers them. The static list
   is the institutional memory of "things we've learned the hard way."
-- Cost is reported in terminal only — never posted to GitHub. The v1 label in the cost
-  output ("pr-review v1 — 3 agents" vs "pr-review-v2 — adaptive") makes it easy to compare
-  runs side by side in the terminal.
+- Cost is reported in terminal only — never posted to GitHub. The label in the cost
+  output ("pr-review — adaptive") identifies which review run produced the cost line.

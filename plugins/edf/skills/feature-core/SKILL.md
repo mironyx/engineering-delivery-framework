@@ -289,7 +289,7 @@ When the probe reports back:
 
 ### Step 9: Review
 
-Run `/pr-review-v2 <pr-number>` on the PR just created. This posts a comment on the PR and
+Run `/pr-review <pr-number>` on the PR just created. This posts a comment on the PR and
 returns findings. Triage each finding:
 
 - **Blocker / correctness issue** — fix it: update the code, re-run Step 5 (verification), add a commit, push.
@@ -298,7 +298,7 @@ returns findings. Triage each finding:
 - **Non-blocking suggestion** — decide whether it is worth fixing now (quick win) or deferring. If deferring, note it in the Step 10 report.
 - **Style / minor** — fix if trivial; otherwise note and move on.
 
-After any fixes, re-run `/pr-review-v2 <pr-number>` to confirm no new issues were introduced.
+After any fixes, re-run `/pr-review <pr-number>` to confirm no new issues were introduced.
 
 ### Step 10: Report
 

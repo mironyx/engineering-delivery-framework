@@ -103,7 +103,7 @@ surface or dependencies.
 ### Invariants
 
 Hard constraints that the implementation must satisfy. Collected in one place so the
-reviewer can sign off on them and automated tools (`/pr-review-v2`, `/feature-evaluator`)
+reviewer can sign off on them and automated tools (`/pr-review`, `/feature-evaluator`)
 can verify them.
 
 Each invariant should be testable — either by a unit test, a type check, or a lint rule.
