@@ -238,6 +238,12 @@ If only one condition holds (large but no clean seam, or clean seam but small), 
 
 When a split is warranted, propose the task issues with explicit dependency order (A completes → B starts) and note which files each task touches. Tasks that do not share files and have no dependency can be assigned to the same execution wave for parallel implementation. Add the proposed split to the summary table and explain the rationale briefly. The user confirms or rejects before any issues are created.
 
+**Schema-foundations rule.** Skip this rule if `migration-dir` is blank in the project's kb file-map (project does not use migrations).
+
+If set, and the epic adds new tables, columns, RPCs, indexes, or CHECK changes (whether via `<schema-dir>` for declarative projects, or as new files in `<migration-dir>` for hand-authored projects), the LLD task breakdown **must** include a "DB schema foundations" task as Task 1. All schema additions for the epic land in that one task. Downstream tasks must be read-only on `<schema-dir>` (declarative) and must not add new files to `<migration-dir>` (either workflow).
+
+Rationale: schema files in `<schema-dir>` are textually shared across tasks, and `<migration-dir>` files are timestamp-ordered. Parallel tasks editing schema produce both textual merge conflicts and migration-ordering ambiguity. One foundations task eliminates both.
+
 ### Step 3: Read all input sources
 
 For each in-scope epic, read:

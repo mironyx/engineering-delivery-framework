@@ -43,7 +43,31 @@ Starter scripts for TypeScript and Python projects are in `starters/scripts/`.
 
 ## Knowledge base (kb/)
 
-Projects should provide `kb/architecture.md`, `kb/file-map.md`, and `kb/conventions.md` so EDF agents understand project-specific paths and boundaries. Templates in `starters/kb/`.
+EDF skills are project-agnostic — they reference project-specific paths and conventions through named concepts, not literal paths. Each project using EDF provides three kb files that fill in those concepts:
+
+- `kb/file-map.md` — concept name → path (e.g. `engine-dir`, `api-dir`, `schema-dir`).
+- `kb/conventions.md` — concept name → pattern (e.g. `test-path`, `migration-generate-cmd`).
+- `kb/architecture.md` — short paragraphs of project-specific architecture rules (boundary rules, API composition, DB contract).
+
+Templates with the full concept list are in `starters/kb/`. Copy them to your project's `kb/` and replace each `<!-- e.g. ... -->` placeholder with your project's actual path or pattern.
+
+### Concept-driven references
+
+Skill text uses `<concept-name>` placeholders. At runtime the agent resolves each concept from your project's kb. For example:
+
+> If `git diff --name-only HEAD -- "<schema-dir>/"` is non-empty …
+
+The skill stays project-agnostic; the agent looks up `schema-dir` in your `kb/file-map.md` to know whether it means `supabase/schemas/`, `db/schema.rb`, etc.
+
+### Optional concepts
+
+Some concepts only apply to specific workflows:
+
+- `schema-is-declarative` — set to `true` for projects with a declarative schema source (`schema-dir`) and generated migrations (e.g. Supabase). Leave blank if you write migrations directly.
+- `migration-generate-cmd` / `db-reset-cmd` / `migration-verify-cmd` — required when `schema-is-declarative=true`; ignored otherwise.
+- `migration-dir` — set if the project uses migrations at all (declarative or hand-authored). Some skills (e.g. the architect schema-foundations rule) gate on this.
+
+Skills that reference an optional concept skip their behaviour cleanly when the concept is blank — no errors, no false guards.
 
 ## Update
 
