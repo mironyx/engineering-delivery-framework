@@ -239,7 +239,7 @@ into a version that already supersedes the story (e.g. PRCC stories carried into
 
 | Source | Story | Status | Suggested action | Rationale |
 |--------|-------|--------|------------------|-----------|
-| v1-requirements.md | 3.5 FCS Without Full Participation | Not started | Carry to v13 | Pre-projects spec; needs re-specification under v11 project model |
+| v1-requirements.md | 3.5 Story title | Not started | Carry to v13 | Pre-projects spec; needs re-specification under v11 project model |
 | ... |
 
 This section is the bridge to `/requirements` — it tells the next requirements pass

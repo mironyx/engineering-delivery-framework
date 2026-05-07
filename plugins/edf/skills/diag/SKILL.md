@@ -25,7 +25,7 @@ This means: after making fixes in a CLI session, the diagnostics file may be **s
    Do this **before reading diagnostics or making any fixes**. Once a file is open, the editor detects every subsequent on-disk save and triggers a fresh CodeScene pass automatically — so diagnostics will be live as you edit.
 
    ```bash
-   ${CLAUDE_PLUGIN_ROOT}/hooks/open-in-editor.sh src/app/api/fcs/service.ts src/lib/github/client.ts
+   ${CLAUDE_PLUGIN_ROOT}/hooks/open-in-editor.sh src/foo/service.ts src/lib/bar/client.ts
    sleep 5
    ```
 
@@ -70,9 +70,9 @@ This means: after making fixes in a CLI session, the diagnostics file may be **s
 
    ```
    ### Code Health (MCP)
-   - `src/lib/engine/scoring/score-answer.ts` — 10.0 ✓
-   - `src/lib/engine/pipeline/assess-pipeline.ts` — 7.2 ⚠ (complex conditional, bumpy road)
-   - `tests/engine/scoring.test.ts` — 9.5 ✓
+   - `src/foo/bar.ts` — 10.0 ✓
+   - `src/foo/baz.ts` — 7.2 ⚠ (complex conditional, bumpy road)
+   - `tests/foo/bar.test.ts` — 9.5 ✓
    ```
 
    **If any file scores below 9.0**, include the detailed review findings in the report and fix them before proceeding, following the same fix-and-recheck loop as Step 5.
@@ -104,14 +104,14 @@ This means: after making fixes in a CLI session, the diagnostics file may be **s
 **Files checked:** 3 | **With issues:** 1 | **Clean:** 1 | **No diagnostics:** 1
 
 ### Errors
-- `src/lib/engine/scoring.ts:42:5` [ts/2304] — Cannot find name 'foo'
+- `src/foo/bar.ts:42:5` [ts/2304] — Cannot find name 'foo'
 
 ### Warnings
-- `src/lib/engine/scoring.ts:15:1` [codescene/brain-method] — Complex method detected
+- `src/foo/bar.ts:15:1` [codescene/brain-method] — Complex method detected
 
 ### Clean
-- `src/lib/engine/types.ts` — No issues
+- `src/foo/types.ts` — No issues
 
 ### No diagnostics available
-- `tests/helpers/auth.test.ts` — Extension has not exported diagnostics for this file
+- `tests/helpers/baz.test.ts` — Extension has not exported diagnostics for this file
 ```

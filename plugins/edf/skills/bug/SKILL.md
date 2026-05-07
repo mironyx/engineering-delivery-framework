@@ -19,7 +19,7 @@ it spawns. When launching agents, pass `model: "opus"`.
 **Usage:**
 
 - `/bug "users see 500 on the results page"` — investigate from a description
-- `/bug src/app/api/scores/route.ts` — investigate a specific file
+- `/bug src/foo/route.ts` — investigate a specific file
 - `/bug` (with pasted error log in conversation) — investigate from context
 - `/bug #301` — investigate an existing issue that lacks root cause analysis
 
@@ -284,8 +284,8 @@ automatically.
   obvious cause is often wrong.
 - **Root cause, not symptoms.** The issue should describe WHY the bug
   happens, not just WHAT the user sees. "The API returns 500" is a symptom.
-  "The `scoreService` calls `ctx.supabase.from('scores')` without checking
-  for null `assessment_id`" is a root cause.
+  "The handler queries the `scores` table without checking for a null
+  `assessment_id` first" is a root cause.
 - **LLD gaps matter.** If the design was incomplete, noting this in the issue
   prevents the same class of bug from recurring. This is the feedback loop
   that improves the design process.

@@ -126,8 +126,9 @@ If you do identify a gap, also consider these categories when framing the test:
 Write the test(s) in a new file: `tests/evaluation/<feature-slug>.eval.test.ts`. If you
 have nothing to add, do not create the file — report "no gaps" in the verdict.
 
-Use the same testing patterns as the existing test files (vitest, describe/it blocks,
-existing test helpers and factories). Read one existing test file to match the style.
+Use the same testing patterns as the existing test files (test runner, describe/it or
+equivalent blocks, existing test helpers and factories). Read one existing test file to
+match the style.
 
 **Reuse, do not duplicate, test boilerplate.** Before writing any mock setup, factory,
 or fixture in the eval file:
@@ -138,10 +139,9 @@ or fixture in the eval file:
 2. **Grep `tests/` for any sibling test file that already covers the src modules in
    `changed_files`** — `test_files` only lists files touched this cycle, but an
    unmodified sibling test may already have the fixtures you need. For each path in
-   `changed_files`, run: `grep -rln "<module-name>" tests/` and read the matches.
-   Example: if `changed_files` includes `src/app/assessments/[id]/page.tsx`, grep for
-   `tests/app/assessments/[id]*.test.ts` — one of those almost certainly has
-   `makeAssessment`/`makeParticipant`/`makeQuestion`/`makeSecretClient` factories.
+   `changed_files`, run: `grep -rln "<module-name>" tests/` and read the matches. The
+   sibling tests are likely to expose the project's standard `make*` factories or
+   client/builder helpers for the entities the changed module operates on.
 3. **Check `tests/fixtures/` and `tests/helpers/`** for anything already extracted.
 4. **If a helper you need already exists, import it** — do not copy-paste it into the
    eval file. If the helper is module-scoped (not exported) in the sibling file, prefer
