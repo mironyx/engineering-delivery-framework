@@ -43,11 +43,12 @@ Starter scripts for TypeScript and Python projects are in `starters/scripts/`.
 
 ## Knowledge base (kb/)
 
-EDF skills are project-agnostic — they reference project-specific paths and conventions through named concepts, not literal paths. Each project using EDF provides three kb files that fill in those concepts:
+EDF skills are project-agnostic — they reference project-specific paths and conventions through named concepts, not literal paths. Each project using EDF provides four kb files that fill in those concepts:
 
 - `kb/file-map.md` — concept name → path (e.g. `engine-dir`, `api-dir`, `schema-dir`).
 - `kb/conventions.md` — concept name → pattern (e.g. `test-path`, `migration-generate-cmd`).
-- `kb/architecture.md` — short paragraphs of project-specific architecture rules (boundary rules, API composition, DB contract).
+- `kb/architecture.md` — short paragraphs of project-specific architecture rules (boundary rules, API composition, DB contract). Read by `/pr-review` as `{{ARCHITECTURE_RULES}}`.
+- `kb/anti-patterns.md` — the project's anti-pattern checklist (framework-specific patterns, language conventions, kernel-reuse rules). Read by `/pr-review` as `{{ANTI_PATTERNS}}`.
 
 Templates with the full concept list are in `starters/kb/`. Copy them to your project's `kb/` and replace each `<!-- e.g. ... -->` placeholder with your project's actual path or pattern.
 

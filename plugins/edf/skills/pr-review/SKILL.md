@@ -34,8 +34,10 @@ Run ALL of the following in parallel:
 2. **PR mode:** `gh pr diff --name-only <number>`.
    **Local mode:** `git diff --name-only HEAD`.
 3. Read `CLAUDE.md` (root).
-4. Read `package.json` — capture exact versions of direct dependencies.
-5. Read `docs/design/kernel.md` — the canonical list of reusable helpers and anti-patterns. Pass its full contents to the review agent(s) as `{{KERNEL_MD}}`.
+4. Read the project's dependency manifest if one exists (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc.) — capture exact versions of direct dependencies. Skip if none present.
+5. Read `kb/architecture.md` — the project's architecture rules. Pass its full contents to the review agent(s) as `{{ARCHITECTURE_RULES}}`. Skip if absent.
+6. Read `kb/anti-patterns.md` — the project's anti-pattern checklist (framework-specific patterns, language conventions, kernel-reuse rules). Pass its full contents as `{{ANTI_PATTERNS}}`. Skip if absent.
+7. Read `docs/design/kernel.md` if it exists — the canonical list of reusable helpers. Pass its full contents as `{{KERNEL_MD}}`. Skip if absent (kernel-reuse checks rely on `{{ANTI_PATTERNS}}` content instead).
 
 If diff is empty, print "Nothing to review — diff is empty." and stop.
 
@@ -44,14 +46,13 @@ If diff is empty, print "Nothing to review — diff is empty." and stop.
 From the gathered data, compute:
 
 - `DIFF_LINE_COUNT` — total lines in the diff (added + removed)
-- `CHANGED_FILES` — `.ts`, `.tsx`, `.js`, `.jsx` files added or modified (not deleted)
-- `FRAMEWORK_DEPS` — top 5 packages imported in changed files that appear in
-  `package.json` dependencies (not devDependencies)
+- `CHANGED_FILES` — source files added or modified (not deleted). Treat any path under the project's source root as a source file; `kb/conventions.md` may name a `test-suffix` to recognise tests.
+- `FRAMEWORK_DEPS` — top 5 packages/imports referenced in changed files that appear in the project's dependency manifest as direct (not dev) dependencies. Skip if no manifest.
 - `PATTERNS_NEEDED` — true if ANY of these appear in the changed file list:
-  - `package.json`, `package-lock.json`
-  - `.env`, `.env.*`
-  - Any file importing a framework package (supabase, next, react, prisma, etc.)
-  - Any config file (`*.config.ts`, `middleware.ts`, `next.config.*`)
+  - The project's dependency manifest or lockfile (e.g. `package.json`/`package-lock.json`, `pyproject.toml`/`uv.lock`, etc.)
+  - Any `.env` / `.env.*` file
+  - Any file importing a framework package named in `{{ANTI_PATTERNS}}`
+  - Any framework config file (e.g. `*.config.ts`, `middleware.ts`, `next.config.*`, `vite.config.*`, `pyproject.toml` build config) — judged against the project's stack
 
 Then fetch in parallel:
 - **Issue body:** extract linked issue from PR body (`Closes #N`, `Fixes #N`, `Resolves #N`).
@@ -88,9 +89,10 @@ anti-patterns, and design conformance.
 - Complexity that could be replaced by simpler alternatives?
 
 ## Part 3: Design principles (block if severe)
-This project uses Clean Architecture and SOLID:
-- Clean Architecture: `src/lib/engine/` must have no imports from Next.js, Supabase, or
-  external frameworks. Dependencies must point inward only.
+The project's architecture rules are in `{{ARCHITECTURE_RULES}}` (from `kb/architecture.md`).
+Apply each rule literally. If `{{ARCHITECTURE_RULES}}` is empty, skip this part.
+
+Also apply the universal SOLID heuristics:
 - Single Responsibility: does each new function/module do one thing?
 - Dependency Inversion: dependencies injected, not imported as concrete implementations.
 - Interface Segregation: no overly broad interfaces forced on callers.
@@ -99,19 +101,20 @@ This project uses Clean Architecture and SOLID:
 
 ## Part 4: CLAUDE.md compliance
 Only check these:
-- No `any` type in TypeScript (block)
 - No `Co-Authored-By` trailers in commit messages (block)
 - Every commit uses conventional format (`feat:`, `fix:`, etc.) AND references an issue (warn)
+- Any language-specific compliance rule listed in `{{ANTI_PATTERNS}}` under "Language conventions" (severity per the rule).
 
 ## Part 5: Design conformance (if design references exist)
-For each changed `.ts` or `.tsx` file, look for a header comment:
-  // Design reference: <path> §<section>
+For each changed source file, look for a header comment in the form:
+  Design reference: <path> §<section>
+(use the project's comment syntax)
 
 If found:
 1. Read the referenced doc section.
 2. Extract every function name specified in that section.
 3. For each function in the diff NOT in the designed list:
-   - No justification comment → **block** (add `// Justification:` or update LLD)
+   - No justification comment → **block** (add a `Justification:` comment or update the LLD)
    - Justification comment exists → **warn**
 4. Exported/public unspecified functions are always **block** regardless of justification.
 
@@ -119,58 +122,44 @@ Also scan for silent catch blocks (error not passed to any logger) → **block**
 
 ## Part 6: Kernel reuse (block if a kernel helper is re-implemented)
 
-The kernel (`docs/design/kernel.md`, provided below as `{{KERNEL_MD}}`) is the curated list of
-canonical helpers and the anti-patterns it exists to prevent. Every entry is there because
-re-implementing it has caused drift before. Apply these checks against the diff:
+If `{{KERNEL_MD}}` is non-empty, it is the curated list of canonical helpers and the
+anti-patterns the project exists to prevent. The "Kernel reuse" section of `{{ANTI_PATTERNS}}`
+lists inline-pattern → kernel-symbol mappings. Apply these checks against the diff:
 
-1. **Anti-pattern list** — for each bullet under "Anti-patterns this kernel exists to prevent",
-   scan the diff for the pattern. Examples:
-   - Inline `user_organisations` membership query → use `readMembershipSnapshot` / `assertOrgAdminOrRepoAdmin` / `getOrgRole`
-   - Inline `cookies().get('fcs-org-id')` read → use `ctx.orgId` (API) or `getSelectedOrgId(cookies)` (page)
-   - `org_id` derived from request body or project row to set selected org → use `ctx.orgId`
-   - `createClient()` / `createSecretSupabaseClient()` called inside a service → inject via `ApiContext`
-   - Hand-rolled `await request.json()` + `schema.safeParse` → use `validateBody`
-   - Hand-rolled `try/catch` returning `Response.json` / `NextResponse.json` for errors → use `handleApiError` + `ApiError` + `json`
-   - Locally redefined `RepoAdminSnapshot` / `MembershipSnapshot` / `AuthUser` types → import canonical
-   - Rubric pipeline logic re-implemented outside `@/lib/engine/fcs-pipeline`
-   Each match → **block** with `"type": "kernel-reuse"`. Quote the offending code and name the
-   kernel symbol that should have been used.
+1. **Anti-pattern list** — for each bullet under "Kernel reuse" in `{{ANTI_PATTERNS}}`,
+   scan the diff for the inline pattern. Each match → **block** with `"type": "kernel-reuse"`.
+   Quote the offending code and name the kernel symbol that should have been used.
 
-2. **Symbol table reuse** — for each row in the kernel symbol tables, if the diff introduces a
-   function that does the same job (same inputs/outputs, same domain) without delegating, **block**.
-   Heuristic: matching name fragments (`assertOrgAdmin`, `requireAuth`, `loadOrgPromptContext`),
-   matching SQL targets (`from('user_organisations')`, `from('organisation_contexts')`), or
-   matching response shapes (`{ githubRole, adminRepoGithubIds }`).
+2. **Symbol table reuse** — for each entry in `{{KERNEL_MD}}`'s symbol tables, if the diff
+   introduces a function that does the same job (same inputs/outputs, same domain) without
+   delegating, **block**. Heuristic: matching name fragments, matching data targets (table
+   names, endpoints), or matching return shapes.
 
-3. **LLD kernel-reference check** — if the diff includes or modifies an LLD under `docs/design/`
-   that touches a topic covered by the kernel (auth, validation, response, supabase factories,
-   org context, rubric pipeline) but lacks a "Reused helpers — DO NOT re-implement" table that
-   names the kernel symbols it depends on → **warn** with `"type": "kernel-reuse"`.
+3. **LLD kernel-reference check** — if the diff includes or modifies an LLD under
+   `docs/design/` that touches a topic covered by `{{KERNEL_MD}}` but lacks a
+   "Reused helpers — DO NOT re-implement" table naming the kernel symbols it depends on →
+   **warn** with `"type": "kernel-reuse"`.
 
 4. **Redundant DB round-trips** (`"type": "db-efficiency"`, **block** if duplicated, **warn**
    if combinable) — within a single request handler / page render / service call:
-   - Two queries against the **same row or row-set** (same table + same predicate) that could
-     be a single query → **block**. Most common offender: calling `readMembershipSnapshot` /
-     `getOrgRole` / `assertOrgAdminOrRepoAdmin` more than once for the same `(userId, orgId)`,
-     or two `from('user_organisations')` reads for the same key.
-     Fix: capture the result once and pass it down.
-   - Two queries against **different tables** that Supabase could fetch in one call via an
-     embedded select (`from('a').select('*, b(*)')`) or a single GraphQL query → **warn**
-     with `"type": "db-efficiency"`. Surface the call sites and the suggested combined query.
-   - N+1 patterns: a `.map`/`for` loop where each iteration issues a query → **block**.
-     Fix: a single `.in('id', ids)` query, or a join, or a GraphQL request.
+   - Two queries against the **same row or row-set** (same target + same predicate) that
+     could be a single query → **block**. Capture the result once and pass it down.
+   - Two queries against **different targets** that the data layer could fetch in one call
+     (e.g. an embedded select / join / single GraphQL query) → **warn**.
+   - N+1 patterns (a loop where each iteration issues a query) → **block**. Fix: a single
+     batched query, a join, or a single GraphQL request.
 
-5. **REST vs GraphQL** (`"type": "db-efficiency"`, **warn**) — when the route fetches multiple
-   related resources (parent + children, or a row plus joined lookups), prefer Supabase's
-   embedded selects or pg_graphql over chained REST calls. Flag chained `.from(...).select()`
-   calls in the same handler that could collapse into one. Do not flag a single query.
+5. **Chained calls that could collapse** (`"type": "db-efficiency"`, **warn**) — when a
+   handler fetches multiple related resources via chained data-layer calls that the data
+   layer could collapse into one (embedded select / GraphQL / batch endpoint), flag the
+   chain. Do not flag a single query.
 
-The kernel is a hard contract: a service calling `createClient()` directly, a route returning
-`Response.json({ error })` instead of using `handleApiError`, a duplicate `user_organisations`
-query, or two membership reads for the same row is always a blocker — even if the code "works".
+If `{{KERNEL_MD}}` is empty AND the "Kernel reuse" section of `{{ANTI_PATTERNS}}` is empty,
+skip Part 6 entirely.
 
-## Part 7: Known framework anti-patterns (always check, no web search)
-Read `.claude/skills/shared/anti-patterns.md` and apply all checks from that file.
+## Part 7: Project anti-patterns (always check, no web search)
+Apply every check listed in `{{ANTI_PATTERNS}}`. Each entry states its own severity. Skip
+this part only if `{{ANTI_PATTERNS}}` is empty.
 
 ## What NOT to report
 - Pre-existing issues not made worse by this diff
@@ -186,6 +175,16 @@ CLAUDE.md:
 <claude_md>
 {{CLAUDE_MD}}
 </claude_md>
+
+Architecture rules:
+<architecture_rules>
+{{ARCHITECTURE_RULES}}
+</architecture_rules>
+
+Anti-patterns checklist:
+<anti_patterns>
+{{ANTI_PATTERNS}}
+</anti_patterns>
 
 Kernel (canonical reusable helpers — block any re-implementation):
 <kernel_md>
@@ -251,9 +250,9 @@ Design conformance (LLD matching) is handled by a separate agent.
 - Complexity replaceable by simpler alternatives?
 
 ## Design principles (block if severe)
-This project uses Clean Architecture and SOLID:
-- Clean Architecture: `src/lib/engine/` must have no imports from Next.js, Supabase, or
-  external frameworks. Dependencies must point inward only.
+The project's architecture rules are in `{{ARCHITECTURE_RULES}}` (from `kb/architecture.md`).
+Apply each rule literally. If `{{ARCHITECTURE_RULES}}` is empty, skip the project-specific
+part and apply only the universal SOLID heuristics:
 - Single Responsibility: does each new function/module do one thing?
 - Dependency Inversion: dependencies injected, not imported as concrete implementations.
 - Interface Segregation: no overly broad interfaces forced on callers.
@@ -262,12 +261,13 @@ This project uses Clean Architecture and SOLID:
 
 ## CLAUDE.md compliance
 Only check these:
-- No `any` type in TypeScript (block)
 - No `Co-Authored-By` trailers in commit messages (block)
 - Every commit uses conventional format AND references an issue (warn)
+- Any language-specific compliance rule listed in `{{ANTI_PATTERNS}}` under "Language conventions" (severity per the rule).
 
-## Known framework anti-patterns (always check, no web search)
-Read `.claude/skills/shared/anti-patterns.md` and apply all checks from that file.
+## Project anti-patterns (always check, no web search)
+Apply every check listed in `{{ANTI_PATTERNS}}`. Each entry states its own severity. Skip
+if `{{ANTI_PATTERNS}}` is empty.
 
 ## What NOT to report
 - Pre-existing issues not made worse by this diff
@@ -283,6 +283,16 @@ CLAUDE.md:
 <claude_md>
 {{CLAUDE_MD}}
 </claude_md>
+
+Architecture rules:
+<architecture_rules>
+{{ARCHITECTURE_RULES}}
+</architecture_rules>
+
+Anti-patterns checklist:
+<anti_patterns>
+{{ANTI_PATTERNS}}
+</anti_patterns>
 
 Diff:
 <diff>
@@ -326,8 +336,9 @@ for silent error swallowing and diagnostics issues.
 
 ## Step 1: Identify design references
 
-For each changed source file (`.ts`, `.tsx`), look for a header comment:
-  // Design reference: <path> §<section>
+For each changed source file, look for a header comment in the form:
+  Design reference: <path> §<section>
+(use the project's comment syntax)
 
 If no such comment exists on a file, skip design-conformance checks for that file but still
 run the silent-swallow and diagnostics checks.
@@ -342,7 +353,7 @@ For each design reference found:
 
 **If the LLD has an internal decomposition section:**
 - Functions in IMPLEMENTED_FUNCTIONS not in DESIGNED_FUNCTIONS:
-  - No justification comment → **block** (add `// Justification:` or update LLD)
+  - No justification comment → **block** (add a `Justification:` comment or update LLD)
   - Justification comment exists → **warn**
 
 **If the LLD has NO internal decomposition section:**
@@ -362,54 +373,38 @@ For each match: **block** finding. Fallback behaviour does not excuse missing ob
 
 ## Step 4: Kernel reuse (canonical helpers — block re-implementation)
 
-The kernel (`docs/design/kernel.md`, provided as `{{KERNEL_MD}}`) lists every helper and type
-that exists specifically because re-implementing it has caused drift. Apply these checks:
+If `{{KERNEL_MD}}` is non-empty, it lists the project's canonical reusable helpers. The
+"Kernel reuse" section of `{{ANTI_PATTERNS}}` lists inline-pattern → kernel-symbol mappings.
+Apply these checks:
 
-1. **Anti-pattern list** — scan the diff for each bullet under "Anti-patterns this kernel exists
-   to prevent". Examples worth memorising:
-   - Inline `from('user_organisations')` query → use `readMembershipSnapshot` /
-     `assertOrgAdminOrRepoAdmin` (API) / `getOrgRole` (page).
-   - Inline `cookies().get('fcs-org-id')` read → use `ctx.orgId` or `getSelectedOrgId(cookies)`.
-   - `org_id` derived from request body or project row to set the *selected* org → `ctx.orgId`.
-   - `createClient()` / `createSecretSupabaseClient()` called inside a service → inject `ApiContext`.
-   - Hand-rolled `await request.json()` + `schema.safeParse` → `validateBody`.
-   - Hand-rolled `try/catch` returning `Response.json` / `NextResponse.json` for errors →
-     `handleApiError` + `ApiError` + `json`.
-   - Locally redefined `RepoAdminSnapshot` / `MembershipSnapshot` / `AuthUser` → import canonical.
-   - Rubric pipeline logic outside `@/lib/engine/fcs-pipeline`.
-   Each match → **block** with `"type": "kernel-reuse"`. Quote the offending code; name the
-   kernel symbol that should have been used.
+1. **Anti-pattern list** — scan the diff for each bullet under "Kernel reuse" in
+   `{{ANTI_PATTERNS}}`. Each match → **block** with `"type": "kernel-reuse"`. Quote the
+   offending code; name the kernel symbol that should have been used.
 
-2. **Symbol reuse** — for each new function in the diff, check whether a kernel symbol already
-   does the same job. Heuristics: matching domain (auth/membership, validation, response, org
-   context), matching SQL targets (`user_organisations`, `organisation_contexts`), matching
-   return shapes (`{ githubRole, adminRepoGithubIds }`). If yes and the new function does not
-   delegate to the kernel symbol → **block** with `"type": "kernel-reuse"`.
+2. **Symbol reuse** — for each new function in the diff, check whether a kernel symbol in
+   `{{KERNEL_MD}}` already does the same job. Heuristics: matching domain, matching data
+   targets (table names, endpoints), matching return shapes. If yes and the new function
+   does not delegate → **block** with `"type": "kernel-reuse"`.
 
 3. **LLD kernel-reference check** — if the diff includes an LLD under `docs/design/` that
-   touches a kernel topic but lacks a "Reused helpers — DO NOT re-implement" table naming the
-   kernel symbols it depends on → **warn** with `"type": "kernel-reuse"`.
+   touches a kernel topic but lacks a "Reused helpers — DO NOT re-implement" table naming
+   the kernel symbols it depends on → **warn** with `"type": "kernel-reuse"`.
 
-4. **Redundant DB round-trips** (`"type": "db-efficiency"`) — within a single request handler
-   / page render / service call:
-   - Two queries against the **same row or row-set** (same table + same predicate) that could
-     be a single query → **block**. Most common offender: calling `readMembershipSnapshot` /
-     `getOrgRole` / `assertOrgAdminOrRepoAdmin` / any `from('user_organisations')` more than
-     once for the same `(userId, orgId)`. Fix: capture once, pass down.
-   - Two queries against **different tables** that Supabase could fetch in one call via an
-     embedded select (`from('a').select('*, b(*)')`) or a single GraphQL query → **warn**.
-     Surface the call sites and the suggested combined query.
-   - N+1 patterns (`.map`/`for` issuing a query per iteration) → **block**. Fix: a single
-     `.in('id', ids)`, a join via embedded select, or a GraphQL request.
+4. **Redundant DB round-trips** (`"type": "db-efficiency"`) — within a single request
+   handler / page render / service call:
+   - Two queries against the **same row or row-set** (same target + same predicate) that
+     could be a single query → **block**. Capture once, pass down.
+   - Two queries against **different targets** that the data layer could fetch in one call
+     (embedded select / join / single GraphQL query) → **warn**.
+   - N+1 patterns (loop issuing a query per iteration) → **block**. Fix: a single batched
+     query, a join, or a single GraphQL request.
 
-5. **REST vs GraphQL** (`"type": "db-efficiency"`, **warn**) — when the route fetches multiple
-   related resources (parent + children, or a row plus joined lookups), prefer Supabase
-   embedded selects or pg_graphql over chained REST calls. Flag chained `.from(...).select()`
-   calls in the same handler that could collapse into one. Do not flag a single query.
+5. **Chained calls that could collapse** (`"type": "db-efficiency"`, **warn**) — when a
+   handler fetches multiple related resources via chained data-layer calls that the data
+   layer could collapse into one, flag the chain. Do not flag a single query.
 
-The kernel is a hard contract. A duplicate `user_organisations` query, two membership reads
-for the same row, a service that calls `createClient()`, or a route returning
-`NextResponse.json({ error })` instead of `handleApiError` is a blocker even if tests pass.
+If `{{KERNEL_MD}}` is empty AND the "Kernel reuse" section of `{{ANTI_PATTERNS}}` is empty,
+skip Step 4 entirely.
 
 ## Step 5: Diagnostics check
 
@@ -420,6 +415,11 @@ Surface any Error or Warning severity finding as a **warn**. Omit Info-level unl
 to a flagged function.
 
 ## Input
+
+Anti-patterns checklist:
+<anti_patterns>
+{{ANTI_PATTERNS}}
+</anti_patterns>
 
 Kernel (canonical reusable helpers — block any re-implementation):
 <kernel_md>
@@ -496,11 +496,12 @@ Do NOT frame searches as just "deprecated APIs" — you are looking for:
 Cross-reference findings with the diff. Only report if the diff actively uses a discouraged
 or insecure pattern. Do not report theoretical risks not present in the code.
 
-Examples of the kind of findings to look for (not exhaustive):
-- Supabase: anon key in server context, missing RLS, `.from()` without `.select()`
-- Next.js: mixing App Router and Pages Router patterns, wrong data fetching strategy
-- Prisma: N+1 query patterns, missing transactions on multi-step writes
-- Any auth library: insecure token storage, missing CSRF protection
+The kinds of findings to look for: security anti-patterns (wrong credential type
+server-side, insecure defaults), patterns the framework has formally moved away from,
+usage that violates the framework's current recommended approach, and known footguns the
+community has documented. The project's static checklist in `{{ANTI_PATTERNS}}` covers the
+patterns the team has already learned to flag — Agent B supplements that with framework-
+specific research.
 
 Packages to check:
 {{FRAMEWORK_DEPS_WITH_VERSIONS}}
@@ -610,12 +611,10 @@ Append to terminal output (not to the PR comment):
 - If the diff is empty, report "Nothing to review — diff is empty." and stop.
 - The 150-line threshold is a guide. If a large diff is mostly trivial changes (whitespace,
   renames, generated code), use judgment and prefer the single-agent path.
-- The static anti-pattern list runs on EVERY review at no extra cost — no web search, no
-  extra agent. Agent B supplements this with framework-specific research only when framework
-  files changed.
-- The Supabase anon key check is deliberately **block** not warn: it bypasses RLS silently
-  even when RLS policies exist. This is a security issue, not a style preference.
-- Add new static anti-patterns to this SKILL.md as the team discovers them. The static list
-  is the institutional memory of "things we've learned the hard way."
+- The static anti-pattern list (`kb/anti-patterns.md`, surfaced as `{{ANTI_PATTERNS}}`)
+  runs on EVERY review at no extra cost — no web search, no extra agent. Agent B
+  supplements this with framework-specific research only when framework files changed.
+- Add new patterns to the project's `kb/anti-patterns.md` as the team discovers them. That
+  file is the institutional memory of "things we've learned the hard way."
 - Cost is reported in terminal only — never posted to GitHub. The label in the cost
   output ("pr-review — adaptive") identifies which review run produced the cost line.
