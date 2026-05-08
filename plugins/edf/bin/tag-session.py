@@ -9,7 +9,7 @@ What it does:
   3. Appends a session->feature mapping to the Prometheus textfile
   4. Records the feature start timestamp (skipped if already present)
 
-The --cont flag appends " (cont)" to the session title (used by /feature-cont).
+The --cont flag appends " (cont)" to the session title.
 """
 
 import argparse
