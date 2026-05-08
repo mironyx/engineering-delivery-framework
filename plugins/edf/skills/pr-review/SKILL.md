@@ -151,7 +151,8 @@ lists inline-pattern → kernel-symbol mappings. Apply these checks against the 
 
 5. **Chained calls that could collapse** (`"type": "db-efficiency"`, **warn**) — when a
    handler fetches multiple related resources via chained data-layer calls that the data
-   layer could collapse into one (embedded select / GraphQL / batch endpoint), flag the
+   layer could collapse into one (e.g. embedded select instead of chained REST calls,
+   GraphQL instead of N+1 queries, a batch endpoint instead of a fan-out). Flag the
    chain. Do not flag a single query.
 
 If `{{KERNEL_MD}}` is empty AND the "Kernel reuse" section of `{{ANTI_PATTERNS}}` is empty,

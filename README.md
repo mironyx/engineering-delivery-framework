@@ -25,6 +25,23 @@ claude --plugin-dir ./engineering-delivery-framework
 - **3 hooks** — PostToolUse diagnostics + editor open, PreCompact session log
 - **6 utility scripts** — GitHub project management, session tagging, cost tracking
 
+## Environment variables
+
+Some EDF scripts read these optional env vars for project-specific configuration:
+
+| Variable | Script(s) | Purpose |
+|---|---|---|
+| `EDF_FEATURE_PREFIX` | `tag-session.py`, `query-feature-cost.py` | Override the feature-id prefix (default: derived from repo name initials — `EDF`, `FCS`, etc.) |
+| `EDF_FEATURE_PROM_DIR` | `tag-session.py`, `feature-end` | Override the Prometheus textfile collector directory (default: `<repo-root>/monitoring/textfile_collector`). Set this when node_exporter reads from a non-standard location, e.g. on WSL: `export EDF_FEATURE_PROM_DIR=/mnt/c/projects/myproject/monitoring/textfile_collector` |
+
+## Project documentation conventions
+
+EDF skills assume certain docs live in standard locations. Configure these in your project's `kb/file-map.md`:
+
+- **Vision / north-star doc** — where the project's "why this exists" is captured (used by `/backlog`). Point `vision-doc` to a marketing article, pitch deck, product brief, or similar.
+- **Anti-patterns** — `kb/anti-patterns.md` (starter in `starters/kb/`). Populate with patterns your team has learned to flag in review.
+- **Architecture rules** — `kb/architecture.md` (starter in `starters/kb/`). Boundary rules, API composition, DB contract used by `/pr-review`.
+
 ## Script contract
 
 EDF skills invoke project-specific scripts instead of hardcoded commands. Each project using EDF must provide these 7 scripts in `scripts/`:

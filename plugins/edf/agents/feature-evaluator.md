@@ -123,8 +123,10 @@ If you do identify a gap, also consider these categories when framing the test:
 - **Concurrency** — if the feature involves async operations, what about race conditions?
 - **Security boundaries** — if the feature involves auth or permissions, can they be bypassed?
 
-Write the test(s) in a new file: `tests/evaluation/<feature-slug>.eval.test.ts`. If you
-have nothing to add, do not create the file — report "no gaps" in the verdict.
+Write the test(s) in a new file under `tests/evaluation/` (use the project's test file
+naming convention — e.g. `<feature-slug>.eval.test.ts` in TypeScript, `<feature_slug>_test.py`
+in Python). If you have nothing to add, do not create the file — report "no gaps" in the
+verdict.
 
 Use the same testing patterns as the existing test files (test runner, describe/it or
 equivalent blocks, existing test helpers and factories). Read one existing test file to
@@ -148,16 +150,17 @@ or fixture in the eval file:
    adding your `describe` block to that sibling file instead of creating a new eval
    file — eval-vs-unit provenance is not worth 150 lines of duplicated mocks.
 5. **If a helper is duplicated between the eval file and the feature's unit test file,
-   extract it into `tests/fixtures/<feature-slug>-mocks.ts`** and update both files to
-   import from there. The eval file is part of the repo's long-term test surface, so
-   duplication here is real technical debt, not throwaway code.
+   extract it into a shared fixture/helper file** (e.g. `tests/fixtures/<feature-slug>-mocks.ts`
+   or the project's equivalent) and update both files to import from there. The eval file is
+   part of the repo's long-term test surface, so duplication here is real technical debt, not
+   throwaway code.
 6. Only write a new helper in the eval file when the behaviour being probed genuinely
    needs a different mock shape than what already exists.
 
 When in doubt, err on the side of importing. A 10-line eval file that reuses existing
 fixtures is worth more than a 200-line one that re-declares them. If folding the
 adversarial tests into an existing sibling test file eliminates all duplication, do
-that instead of creating `tests/evaluation/<slug>.eval.test.ts` — the convention is not
+that instead of creating a separate eval test file — the naming convention is not
 worth the cost.
 
 Keep tests focused — one assertion per test where possible.
@@ -205,7 +208,7 @@ Return a structured evaluation report:
 
 ### Adversarial tests
 
-- **Written:** N new tests in `tests/evaluation/<slug>.eval.test.ts`
+- **Written:** N new tests in the evaluation test file
 - **Passed:** N
 - **Failed:** N
 

@@ -127,7 +127,7 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 
 - **Acceptance ↔ BDD ↔ Invariant coverage.** Does every Acceptance Criterion map to at least one BDD spec? Does every Invariant have a `Verification` method that is *executable* (test, type check, grep, lint) — not "code review" or "manual check"?
 - **Internal decomposition is concrete.** For every non-trivial route or component, is every function/class/helper named with a signature? "Service does X" is a failure — name `serviceFn(ctx, params): Promise<T>` and its private helpers.
-- **Type contracts match the DB.** For any type referencing a DB column or enum, did I confirm the LLD type matches the canonical DB-types file in this project (e.g. a generated `database.types.ts` if Supabase, ORM-generated types, or hand-authored DB type modules)? Mismatches cause `as unknown as` casts downstream.
+- **Type contracts match the DB.** For any type referencing a DB column or enum, did I confirm the LLD type matches the canonical DB-types file in this project (e.g. a generated types file from the DB schema, ORM-generated types, or hand-authored DB type modules)? Mismatches cause casts and workarounds downstream.
 - **Test seams.** Do not introduce HTTP-injection seams (e.g. `fetchImpl?: typeof fetch`) in `*Deps` interfaces — use the project's HTTP-mocking convention instead (e.g. MSW). Only inject genuine behavioural dependencies (auth-token providers, clocks, ID generators).
 - **Task sizing.** Does each task plausibly fit in < 200 lines of diff? If unsure, split. Tasks > 200 lines are the single biggest cause of bad `/feature` runs.
 - **No HLD duplication.** Is anything in Part B copy-pasted from the HLD? Replace with a link.

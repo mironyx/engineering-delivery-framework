@@ -22,9 +22,10 @@ files under `.diagnostics/`, mirroring the source tree structure.
 
 ## Input
 
-You will receive a list of source files that were recently changed. For example:
+You will receive a list of source files that were recently changed. Extensions vary by project
+language — `.ts`/`.tsx`, `.py`, `.go`, `.rs`, etc. For example:
 - `src/foo/bar.ts`
-- `tests/helpers/baz.test.ts`
+- `tests/helpers/baz.test.py`
 
 ## How to Check
 

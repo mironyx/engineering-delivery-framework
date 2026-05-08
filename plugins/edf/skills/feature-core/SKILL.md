@@ -94,7 +94,7 @@ No sub-agents. Write the fix and regression tests in one pass.
    ```bash
    ./scripts/run-tests.sh <test-file>
    ```
-   The script-contract takes an optional file path; this runs only the affected test file without launching a sub-agent.
+   Runs only the affected test file (the script takes an optional path argument). Do not launch a sub-agent for this — the output is compact and belongs in the main context.
 4. Proceed directly to Step 5 (full verification).
 
 **Do not** launch the test-author or feature-evaluator agents.
@@ -242,7 +242,7 @@ Input: requirements_paths=<list> lld_path=<path> issue_number=<N> changed_files=
 
 If evaluator writes > 3 adversarial tests, note count in Step 10 report and PR body — but do not block.
 
-Evaluator tests go to `tests/evaluation/<slug>.eval.test.ts`, committed in Step 7.
+Evaluator tests follow the project's test file convention, committed in Step 7.
 
 ### Step 7: Commit
 

@@ -205,9 +205,10 @@ def main() -> None:
     write_custom_title(jsonl_path, session_id, title)
 
     # 2. Update Prometheus textfile
-    # EDF_FEATURE_PROM_DIR overrides the default path — set this in WSL to point to
-    # the Windows-accessible folder that node exporter reads from, e.g.:
-    # export EDF_FEATURE_PROM_DIR=/mnt/c/projects/myproject/monitoring/textfile_collector
+    # By default the textfile is written to <repo-root>/monitoring/textfile_collector.
+    # Set EDF_FEATURE_PROM_DIR when node_exporter reads from a different location (e.g.
+    # WSL → Windows path translation, or a shared collector dir outside the repo):
+    #   export EDF_FEATURE_PROM_DIR=/mnt/c/projects/myproject/monitoring/textfile_collector
     textfile_dir = pathlib.Path(os.environ.get("EDF_FEATURE_PROM_DIR") or root / "monitoring" / "textfile_collector")
     textfile_dir.mkdir(parents=True, exist_ok=True)
     update_prom_file(textfile_dir / "session_feature.prom", session_id, feature_id)
