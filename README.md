@@ -20,10 +20,27 @@ claude --plugin-dir ./engineering-delivery-framework
 
 ## What's included
 
-- **23 skills** — `/edf:feature`, `/edf:feature-core`, `/edf:diag`, `/edf:architect`, `/edf:kickoff`, `/edf:create-adr`, `/edf:create-plan`, `/edf:lld`, `/edf:pr-review-v2`, `/edf:retro`, `/edf:baseline`, `/edf:drift-scan`, `/edf:backlog`, `/edf:discovery`, `/edf:requirements`, `/edf:feature-end`, `/edf:feature-team`, `/edf:lld-sync`, `/edf:bug`, `/edf:create-mermaid-diagram`, `/edf:frontend-architect`, `/edf:feature-cont`
+- **22 skills** — `/edf:feature`, `/edf:feature-core`, `/edf:diag`, `/edf:architect`, `/edf:kickoff`, `/edf:create-adr`, `/edf:create-plan`, `/edf:lld`, `/edf:pr-review`, `/edf:retro`, `/edf:baseline`, `/edf:drift-scan`, `/edf:backlog`, `/edf:discovery`, `/edf:requirements`, `/edf:feature-end`, `/edf:feature-team`, `/edf:lld-sync`, `/edf:bug`, `/edf:create-mermaid-diagram`, `/edf:frontend-architect`
 - **4 agents** — ci-probe, diagnostics-checker, feature-evaluator, requirements-design-drift
 - **3 hooks** — PostToolUse diagnostics + editor open, PreCompact session log
 - **6 utility scripts** — GitHub project management, session tagging, cost tracking
+
+## Environment variables
+
+Some EDF scripts read these optional env vars for project-specific configuration:
+
+| Variable | Script(s) | Purpose |
+|---|---|---|
+| `EDF_FEATURE_PREFIX` | `tag-session.py`, `query-feature-cost.py` | Override the feature-id prefix (default: derived from repo name initials — `EDF`, `FCS`, etc.) |
+| `EDF_FEATURE_PROM_DIR` | `tag-session.py`, `feature-end` | Override the Prometheus textfile collector directory (default: `<repo-root>/monitoring/textfile_collector`). Set this when node_exporter reads from a non-standard location, e.g. on WSL: `export EDF_FEATURE_PROM_DIR=/mnt/c/projects/myproject/monitoring/textfile_collector` |
+
+## Project documentation conventions
+
+EDF skills assume certain docs live in standard locations. Configure these in your project's `kb/file-map.md`:
+
+- **Vision / north-star doc** — where the project's "why this exists" is captured (used by `/backlog`). Point `vision-doc` to a marketing article, pitch deck, product brief, or similar.
+- **Anti-patterns** — `kb/anti-patterns.md` (starter in `starters/kb/`). Populate with patterns your team has learned to flag in review.
+- **Architecture rules** — `kb/architecture.md` (starter in `starters/kb/`). Boundary rules, API composition, DB contract used by `/pr-review`.
 
 ## Script contract
 
@@ -43,11 +60,12 @@ Starter scripts for TypeScript and Python projects are in `starters/scripts/`.
 
 ## Knowledge base (kb/)
 
-EDF skills are project-agnostic — they reference project-specific paths and conventions through named concepts, not literal paths. Each project using EDF provides three kb files that fill in those concepts:
+EDF skills are project-agnostic — they reference project-specific paths and conventions through named concepts, not literal paths. Each project using EDF provides four kb files that fill in those concepts:
 
 - `kb/file-map.md` — concept name → path (e.g. `engine-dir`, `api-dir`, `schema-dir`).
 - `kb/conventions.md` — concept name → pattern (e.g. `test-path`, `migration-generate-cmd`).
-- `kb/architecture.md` — short paragraphs of project-specific architecture rules (boundary rules, API composition, DB contract).
+- `kb/architecture.md` — short paragraphs of project-specific architecture rules (boundary rules, API composition, DB contract). Read by `/pr-review` as `{{ARCHITECTURE_RULES}}`.
+- `kb/anti-patterns.md` — the project's anti-pattern checklist (framework-specific patterns, language conventions, kernel-reuse rules). Read by `/pr-review` as `{{ANTI_PATTERNS}}`.
 
 Templates with the full concept list are in `starters/kb/`. Copy them to your project's `kb/` and replace each `<!-- e.g. ... -->` placeholder with your project's actual path or pattern.
 

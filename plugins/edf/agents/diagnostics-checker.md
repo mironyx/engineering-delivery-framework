@@ -22,9 +22,10 @@ files under `.diagnostics/`, mirroring the source tree structure.
 
 ## Input
 
-You will receive a list of source files that were recently changed. For example:
-- `src/lib/engine/scoring.ts`
-- `tests/helpers/supabase.integration.test.ts`
+You will receive a list of source files that were recently changed. Extensions vary by project
+language — `.ts`/`.tsx`, `.py`, `.go`, `.rs`, etc. For example:
+- `src/foo/bar.ts`
+- `tests/helpers/baz.test.py`
 
 ## How to Check
 
@@ -41,8 +42,8 @@ sleep 3
 
 For each changed source file, the diagnostics file is at `.diagnostics/<path>.json`.
 For example:
-- `src/lib/engine/scoring.ts` -> `.diagnostics/src/lib/engine/scoring.ts.json`
-- `tests/helpers/foo.test.ts` -> `.diagnostics/tests/helpers/foo.test.ts.json`
+- `src/foo/bar.ts` -> `.diagnostics/src/foo/bar.ts.json`
+- `tests/helpers/baz.test.ts` -> `.diagnostics/tests/helpers/baz.test.ts.json`
 
 Use Glob to find matching files: `.diagnostics/**/<filename>.json`
 

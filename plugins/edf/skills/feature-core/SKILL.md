@@ -92,9 +92,9 @@ No sub-agents. Write the fix and regression tests in one pass.
    - Match the style of neighbouring test files (grep for sibling tests first)
 3. **Run the target test file** to confirm tests pass:
    ```bash
-   bash scripts/vitest-summary.sh <test-file>
+   ./scripts/run-tests.sh <test-file>
    ```
-   This emits a single compact line (`PASS N/N -- Xs` or `FAIL N/N ...`) without launching a sub-agent.
+   Runs only the affected test file (the script takes an optional path argument). Do not launch a sub-agent for this — the output is compact and belongs in the main context.
 4. Proceed directly to Step 5 (full verification).
 
 **Do not** launch the test-author or feature-evaluator agents.
@@ -177,15 +177,19 @@ This keeps verbose output out of the main context.
 
 ```
 Launch Agent: test-runner
-Input: command="./scripts/run-tests.sh command="npx vitest run && npx tsc --noEmit && npm run lint"command="npx vitest run && npx tsc --noEmit && npm run lint" ./scripts/run-typecheck.sh command="npx vitest run && npx tsc --noEmit && npm run lint"command="npx vitest run && npx tsc --noEmit && npm run lint" ./scripts/run-lint.sh"
+Input: command="./scripts/run-tests.sh && ./scripts/run-typecheck.sh && ./scripts/run-lint.sh"
 ```
 
-If E2E tests exist (`tests/e2e/` is non-empty), also run:
+If E2E tests exist (the project's `e2e-dir` is non-empty), also run:
 
 ```
 Launch Agent: test-runner
-Input: command="./scripts/run-build.sh command="NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-publishable-key SUPABASE_SECRET_KEY=placeholder-secret-key npm run build && npx playwright test"command="NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-publishable-key SUPABASE_SECRET_KEY=placeholder-secret-key npm run build && npx playwright test" ./scripts/run-e2e.sh"
+Input: command="./scripts/run-build.sh && ./scripts/run-e2e.sh"
 ```
+
+The project's `run-e2e.sh` is responsible for setting any environment variables the build or
+playwright run needs (placeholder Supabase URLs, test API keys, etc.). The script-contract
+keeps that detail inside the project, not in the skill.
 
 All must pass — zero failures, including integration tests — before proceeding.
 If any fail, fix and re-run via `test-runner`. If stuck after 3 attempts on the same failure, pause and report.
@@ -205,7 +209,7 @@ Run `/diag` on changed files. This is a **blocking gate** — do not proceed to 
 Then:
 
 1. Run `/diag` on the scoped file set.
-2. If any findings exist, fix them all. **Exception: ignore smells on generated files** (e.g. `supabase/migrations/`).
+2. If any findings exist, fix them all. **Exception: ignore smells on generated files** (e.g. content under `<migration-dir>` for projects that generate migrations from a declarative schema).
 3. After fixing, re-run `/diag` to confirm the findings are gone.
 4. Repeat until `/diag` reports zero findings on non-generated files.
 5. Re-run Step 5 (full verification) after any fixes.
@@ -238,7 +242,7 @@ Input: requirements_paths=<list> lld_path=<path> issue_number=<N> changed_files=
 
 If evaluator writes > 3 adversarial tests, note count in Step 10 report and PR body — but do not block.
 
-Evaluator tests go to `tests/evaluation/<slug>.eval.test.ts`, committed in Step 7.
+Evaluator tests follow the project's test file convention, committed in Step 7.
 
 ### Step 7: Commit
 
@@ -289,7 +293,7 @@ When the probe reports back:
 
 ### Step 9: Review
 
-Run `/pr-review-v2 <pr-number>` on the PR just created. This posts a comment on the PR and
+Run `/pr-review <pr-number>` on the PR just created. This posts a comment on the PR and
 returns findings. Triage each finding:
 
 - **Blocker / correctness issue** — fix it: update the code, re-run Step 5 (verification), add a commit, push.
@@ -298,7 +302,7 @@ returns findings. Triage each finding:
 - **Non-blocking suggestion** — decide whether it is worth fixing now (quick win) or deferring. If deferring, note it in the Step 10 report.
 - **Style / minor** — fix if trivial; otherwise note and move on.
 
-After any fixes, re-run `/pr-review-v2 <pr-number>` to confirm no new issues were introduced.
+After any fixes, re-run `/pr-review <pr-number>` to confirm no new issues were introduced.
 
 ### Step 10: Report
 

@@ -90,7 +90,7 @@ For each Omission:
 
 The kernel is a living document — `/lld-sync` is the only skill that grows or trims it. Run these checks:
 
-1. **New reusable helper introduced.** If the implementation added a new exported symbol in `src/lib/api/`, `src/lib/supabase/`, `src/lib/engine/`, or any `service.ts` that future features should reuse, add a one-line entry to the appropriate kernel section. Bar for inclusion: would future LLDs cause drift if they re-implemented it? If yes, add it. If not (purely local utility), skip.
+1. **New reusable helper introduced.** If the implementation added a new exported symbol in a shared module (`src/lib/`, data-access layer, engine module, or any `service` file) that future features should reuse, add a one-line entry to the appropriate kernel section. Bar for inclusion: would future LLDs cause drift if they re-implemented it? If yes, add it. If not (purely local utility), skip.
 2. **Re-implementation pattern uncovered.** If a Correction in Step 2 was caused by the LLD inlining a query or behaviour that an existing kernel symbol already covered, append the inlined-pattern → kernel-symbol mapping to the kernel's "Anti-patterns" section. This prevents the same drift on the next epic.
 3. **Symbol renamed or retired.** If the implementation renamed an exported symbol, update the kernel entry. If a symbol was deleted, remove the entry — keep the kernel a true reflection of the codebase.
 4. **No changes needed.** If the diff did not touch any reusable surface, skip — do not edit the kernel for cosmetic reasons.

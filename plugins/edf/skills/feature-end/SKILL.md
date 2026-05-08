@@ -42,10 +42,10 @@ If an issue number argument was provided:
    import re, pathlib, os, subprocess
    result = subprocess.run(['git', 'rev-parse', '--git-common-dir'], capture_output=True, text=True)
    root = pathlib.Path(result.stdout.strip()).parent.resolve()
-   prom_dir = pathlib.Path(os.environ.get('FCS_FEATURE_PROM_DIR') or root / 'monitoring' / 'textfile_collector')
+   prom_dir = pathlib.Path(os.environ.get('EDF_FEATURE_PROM_DIR') or root / 'monitoring' / 'textfile_collector')
    prom = prom_dir / 'session_feature.prom'
    if prom.exists():
-       m = re.search(r'session_id=\"([^\"]+)\",feature_id=\"FCS-<issue-number>\"', prom.read_text())
+       m = re.search(r'session_id=\"([^\"]+)\",feature_id=\"[^\"]+-<issue-number>\"', prom.read_text())
        print(m.group(1) if m else '')
    else:
        print('')
@@ -174,7 +174,7 @@ Derive the issue number from the git log and run the shared script:
 ```bash
 ISSUE=$(git log --oneline -10 | grep -o '#[0-9]*' | head -1 | tr -d '#')
 PR=$(gh pr view --json number --jq .number 2>/dev/null || echo "")
-COST_OUTPUT=$(${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh scripts/query-feature-cost.py FCS-$ISSUE --issue $ISSUE ${PR:+--pr $PR} --stage final)
+COST_OUTPUT=$(${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh scripts/query-feature-cost.py --issue $ISSUE ${PR:+--pr $PR} --stage final)
 echo "$COST_OUTPUT"
 ```
 

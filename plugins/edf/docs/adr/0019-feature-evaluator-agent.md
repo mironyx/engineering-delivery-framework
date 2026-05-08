@@ -9,7 +9,7 @@
 The `/feature` pipeline currently has two quality gates after implementation:
 
 1. **`/diag`** — checks code health via CodeScene/SonarLint diagnostics
-2. **`/pr-review-v2`** — static code review of the diff (bugs, design principles, conventions)
+2. **`/pr-review`** — static code review of the diff (bugs, design principles, conventions)
 
 Neither gate verifies that the implementation actually satisfies its acceptance criteria.
 The code review asks "is this code correct?" but not "does this deliver what the spec
@@ -24,7 +24,7 @@ self-evaluation bias.
 
 ## Options Considered
 
-### Option 1: Extend `/pr-review-v2` with evaluation checks
+### Option 1: Extend `/pr-review` with evaluation checks
 
 Add acceptance-criteria verification to the existing review agents.
 
@@ -68,7 +68,7 @@ If the verdict is FAIL, the generator fixes the gaps before creating the PR.
 - Adversarial test files (`tests/evaluation/*.eval.test.ts`) accumulate as regression
   protection — they are committed alongside the feature code.
 - Per-feature cost increases by ~$0.30–0.50 (Sonnet model).
-- `/pr-review-v2` remains unchanged — it checks code quality, the evaluator checks
+- `/pr-review` remains unchanged — it checks code quality, the evaluator checks
   correctness against the spec. Orthogonal concerns.
 - Option 3 (split TDD) remains a future evolution if the evaluator proves the separation
   principle works well in practice.

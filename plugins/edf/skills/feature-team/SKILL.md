@@ -140,9 +140,10 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 > 1. Create your own branch and worktree:
 >    ```bash
 >    SLUG=<slug-from-title>
+>    REPO=$(basename "$(git rev-parse --show-toplevel)")
 >    git fetch origin main
->    git worktree add ../fcs-feat-<N>-$SLUG -b feat/$SLUG origin/main
->    cd ../fcs-feat-<N>-$SLUG
+>    git worktree add "../${REPO}-feat-<N>-$SLUG" -b feat/$SLUG origin/main
+>    cd "../${REPO}-feat-<N>-$SLUG"
 >    ```
 > 1a. Symlink gitignored local files from the main repo so integration tests work:
 >    ```bash

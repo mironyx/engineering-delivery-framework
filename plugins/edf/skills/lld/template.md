@@ -103,7 +103,7 @@ surface or dependencies.
 ### Invariants
 
 Hard constraints that the implementation must satisfy. Collected in one place so the
-reviewer can sign off on them and automated tools (`/pr-review-v2`, `/feature-evaluator`)
+reviewer can sign off on them and automated tools (`/pr-review`, `/feature-evaluator`)
 can verify them.
 
 Each invariant should be testable — either by a unit test, a type check, or a lint rule.
@@ -112,7 +112,7 @@ Each invariant should be testable — either by a unit test, a type check, or a 
 |---|-----------|-------------|
 | 1 | [e.g. Service never calls createClient() directly] | [e.g. grep for import; unit test with mock ApiContext] |
 | 2 | [e.g. Webhook replay is idempotent — no duplicate rows] | [e.g. test calls handler twice, asserts row count unchanged] |
-| 3 | [e.g. Engine module has zero framework imports] | [e.g. grep src/lib/engine/ for 'next', 'supabase'] |
+| 3 | [e.g. Engine module has zero framework imports] | [e.g. grep engine-dir for framework imports] |
 
 ### Acceptance Criteria
 
@@ -163,7 +163,7 @@ src/lib/module/
 #### Internal types
 [Types not in the public L4 contract but needed for implementation]
 
-> **Constraint:** For any type referencing a DB column, grep `src/types/database.types.ts` to confirm the contract type matches the Supabase-inferred enum or union. Mismatches cause `as unknown as` casts at the call site — fix the type here in the LLD, not downstream in the implementation.
+> **Constraint:** For any type referencing a DB column, grep the project's canonical DB-types file (generated or hand-authored) to confirm the type matches the actual column/enum definition. Mismatches cause casts and workarounds at the call site — fix the type here in the LLD, not downstream in the implementation.
 
 #### Function signatures
 [Key internal functions with their signatures and behaviour]

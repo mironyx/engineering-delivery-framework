@@ -22,7 +22,17 @@ import sys
 
 
 def derive_project_key() -> str:
-    path_str = str(pathlib.Path.home() / "projects" / "feature-comprehension-score").lower()
+    """Convert git root path to a Claude project key (same derivation as tag-session.py)."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            capture_output=True, text=True, check=True,
+        )
+        root = pathlib.Path(result.stdout.strip()).parent.resolve()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        root = pathlib.Path.cwd()
+    path_str = str(root).lower()
     path_str = path_str.replace(":\\", "--")
     return path_str.replace("\\", "-").replace("/", "-").replace(":", "")
 
