@@ -46,16 +46,36 @@ def derive_project_key(root: pathlib.Path) -> str:
     return path_str.replace("\\", "-").replace("/", "-").replace(":", "")
 
 
+def _read_dotenv(root: pathlib.Path) -> dict[str, str]:
+    """Read KEY=value pairs from .env in the repo root (if it exists)."""
+    env_file = root / ".env"
+    if not env_file.exists():
+        return {}
+    result: dict[str, str] = {}
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        result[key.strip()] = value.strip().strip("\"'")
+    return result
+
+
 def derive_feature_prefix(root: pathlib.Path) -> str:
-    """Derive a feature-id prefix from the repo name.
+    """Derive a feature-id prefix.
 
-    "feature-comprehension-score" -> "FCS"
-    "engineering-delivery-framework" -> "EDF"
-    "myproject" -> "MYPROJECT" (no separator)
-
-    Override with the EDF_FEATURE_PREFIX env var when the derivation isn't what
-    you want.
+    Precedence: $EDF_FEATURE_PREFIX env var → .env in repo root → derivation.
+    Derivation: "engineering-delivery-framework" -> "EDF", "myproject" -> "MYPROJECT".
     """
+    # 1. OS environment
+    env_prefix = os.environ.get("EDF_FEATURE_PREFIX")
+    if env_prefix:
+        return env_prefix
+    # 2. .env in repo root (team-shared override)
+    dotenv_prefix = _read_dotenv(root).get("EDF_FEATURE_PREFIX")
+    if dotenv_prefix:
+        return dotenv_prefix
+    # 3. Derive from repo name
     name = root.name
     parts = [p for p in name.replace("_", "-").split("-") if p]
     if len(parts) >= 2:
@@ -185,7 +205,7 @@ def main() -> None:
     args = parser.parse_args()
 
     root = git_root()
-    feature_prefix = os.environ.get("EDF_FEATURE_PREFIX") or derive_feature_prefix(root)
+    feature_prefix = derive_feature_prefix(root)
     feature_id = f"{feature_prefix}-{args.issue}"
     project_key = derive_project_key(root)
 

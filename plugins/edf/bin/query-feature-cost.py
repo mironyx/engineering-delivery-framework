@@ -253,8 +253,26 @@ def apply_labels(issue: int, metrics: UsageMetrics, stage: str, pr: int | None =
         print(f"Label applied: {label} -> {targets}")
 
 
+def _read_dotenv(root: pathlib.Path) -> dict[str, str]:
+    """Read KEY=value pairs from .env in the repo root (if it exists)."""
+    env_file = root / ".env"
+    if not env_file.exists():
+        return {}
+    result: dict[str, str] = {}
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        result[key.strip()] = value.strip().strip("\"'")
+    return result
+
+
 def _derive_feature_prefix() -> str:
-    """Derive a feature-id prefix from $EDF_FEATURE_PREFIX or the repo name."""
+    """Derive a feature-id prefix.
+
+    Precedence: $EDF_FEATURE_PREFIX env var → .env in repo root → derivation.
+    """
     env_prefix = os.environ.get("EDF_FEATURE_PREFIX")
     if env_prefix:
         return env_prefix
@@ -263,7 +281,11 @@ def _derive_feature_prefix() -> str:
             ["git", "rev-parse", "--show-toplevel"],
             capture_output=True, text=True, check=True,
         )
-        name = pathlib.Path(result.stdout.strip()).name
+        root = pathlib.Path(result.stdout.strip())
+        dotenv_prefix = _read_dotenv(root).get("EDF_FEATURE_PREFIX")
+        if dotenv_prefix:
+            return dotenv_prefix
+        name = root.name
         parts = [p for p in name.replace("_", "-").split("-") if p]
         if len(parts) >= 2:
             return "".join(p[0].upper() for p in parts)

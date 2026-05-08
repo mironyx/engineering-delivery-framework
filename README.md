@@ -25,13 +25,22 @@ claude --plugin-dir ./engineering-delivery-framework
 - **3 hooks** — PostToolUse diagnostics + editor open, PreCompact session log
 - **8 utility scripts** — GitHub project management, session tagging, cost tracking, test output summarizers (vitest, pytest)
 
-## Environment variables
+## Project configuration
 
-Some EDF scripts read these optional env vars for project-specific configuration:
+### `.env` (repo root)
+
+Project-specific settings shared by the team. Commit this file.
 
 | Variable | Script(s) | Purpose |
 |---|---|---|
-| `EDF_FEATURE_PREFIX` | `tag-session.py`, `query-feature-cost.py` | Override the feature-id prefix (default: derived from repo name initials — `EDF`, `FCS`, etc.) |
+| `EDF_FEATURE_PREFIX` | `tag-session.py`, `query-feature-cost.py` | Override the auto-derived feature-id prefix (default: initials from repo name — `engineering-delivery-framework` → `EDF`). Set when the team uses a different prefix in their tracker. |
+
+Overrides are read in this order: OS environment → `.env` → derivation.
+
+### Prometheus env var
+
+| Variable | Script(s) | Purpose |
+|---|---|---|
 | `EDF_FEATURE_PROM_DIR` | `tag-session.py`, `feature-end` | Override the Prometheus textfile collector directory (default: `<repo-root>/monitoring/textfile_collector`). Set this when node_exporter reads from a non-standard location, e.g. on WSL: `export EDF_FEATURE_PROM_DIR=/mnt/c/projects/myproject/monitoring/textfile_collector` |
 
 ## Project documentation conventions
