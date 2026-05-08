@@ -9,7 +9,7 @@
       "name": "edf",
       "source": "./plugins/edf",
       "description": "Engineering Delivery Framework — structured software delivery harness with skills, agents, and hooks for TDD, design, and process automation",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": {
         "name": "mironyx"
       },
