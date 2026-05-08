@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run vitest and emit a compact summary via the EDF summarizer.
-# Usage: ./scripts/run-tests.sh [test-file] [vitest-args...]
+# Usage: ${EDF_SCRIPTS}/run-tests.sh [test-file] [vitest-args...]
 # Exit code matches vitest.
 set -uo pipefail
 

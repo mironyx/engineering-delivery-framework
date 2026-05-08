@@ -223,7 +223,7 @@ docs/design/frontend-system.md
 - [ ] [criterion]
 EOF
 )
-RESULT=$(./scripts/gh-create-issue.sh \
+RESULT=$(${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
   --title "<task title>" \
   --body "$BODY" \
   --labels "area:frontend,kind:task" \

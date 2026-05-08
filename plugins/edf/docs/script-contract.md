@@ -1,10 +1,29 @@
 # Script Contract
 
-Skills never invoke language-specific commands directly. Instead they call a fixed set of shell scripts the project provides. The project substitutes the real command inside the script.
+This plugin ships two kinds of scripts:
 
-## Required scripts
+| Kind | Location | Runtime | Examples |
+|---|---|---|---|
+| **Plugin scripts** | `${CLAUDE_PLUGIN_ROOT}/bin/` | Claude Code | `gh-create-issue.sh`, `tag-session.py`, `query-feature-cost.py` |
+| **Project scripts** | `${EDF_SCRIPTS}/` | Claude Code, CI | `run-tests.sh`, `run-lint.sh`, `create-feature-pr.sh` |
 
-Each consuming project must provide these scripts at `scripts/`:
+Plugin scripts are invoked directly via `${CLAUDE_PLUGIN_ROOT}/bin/<name>` (or through `run-python.sh` for Python scripts). Project scripts are invoked via `${EDF_SCRIPTS}/<name>`.
+
+## Project scripts
+
+Each consuming project sets `EDF_SCRIPTS` in its `.env` to point at the project's scripts directory. Starters for TypeScript and Python are provided at `starters/scripts/{typescript,python}/`; point `EDF_SCRIPTS` to the appropriate one:
+
+```bash
+# .env (TypeScript project)
+EDF_SCRIPTS=${CLAUDE_PLUGIN_ROOT}/starters/scripts/typescript
+```
+
+```bash
+# .env (Python project)
+EDF_SCRIPTS=${CLAUDE_PLUGIN_ROOT}/starters/scripts/python
+```
+
+### Required scripts
 
 | Script | Purpose | Args | Exit codes |
 |---|---|---|---|
@@ -39,8 +58,6 @@ test_exit=$?
 "${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh" "${CLAUDE_PLUGIN_ROOT}/bin/<summarizer>.py" < "$tmpfile"
 exit $test_exit
 ```
-
-Starters for TypeScript and Python are in `starters/scripts/`.
 
 ## Path conventions (stay in CLAUDE.md)
 

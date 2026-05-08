@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run pytest and emit a compact summary via the EDF summarizer.
-# Usage: ./scripts/run-tests.sh [test-file] [pytest-args...]
+# Usage: ${EDF_SCRIPTS}/run-tests.sh [test-file] [pytest-args...]
 # Exit code matches pytest.
 set -uo pipefail
 

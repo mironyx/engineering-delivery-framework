@@ -1,8 +1,8 @@
 """Query Prometheus for feature cost/tokens and optionally tag the GitHub issue.
 
 Usage:
-  py scripts/query-feature-cost.py <feature_id> [--issue N] [--pr N] [--stage pr|final]
-  py scripts/query-feature-cost.py --issue N [--pr N] [--stage pr|final]
+  py bin/query-feature-cost.py <feature_id> [--issue N] [--pr N] [--stage pr|final]
+  py bin/query-feature-cost.py --issue N [--pr N] [--stage pr|final]
 
 Arguments:
   feature_id     Optional. Feature ID to look up, e.g. EDF-55. When omitted, derived from

@@ -6,13 +6,13 @@
 
 | Command | Purpose |
 | --- | --- |
-| `./scripts/run-tests.sh` | Unit tests |
-| `./scripts/run-typecheck.sh` | Type check |
-| `./scripts/run-lint.sh` | Lint |
-| `./scripts/run-build.sh` | Build |
-| `./scripts/run-markdown-lint.sh` | Markdown lint |
-| `./scripts/run-format-check.sh` | Format check |
-| `./scripts/run-e2e.sh` | E2E tests |
+| `${EDF_SCRIPTS}/run-tests.sh` | Unit tests |
+| `${EDF_SCRIPTS}/run-typecheck.sh` | Type check |
+| `${EDF_SCRIPTS}/run-lint.sh` | Lint |
+| `${EDF_SCRIPTS}/run-build.sh` | Build |
+| `${EDF_SCRIPTS}/run-markdown-lint.sh` | Markdown lint |
+| `${EDF_SCRIPTS}/run-format-check.sh` | Format check |
+| `${EDF_SCRIPTS}/run-e2e.sh` | E2E tests |
 
 ## Path Conventions
 

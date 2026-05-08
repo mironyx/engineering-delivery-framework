@@ -2,9 +2,9 @@
 # Manage GitHub project board items.
 #
 # Usage:
-#   ./scripts/gh-project-status.sh <issue-number> <status>
-#   ./scripts/gh-project-status.sh add <issue-number> [status]
-#   ./scripts/gh-project-status.sh remove <issue-number>
+#   ./bin/gh-project-status.sh <issue-number> <status>
+#   ./bin/gh-project-status.sh add <issue-number> [status]
+#   ./bin/gh-project-status.sh remove <issue-number>
 #
 # Commands:
 #   <issue-number> <status>        — Update status of an existing board item

@@ -102,7 +102,7 @@ def parse_transcript(transcript_path: str) -> dict:
 def _rel(file_path: str) -> str:
     """Return the repo-relative portion of an absolute path."""
     p = file_path.replace("\\", "/")
-    for marker in ["/src/", "/tests/", "/docs/", "/.claude/", "/scripts/", "/supabase/"]:
+    for marker in ["/src/", "/tests/", "/docs/", "/.claude/", "/supabase/"]:
         idx = p.find(marker)
         if idx >= 0:
             return p[idx + 1:]
@@ -148,7 +148,7 @@ def _classify_bash(cmd: str, text: str, acc: _BashAccum) -> None:
         acc.vitest.append(_vitest_result(text))
     elif re.search(r"(tsc --noEmit|run-typecheck\.sh)", cmd):
         acc.tsc.append(_tsc_result(text))
-    elif re.search(r"./scripts/run-lint.sh", cmd):
+    elif re.search(r"run-lint\.sh", cmd):
         acc.lint.append("issues" if ("error" in text.lower() or "warning" in text.lower()) else "clean")
     elif re.search(r"git commit", cmd):
         acc.commits.append(_git_commit_msg(cmd))

@@ -49,7 +49,7 @@ If checkout fails due to uncommitted changes, stop and tell the user.
 Once the issue number is known, tag the session so it is identifiable in the IDE and in Grafana:
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh scripts/tag-session.py <issue-number>
+${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <issue-number>
 ```
 
 ### Step 2: Create feature branch
@@ -60,7 +60,7 @@ ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh scripts/tag-session.py <issue-number>
    git fetch origin main
    git checkout -b feat/<slug> origin/main
    ```
-3. Move the issue to In Progress: `./scripts/gh-project-status.sh <number> "in progress"`.
+3. Move the issue to In Progress: `${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh <number> "in progress"`.
 
 ### Step 3: Invoke feature-core
 

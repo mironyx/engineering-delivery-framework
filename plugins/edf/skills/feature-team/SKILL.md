@@ -52,7 +52,7 @@ If `epic <N>` is given:
 
 6. Move the epic itself to In Progress on the project board:
    ```bash
-   bash scripts/gh-project-status.sh add <epic-number> "in progress"
+   bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh add <epic-number> "in progress"
    ```
 
 If `-n N` is given:
@@ -154,11 +154,11 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 >    ```
 > 2. Tag your session (must run AFTER worktree is set up so /proc detects the correct JSONL):
 >    ```bash
->    ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh scripts/tag-session.py <N>
+>    ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <N>
 >    ```
 > 3. Move issue to In Progress:
 >    ```bash
->    bash scripts/gh-project-status.sh add <N> "in progress"
+>    bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh add <N> "in progress"
 >    ```
 > 4. Run `/feature-core <N>`. This covers everything from reading the design through PR
 >    creation and review. Follow all coding principles in CLAUDE.md. Do not ask for
@@ -211,7 +211,7 @@ When all are received, summarise:
 
 **If running in `epic` mode**, close the epic itself now that all tasks are shipped:
 ```bash
-bash scripts/gh-project-status.sh <epic-number> done
+bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh <epic-number> done
 gh issue close <epic-number> --comment "All tasks shipped. Closing epic."
 ```
 

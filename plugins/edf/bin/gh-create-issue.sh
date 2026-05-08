@@ -5,7 +5,7 @@
 # that creates issues. Ensures consistent body templates, labels, and dedup.
 #
 # Usage:
-#   ./scripts/gh-create-issue.sh --title "Title" --body "Body" [options]
+#   ./bin/gh-create-issue.sh --title "Title" --body "Body" [options]
 #
 # Options:
 #   --title TEXT        Issue title (required)
@@ -30,7 +30,7 @@
 #
 # Portability:
 #   This script uses only `gh` CLI and standard POSIX tools. It reads
-#   board configuration from scripts/gh-project-status.sh if --add-to-board
+#   board configuration from bin/gh-project-status.sh if --add-to-board
 #   is used. To use in a new repo, set up gh-project-status.sh with the
 #   correct project IDs (see that script's header).
 

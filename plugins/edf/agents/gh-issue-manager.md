@@ -31,7 +31,7 @@ TMP=$(mktemp)
 cat > "$TMP" <<'ENDOFBODY'
 <task body>
 ENDOFBODY
-./scripts/gh-create-issue.sh \
+${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
   --title "<task title>" \
   --body "$(cat "$TMP")" \
   --labels "<labels>" \

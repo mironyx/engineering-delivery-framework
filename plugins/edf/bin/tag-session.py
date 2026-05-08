@@ -1,7 +1,7 @@
 """Tag the current Claude Code session with a feature ID.
 
 Usage:
-  py scripts/tag-session.py <issue-number> [--cont]
+  py bin/tag-session.py <issue-number> [--cont]
 
 What it does:
   1. Derives the Claude project key from git root (works on Windows and WSL)

@@ -320,7 +320,7 @@ Agent({
 })
 ```
 
-The agent runs `gh issue create` per task (via `scripts/gh-create-issue.sh`, which deduplicates and adds to the board), captures each result (`created:<N>` or `exists:<N>`), substitutes the real numbers everywhere `T1`/`T2`/… appear in `epic_body`, and runs `gh issue edit <epic_number> --body ...`. No per-issue confirmations.
+The agent runs `gh issue create` per task (via `${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh`, which deduplicates and adds to the board), captures each result (`created:<N>` or `exists:<N>`), substitutes the real numbers everywhere `T1`/`T2`/… appear in `epic_body`, and runs `gh issue edit <epic_number> --body ...`. No per-issue confirmations.
 
 ##### Task body template
 

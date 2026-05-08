@@ -12,7 +12,7 @@ Fallback: sort all JSONL files by mtime and try each one in order.
 
 Usage:
     python get-session-id.py
-    .claude/hooks/run-python.sh scripts/get-session-id.py
+    .claude/hooks/run-python.sh bin/get-session-id.py
 """
 
 import json
