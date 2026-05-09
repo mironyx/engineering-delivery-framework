@@ -19,7 +19,7 @@ Executes the implementation cycle from design reading through PR review. Called 
 These override any conflicting instinct. Violations are the top cost drivers.
 
 1. **Never run `${EDF_SCRIPTS}/run-tests.sh` without a file filter in Step 4.** Use `${EDF_SCRIPTS}/run-tests.sh <test-file>`. The full suite runs once in Step 5 — nowhere else.
-2. **Step 5 uses `test-runner` agent, not Bash.** All verification commands run inside the agent — zero test output reaches the main context. This applies to single-file runs during the fix loop too.
+2. **Step 5 uses `edf:test-runner` agent, not Bash.** All verification commands run inside the agent — zero test output reaches the main context. This applies to single-file runs during the fix loop too.
 3. **Pass pointers to sub-agents, not content.** File paths, issue numbers, LLD paths. Never paste diffs or file contents into agent prompts.
 4. **Never invoke `/simplify`.** Only if the user explicitly asks.
 5. **Do not move the board item to Done.** `/feature-end` handles that.
@@ -63,7 +63,7 @@ tests, docs, config). Use your approach from Step 3b as the basis — you know t
 
 | Tier | Estimated src lines | Files touched | Pipeline adjustments |
 |------|-------------------|---------------|---------------------|
-| **Light** | < 30 lines | ≤ 3 files | Inline tests (skip test-author agent), skip evaluator, /diag on src/ only |
+| **Light** | < 30 lines | ≤ 3 files | Inline tests (skip edf:test-author agent), skip evaluator, /diag on src/ only |
 | **Standard** | 30–150 lines | any | Full pipeline as documented |
 | **Heavy** | 150+ lines | any | Full pipeline, consider splitting into sub-issues |
 
@@ -97,7 +97,7 @@ No sub-agents. Write the fix and regression tests in one pass.
    Runs only the affected test file (the script takes an optional path argument). Do not launch a sub-agent for this — the output is compact and belongs in the main context.
 4. Proceed directly to Step 5 (full verification).
 
-**Do not** launch the test-author or edf:feature-evaluator agents.
+**Do not** launch the edf:test-author or edf:feature-evaluator agents.
 
 ---
 
@@ -120,14 +120,14 @@ requires a new signature (e.g. adding a parameter), commit the signature change 
 The PostToolUse hook opens edited files in the editor automatically for diagnostics analysis.
 If the hook fires with inline findings, address them before moving on.
 
-##### Step 4b: Hand off to the `test-author` sub-agent
+##### Step 4b: Hand off to the `edf:test-author` sub-agent
 
 **HTTP mocking constraint:** instruct the sub-agent to use MSW for all HTTP interactions — not `fetchImpl`, fetch spies, or manual stubs. CLAUDE.md requires MSW unless there is a documented reason not to.
 
-Launch the `test-author` agent with:
+Launch the `edf:test-author` agent with:
 
 ```
-Launch Agent: test-author
+Launch Agent: edf:test-author
 Input:
   issue_number: <N>
   requirements_paths: <list of paths, e.g. ["docs/requirements/v1-requirements.md"]>
@@ -159,7 +159,7 @@ to make the tests pass.
 Run only the target test file after each increment:
 
 ```
-Launch Agent: test-runner
+Launch Agent: edf:test-runner
 Input: command="${EDF_SCRIPTS}/run-tests.sh <test-file>"
 ```
 
@@ -172,18 +172,18 @@ into the sub-agent's prompt).
 
 ### Step 5: Full verification
 
-Delegate all checks to the `test-runner` agent — **do not run these as Bash directly**.
+Delegate all checks to the `edf:test-runner` agent — **do not run these as Bash directly**.
 This keeps verbose output out of the main context.
 
 ```
-Launch Agent: test-runner
+Launch Agent: edf:test-runner
 Input: command="${EDF_SCRIPTS}/run-tests.sh && ${EDF_SCRIPTS}/run-typecheck.sh && ${EDF_SCRIPTS}/run-lint.sh"
 ```
 
 If E2E tests exist (the project's `e2e-dir` is non-empty), also run:
 
 ```
-Launch Agent: test-runner
+Launch Agent: edf:test-runner
 Input: command="${EDF_SCRIPTS}/run-build.sh && ${EDF_SCRIPTS}/run-e2e.sh"
 ```
 
@@ -192,7 +192,7 @@ playwright run needs (placeholder Supabase URLs, test API keys, etc.). The scrip
 keeps that detail inside the project, not in the skill.
 
 All must pass — zero failures, including integration tests — before proceeding.
-If any fail, fix and re-run via `test-runner`. If stuck after 3 attempts on the same failure, pause and report.
+If any fail, fix and re-run via `edf:test-runner`. If stuck after 3 attempts on the same failure, pause and report.
 
 ### Step 6: Diagnostics (blocking gate)
 
@@ -220,12 +220,12 @@ Then:
 
 **Standard / Heavy pressure:** Launch the `edf:feature-evaluator` agent. Pass it:
 
-- `requirements_paths` — same list passed to the test-author in Step 4b
+- `requirements_paths` — same list passed to the edf:test-author in Step 4b
 - `lld_path` — the LLD file read in Step 3 (or the issue number if no LLD exists)
 - `issue_number` — the current issue number
 - `changed_files` — all `src/` files created or modified in this cycle
 - `test_files` — all `tests/` files created or modified in this cycle (including the
-  file the `test-author` sub-agent produced in Step 4b)
+  file the `edf:test-author` sub-agent produced in Step 4b)
 
 ```
 Launch Agent: edf:feature-evaluator
@@ -264,7 +264,7 @@ git push -u origin HEAD
 Create the PR using the script (handles PR body template, cost tracking, and session ID):
 
 ```bash
-PR_URL=$(${EDF_SCRIPTS}/create-feature-pr.sh \
+PR_URL=$(${CLAUDE_PLUGIN_ROOT}/bin/create-feature-pr.sh \
   --issue <number> \
   --title "<short title>" \
   --summary "<1-3 bullet points>" \

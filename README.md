@@ -21,9 +21,9 @@ claude --plugin-dir ./engineering-delivery-framework
 ## What's included
 
 - **22 skills** — `/edf:feature`, `/edf:feature-core`, `/edf:diag`, `/edf:architect`, `/edf:kickoff`, `/edf:create-adr`, `/edf:create-plan`, `/edf:lld`, `/edf:pr-review`, `/edf:retro`, `/edf:baseline`, `/edf:drift-scan`, `/edf:backlog`, `/edf:discovery`, `/edf:requirements`, `/edf:feature-end`, `/edf:feature-team`, `/edf:lld-sync`, `/edf:bug`, `/edf:create-mermaid-diagram`, `/edf:frontend-architect`
-- **4 agents** — ci-probe, diagnostics-checker, feature-evaluator, requirements-design-drift
+- **7 agents** — ci-probe, diagnostics-checker, feature-evaluator, gh-issue-manager, requirements-design-drift, test-author, test-runner
 - **3 hooks** — PostToolUse diagnostics + editor open, PreCompact session log
-- **8 utility scripts** — GitHub project management, session tagging, cost tracking, test output summarizers (vitest, pytest)
+- **9 utility scripts** — GitHub project management, session tagging, cost tracking, PR creation, test output summarizers (vitest, pytest)
 
 ## Project configuration
 
