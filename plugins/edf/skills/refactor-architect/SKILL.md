@@ -102,7 +102,7 @@ For each LLD anchor found, capture:
 - Prose references the refactor will invalidate.
 - Any "shared X reused" claims that warrant a Boundary Contract Audit update.
 
-Also consult `docs/design/coverage-*.yaml` and `kb/architecture.md` (or equivalent shared-helpers doc).
+Also consult `docs/design/coverage-*.yaml`, `kb/architecture.md` (helper catalogue), and `kb/anti-patterns.md` (patterns the refactor should eliminate or add).
 
 Output: full **Design references** list — `(LLD anchor)+ (kb-doc row)*`.
 

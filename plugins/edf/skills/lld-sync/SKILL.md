@@ -106,15 +106,15 @@ For each Omission:
 
 ### Step 3a: Update the knowledge base
 
-The kb is a living set of documents — `/lld-sync` is the only skill that grows or trims the helper catalogue and anti-patterns.
+The kb is a living set of documents. `/lld-sync` updates the helper catalogue (`kb/architecture.md`) and anti-patterns (`kb/anti-patterns.md`) based on implementation learnings.
 
 **[refactor]** The refactor LLD's "kb entry" subsection enumerates the entries this PR should land in the kb (typically: one row for the new shared component in `kb/architecture.md`, plus one or more anti-pattern entries in `kb/anti-patterns.md`). Verify each is present. If absent (e.g. `/feature` skipped the kb edit), add verbatim from the LLD. If already present (e.g. the implementing PR added them), no-op. Refactor mode is directive — do not invent entries beyond what the refactor LLD specifies.
 
 **[feature]** Run these reactive checks:
 
-1. **New reusable helper introduced.** If the implementation added a new exported symbol in a shared module (`src/lib/`, data-access layer, engine module, or any `service` file) that future features should reuse, add a one-line entry to `kb/architecture.md` (API composition pattern section). Bar for inclusion: would future LLDs cause drift if they re-implemented it? If yes, add it. If not (purely local utility), skip.
-2. **Re-implementation pattern uncovered.** If a Correction in Step 2 was caused by the LLD inlining a query or behaviour that an existing canonical helper already covered, append the inlined-pattern → helper mapping to `kb/anti-patterns.md` (Kernel reuse section). This prevents the same drift on the next epic.
-3. **Symbol renamed or retired.** If the implementation renamed an exported symbol, update the entry in `kb/architecture.md`. If a symbol was deleted, remove the entry — keep the kb a true reflection of the codebase.
+1. **New reusable helper introduced.** If the implementation added a new exported symbol in a shared module (see `kb/file-map.md` for project-specific paths) that future features should reuse, add a one-line entry to `kb/architecture.md` (API composition pattern section). Bar for inclusion: would future LLDs cause drift if they re-implemented it? If yes, add it. If not (purely local utility), skip.
+2. **Re-implementation pattern uncovered.** If a Correction in Step 2 was caused by the LLD inlining a query or behaviour that an existing reusable helper already covered, append the inlined-pattern → helper mapping to `kb/anti-patterns.md` (Helper reuse section). This prevents the same drift on the next epic.
+3. **Reusable helper renamed or retired.** If the implementation renamed an exported reusable helper, update the entry in `kb/architecture.md`. If a helper was deleted, remove the entry — keep the kb a true reflection of the codebase.
 4. **No changes needed.** If the diff did not touch any reusable surface, skip — do not edit the kb for cosmetic reasons.
 
 When the kb changes, mention it in the sync report (Step 4).
@@ -175,6 +175,7 @@ If retirement applies:
 
 1. **Verify durable references exist:**
    - `kb/architecture.md` entry for the new shared component (added by the foundation task).
+   - `kb/anti-patterns.md` entries for any patterns the refactor eliminated (added during implementation).
    - Each consumer LLD listed in the refactor LLD's "LLD sweep targets" has a "Reused helpers — DO NOT re-implement" row pointing at the new component (added during T2-Tn migrations).
    - Surface any missing reference to the user as a blocker before proceeding.
 

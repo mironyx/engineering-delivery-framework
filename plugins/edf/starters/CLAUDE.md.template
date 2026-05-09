@@ -32,6 +32,19 @@ Pipeline: `idea → /discovery → /requirements → /kickoff → /architect →
 
 <!-- Project-specific principles -->
 
+## Knowledge Base (kb/)
+
+The `kb/` directory documents project-specific conventions that EDF skills read at runtime:
+
+| File | Purpose | Read by |
+|------|---------|---------|
+| `kb/architecture.md` | Architecture rules, API composition patterns, reusable helper catalogue | `/lld`, `/pr-review`, `/lld-sync` |
+| `kb/anti-patterns.md` | Framework/language anti-patterns, Helper reuse section | `/pr-review`, `/lld-sync` |
+| `kb/conventions.md` | File naming/path conventions, test suffix, schema patterns | `/pr-review` |
+| `kb/file-map.md` | Logical concept → file path mappings (engine-dir, api-dir, etc.) | `/pr-review`, `/lld-sync` |
+
+Populate these from `starters/kb/` on first use.
+
 ## Key Directories
 
 <!-- Project-specific directory layout -->
