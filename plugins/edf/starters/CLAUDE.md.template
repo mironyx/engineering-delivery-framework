@@ -30,7 +30,11 @@ Pipeline: `idea → /discovery → /requirements → /kickoff → /architect →
 
 ## Coding Principles
 
-<!-- Project-specific principles -->
+<!-- Project-specific principles, e.g.:
+- HTTP mocking: Use MSW for all HTTP interactions in tests (TypeScript).
+  Do not use fetchImpl, fetch spies, or manual stubs.
+- HTTP mocking: Use responses or pytest-httpx for all HTTP interactions in tests (Python).
+  Do not use manual stubs or monkeypatching. -->
 
 ## Knowledge Base (kb/)
 
