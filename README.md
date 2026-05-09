@@ -21,7 +21,7 @@ claude --plugin-dir ./engineering-delivery-framework
 ## What's included
 
 - **22 skills** — `/edf:feature`, `/edf:feature-core`, `/edf:diag`, `/edf:architect`, `/edf:kickoff`, `/edf:create-adr`, `/edf:create-plan`, `/edf:lld`, `/edf:pr-review`, `/edf:retro`, `/edf:baseline`, `/edf:drift-scan`, `/edf:backlog`, `/edf:discovery`, `/edf:requirements`, `/edf:feature-end`, `/edf:feature-team`, `/edf:lld-sync`, `/edf:bug`, `/edf:create-mermaid-diagram`, `/edf:frontend-architect`
-- **4 agents** — ci-probe, diagnostics-checker, feature-evaluator, requirements-design-drift
+- **7 agents** — ci-probe, diagnostics-checker, feature-evaluator, gh-issue-manager, requirements-design-drift, test-author, test-runner
 - **3 hooks** — PostToolUse diagnostics + editor open, PreCompact session log
 - **8 utility scripts** — GitHub project management, session tagging, cost tracking, test output summarizers (vitest, pytest)
 
@@ -53,7 +53,7 @@ EDF skills assume certain docs live in standard locations. Configure these in yo
 
 ## Script contract
 
-EDF skills invoke project-specific scripts instead of hardcoded commands. Each project using EDF must provide these 7 scripts in `scripts/`:
+EDF skills invoke project-specific scripts instead of hardcoded commands. Each project using EDF must provide these 8 scripts in `scripts/`:
 
 | Script | Purpose | Exit |
 |---|---|---|
@@ -64,6 +64,7 @@ EDF skills invoke project-specific scripts instead of hardcoded commands. Each p
 | `run-markdown-lint.sh` | Markdown lint | 0 = pass |
 | `run-format-check.sh` | Format check (optional) | 0 = pass |
 | `run-e2e.sh` | E2E (optional) | 0 = pass |
+| `create-feature-pr.sh` | Create feature PR with cost tracking and session ID | 0 = pass |
 
 Starter scripts for TypeScript and Python projects are in `starters/scripts/`.
 

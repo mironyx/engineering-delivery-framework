@@ -34,6 +34,7 @@ EDF_SCRIPTS=${CLAUDE_PLUGIN_ROOT}/starters/scripts/python
 | `run-markdown-lint.sh` | Markdown lint | none | 0 = pass |
 | `run-format-check.sh` | Format check (optional) | none | 0 = pass |
 | `run-e2e.sh` | E2E (optional, skill skips if absent) | none | 0 = pass |
+| `create-feature-pr.sh` | Create feature PR with cost tracking and session ID | --issue, --title, --summary, --design-ref, --tests-added, --tests-total | 0 = pass |
 
 Convention: stdout/stderr captured by the skill; non-zero exit always means fail.
 
