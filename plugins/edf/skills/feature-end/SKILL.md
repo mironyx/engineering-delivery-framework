@@ -105,8 +105,11 @@ git diff --stat origin/main...HEAD -- 'src/**' | tail -1
   session log: "lld-sync skipped — small bug fix, no architectural change." The LLD was
   already updated inline during the feature-core cycle if needed.
 - **Medium/large change (≥ 30 src lines, new functions, new modules):** Run `/lld-sync
-  <issue-number>` to update the LLD with implementation learnings. The sync report feeds
-  into the session log's "Decisions made" section.
+  <issue-number>` to update the LLD with implementation learnings. **Capture the structured
+  sync report (Corrections / Additions / Omissions / Confirmations / LLD updated) — Step 2
+  copies it verbatim into the session log under `## LLD Sync report`.** Decisions narrative
+  and review feedback narrative still go into their own sections; the `## LLD Sync report`
+  section is the unedited `/lld-sync` Step 4 output, preserved for future readers.
 
 Only skip if no LLD covers this issue (chore or infrastructure task) — note the skip in the
 session log.
@@ -151,6 +154,7 @@ If a matching file exists, skip writing and proceed to Step 2.5.
    - Work completed (reference issue number and PR)
    - Decisions made during the session
    - Any review feedback addressed
+   - **`## LLD Sync report`** — paste the structured `/lld-sync` Step 4 output **verbatim** (the Corrections / Additions / Omissions / Confirmations / LLD updated sections you saw in the previous turn). Do not summarise or paraphrase; future readers and the dogfood retro need the unedited report. If `/lld-sync` was skipped (Step 1.5 small-change branch), write a single line: _"Skipped — small bug fix, no architectural change."_
    - Next steps or follow-up items
    - Final feature cost (from Step 2.5) — include both the PR-creation cost (from PR body) and the final total, so the delta is visible
 3. If a draft file was used, delete it: `rm docs/sessions/*-draft.md`.
