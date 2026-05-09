@@ -262,7 +262,7 @@ Process epics in the order listed in the plan. For each epic, run these sub-step
 
 1. **ADR** — produce any cross-cutting decisions first (LLD may reference them).
 2. **LLD** — delegate to `/lld`; this produces the LLD file, the task list, and a draft coverage manifest with `issue: null`.
-3. **Task issues** — read the LLD's `## Tasks` section and dispatch the `gh-issue-manager` agent to create GitHub issues and update the epic body.
+3. **Task issues** — read the LLD's `## Tasks` section and dispatch the `edf:gh-issue-manager` agent to create GitHub issues and update the epic body.
 4. **Coverage manifest backfill** — patch the manifest with real issue numbers.
 5. **Design doc update** — edit any pre-existing design docs (only when the decision logic flagged this).
 
@@ -294,13 +294,13 @@ After `/lld` returns: read the produced LLD to extract task definitions for the 
 
 Read the LLD's `## Tasks` section. Each task entry becomes one GitHub issue.
 
-Pre-assemble the task bodies and the updated epic body (see templates below) using **placeholder task IDs** (`T1`, `T2`, …). The `gh-issue-manager` agent will substitute real `#N` numbers into both the Tasks checklist and the dependency-graph nodes after creating the issues.
+Pre-assemble the task bodies and the updated epic body (see templates below) using **placeholder task IDs** (`T1`, `T2`, …). The `edf:gh-issue-manager` agent will substitute real `#N` numbers into both the Tasks checklist and the dependency-graph nodes after creating the issues.
 
 Then dispatch the agent using the `Agent` tool:
 
 ```
 Agent({
-  subagent_type: "gh-issue-manager",
+  subagent_type: "edf:gh-issue-manager",
   description: "Create task issues for epic #<N>",
   prompt: |
     epic_number: <epic-issue-number>
@@ -401,7 +401,7 @@ The agent substitutes `T1` → `#<created-issue-number>`, `T2` → `#<created-is
 
 #### 4. Coverage manifest backfill
 
-After `gh-issue-manager` returns the mapping `{T1: #N, T2: #M, …}` (or the parent skill reads it from the agent's output), edit `docs/design/coverage-<epic-id>.yaml` and replace each `issue: null` with the corresponding real number. Match by the LLD section anchor: every task in the LLD has one section anchor, and every coverage entry's `lld:` field points at one of those anchors — that's the join key.
+After `edf:gh-issue-manager` returns the mapping `{T1: #N, T2: #M, …}` (or the parent skill reads it from the agent's output), edit `docs/design/coverage-<epic-id>.yaml` and replace each `issue: null` with the corresponding real number. Match by the LLD section anchor: every task in the LLD has one section anchor, and every coverage entry's `lld:` field points at one of those anchors — that's the join key.
 
 ```yaml
 epic: <epic-id>

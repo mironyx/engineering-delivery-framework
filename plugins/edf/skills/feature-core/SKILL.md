@@ -97,7 +97,7 @@ No sub-agents. Write the fix and regression tests in one pass.
    Runs only the affected test file (the script takes an optional path argument). Do not launch a sub-agent for this — the output is compact and belongs in the main context.
 4. Proceed directly to Step 5 (full verification).
 
-**Do not** launch the test-author or feature-evaluator agents.
+**Do not** launch the test-author or edf:feature-evaluator agents.
 
 ---
 
@@ -218,7 +218,7 @@ Then:
 
 **Light pressure: skip.** Proceed to Step 7.
 
-**Standard / Heavy pressure:** Launch the `feature-evaluator` agent. Pass it:
+**Standard / Heavy pressure:** Launch the `edf:feature-evaluator` agent. Pass it:
 
 - `requirements_paths` — same list passed to the test-author in Step 4b
 - `lld_path` — the LLD file read in Step 3 (or the issue number if no LLD exists)
@@ -228,7 +228,7 @@ Then:
   file the `test-author` sub-agent produced in Step 4b)
 
 ```
-Launch Agent: feature-evaluator
+Launch Agent: edf:feature-evaluator
 Input: requirements_paths=<list> lld_path=<path> issue_number=<N> changed_files=<list> test_files=<list>
 ```
 
@@ -278,10 +278,10 @@ If you deviated from the LLD (Step 3b), patch the PR body to add a `## Design de
 
 ### Step 8b: CI probe (background)
 
-Launch `ci-probe` in the background (uses status polling). **Do not wait** — continue with Step 9.
+Launch `edf:ci-probe` in the background (uses status polling). **Do not wait** — continue with Step 9.
 
 ```
-Launch Agent: ci-probe
+Launch Agent: edf:ci-probe
 Input: pr=<pr-number>
 run_in_background: true
 ```
@@ -312,7 +312,7 @@ Summarise what was done:
 - Branch and PR link
 - Tests added / total
 - Review outcome: what was found, what was fixed, what was deferred
-- CI outcome: pass / fail / pending (if the ci-probe has not yet reported back)
+- CI outcome: pass / fail / pending (if the edf:ci-probe has not yet reported back)
 - Any warnings or notes (PR size, diagnostics findings, design drift)
 - Suggested next item from the board
 

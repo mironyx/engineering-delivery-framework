@@ -139,7 +139,7 @@ git commit -m "docs: HLD <version> — capabilities, components, interactions"
 
 ### Step 3: Gate 1 — drift scan and review
 
-Run the `requirements-design-drift` agent against the requirements doc and
+Run the `edf:requirements-design-drift` agent against the requirements doc and
 the new HLD. The agent emits a coverage matrix mapping every requirement
 to a capability and component.
 
@@ -254,7 +254,7 @@ git commit -m "docs: <version> implementation plan"
 
 ### Step 6: Gate 2 — second drift scan and review
 
-Run `requirements-design-drift` again, this time checking that the plan's
+Run `edf:requirements-design-drift` again, this time checking that the plan's
 epics cover the HLD (and transitively the requirements). Present the
 matrix.
 
