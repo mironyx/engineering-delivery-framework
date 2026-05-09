@@ -4,8 +4,8 @@ This plugin ships two kinds of scripts:
 
 | Kind | Location | Runtime | Examples |
 |---|---|---|---|
-| **Plugin scripts** | `${CLAUDE_PLUGIN_ROOT}/bin/` | Claude Code | `gh-create-issue.sh`, `tag-session.py`, `query-feature-cost.py` |
-| **Project scripts** | `${EDF_SCRIPTS}/` | Claude Code, CI | `run-tests.sh`, `run-lint.sh`, `create-feature-pr.sh` |
+| **Plugin scripts** | `${CLAUDE_PLUGIN_ROOT}/bin/` | Claude Code | `gh-create-issue.sh`, `tag-session.py`, `query-feature-cost.py`, `create-feature-pr.sh` |
+| **Project scripts** | `${EDF_SCRIPTS}/` | Claude Code, CI | `run-tests.sh`, `run-lint.sh` |
 
 Plugin scripts are invoked directly via `${CLAUDE_PLUGIN_ROOT}/bin/<name>` (or through `run-python.sh` for Python scripts). Project scripts are invoked via `${EDF_SCRIPTS}/<name>`.
 
@@ -34,7 +34,6 @@ EDF_SCRIPTS=${CLAUDE_PLUGIN_ROOT}/starters/scripts/python
 | `run-markdown-lint.sh` | Markdown lint | none | 0 = pass |
 | `run-format-check.sh` | Format check (optional) | none | 0 = pass |
 | `run-e2e.sh` | E2E (optional, skill skips if absent) | none | 0 = pass |
-| `create-feature-pr.sh` | Create feature PR with cost tracking and session ID | --issue, --title, --summary, --design-ref, --tests-added, --tests-total | 0 = pass |
 
 Convention: stdout/stderr captured by the skill; non-zero exit always means fail.
 

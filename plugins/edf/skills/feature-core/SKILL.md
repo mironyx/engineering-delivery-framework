@@ -264,7 +264,7 @@ git push -u origin HEAD
 Create the PR using the script (handles PR body template, cost tracking, and session ID):
 
 ```bash
-PR_URL=$(${EDF_SCRIPTS}/create-feature-pr.sh \
+PR_URL=$(${CLAUDE_PLUGIN_ROOT}/bin/create-feature-pr.sh \
   --issue <number> \
   --title "<short title>" \
   --summary "<1-3 bullet points>" \

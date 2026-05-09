@@ -3,7 +3,7 @@ name: test-author
 description: >
   Writes thorough tests against spec and requirements before implementation exists.
   Reads requirements, LLD, and issue; identifies observable contract properties;
-  writes test file using project conventions and MSW for HTTP mocking. Spawned by
+  writes test file using project conventions. Spawned by
   feature-core Step 4b (Standard/Heavy pressure path) before implementation.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
@@ -46,11 +46,13 @@ a vague spec.
 
 Read 2–3 existing test files in the same directory or parent directory as
 `target_test_file`. Note:
-- Test framework and assertion library
+- Test framework and assertion library (e.g. vitest + expect for TypeScript,
+  pytest for Python)
 - Import patterns (test helpers, factories, mocks)
-- `describe`/`it` block structure
+- Test block structure (describe/it in vitest, classes/functions in pytest)
 - Naming conventions
-- How HTTP calls are mocked (must use MSW — see below)
+- How HTTP calls are mocked (e.g. MSW for TypeScript, responses or pytest-httpx
+  for Python — follow what the project's CLAUDE.md prescribes)
 
 ### Step 3: Write the tests
 
@@ -60,9 +62,10 @@ Write tests to `target_test_file`. Each test:
 - Uses the same patterns as existing test files in the project
 - Imports from `unit_under_test` (the stub that will be implemented later)
 
-**HTTP mocking:** Use MSW for all HTTP interactions. Do not use `fetchImpl`,
-fetch spies, or manual stubs unless the project's CLAUDE.md explicitly
-documents a reason not to use MSW.
+**HTTP mocking:** Use the project's standard HTTP mocking library as documented
+in CLAUDE.md. For TypeScript projects this is typically MSW; for Python it is
+typically `responses` or `pytest-httpx`. Do not use manual stubs or spies
+unless CLAUDE.md explicitly documents a reason to.
 
 **Bugfix mode:** Include at least one test that reproduces the bug (would fail
 on the pre-fix behaviour).
