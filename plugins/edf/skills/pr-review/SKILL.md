@@ -37,7 +37,7 @@ Run ALL of the following in parallel:
 4. Read the project's dependency manifest if one exists (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc.) — capture exact versions of direct dependencies. Skip if none present.
 5. Read `kb/architecture.md` — the project's architecture rules. Pass its full contents to the review agent(s) as `{{ARCHITECTURE_RULES}}`. Skip if absent.
 6. Read `kb/anti-patterns.md` — the project's anti-pattern checklist (framework-specific patterns, language conventions, kernel-reuse rules). Pass its full contents as `{{ANTI_PATTERNS}}`. Skip if absent.
-7. Read `docs/design/kernel.md` if it exists — the canonical list of reusable helpers. Pass its full contents as `{{KERNEL_MD}}`. Skip if absent (kernel-reuse checks rely on `{{ANTI_PATTERNS}}` content instead).
+7. Pass `kb/architecture.md` contents (already read in step 5) as `{{KERNEL_MD}}` — it doubles as the canonical helper catalogue. Skip if the file has no API composition pattern entries (kernel-reuse checks rely on `{{ANTI_PATTERNS}}` content instead).
 
 If diff is empty, print "Nothing to review — diff is empty." and stop.
 
@@ -124,20 +124,20 @@ Also scan for silent catch blocks (error not passed to any logger) → **block**
 
 If `{{KERNEL_MD}}` is non-empty, it is the curated list of canonical helpers and the
 anti-patterns the project exists to prevent. The "Kernel reuse" section of `{{ANTI_PATTERNS}}`
-lists inline-pattern → kernel-symbol mappings. Apply these checks against the diff:
+lists inline-pattern → canonical-helper mappings. Apply these checks against the diff:
 
 1. **Anti-pattern list** — for each bullet under "Kernel reuse" in `{{ANTI_PATTERNS}}`,
    scan the diff for the inline pattern. Each match → **block** with `"type": "kernel-reuse"`.
-   Quote the offending code and name the kernel symbol that should have been used.
+   Quote the offending code and name the canonical helper that should have been used.
 
 2. **Symbol table reuse** — for each entry in `{{KERNEL_MD}}`'s symbol tables, if the diff
    introduces a function that does the same job (same inputs/outputs, same domain) without
    delegating, **block**. Heuristic: matching name fragments, matching data targets (table
    names, endpoints), or matching return shapes.
 
-3. **LLD kernel-reference check** — if the diff includes or modifies an LLD under
+3. **LLD kb-reference check** — if the diff includes or modifies an LLD under
    `docs/design/` that touches a topic covered by `{{KERNEL_MD}}` but lacks a
-   "Reused helpers — DO NOT re-implement" table naming the kernel symbols it depends on →
+   "Reused helpers — DO NOT re-implement" table naming the canonical helpers it depends on →
    **warn** with `"type": "kernel-reuse"`.
 
 4. **Redundant DB round-trips** (`"type": "db-efficiency"`, **block** if duplicated, **warn**
@@ -187,7 +187,7 @@ Anti-patterns checklist:
 {{ANTI_PATTERNS}}
 </anti_patterns>
 
-Kernel (canonical reusable helpers — block any re-implementation):
+Kb (canonical reusable helpers — block any re-implementation):
 <kernel_md>
 {{KERNEL_MD}}
 </kernel_md>
@@ -372,24 +372,24 @@ Scan the diff for `catch` blocks where the error is not passed to at least a
 
 For each match: **block** finding. Fallback behaviour does not excuse missing observability.
 
-## Step 4: Kernel reuse (canonical helpers — block re-implementation)
+## Step 4: Kb reuse (canonical helpers — block re-implementation)
 
 If `{{KERNEL_MD}}` is non-empty, it lists the project's canonical reusable helpers. The
-"Kernel reuse" section of `{{ANTI_PATTERNS}}` lists inline-pattern → kernel-symbol mappings.
+"Kernel reuse" section of `{{ANTI_PATTERNS}}` lists inline-pattern → canonical-helper mappings.
 Apply these checks:
 
 1. **Anti-pattern list** — scan the diff for each bullet under "Kernel reuse" in
    `{{ANTI_PATTERNS}}`. Each match → **block** with `"type": "kernel-reuse"`. Quote the
-   offending code; name the kernel symbol that should have been used.
+   offending code; name the canonical helper that should have been used.
 
-2. **Symbol reuse** — for each new function in the diff, check whether a kernel symbol in
+2. **Symbol reuse** — for each new function in the diff, check whether a canonical helper in
    `{{KERNEL_MD}}` already does the same job. Heuristics: matching domain, matching data
    targets (table names, endpoints), matching return shapes. If yes and the new function
    does not delegate → **block** with `"type": "kernel-reuse"`.
 
-3. **LLD kernel-reference check** — if the diff includes an LLD under `docs/design/` that
-   touches a kernel topic but lacks a "Reused helpers — DO NOT re-implement" table naming
-   the kernel symbols it depends on → **warn** with `"type": "kernel-reuse"`.
+3. **LLD kb-reference check** — if the diff includes an LLD under `docs/design/` that
+   touches a kb topic but lacks a "Reused helpers — DO NOT re-implement" table naming
+   the canonical helpers it depends on → **warn** with `"type": "kernel-reuse"`.
 
 4. **Redundant DB round-trips** (`"type": "db-efficiency"`) — within a single request
    handler / page render / service call:
@@ -550,7 +550,7 @@ finding). Sort by severity: `block` items first, then `warn`.
 ### PR Review
 
 No issues found. Checked: bugs, code justification, design principles, CLAUDE.md compliance,
-kernel reuse, DB efficiency, framework anti-patterns, design conformance.
+kb reuse, DB efficiency, framework anti-patterns, design conformance.
 [Framework best practices: skipped — no framework files changed.]
 ```
 

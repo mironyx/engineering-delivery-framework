@@ -105,7 +105,7 @@ Mirrors `/architect`'s decomposition logic, applied to refactor work
 instead of feature work.
 
 **Scope assessment.** The skill identifies which LLD sections the refactor
-will invalidate — by inspecting referenced source files, kernel docs, and
+will invalidate — by inspecting referenced source files, kb docs, and
 existing reused-helpers tables in the affected LLDs.
 
 **Decomposition guideline (not a rigid rule).**

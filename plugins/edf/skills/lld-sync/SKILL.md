@@ -104,20 +104,20 @@ For each Omission:
 - If a section is removed via Omission, leave the anchor in place above the deferred/descoped
   marker so the manifest entry still resolves; do not delete the anchor.
 
-### Step 3a: Update the kernel (`docs/design/kernel.md`)
+### Step 3a: Update the knowledge base
 
-The kernel is a living document — `/lld-sync` is the only skill that grows or trims it.
+The kb is a living set of documents — `/lld-sync` is the only skill that grows or trims the helper catalogue and anti-patterns.
 
-**[refactor]** The refactor LLD's "Kernel.md row" subsection enumerates the entries this PR should land in `kernel.md` (typically: one row for the new shared component, plus one or more anti-pattern entries). Verify each is present in `docs/design/kernel.md`. If absent (e.g. `/feature` skipped the kernel.md edit), add verbatim from the LLD. If already present (e.g. the implementing PR added them), no-op. Refactor mode is directive — do not invent entries beyond what the refactor LLD specifies.
+**[refactor]** The refactor LLD's "kb entry" subsection enumerates the entries this PR should land in the kb (typically: one row for the new shared component in `kb/architecture.md`, plus one or more anti-pattern entries in `kb/anti-patterns.md`). Verify each is present. If absent (e.g. `/feature` skipped the kb edit), add verbatim from the LLD. If already present (e.g. the implementing PR added them), no-op. Refactor mode is directive — do not invent entries beyond what the refactor LLD specifies.
 
 **[feature]** Run these reactive checks:
 
-1. **New reusable helper introduced.** If the implementation added a new exported symbol in a shared module (`src/lib/`, data-access layer, engine module, or any `service` file) that future features should reuse, add a one-line entry to the appropriate kernel section. Bar for inclusion: would future LLDs cause drift if they re-implemented it? If yes, add it. If not (purely local utility), skip.
-2. **Re-implementation pattern uncovered.** If a Correction in Step 2 was caused by the LLD inlining a query or behaviour that an existing kernel symbol already covered, append the inlined-pattern → kernel-symbol mapping to the kernel's "Anti-patterns" section. This prevents the same drift on the next epic.
-3. **Symbol renamed or retired.** If the implementation renamed an exported symbol, update the kernel entry. If a symbol was deleted, remove the entry — keep the kernel a true reflection of the codebase.
-4. **No changes needed.** If the diff did not touch any reusable surface, skip — do not edit the kernel for cosmetic reasons.
+1. **New reusable helper introduced.** If the implementation added a new exported symbol in a shared module (`src/lib/`, data-access layer, engine module, or any `service` file) that future features should reuse, add a one-line entry to `kb/architecture.md` (API composition pattern section). Bar for inclusion: would future LLDs cause drift if they re-implemented it? If yes, add it. If not (purely local utility), skip.
+2. **Re-implementation pattern uncovered.** If a Correction in Step 2 was caused by the LLD inlining a query or behaviour that an existing canonical helper already covered, append the inlined-pattern → helper mapping to `kb/anti-patterns.md` (Kernel reuse section). This prevents the same drift on the next epic.
+3. **Symbol renamed or retired.** If the implementation renamed an exported symbol, update the entry in `kb/architecture.md`. If a symbol was deleted, remove the entry — keep the kb a true reflection of the codebase.
+4. **No changes needed.** If the diff did not touch any reusable surface, skip — do not edit the kb for cosmetic reasons.
 
-When the kernel changes, mention it in the sync report (Step 4).
+When the kb changes, mention it in the sync report (Step 4).
 
 ### Step 3b: Update the coverage manifest
 
@@ -174,12 +174,12 @@ If the issue has `kind:refactor` AND its parent epic (per `## Parent epic` in th
 If retirement applies:
 
 1. **Verify durable references exist:**
-   - `kernel.md` row for the new shared component (added by the foundation task).
+   - `kb/architecture.md` entry for the new shared component (added by the foundation task).
    - Each consumer LLD listed in the refactor LLD's "LLD sweep targets" has a "Reused helpers — DO NOT re-implement" row pointing at the new component (added during T2-Tn migrations).
    - Surface any missing reference to the user as a blocker before proceeding.
 
 2. **Prompt the user for retirement mode:**
-   - **Retire (default):** delete `docs/design/lld-refactor-<slug>.md`. Pure consolidation refactors fit this — contract lives in source, mock helper in test util, kernel.md has the row, consumer LLDs got their reused-helpers rows.
+   - **Retire (default):** delete `docs/design/lld-refactor-<slug>.md`. Pure consolidation refactors fit this — contract lives in source, mock helper in test util, kb/architecture.md has the entry, consumer LLDs got their reused-helpers rows.
    - **Promote to ADR:** the refactor LLD contains durable architectural rationale (alternatives considered, load-bearing decisions). Spin out a new ADR with the durable content; then delete the refactor LLD.
    - **Persist as canonical component LLD:** rare. The shared component is non-trivial with ongoing design questions. Rename `lld-refactor-<slug>.md` → `lld-component-<slug>.md`; strip transitional sections (Step order, Per-task decomposition, BCA results); keep durable ones (Interface, types, ongoing rationale).
 

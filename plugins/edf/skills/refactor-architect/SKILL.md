@@ -102,9 +102,9 @@ For each LLD anchor found, capture:
 - Prose references the refactor will invalidate.
 - Any "shared X reused" claims that warrant a Boundary Contract Audit update.
 
-Also consult `docs/design/coverage-*.yaml` and `docs/design/kernel.md` (or equivalent shared-helpers doc).
+Also consult `docs/design/coverage-*.yaml` and `kb/architecture.md` (or equivalent shared-helpers doc).
 
-Output: full **Design references** list — `(LLD anchor)+ (kernel-doc row)*`.
+Output: full **Design references** list — `(LLD anchor)+ (kb-doc row)*`.
 
 ### Step 4: Decide decomposition
 
@@ -192,7 +192,7 @@ Report what was created and the recommended next step:
 
 ## Project conventions
 
-This skill inherits the project conventions documented in `/architect` SKILL.md (LLD path patterns, coverage manifests, kernel doc, project board scripts, label set, `edf:gh-issue-manager` agent). It adds only:
+This skill inherits the project conventions documented in `/architect` SKILL.md (LLD path patterns, coverage manifests, kb docs, project board scripts, label set, `edf:gh-issue-manager` agent). It adds only:
 
 - **ADR reference:** The cross-cutting-refactor-lld-discipline ADR defines the refactor lifecycle, smells, Boundary Contract Audit format, and decomposition guideline. When porting to a project that records the refactor lifecycle in a different ADR, re-anchor accordingly.
 - **Label:** `kind:lld-sweep` for refactor epics. Create on first use if not present.

@@ -64,9 +64,9 @@ Compliance checks specific to the language(s) you use.
 
 ## Kernel reuse
 
-If your project maintains a kernel doc (canonical reusable helpers, e.g.
-`docs/design/kernel.md`), list the inline patterns that must *delegate* to a kernel
-symbol instead. Each entry: inline pattern → kernel symbol that should be used.
+If your project maintains a kb doc (canonical reusable helpers, e.g.
+`kb/architecture.md`), list the inline patterns that must *delegate* to a canonical
+helper instead. Each entry: inline pattern → kb symbol that should be used.
 
 <!-- e.g.
 - Inline `from('user_organisations')` membership query → use `readMembershipSnapshot`.
@@ -76,5 +76,5 @@ symbol instead. Each entry: inline pattern → kernel symbol that should be used
 - Locally redefined canonical types (`AuthUser`, etc.) → import from canonical module.
 -->
 
-Leave this section empty if your project has no kernel doc — `/pr-review` skips
-kernel-reuse checks when neither this section nor `docs/design/kernel.md` is populated.
+Leave this section empty if your project has no kb doc — `/pr-review` skips
+kernel-reuse checks when neither this section nor `kb/architecture.md` is populated.
