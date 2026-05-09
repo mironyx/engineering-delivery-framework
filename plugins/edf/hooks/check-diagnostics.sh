@@ -29,101 +29,96 @@ const path = require('path');
 // Record when the hook started — used to distinguish fresh vs stale diagnostics
 const hookStartTime = Date.now();
 
-
-// --- Read the JSON payload that Claude Code pipes to stdin ---
-let chunks = [];
-process.stdin.on('data', c => chunks.push(c));
-process.stdin.on('end', () => {
-  const input = JSON.parse(Buffer.concat(chunks).toString());
-  const filePath = input.tool_input?.file_path || '';
-  const cwd = input.cwd || '';
+// Read stdin synchronously to avoid the race where 'end' fires before listeners attach
+const stdinBuffer = fs.readFileSync(0);
+const input = JSON.parse(stdinBuffer.toString());
+const filePath = input.tool_input?.file_path || '';
+const cwd = input.cwd || '';
 
 
-  if (!filePath || !cwd) {
-    process.exit(0);
-  }
+if (!filePath || !cwd) {
+  process.exit(0);
+}
 
-  // Skip in git worktrees — VS Code diagnostics-exporter only watches the main
-  // worktree, so polling here will always time out with no result.
-  const diagRoot = path.join(cwd, '.diagnostics');
-  if (!fs.existsSync(diagRoot)) {
-    process.exit(0);
-  }
+// Skip in git worktrees — VS Code diagnostics-exporter only watches the main
+// worktree, so polling here will always time out with no result.
+const diagRoot = path.join(cwd, '.diagnostics');
+if (!fs.existsSync(diagRoot)) {
+  process.exit(0);
+}
 
-  // --- Normalise paths (Windows backslashes to forward slashes) ---
-  const normFile = filePath.replace(/\\\\/g, '/');
-  const normCwd = cwd.replace(/\\\\/g, '/');
+// --- Normalise paths (Windows backslashes to forward slashes) ---
+const normFile = filePath.replace(/\\\\/g, '/');
+const normCwd = cwd.replace(/\\\\/g, '/');
 
-  // Derive relative path from project root
-  let relPath = normFile;
-  if (normFile.startsWith(normCwd + '/')) {
-    relPath = normFile.slice(normCwd.length + 1);
-  }
+// Derive relative path from project root
+let relPath = normFile;
+if (normFile.startsWith(normCwd + '/')) {
+  relPath = normFile.slice(normCwd.length + 1);
+}
 
-  // Check TypeScript/JavaScript, YAML, and Dockerfile
-  const basename = relPath.split('/').pop() || '';
-  if (!/\\.(tsx?|jsx?|ya?ml)$/.test(relPath) && basename !== 'Dockerfile') {
-    process.exit(0);
-  }
+// Check for supported source file extensions (language-agnostic)
+const basename = relPath.split('/').pop() || '';
+if (!/\\.(tsx?|jsx?|py|ya?ml)$/.test(relPath) && basename !== 'Dockerfile') {
+  process.exit(0);
+}
 
-  // --- Map source file to its diagnostics export ---
-  // e.g. src/lib/engine/scoring.ts -> .diagnostics/src/lib/engine/scoring.ts.json
-  const diagFile = path.join(cwd, '.diagnostics', relPath + '.json');
+// --- Map source file to its diagnostics export ---
+// e.g. src/lib/engine/scoring.ts -> .diagnostics/src/lib/engine/scoring.ts.json
+const diagFile = path.join(cwd, '.diagnostics', relPath + '.json');
 
-  // --- Poll for fresh diagnostics (500ms intervals, up to 5s) ---
-  // We check analyzedAt against hookStartTime — only a file written after
-  // this hook fired counts as fresh. This avoids both stale reads and the
-  // race condition where a fast provider writes the file before we start polling.
-  let attempts = 0;
-  const maxAttempts = 10;
-  const intervalMs = 500;
+// --- Poll for fresh diagnostics (500ms intervals, up to 5s) ---
+// We check analyzedAt against hookStartTime — only a file written after
+// this hook fired counts as fresh. This avoids both stale reads and the
+// race condition where a fast provider writes the file before we start polling.
+let attempts = 0;
+const maxAttempts = 10;
+const intervalMs = 500;
 
-  function check() {
-    attempts++;
+function check() {
+  attempts++;
 
-    if (fs.existsSync(diagFile)) {
-      try {
-        const diag = JSON.parse(fs.readFileSync(diagFile, 'utf8'));
-        const analyzedAt = new Date(diag.analyzedAt).getTime();
+  if (fs.existsSync(diagFile)) {
+    try {
+      const diag = JSON.parse(fs.readFileSync(diagFile, 'utf8'));
+      const analyzedAt = new Date(diag.analyzedAt).getTime();
 
-        if (analyzedAt > hookStartTime) {
-          // Fresh diagnostics — report them if there are any issues
-          if (diag.diagnostics && diag.diagnostics.length > 0) {
-            const lines = diag.diagnostics.map(d =>
-              '  ' + d.severity + ' at line ' + d.line + ':' + d.column
-              + ' [' + d.source + '/' + d.code + '] ' + d.message
-            );
-            const summary = 'VS Code diagnostics for ' + diag.file
-              + ' (' + diag.diagnostics.length + ' issues):\\n' + lines.join('\\n');
+      if (analyzedAt > hookStartTime) {
+        // Fresh diagnostics — report them if there are any issues
+        if (diag.diagnostics && diag.diagnostics.length > 0) {
+          const lines = diag.diagnostics.map(d =>
+            '  ' + d.severity + ' at line ' + d.line + ':' + d.column
+            + ' [' + d.source + '/' + d.code + '] ' + d.message
+          );
+          const summary = 'VS Code diagnostics for ' + diag.file
+            + ' (' + diag.diagnostics.length + ' issues):\\n' + lines.join('\\n');
 
-
-            // --- Write response using Claude Code's hook protocol ---
-            process.stdout.write(JSON.stringify({
-              hookSpecificOutput: {
-                hookEventName: 'PostToolUse',
-                additionalContext: summary
-              }
-            }));
-            process.exit(0);
-          } else {
-            // Fresh analysis, no issues — exit silently
-            process.exit(0);
-          }
+          // --- Write response using Claude Code's hook protocol ---
+          process.stdout.write(JSON.stringify({
+            hookSpecificOutput: {
+              hookEventName: 'PostToolUse',
+              additionalContext: summary
+            }
+          }));
+          process.exit(0);
+        } else {
+          // Fresh analysis, no issues — exit silently
+          process.exit(0);
         }
-        // else: file exists but analyzedAt <= hookStartTime — stale, keep polling
-      } catch (e) {
-        // File might be mid-write by the extension, retry on next tick
       }
-    }
-
-    if (attempts < maxAttempts) {
-      setTimeout(check, intervalMs);
-    } else {
-      process.exit(0);
+      // else: file exists but analyzedAt <= hookStartTime — stale, keep polling
+    } catch (e) {
+      // File might be mid-write by the extension, retry on next tick
     }
   }
 
-  // Start polling immediately — no initial delay needed since we use timestamps
-  check();
-});
+  if (attempts < maxAttempts) {
+    setTimeout(check, intervalMs);
+  } else {
+    process.exit(0);
+  }
+}
+
+// Start polling immediately — no initial delay needed since we use timestamps
+check();
 "

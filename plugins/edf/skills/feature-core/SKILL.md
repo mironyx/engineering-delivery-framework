@@ -110,7 +110,7 @@ Flow: interface → independent tests → implementation → green.
 ##### Step 4a: Write the interface, not the behaviour
 
 Main agent writes only the *public surface* of the unit under change: exported types,
-Zod schemas, function signatures, and stub bodies that throw `not implemented`. No
+schemas, function signatures, and stub bodies that throw `not implemented`. No
 behaviour logic, no happy-path code, no error handling. The surface is derived from the
 LLD or issue contract, not from any implementation choice.
 
@@ -122,7 +122,7 @@ If the hook fires with inline findings, address them before moving on.
 
 ##### Step 4b: Hand off to the `edf:test-author` sub-agent
 
-**HTTP mocking constraint:** instruct the sub-agent to use MSW for all HTTP interactions — not `fetchImpl`, fetch spies, or manual stubs. CLAUDE.md requires MSW unless there is a documented reason not to.
+**HTTP mocking constraint:** instruct the sub-agent to use the project's HTTP mocking convention as declared in CLAUDE.md (e.g. MSW for TypeScript, `respx` or `pytest-httpx` for Python) — not manual stubs, spies, or monkeypatching. The CLAUDE.md convention is authoritative; do not override it in the agent prompt.
 
 Launch the `edf:test-author` agent with:
 
@@ -180,7 +180,16 @@ Launch Agent: edf:test-runner
 Input: command="${EDF_SCRIPTS}/run-tests.sh && ${EDF_SCRIPTS}/run-typecheck.sh && ${EDF_SCRIPTS}/run-lint.sh"
 ```
 
-If E2E tests exist (the project's `e2e-dir` is non-empty), also run:
+Check whether E2E tests exist by reading `kb/conventions.md` for the `e2e-dir` value, then:
+```bash
+E2E_DIR=$(grep 'e2e-dir' kb/conventions.md | sed 's/.*<!-- e.g. `\(.*\)` -->/\\1/')
+if [ -n "$E2E_DIR" ] && [ "$(ls -A "$E2E_DIR" 2>/dev/null)" ]; then
+  echo "E2E tests found"
+else
+  echo "No E2E tests — skipping"
+fi
+```
+If the directory exists and is non-empty, also run:
 
 ```
 Launch Agent: edf:test-runner
@@ -232,7 +241,7 @@ Launch Agent: edf:feature-evaluator
 Input: requirements_paths=<list> lld_path=<path> issue_number=<N> changed_files=<list> test_files=<list>
 ```
 
-**HTTP mocking check:** if the test files use `fetchImpl`, fetch spies, or manual HTTP stubs instead of MSW, flag it as a blocker — the tests must be rewritten before the feature can proceed.
+**HTTP mocking check:** verify the test files use the project's HTTP mocking convention as declared in CLAUDE.md. If they use manual stubs, spies, or monkeypatching instead, flag it as a blocker — the tests must be rewritten before the feature can proceed.
 
 **Triage the verdict:**
 

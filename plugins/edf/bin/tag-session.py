@@ -90,6 +90,14 @@ def find_session_jsonl_via_proc(claude_dir: pathlib.Path) -> pathlib.Path | None
     session JSONL open for writing, so we can identify it without mtime races or
     content searches that may match the lead's session instead.
     """
+    # 1. Try CLD_SESSION_ID env var (cross-platform, set by Claude Code)
+    session_id = os.environ.get("CLD_SESSION_ID") or os.environ.get("CLAUDE_SESSION_ID")
+    if session_id:
+        candidate = claude_dir / f"{session_id}.jsonl"
+        if candidate.exists():
+            return candidate
+
+    # 2. Try /proc/<ppid>/fd (Linux / WSL)
     try:
         ppid = next(
             line.split()[1]
@@ -143,7 +151,7 @@ def find_session_jsonl(claude_dir: pathlib.Path, issue_hint: str | None = None, 
     # the first user message. The lead's JSONL also contains these strings (in Agent
     # tool-call payloads later in the file), so we must only match against the FIRST user
     # message — which for teammates is the spawn prompt, and for the lead is the human's
-    # input.
+    # input. On Windows (no /proc), this fallback is the primary detection path.
     search_terms = [f"issue #{issue_hint}"]
     if feature_prefix:
         search_terms.append(f"{feature_prefix}-{issue_hint}")

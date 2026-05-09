@@ -20,15 +20,17 @@ Establishes the frontend design system for the project. This skill runs **once**
 
 Read all of the following to understand what already exists:
 
-1. `src/app/layout.tsx` — root layout (fonts, global CSS imports)
-2. `src/app/(authenticated)/layout.tsx` — authenticated shell
-3. All `src/app/**/*.tsx` pages — page structure and content
-4. All `src/components/**/*.tsx` — existing components
+1. Root layout / app shell (e.g. `src/app/layout.tsx` for Next.js, `src/App.tsx` for Vite/React)
+2. Authenticated layout wrapper if the app has auth
+3. All page/route components under the pages directory
+4. All shared components (e.g. `src/components/**/*`)
 5. `package.json` — check for any existing CSS/UI framework dependencies
 6. Any `.css` files under `src/`
-7. `tailwind.config.*` if present
+7. Framework config files (e.g. `tailwind.config.*`, `postcss.config.*`, `vite.config.*`)
 8. `docs/design/` — check if any frontend design decisions already exist
 9. `docs/adr/` — check for relevant ADRs (e.g., CSS framework choices)
+
+The exact paths depend on the project's framework — read `CLAUDE.md` and `kb/conventions.md` for the project's conventions. Do not assume Next.js App Router.
 
 Summarise what you find:
 - How many pages exist and what they do
@@ -55,16 +57,16 @@ Choose a **specific, intentional aesthetic** and justify it. Document:
 
 ### Step 3: Choose the CSS/component approach
 
-Evaluate and decide:
+Evaluate options appropriate to the project's framework (read `CLAUDE.md` and `package.json` to identify it):
 
-| Concern | Options | Recommendation |
-|---------|---------|----------------|
-| CSS framework | Tailwind CSS, CSS Modules, styled-components | Tailwind CSS (standard for Next.js App Router) |
-| Component primitives | shadcn/ui (Radix + Tailwind), Radix bare, Headless UI | shadcn/ui — unstyled accessibility primitives with full Tailwind control |
-| Icons | lucide-react, heroicons, phosphor | lucide-react (used by shadcn/ui) |
-| Fonts | Google Fonts via `next/font`, local fonts | `next/font/google` — zero layout shift |
+| Concern | Common options (by framework) |
+|---------|------------------------------|
+| CSS framework | Tailwind CSS, CSS Modules, styled-components, Panda CSS, Vanilla Extract |
+| Component primitives | shadcn/ui, Radix bare, Headless UI, Ark UI, framework-native |
+| Icons | lucide-react, heroicons, phosphor (or framework equivalents) |
+| Fonts | `next/font`, `@fontsource`, local fonts, Google Fonts CDN |
 
-Record the final choices. If you deviate from the recommendations, document why as an ADR using `/create-adr`.
+Base your recommendation on the project's framework, not on a generic default. Record the final choices and the rationale. If you make a non-obvious technology choice, document why as an ADR using `/create-adr`.
 
 ### Step 4: Define design tokens
 
@@ -197,13 +199,15 @@ Structure:
 [ordered list of what must be done before any feature uses this system]
 ```
 
-The **Bootstrap Tasks** section is critical — it lists the one-time setup work that must happen before any feature can use the design system:
+The **Bootstrap Tasks** section is critical — it lists the one-time setup work that must happen before any feature can use the design system. Tasks vary by framework; derive them from the choices in Step 3. Example for a Tailwind/Next.js setup:
 
-1. Install dependencies (`tailwindcss`, `shadcn/ui` init, `lucide-react`, fonts)
-2. Create `src/app/globals.css` with CSS variables and Tailwind base
-3. Create `tailwind.config.ts` with extended tokens
-4. Update `src/app/layout.tsx` to import globals.css and set font variables
-5. Update `src/app/(authenticated)/layout.tsx` with the layout shell styles
+1. Install dependencies (CSS framework, component library, icons, fonts)
+2. Create global stylesheet with CSS variables and framework base
+3. Create framework config with extended design tokens
+4. Update root layout to import global styles and set font variables
+5. Update authenticated shell layout with the layout shell styles
+
+The exact file paths depend on the project's framework — use `CLAUDE.md` and `kb/conventions.md` for the correct paths.
 
 Each bootstrap task should become a GitHub issue.
 
@@ -255,7 +259,7 @@ Present a summary:
 - **Do not implement.** This skill produces a design spec and bootstrap issues only — no production code, no `globals.css`, no `tailwind.config.ts`.
 - **Be specific.** Every token must be an exact value. "A neutral dark palette" is not a token. `--color-background: #0f1117` is.
 - **Be bold.** Generic defaults (Inter, white background, blue accent) are explicitly forbidden. The design must have a point of view.
-- **Respect existing structure.** Work with the existing Next.js App Router layout hierarchy, not against it.
+- **Respect existing structure.** Work with the project's existing framework and layout hierarchy, not against it.
 - **British English** in all documentation.
-- **One ADR if a non-obvious technology choice is made.** If you choose something other than Tailwind + shadcn/ui, document why.
+- **One ADR if a non-obvious technology choice is made.** Document the rationale.
 - **The spec is a contract.** Once approved, `/feature` agents must not deviate from the tokens, fonts, or component patterns without updating the spec first.
