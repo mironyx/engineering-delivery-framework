@@ -62,19 +62,23 @@ Compliance checks specific to the language(s) you use.
 - `any` type in source files → **block** (per project CLAUDE.md).
 -->
 
-## Kernel reuse
+## Helper reuse
 
-If your project maintains a kernel doc (canonical reusable helpers, e.g.
-`docs/design/kernel.md`), list the inline patterns that must *delegate* to a kernel
-symbol instead. Each entry: inline pattern → kernel symbol that should be used.
+Reusable helpers are functions, types, or modules in your shared codebase that serve as
+the single source of truth for a given operation. They are documented in `kb/architecture.md`
+(API composition pattern section). "Helper reuse" means using those helpers instead of
+re-implementing them inline.
+
+List the inline patterns that must *delegate* to a reusable helper instead.
+Each entry: inline pattern → reusable helper (with import path).
 
 <!-- e.g.
 - Inline `from('user_organisations')` membership query → use `readMembershipSnapshot`.
 - `createClient()` called inside a service → inject via `ApiContext`.
 - Hand-rolled `await request.json()` + `schema.safeParse` → use `validateBody`.
 - Hand-rolled `try/catch` returning `Response.json` for errors → use `handleApiError`.
-- Locally redefined canonical types (`AuthUser`, etc.) → import from canonical module.
+- Locally redefined shared types (`AuthUser`, etc.) → import from the canonical module.
 -->
 
-Leave this section empty if your project has no kernel doc — `/pr-review` skips
-kernel-reuse checks when neither this section nor `docs/design/kernel.md` is populated.
+Leave this section empty if your project has no reusable helper catalogue — `/pr-review` skips
+kernel-reuse checks when neither this section nor `kb/architecture.md` is populated.

@@ -21,12 +21,22 @@ they close the Theory Building loop: design informs implementation, implementati
 
 ## Process
 
+### Mode detection (run before Step 1)
+
+Check the issue's labels: `gh issue view <number> --json labels`.
+
+- **Refactor mode** if `kind:refactor` is present, or the body has a `## Trigger` section per the cross-cutting-refactor-lld-discipline ADR. Behaviour is preserved by definition (no Rev N blocks). The process is **directive** — apply the sweep targets the issue body lists.
+- **Feature mode** otherwise. Process is **reactive** — analyse what was built vs spec; existing behaviour.
+
+Refactor-mode adjustments per step are tagged **[refactor]**. When unmarked, both modes share the step.
+
 ### Step 1: Gather context
 
 1. Determine the issue number from `$ARGUMENTS` or from `git log --oneline -10 | grep -oP '#\d+'`.
 2. Read the issue body: `gh issue view <number>`.
-   - Extract the **LLD reference** (e.g., `§2.2 Task 3` or the design doc section).
+   - Extract `## Design references` (plural — multi-target list, refactor task bodies). If absent, fall back to legacy `## Design reference` (singular — feature tasks predating the refactor ADR) or scan for an inline LLD reference (e.g. `§2.2 Task 3`).
    - Extract the **acceptance criteria** and **BDD specs**.
+   - **[refactor]** Read every listed LLD anchor; the task body's `## Design references` enumerates all sections this PR sweeps. Treat the list as exhaustive.
 3. Identify which LLD file covers this issue:
    - Look for `docs/design/lld-phase-*.md` or `docs/design/lld-*.md`.
    - Read the relevant section (use Grep to find the task number/title).
@@ -43,7 +53,13 @@ they close the Theory Building loop: design informs implementation, implementati
 
 ### Step 2: Analyse the delta
 
-Compare what the LLD specified vs what was actually built. For each category, list findings:
+**[refactor]** Refactors are behaviour-preserving by definition; no Corrections expected (and no Rev N blocks). Skip the four-category analysis. Instead verify:
+- **Additions match spec:** the new shared component (interface, factory, mock helper) matches the refactor LLD's "Interface and types" / "Mock helper API" sections.
+- **Files were edited:** every entry in the issue body's `## Files to create/modify` was actually touched by the PR (use `git diff --name-only main...HEAD`).
+- **Sweeps were applied:** every LLD section in `## Design references` was edited in this PR.
+- If a Correction is genuinely needed (impl diverged from refactor LLD spec): treat as a feature-mode Correction and proceed with Step 3 — but flag this in the sync report; refactor PRs that diverge from their LLD spec usually indicate a design issue to retro.
+
+**[feature]** Compare what the LLD specified vs what was actually built. For each category, list findings:
 
 **Additions** — things built that were not in the LLD spec (new files, new patterns, new decisions):
 - Capture the _why_ from commit messages, PR description, or code comments.
@@ -60,7 +76,9 @@ Compare what the LLD specified vs what was actually built. For each category, li
 
 ### Step 3: Update the LLD
 
-Edit the LLD in-place. Be surgical — do not rewrite sections that were correct.
+**[refactor]** Edits are mechanical (file path renames, function renames, internal-decomposition block updates) per the issue body's `## Design references`. DO NOT add Rev N blocks; refactors don't introduce them. DO NOT auto-modify `docs/design/lld-refactor-*.md` — those are spec artefacts the implementing PR followed; they are managed at refactor-LLD lifecycle time (Step 3d). For each existing LLD section listed in `## Design references`: open it, find the prose / code blocks / file lists that referenced the old path/name/structure, replace with the new (post-refactor) form. Preserve `<a id="LLD-...">` anchors per ADR-0026.
+
+**[feature]** Edit the LLD in-place. Be surgical — do not rewrite sections that were correct.
 
 For each Correction and Addition:
 1. Update the relevant prose, code snippet, or file structure list.
@@ -86,16 +104,20 @@ For each Omission:
 - If a section is removed via Omission, leave the anchor in place above the deferred/descoped
   marker so the manifest entry still resolves; do not delete the anchor.
 
-### Step 3a: Update the kernel (`docs/design/kernel.md`)
+### Step 3a: Update the knowledge base
 
-The kernel is a living document — `/lld-sync` is the only skill that grows or trims it. Run these checks:
+The kb is a living set of documents. `/lld-sync` updates the helper catalogue (`kb/architecture.md`) and anti-patterns (`kb/anti-patterns.md`) based on implementation learnings.
 
-1. **New reusable helper introduced.** If the implementation added a new exported symbol in a shared module (`src/lib/`, data-access layer, engine module, or any `service` file) that future features should reuse, add a one-line entry to the appropriate kernel section. Bar for inclusion: would future LLDs cause drift if they re-implemented it? If yes, add it. If not (purely local utility), skip.
-2. **Re-implementation pattern uncovered.** If a Correction in Step 2 was caused by the LLD inlining a query or behaviour that an existing kernel symbol already covered, append the inlined-pattern → kernel-symbol mapping to the kernel's "Anti-patterns" section. This prevents the same drift on the next epic.
-3. **Symbol renamed or retired.** If the implementation renamed an exported symbol, update the kernel entry. If a symbol was deleted, remove the entry — keep the kernel a true reflection of the codebase.
-4. **No changes needed.** If the diff did not touch any reusable surface, skip — do not edit the kernel for cosmetic reasons.
+**[refactor]** The refactor LLD's "kb entry" subsection enumerates the entries this PR should land in the kb (typically: one row for the new shared component in `kb/architecture.md`, plus one or more anti-pattern entries in `kb/anti-patterns.md`). Verify each is present. If absent (e.g. `/feature` skipped the kb edit), add verbatim from the LLD. If already present (e.g. the implementing PR added them), no-op. Refactor mode is directive — do not invent entries beyond what the refactor LLD specifies.
 
-When the kernel changes, mention it in the sync report (Step 4).
+**[feature]** Run these reactive checks:
+
+1. **New reusable helper introduced.** If the implementation added a new exported symbol in a shared module (see `kb/file-map.md` for project-specific paths) that future features should reuse, add a one-line entry to `kb/architecture.md` (API composition pattern section). Bar for inclusion: would future LLDs cause drift if they re-implemented it? If yes, add it. If not (purely local utility), skip.
+2. **Re-implementation pattern uncovered.** If a Correction in Step 2 was caused by the LLD inlining a query or behaviour that an existing reusable helper already covered, append the inlined-pattern → helper mapping to `kb/anti-patterns.md` (Helper reuse section). This prevents the same drift on the next epic.
+3. **Reusable helper renamed or retired.** If the implementation renamed an exported reusable helper, update the entry in `kb/architecture.md`. If a helper was deleted, remove the entry — keep the kb a true reflection of the codebase.
+4. **No changes needed.** If the diff did not touch any reusable surface, skip — do not edit the kb for cosmetic reasons.
+
+When the kb changes, mention it in the sync report (Step 4).
 
 ### Step 3b: Update the coverage manifest
 
@@ -145,9 +167,30 @@ heading and its leading separator (`---`) too.
 
 Step 3b handles `lld_revision` and `status` for both cases.
 
+### Step 3d (refactor mode only): Refactor LLD lifecycle at epic close
+
+If the issue has `kind:refactor` AND its parent epic (per `## Parent epic` in the body, or via `gh issue view <epic_n>`) has `epic` + `kind:refactor` labels AND **the parent epic's task checklist is now fully closed** (every `- [x]` line links to a closed issue), handle refactor LLD retirement per the cross-cutting-refactor-lld-discipline ADR §"Refactor LLD lifecycle". Otherwise (epic still has open tasks), skip this step.
+
+If retirement applies:
+
+1. **Verify durable references exist:**
+   - `kb/architecture.md` entry for the new shared component (added by the foundation task).
+   - `kb/anti-patterns.md` entries for any patterns the refactor eliminated (added during implementation).
+   - Each consumer LLD listed in the refactor LLD's "LLD sweep targets" has a "Reused helpers — DO NOT re-implement" row pointing at the new component (added during T2-Tn migrations).
+   - Surface any missing reference to the user as a blocker before proceeding.
+
+2. **Prompt the user for retirement mode:**
+   - **Retire (default):** delete `docs/design/lld-refactor-<slug>.md`. Pure consolidation refactors fit this — contract lives in source, mock helper in test util, kb/architecture.md has the entry, consumer LLDs got their reused-helpers rows.
+   - **Promote to ADR:** the refactor LLD contains durable architectural rationale (alternatives considered, load-bearing decisions). Spin out a new ADR with the durable content; then delete the refactor LLD.
+   - **Persist as canonical component LLD:** rare. The shared component is non-trivial with ongoing design questions. Rename `lld-refactor-<slug>.md` → `lld-component-<slug>.md`; strip transitional sections (Step order, Per-task decomposition, BCA results); keep durable ones (Interface, types, ongoing rationale).
+
+3. **Apply the chosen mode.** Mention in the sync report (Step 4).
+
+This step does not apply in feature mode.
+
 ### Step 4: Produce the sync report
 
-Print a concise summary to the user:
+Print the report below to the agent's output (stdout). **`/feature-end` Step 2 picks it up from the conversation context and pastes it verbatim into the session log under a `## LLD Sync report` heading.** Do not write to a file yourself — single-writer model, `/feature-end` owns the session log.
 
 ```
 ## LLD Sync — Issue #N: [title]

@@ -32,7 +32,7 @@ If any of these are missing, stop and ask. Do not guess.
 
 ### Step 0b: Read context
 
-**Always read first (both modes):** `docs/design/kernel.md` — the curated catalogue of canonical helpers, types, and composition roots. The LLD must reference kernel entries by import path in its "Reused helpers — DO NOT re-implement" table at the top of Part B; code samples elsewhere must call kernel symbols by name, never inline their bodies. If a topic in scope is not yet covered by the kernel, flag it as an Open Question and propose the entry — do not silently invent a new helper.
+**Always read first (both modes):** `kb/architecture.md` — the curated catalogue of reusable helpers, types, and composition roots (API composition pattern section). The LLD must reference kb entries by import path in its "Reused helpers — DO NOT re-implement" table at the top of Part B; code samples elsewhere must call reusable helpers by name, never inline their bodies. If a topic in scope is not yet covered by the kb, flag it as an Open Question and propose the entry — do not silently invent a new helper.
 
 `/architect` now calls `/lld` directly (see `--non-interactive` flag) rather than duplicating LLD generation inline.
 
@@ -136,7 +136,7 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 - **Error paths.** Is there at least one BDD spec per non-trivial error case, or did I only spec the happy path?
 - **Existing code reuse.** Did I grep for existing helpers/types/services that already do part of this work? Re-implementing what exists is the second-biggest cause of bad `/feature` runs.
 - **Reused helpers table is mandatory** when the LLD touches any module that already has helpers (auth/membership/gate, request-context, validation, response, error handling, DB clients). Add a "Reused helpers — DO NOT re-implement" table to Part B.0 listing each helper, its import path, and what re-implementing pattern it replaces. Inline code samples elsewhere in the LLD must call these helpers by name — not inline the equivalent query/logic. Rationale: `/feature` agents follow LLD code samples literally; if the sample inlines a raw query against a shared table, the agent writes that query even when a canonical helper already exists. The table at B.0 is the agent's first stop.
-- **No raw queries against shared / access-controlled tables in code samples.** For any table that is RLS-gated, multi-tenant-scoped, or sits behind a canonical accessor in this project's kernel, LLD code samples must use the helper from the Reused helpers table, not an inline `.from(...).select(...)` (or the equivalent in this stack's ORM). The only exception is when no helper covers the exact shape needed — and in that case, the LLD must explicitly say so and propose either extending an existing helper or adding a new one (with its signature) to the table.
+- **No raw queries against shared / access-controlled tables in code samples.** For any table that is RLS-gated, multi-tenant-scoped, or sits behind a reusable accessor in this project's kb, LLD code samples must use the helper from the Reused helpers table, not an inline `.from(...).select(...)` (or the equivalent in this stack's ORM). The only exception is when no helper covers the exact shape needed — and in that case, the LLD must explicitly say so and propose either extending an existing helper or adding a new one (with its signature) to the table.
 
 ### Step 3: Task breakdown
 
