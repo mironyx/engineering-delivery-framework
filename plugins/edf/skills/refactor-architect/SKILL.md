@@ -1,7 +1,7 @@
 ---
 name: refactor-architect
 description: Decompose a refactor (smell, tech debt, audit finding, or freeform intent) into well-formed GitHub issue(s). Produces one task issue by default, or an epic + N task issues for refactors too large for a single PR. The parallel of /architect for refactor work — same decomposition discipline, reuses /architect's GH-issue-body templates and gh-issue-manager dispatch; only the refactor-specific bits live here. Does not author new LLDs (refactors update existing ones via the sweep mechanism). Use when there is a structural smell, duplicated pattern, contract impedance, or tech debt that needs filing — not when there is a feature to build (use /architect) or a bug symptom to investigate (use /bug).
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, TodoWrite
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 ---
 
 # Refactor-Architect — Refactor Decomposition

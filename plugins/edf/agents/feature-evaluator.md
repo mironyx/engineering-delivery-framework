@@ -58,16 +58,22 @@ You will receive:
 - `changed_files` — list of source files created or modified
 - `test_files` — list of test files created or modified (including the file written by
   the `edf:test-author` sub-agent in feature-core Step 4b)
+- `coverage_manifest` — path to the coverage manifest (`docs/design/coverage-<epic-id>.yaml`,
+  e.g. `coverage-v11-e11-1.yaml`) if one exists for this epic. Maps REQ- → LLD- → issue → status
+  per ADR-0026.
 
 ## Process
 
-### Step 1: Extract acceptance criteria from all three sources
+### Step 1: Extract acceptance criteria from all sources
 
 Read in this order, most authoritative first:
 
 1. Every file in `requirements_paths` — these are the contract of record.
 2. The LLD at `lld_path` — refinement of the requirements.
 3. The issue body: `gh issue view <issue_number>` — often the narrowest scope.
+4. If `coverage_manifest` is provided and the file exists, read it — it records the
+   formal REQ- → LLD- → issue mapping per ADR-0026. Use it to confirm which REQ- anchors
+   this issue is expected to cover, rather than re-deriving that mapping from scratch.
 
 Build a unified numbered checklist. Tag each criterion with its source so drift is
 visible:

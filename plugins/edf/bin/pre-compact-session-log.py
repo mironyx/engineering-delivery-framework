@@ -99,10 +99,15 @@ def parse_transcript(transcript_path: str) -> dict:
 # Fact extraction helpers
 # ---------------------------------------------------------------------------
 
-def _rel(file_path: str) -> str:
+def _rel(file_path: str, project_root: str | None = None) -> str:
     """Return the repo-relative portion of an absolute path."""
+    if project_root:
+        try:
+            return str(pathlib.Path(file_path).relative_to(project_root)).replace("\\", "/")
+        except ValueError:
+            pass
     p = file_path.replace("\\", "/")
-    for marker in ["/src/", "/tests/", "/docs/", "/.claude/", "/supabase/"]:
+    for marker in ["/src/", "/tests/", "/docs/", "/.claude/", "/supabase/", "/lib/", "/app/"]:
         idx = p.find(marker)
         if idx >= 0:
             return p[idx + 1:]
@@ -176,20 +181,20 @@ def _classify_bash(cmd: str, text: str, acc: _BashAccum) -> None:
         acc.pushes += 1
 
 
-def _count_file_ops(tool_uses: list[dict]) -> tuple[Counter, Counter]:
+def _count_file_ops(tool_uses: list[dict], project_root: str | None = None) -> tuple[Counter, Counter]:
     written: Counter = Counter()
     edited: Counter = Counter()
     for tu in tool_uses:
         fp = tu["input"].get("file_path", "")
         if fp and tu["name"] == "Write":
-            written[_rel(fp)] += 1
+            written[_rel(fp, project_root)] += 1
         elif fp and tu["name"] == "Edit":
-            edited[_rel(fp)] += 1
+            edited[_rel(fp, project_root)] += 1
     return written, edited
 
 
-def _build_file_map(tool_uses: list[dict]) -> dict[str, str]:
-    written, edited = _count_file_ops(tool_uses)
+def _build_file_map(tool_uses: list[dict], project_root: str | None = None) -> dict[str, str]:
+    written, edited = _count_file_ops(tool_uses, project_root)
     result: dict[str, str] = dict.fromkeys(written, "created")
     for f in edited:
         result[f] = "created+edited" if f in result else f"edited ×{edited[f]}"
@@ -203,7 +208,7 @@ def _infer_project_root(tool_uses: list[dict]) -> str | None:
     paths point into the worktree.  We find the common prefix of all written
     paths that contain a known project marker directory.
     """
-    markers = {"src", "tests", "docs", "supabase", "scripts"}
+    markers = {"src", "tests", "test", "docs", "supabase", "scripts", "lib", "app", "packages", ".claude", "bin"}
     roots: list[str] = []
     for tu in tool_uses:
         if tu["name"] not in ("Write", "Edit"):
@@ -235,17 +240,18 @@ def extract_facts(data: dict) -> dict:
         elif tu["name"] == "Bash":
             _classify_bash(tu["input"].get("command", ""), tool_results.get(tu["id"], ""), acc)
 
+    project_root = _infer_project_root(tool_uses)
     return {
         "feature_tag": data.get("feature_tag"),
         "turn_count": data.get("turn_count", 0),
-        "files": _build_file_map(tool_uses),
+        "files": _build_file_map(tool_uses, project_root),
         "test_runs": acc.test,
         "typecheck_runs": acc.typecheck,
         "lint_runs": acc.lint,
         "git_commits": acc.commits,
         "git_pushes": acc.pushes,
         "agent_spawns": agents,
-        "project_root": _infer_project_root(tool_uses),
+        "project_root": project_root,
     }
 
 
