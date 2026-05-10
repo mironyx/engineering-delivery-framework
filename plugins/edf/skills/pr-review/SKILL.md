@@ -1,7 +1,7 @@
 ---
 name: pr-review
 description: Review code changes for bugs, design principles, contract adherence, framework best practices, and design conformance. Use before committing (/pr-review) or on a PR (/pr-review 123). Adaptive: 1 agent for small diffs, 2 agents for large diffs. Agent B (framework patterns) only runs when framework files changed.
-allowed-tools: Read, Write, Bash, Glob, Grep, Agent, TodoWrite, WebSearch
+allowed-tools: Read, Write, Bash, Glob, Grep, Agent, Skill, TodoWrite, WebSearch
 ---
 
 # PR Review

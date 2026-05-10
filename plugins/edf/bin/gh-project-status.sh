@@ -127,17 +127,7 @@ find_item_id() {
         }
       }
     }
-  " | "$PYTHON" -c "
-import json, sys
-data = json.load(sys.stdin)
-nodes = data['data']['repository']['issue']['projectItems']['nodes']
-target = '${PROJECT_ID}'
-for node in nodes:
-    if node['project']['id'] == target:
-        print(node['id'])
-        sys.exit(0)
-print('')
-"
+  " | "$PYTHON" "$SCRIPT_DIR/parse-project-item-id.py" "$PROJECT_ID"
 }
 
 # --- Command: add ---

@@ -1,7 +1,7 @@
 ---
 name: discovery
 description: Explore a problem space from a freeform idea using adapted Lean Inception activities. Produces a structured discovery document with product vision, boundaries, personas, user journeys, features, and MVP sequencing. Use before /kickoff when starting a new project or major version. Web research included.
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite, WebSearch, WebFetch, Agent
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite, WebSearch, WebFetch, Agent, Skill
 ---
 
 # Discovery — Problem Space Exploration

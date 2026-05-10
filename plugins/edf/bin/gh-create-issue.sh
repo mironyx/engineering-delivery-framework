@@ -75,8 +75,7 @@ fi
 # Search open issues for an exact title match.
 # gh issue list --search uses GitHub search syntax; we quote the title
 # and then verify an exact match in the results.
-EXISTING=$(gh issue list --state open --limit 100 --json number,title \
-  --jq ".[] | select(.title == \"$(echo "$TITLE" | sed 's/"/\\"/g')\") | .number" 2>/dev/null || true)
+EXISTING=$(gh issue list --state open --limit 100 --search "in:title \"$TITLE\"" --json number --jq '.[0].number' 2>/dev/null || true)
 
 if [[ -n "$EXISTING" ]]; then
   # Take only the first match (shouldn't be multiple, but be safe)
@@ -102,11 +101,10 @@ if [[ -n "$LABELS" ]]; then
   CREATE_ARGS+=(--label "$LABELS")
 fi
 
-ISSUE_URL=$(gh issue create "${CREATE_ARGS[@]}" 2>&1)
-if [[ $? -ne 0 ]]; then
+ISSUE_URL=$(gh issue create "${CREATE_ARGS[@]}" 2>&1) || {
   echo "Error: gh issue create failed: $ISSUE_URL" >&2
   exit 1
-fi
+}
 
 # Extract issue number from URL (https://github.com/owner/repo/issues/123)
 ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')

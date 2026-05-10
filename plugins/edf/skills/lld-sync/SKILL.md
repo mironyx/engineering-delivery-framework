@@ -1,7 +1,7 @@
 ---
 name: lld-sync
 description: Sync the LLD back to the implementation after a feature is complete. Reads the design spec and the actual code, produces a structured diff, and updates the LLD in-place. Run after implementation, before feature-end.
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, TodoWrite
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 ---
 
 # LLD Sync — Post-Implementation Design Feedback Loop
@@ -38,7 +38,7 @@ Refactor-mode adjustments per step are tagged **[refactor]**. When unmarked, bot
    - Extract the **acceptance criteria** and **BDD specs**.
    - **[refactor]** Read every listed LLD anchor; the task body's `## Design references` enumerates all sections this PR sweeps. Treat the list as exhaustive.
 3. Identify which LLD file covers this issue:
-   - Look for `docs/design/lld-phase-*.md` or `docs/design/lld-*.md`.
+   - Look for `docs/design/lld-*.md` first (current convention), falling back to `docs/design/lld-phase-*.md` (legacy).
    - Read the relevant section (use Grep to find the task number/title).
 4. Read the PR body for this branch:
    - `gh pr view --json body -q '.body'` (or `gh pr view <number> --json body -q '.body'`).

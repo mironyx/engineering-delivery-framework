@@ -1,7 +1,7 @@
 ---
 name: bug
 description: Investigate a bug from a vague symptom, error message, or behaviour description. Researches the codebase to find root cause, checks for LLD gaps, and creates a well-formed GitHub issue ready for /feature. Use when the user reports a bug, error, unexpected behaviour, or says something like "X is broken", "I'm seeing an error in Y", or "this doesn't work". Also use when the user pastes an error log, stack trace, or describes a symptom without knowing the cause.
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, TodoWrite
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 ---
 
 # Bug — Investigation and Issue Creation
