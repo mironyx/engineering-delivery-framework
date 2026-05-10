@@ -58,8 +58,9 @@ You will receive:
 - `changed_files` — list of source files created or modified
 - `test_files` — list of test files created or modified (including the file written by
   the `edf:test-author` sub-agent in feature-core Step 4b)
-- `coverage_manifest` — path to the coverage manifest (`docs/design/coverage-<epic>.yaml`)
-  if one exists for this epic. Maps REQ- → LLD- → issue → status per ADR-0026.
+- `coverage_manifest` — path to the coverage manifest (`docs/design/coverage-<epic-id>.yaml`,
+  e.g. `coverage-v11-e11-1.yaml`) if one exists for this epic. Maps REQ- → LLD- → issue → status
+  per ADR-0026.
 
 ## Process
 
