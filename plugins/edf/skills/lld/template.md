@@ -145,7 +145,7 @@ describe('[context]', () => {
 
 ### [Layer: Database] (if applicable)
 
-See [v<N>-design.md §N.N](v<N>-design.md#section-anchor) for [schema/RLS/functions].
+See [v<N>-design.md §N.N](v<N>-design.md#section-anchor) for [schema/functions].
 
 [Only what the HLD doesn't cover: migration file strategy, seed data, test isolation, etc.]
 

@@ -182,7 +182,7 @@ Input: command="${EDF_SCRIPTS}/run-tests.sh && ${EDF_SCRIPTS}/run-typecheck.sh &
 
 Check whether E2E tests exist by reading `kb/conventions.md` for the `e2e-dir` value, then:
 ```bash
-E2E_DIR=$(grep 'e2e-dir' kb/conventions.md | sed 's/.*<!-- e.g. `\(.*\)` -->/\\1/')
+E2E_DIR=$(grep 'e2e-dir' kb/conventions.md | sed -n 's/.*| *e2e-dir *| *\([^|]*\) *|.*/\1/p' | sed 's/<!-- e.g. //; s/ -->//; s/`//g; s/^ *//; s/ *$//')
 if [ -n "$E2E_DIR" ] && [ "$(ls -A "$E2E_DIR" 2>/dev/null)" ]; then
   echo "E2E tests found"
 else
@@ -197,7 +197,7 @@ Input: command="${EDF_SCRIPTS}/run-build.sh && ${EDF_SCRIPTS}/run-e2e.sh"
 ```
 
 The project's `run-e2e.sh` is responsible for setting any environment variables the build or
-playwright run needs (placeholder Supabase URLs, test API keys, etc.). The script-contract
+test-runner needs (e.g. placeholder service URLs, test API keys, etc.). The script-contract
 keeps that detail inside the project, not in the skill.
 
 All must pass — zero failures, including integration tests — before proceeding.

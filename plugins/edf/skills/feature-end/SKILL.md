@@ -30,27 +30,7 @@ If an issue number argument was provided:
    If no open PR is found, try `--state merged` in case it was already merged. If still none, stop and report.
 2. Extract the head branch (`headRefName`) and read the session ID — PR body first, prom file as fallback:
    ```bash
-   OLD_SESSION_ID=$(gh pr view <pr-number> --json body --jq '.body' | python3 -c "
-   import sys, re
-   m = re.search(r'claude-session-id: ([a-f0-9-]+)', sys.stdin.read())
-   print(m.group(1) if m else '')
-   ")
-
-   # Fallback: read from prom file (covers PRs created before session-ID embedding was added)
-   if [ -z "$OLD_SESSION_ID" ]; then
-     OLD_SESSION_ID=$(python3 -c "
-   import re, pathlib, os, subprocess
-   result = subprocess.run(['git', 'rev-parse', '--git-common-dir'], capture_output=True, text=True)
-   root = pathlib.Path(result.stdout.strip()).parent.resolve()
-   prom_dir = pathlib.Path(os.environ.get('EDF_FEATURE_PROM_DIR') or root / 'monitoring' / 'textfile_collector')
-   prom = prom_dir / 'session_feature.prom'
-   if prom.exists():
-       m = re.search(r'session_id=\"([^\"]+)\",feature_id=\"[^\"]+-<issue-number>\"', prom.read_text())
-       print(m.group(1) if m else '')
-   else:
-       print('')
-   ")
-   fi
+   OLD_SESSION_ID=$(gh pr view <pr-number> --json body --jq '.body' | ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/extract-session-id.py --issue <issue-number>)
    ```
 3. Detect an orphaned worktree — a worktree on that branch left behind by a crashed teammate:
    ```bash
@@ -144,7 +124,7 @@ If a matching file exists, skip writing and proceed to Step 2.5.
    if jsonl_path.exists():
        events = [json.loads(l) for l in jsonl_path.read_text().splitlines() if l.strip()]
        # Extract: file writes/edits (tool_use name in Write/Edit/MultiEdit),
-       # test run results (Bash with vitest/tsc/lint), assistant reasoning messages,
+       # test run results (Bash with test/typecheck/lint), assistant reasoning messages,
        # and any tool_result content showing pass/fail outcomes.
        # Use this as the primary source for "Work completed" and "Decisions made".
    ```
@@ -328,11 +308,7 @@ the entries that this feature implemented.
 
 1. Determine the epic slug:
    ```bash
-   EPIC_SLUG=$(gh issue view <issue-number> --json body --jq '.body' | python3 -c "
-   import sys, re
-   m = re.search(r'lld-([a-z0-9-]+)-[a-z0-9-]+\.md', sys.stdin.read())
-   print(m.group(1) if m else '')
-   ")
+   EPIC_SLUG=$(gh issue view <issue-number> --json body --jq '.body' | ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/update-coverage-manifest.py --extract-epic-slug)
    MANIFEST="docs/design/coverage-${EPIC_SLUG}.yaml"
    ```
 
@@ -352,18 +328,7 @@ the entries that this feature implemented.
 
 4. Verify the manifest entries point at anchors that resolve:
    ```bash
-   python3 -c "
-   import yaml, pathlib, re, sys
-   m = yaml.safe_load(pathlib.Path('$MANIFEST').read_text())
-   for e in m.get('entries', []):
-       lld = e.get('lld')
-       if not lld: continue
-       file, _, anchor = lld.partition('#')
-       p = pathlib.Path('docs/design') / file
-       if not p.exists() or f'id=\"{anchor}\"' not in p.read_text():
-           sys.exit(f'broken anchor: {lld}')
-   print('manifest anchors OK')
-   "
+   ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/update-coverage-manifest.py --verify-anchors "$MANIFEST"
    ```
 
 5. Stage and amend the manifest into the existing session-log commit (Step 3) if it has not been
@@ -392,36 +357,12 @@ Choose whichever path keeps the manifest atomically updated with the code it doc
 
 If the closed issue has a parent epic, tick its checkbox in the epic body.
 
-1. Read the issue body to find the parent epic number:
+1. Find the parent epic and tick its checkbox:
    ```bash
-   EPIC=$(gh issue view <issue-number> --json body --jq '.body' | python3 -c "
-   import sys, re
-   m = re.search(r'## Parent epic\s*\n+#(\d+)', sys.stdin.read())
-   print(m.group(1) if m else '')
-   ")
+   gh issue view <issue-number> --json body --jq '.body' | ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/check-epic-checkbox.py --issue <issue-number>
    ```
 
-2. If `EPIC` is non-empty, read the epic body and tick the checkbox for this issue:
-   ```bash
-   if [ -n "$EPIC" ]; then
-     EPIC_BODY=$(gh issue view "$EPIC" --json body --jq '.body')
-     UPDATED=$(echo "$EPIC_BODY" | python3 -c "
-   import sys, re
-   issue = '<issue-number>'
-   body = sys.stdin.read()
-   body = re.sub(
-       r'- \[ \] (#' + issue + r'\b)',
-       r'- [x] \1',
-       body
-   )
-   print(body, end='')
-   ")
-     gh api "repos/{owner}/{repo}/issues/$EPIC" --method PATCH -f body="$UPDATED" > /dev/null \
-       && echo "Epic #$EPIC: checked off #<issue-number>"
-   fi
-   ```
-
-3. If no `## Parent epic` section exists (chore or standalone task), skip silently.
+2. If no `## Parent epic` section exists (chore or standalone task), skip silently.
 
 ### Step 7: Report
 

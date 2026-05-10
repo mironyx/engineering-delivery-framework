@@ -48,7 +48,13 @@ DESIGN_REF="${DESIGN_REF:-N/A}"
 FEATURE_PREFIX="${EDF_FEATURE_PREFIX:-}"
 if [[ -z "$FEATURE_PREFIX" ]]; then
   REPO=$(gh repo view --json name -q '.name' 2>/dev/null || basename "$(git rev-parse --show-toplevel)")
-  FEATURE_PREFIX=$(echo "$REPO" | tr '[:lower:]' '[:upper:]' | tr '-' '_' | tr -c '[:upper:][:digit:]_' ' ' | awk '{for(i=1;i<=NF;i++) printf substr($i,1,1); print ""}')
+  NORMALIZED=$(echo "$REPO" | tr '_' '-' | tr ' ' '-')
+  if echo "$NORMALIZED" | grep -q '-'; then
+    FEATURE_PREFIX=$(echo "$NORMALIZED" | awk -F- '{for(i=1;i<=NF;i++) if(length($i)) printf toupper(substr($i,1,1)); print ""}')
+  else
+    FEATURE_PREFIX=$(echo "$REPO" | tr '[:lower:]' '[:upper:]')
+  fi
+  [[ -z "$FEATURE_PREFIX" ]] && FEATURE_PREFIX="FEAT"
 fi
 FEATURE_ID="${FEATURE_PREFIX}-${ISSUE}"
 

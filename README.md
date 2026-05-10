@@ -75,7 +75,7 @@ EDF skills assume certain docs live in standard locations. Configure these in yo
 
 ## Script contract
 
-EDF skills invoke project-specific scripts instead of hardcoded commands. Each project using EDF must provide these 7 scripts in `scripts/`:
+EDF skills invoke project-specific scripts instead of hardcoded commands. Each project using EDF must provide these 5 scripts in `scripts/`:
 
 | Script | Purpose | Exit |
 |---|---|---|
@@ -83,9 +83,9 @@ EDF skills invoke project-specific scripts instead of hardcoded commands. Each p
 | `run-typecheck.sh` | Type check | 0 = pass |
 | `run-lint.sh` | Lint | 0 = pass |
 | `run-build.sh` | Build (`exec true` if N/A) | 0 = pass |
-| `run-markdown-lint.sh` | Markdown lint | 0 = pass |
-| `run-format-check.sh` | Format check (optional) | 0 = pass |
 | `run-e2e.sh` | E2E (optional) | 0 = pass |
+
+Optional CI-only scripts (`run-markdown-lint.sh`, `run-format-check.sh`) are included in CI workflow starters — no skill invokes them.
 
 Starter scripts for TypeScript and Python projects are in `starters/scripts/`.
 

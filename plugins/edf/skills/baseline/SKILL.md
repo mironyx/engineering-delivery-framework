@@ -36,8 +36,8 @@ Read broadly. The goal is to build a complete picture, not sample.
 
 **First, check baseline freshness.** If `docs/reports/baseline/` has a prior report:
 - Compute days since the most recent report.
-- Count commits touching `src/`, `supabase/schemas/`, or `docs/requirements/` since that
-  date: `git log --since=<date> --oneline -- src/ supabase/schemas/ docs/requirements/ | wc -l`.
+- Count commits touching `src/`, `<schema-dir>/` (or `<migration-dir>/`), or `docs/requirements/` since that
+  date: `git log --since=<date> --oneline -- src/ "$(grep 'schema-dir' kb/file-map.md | sed -n 's/.*| *schema-dir *| *\([^|]*\) *|.*/\1/p' | sed 's/^ *//;s/ *$//')" docs/requirements/ | wc -l`.
 - If > 7 days OR > 50 commits, surface a one-line warning to the user before continuing:
   *"Prior baseline is N days old, M relevant commits since — proceeding with full re-scan."*
 This is informational, not a gate.
@@ -57,7 +57,7 @@ This is informational, not a gate.
 - `src/lib/engine/` — pure domain logic, the core of what exists.
 - `src/app/` — API routes and pages, the external surface area.
 - `src/types/` (or equivalent) — schemas and type definitions define the actual contracts.
-- `supabase/schemas/` — database schema, the persistence layer truth.
+- `<schema-dir>/` — database schema (or `<migration-dir>/` for migration-managed projects), the persistence layer truth.
 
 **Tests as coverage indicators:**
 - Scan `tests/` and co-located test files (suffix per `kb/conventions.md`). For each story you are uncertain about, check whether a test exists that exercises the specific AC. A test that asserts "only the participant's own assessments are returned" is stronger evidence of delivery than reading the query in isolation. Conversely, a missing test for a claimed AC is a signal to read the implementation more carefully before classifying as Delivered.

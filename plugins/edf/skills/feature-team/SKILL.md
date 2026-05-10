@@ -57,7 +57,7 @@ If `epic <N>` is given:
 
 If `-n N` is given:
 ```bash
-source .github/project.env && gh project item-list $PROJECT_NUMBER --owner $OWNER --format json \
+PROJECT_NUMBER=$(grep '^PROJECT_NUMBER=' .github/project.env | cut -d= -f2) && OWNER=$(grep '^REPO=' .github/project.env | cut -d= -f2 | cut -d/ -f1) && gh project item-list $PROJECT_NUMBER --owner $OWNER --format json --limit 300 \
   | python3 -c "
 import json, sys
 items = json.load(sys.stdin)['items']

@@ -31,9 +31,9 @@ EDF_SCRIPTS=${CLAUDE_PLUGIN_ROOT}/starters/scripts/python
 | `run-typecheck.sh` | Type check | none | 0 = pass |
 | `run-lint.sh` | Lint | none | 0 = pass |
 | `run-build.sh` | Build (exec `true` if N/A) | none | 0 = pass |
-| `run-markdown-lint.sh` | Markdown lint | none | 0 = pass |
-| `run-format-check.sh` | Format check (optional) | none | 0 = pass |
 | `run-e2e.sh` | E2E (optional, skill skips if absent) | none | 0 = pass |
+
+`run-markdown-lint.sh` and `run-format-check.sh` are optional CI-only scripts — not invoked by any skill. Starters include them in CI workflow templates (`starters/.github/workflows/`); projects that want them in CI can keep them.
 
 Convention: stdout/stderr captured by the skill; non-zero exit always means fail.
 

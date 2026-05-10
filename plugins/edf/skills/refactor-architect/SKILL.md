@@ -130,7 +130,7 @@ Produce these refactor-specific artefacts (used by Step 6 to populate the issue 
 1. **Boundary Contract Audit table** — format defined in the cross-cutting-refactor-lld-discipline ADR §"Boundary Contract Audit format". Do not duplicate the table format here; reference the ADR.
 2. **TypeScript interface signature** — full method signatures with parameter and return types. Copy from source where consumers exist; invent only where genuinely new.
 3. **DTOs / row shapes** — re-export current shapes by default; reshape only with explicit reason.
-4. **Mock helper API** — recommend a plain factory `make<Name>(overrides?: Partial<Interface>)` returning vitest-spied stubs.
+4. **Mock helper API** — recommend a plain factory `make<Name>(overrides?: Partial<Interface>)` returning stubs (use the project's mocking convention as declared in CLAUDE.md — e.g. `vitest.fn()`, `unittest.mock`, `pytest.monkeypatch`).
 5. **Step order within the implementing PR** — e.g. "interface → implementation → mock helper → migrate consumer 1 → migrate consumer 2 → grep no-old-pattern → sweep LLDs". Without this, `/feature` invents structure.
 
 **Case B — refactor is pure removal of duplication** (no new shared component). Skip 1–4. Note in the issue body: "Pure removal/consolidation; no new abstraction introduced."
