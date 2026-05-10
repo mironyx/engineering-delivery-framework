@@ -16,7 +16,12 @@
 
 ## Path Conventions
 
-- Test file convention: `tests/<area>/<unit>.test.ts`
+<!-- Set test file convention, source directory, and eval test path for your project.
+     These override the defaults in kb/conventions.md. Examples:
+  TypeScript: tests/<area>/<unit>.test.ts
+  Python:     tests/<area>/test_<unit>.py
+-->
+- Test file convention: `tests/<area>/<unit>.test.ts` <!-- update for your language -->
 - Source directory: `src/`
 - Eval test path convention: `tests/eval/`
 
@@ -30,11 +35,21 @@ Pipeline: `idea → /discovery → /requirements → /kickoff → /architect →
 
 ## Coding Principles
 
-<!-- Project-specific principles, e.g.:
-- HTTP mocking: Use MSW for all HTTP interactions in tests (TypeScript).
+<!-- Project-specific principles. The EDF skills read this section for language/framework conventions.
+     Be specific — name the exact library, not a category. Examples:
+
+TypeScript project:
+- HTTP mocking: Use MSW for all HTTP interactions in tests.
   Do not use fetchImpl, fetch spies, or manual stubs.
-- HTTP mocking: Use responses or pytest-httpx for all HTTP interactions in tests (Python).
-  Do not use manual stubs or monkeypatching. -->
+- Test runner: vitest. Typecheck: tsc --noEmit.
+
+Python project:
+- HTTP mocking: Use respx (HTTPX) or pytest-httpx for all HTTP interactions in tests.
+  Do not use manual stubs or monkeypatching.
+- Test runner: pytest. Typecheck: mypy or pyright.
+
+Skills reference this section for HTTP mocking convention, test runner, typechecker,
+and framework-specific patterns. Keep it current. -->
 
 ## Knowledge Base (kb/)
 

@@ -25,7 +25,7 @@ Write only the report file in `docs/reports/`. The human reads the report and ac
 Read broadly. Do not cap inputs arbitrarily — if a file is relevant, read it.
 
 **Board and issues:**
-- `gh project item-list 2 --owner mironyx --format json --limit 300` — full board snapshot.
+- `PROJECT_NUMBER=$(grep '^PROJECT_NUMBER=' .github/project.env | cut -d= -f2) && OWNER=$(grep '^REPO=' .github/project.env | cut -d= -f2 | cut -d/ -f1) && gh project item-list $PROJECT_NUMBER --owner $OWNER --format json --limit 300` — full board snapshot.
 - `gh issue list --state open --limit 300 --json number,title,labels,updatedAt,createdAt,body,assignees` — every open issue, including bodies (needed for acceptance-criteria checks).
 - `gh issue list --state closed --limit 100 --json number,title,closedAt,labels` — recent closes, to compute "progress since last grooming".
 

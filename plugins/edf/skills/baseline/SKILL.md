@@ -56,11 +56,11 @@ This is informational, not a gate.
 - `src/` — survey the actual source tree. Map directories to capabilities.
 - `src/lib/engine/` — pure domain logic, the core of what exists.
 - `src/app/` — API routes and pages, the external surface area.
-- `src/types/` — Zod schemas and TypeScript types define the actual contracts.
+- `src/types/` (or equivalent) — schemas and type definitions define the actual contracts.
 - `supabase/schemas/` — database schema, the persistence layer truth.
 
 **Tests as coverage indicators:**
-- Scan `tests/` and co-located `*.test.ts` files. For each story you are uncertain about, check whether a test exists that exercises the specific AC. A test that asserts "only the participant's own assessments are returned" is stronger evidence of delivery than reading the query in isolation. Conversely, a missing test for a claimed AC is a signal to read the implementation more carefully before classifying as Delivered.
+- Scan `tests/` and co-located test files (suffix per `kb/conventions.md`). For each story you are uncertain about, check whether a test exists that exercises the specific AC. A test that asserts "only the participant's own assessments are returned" is stronger evidence of delivery than reading the query in isolation. Conversely, a missing test for a claimed AC is a signal to read the implementation more carefully before classifying as Delivered.
 
 **Closed issues and git history:**
 - `gh issue list --state closed --limit 300 --json number,title,labels,closedAt,body` — what was delivered.

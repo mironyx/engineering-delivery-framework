@@ -89,6 +89,9 @@ def find_session_jsonl_via_proc(claude_dir: pathlib.Path) -> pathlib.Path | None
     Reliable in parallel agent-team mode — each teammate process has exactly one
     session JSONL open for writing, so we can identify it without mtime races or
     content searches that may match the lead's session instead.
+
+    Linux/WSL only — on Windows this always returns None and the content-based
+    fallback in find_session_jsonl() takes over.
     """
     try:
         ppid = next(
@@ -143,7 +146,7 @@ def find_session_jsonl(claude_dir: pathlib.Path, issue_hint: str | None = None, 
     # the first user message. The lead's JSONL also contains these strings (in Agent
     # tool-call payloads later in the file), so we must only match against the FIRST user
     # message — which for teammates is the spawn prompt, and for the lead is the human's
-    # input.
+    # input. On Windows (no /proc), this fallback is the primary detection path.
     search_terms = [f"issue #{issue_hint}"]
     if feature_prefix:
         search_terms.append(f"{feature_prefix}-{issue_hint}")

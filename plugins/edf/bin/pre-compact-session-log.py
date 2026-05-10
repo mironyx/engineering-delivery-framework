@@ -109,7 +109,17 @@ def _rel(file_path: str) -> str:
     return pathlib.Path(file_path).name
 
 
-def _vitest_result(text: str) -> str:
+def _test_result(text: str) -> str:
+    """Parse test output — handles both EDF summarizer format (PASS N/N -- Xs / FAIL N/N)
+    and raw runner output (vitest, pytest, etc.)."""
+    # Summarizer format: "PASS 5/5 -- 1.2s" or "FAIL 2/5"
+    m = re.match(r"(PASS|FAIL)\s+(\d+)/(\d+)", text.strip())
+    if m:
+        result, n, total = m.group(1), int(m.group(2)), int(m.group(3))
+        if result == "FAIL":
+            return f"FAIL ({total - n} failed, {n} passed)"
+        return f"{n} passed"
+    # Raw vitest/pytest format
     passed = re.search(r"(\d+)\s+passed", text)
     failed = re.search(r"(\d+)\s+failed", text)
     if failed and int(failed.group(1)) > 0:
@@ -120,9 +130,19 @@ def _vitest_result(text: str) -> str:
     return "FAIL" if "FAIL" in text.upper() else "unknown"
 
 
-def _tsc_result(text: str) -> str:
-    if "error TS" in text or "error:" in text:
+def _typecheck_result(text: str) -> str:
+    """Parse typecheck output — handles tsc, mypy, pyright."""
+    # tsc errors
+    if "error TS" in text:
         n = len(re.findall(r"error TS\d+", text))
+        return f"{n} error(s)" if n else "clean"
+    # mypy/pyright: "error:" lines, "Found N errors"
+    m = re.search(r"Found\s+(\d+)\s+errors?", text)
+    if m:
+        n = int(m.group(1))
+        return f"{n} error(s)" if n else "clean"
+    if re.search(r"error:", text):
+        n = len(re.findall(r"error:", text))
         return f"{n} error(s)"
     return "clean"
 
@@ -135,8 +155,8 @@ def _git_commit_msg(cmd: str) -> str:
 class _BashAccum:
     """Mutable accumulator for Bash command results — avoids 7-parameter function signatures."""
     def __init__(self) -> None:
-        self.vitest: list[str] = []
-        self.tsc: list[str] = []
+        self.test: list[str] = []
+        self.typecheck: list[str] = []
         self.lint: list[str] = []
         self.commits: list[str] = []
         self.pushes: int = 0
@@ -144,10 +164,10 @@ class _BashAccum:
 
 def _classify_bash(cmd: str, text: str, acc: _BashAccum) -> None:
     """Append to the appropriate accumulator based on what the Bash command did."""
-    if re.search(r"(vitest run|run-tests\.sh)", cmd):
-        acc.vitest.append(_vitest_result(text))
-    elif re.search(r"(tsc --noEmit|run-typecheck\.sh)", cmd):
-        acc.tsc.append(_tsc_result(text))
+    if re.search(r"(vitest run|pytest|run-tests\.sh)", cmd):
+        acc.test.append(_test_result(text))
+    elif re.search(r"(tsc --noEmit|mypy|pyright|run-typecheck\.sh)", cmd):
+        acc.typecheck.append(_typecheck_result(text))
     elif re.search(r"run-lint\.sh", cmd):
         acc.lint.append("issues" if ("error" in text.lower() or "warning" in text.lower()) else "clean")
     elif re.search(r"git commit", cmd):
@@ -219,8 +239,8 @@ def extract_facts(data: dict) -> dict:
         "feature_tag": data.get("feature_tag"),
         "turn_count": data.get("turn_count", 0),
         "files": _build_file_map(tool_uses),
-        "vitest_runs": acc.vitest,
-        "tsc_runs": acc.tsc,
+        "test_runs": acc.test,
+        "typecheck_runs": acc.typecheck,
         "lint_runs": acc.lint,
         "git_commits": acc.commits,
         "git_pushes": acc.pushes,
@@ -244,13 +264,13 @@ def _files_section(files: dict) -> list[str]:
 
 def _milestones_section(facts: dict) -> list[str]:
     items = []
-    vitest = facts.get("vitest_runs", [])
-    tsc = facts.get("tsc_runs", [])
+    test_runs = facts.get("test_runs", [])
+    typecheck = facts.get("typecheck_runs", [])
     lint = facts.get("lint_runs", [])
-    if vitest:
-        items.append(f"vitest run ×{len(vitest)} — last: {vitest[-1]}")
-    if tsc:
-        items.append(f"tsc ×{len(tsc)} — last: {tsc[-1]}")
+    if test_runs:
+        items.append(f"tests ×{len(test_runs)} — last: {test_runs[-1]}")
+    if typecheck:
+        items.append(f"typecheck ×{len(typecheck)} — last: {typecheck[-1]}")
     if lint:
         items.append(f"lint ×{len(lint)} — last: {lint[-1]}")
     for c in facts.get("git_commits", []):
@@ -273,11 +293,11 @@ def _agents_section(agents: list[str]) -> list[str]:
 
 
 def _drivers_section(facts: dict) -> list[str]:
-    vitest = facts.get("vitest_runs", [])
+    test_runs = facts.get("test_runs", [])
     agents = facts.get("agent_spawns", [])
     items = []
-    if len(vitest) > 3:
-        items.append(f"vitest run ×{len(vitest)} — each run loads full test suite into context")
+    if len(test_runs) > 3:
+        items.append(f"test run ×{len(test_runs)} — each run loads full test suite into context")
     if agents:
         items.append(f"{len(agents)} agent spawn(s) — each re-sends full diff to subagent")
     if not items:

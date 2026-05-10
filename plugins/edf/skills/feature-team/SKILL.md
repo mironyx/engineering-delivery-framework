@@ -57,7 +57,7 @@ If `epic <N>` is given:
 
 If `-n N` is given:
 ```bash
-gh project item-list 2 --owner mironyx --format json \
+source .github/project.env && gh project item-list $PROJECT_NUMBER --owner $OWNER --format json \
   | python3 -c "
 import json, sys
 items = json.load(sys.stdin)['items']
