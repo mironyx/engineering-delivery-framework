@@ -182,8 +182,11 @@ COST_OUTPUT=$(${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bi
 echo "$COST_OUTPUT"
 ```
 
-**If the command runs as a background task**, use the **Read tool** to read the output file —
-never `cat`, which can silently produce empty output on some platforms.
+**If the command must run as a background task**, redirect to a file and use the Read tool:
+```bash
+${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/query-feature-cost.py --issue $ISSUE ${PR:+--pr $PR} --stage final > /tmp/cost-output.txt 2>&1
+```
+Then read `/tmp/cost-output.txt` with the Read tool — never `cat`, which can silently produce empty output on some platforms.
 
 Post the output as a PR comment:
 
@@ -206,17 +209,17 @@ This is the institutional memory that makes future features cheaper.
    | Driver | How to detect | Typical impact |
    |--------|--------------|----------------|
    | Context compaction | Session summary starts "This session is being continued..." | High — re-summarising inflates cache-write tokens |
-   | Fix cycles (RED→fix rounds) | Count commits before the first green run | Medium — each vitest run adds tokens |
+   | Fix cycles (RED→fix rounds) | Count commits before the first green run | Medium — each test run adds tokens |
    | Agent spawns | Count Agent calls in the session: simplify (3), pr-review (3), diagnostics, ci-probe | Medium — each spawn re-sends the full diff |
    | LLD quality gaps | pr-review found design-contract violations → extra fix commit | Medium — avoidable with better LLD signatures upfront |
    | Mock complexity | Many test fix rounds before mocks worked | Low–medium |
-   | Zod/framework version gotchas | Fix cycles on schema/type issues | Low |
+   | Framework version gotchas | Fix cycles on schema/type issues | Low |
 
 3. **Improvement actions:** For each driver, record a concrete change for next time:
-   - "LLD private-helper signatures were wrong → validate signatures in a quick `tsc` pass before writing tests"
+   - "LLD private-helper signatures were wrong → validate signatures in a quick typecheck pass before writing tests"
    - "Context compaction hit → keep PRs under 200 lines; break large features into two issues"
    - "3 simplify agents re-read the full diff → run simplify before pr-review, not both"
-   - "Zod v4 UUID format → read migration notes at session start for framework upgrades"
+   - "Framework upgrade breaking change → read migration notes at session start for framework upgrades"
 
 Record under **## Cost retrospective** in the session log.
 

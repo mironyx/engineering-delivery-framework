@@ -60,9 +60,9 @@ process.stdin.on('end', () => {
     relPath = normFile.slice(normCwd.length + 1);
   }
 
-  // Check TypeScript/JavaScript, YAML, and Dockerfile
+  // Check TypeScript/JavaScript, Python, YAML, and Dockerfile
   const basename = relPath.split('/').pop() || '';
-  if (!/\\.(tsx?|jsx?|ya?ml)$/.test(relPath) && basename !== 'Dockerfile') {
+  if (!/\\.(tsx?|jsx?|py|ya?ml)$/.test(relPath) && basename !== 'Dockerfile') {
     process.exit(0);
   }
 

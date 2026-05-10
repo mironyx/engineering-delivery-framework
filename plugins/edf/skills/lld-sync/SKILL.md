@@ -25,7 +25,7 @@ they close the Theory Building loop: design informs implementation, implementati
 
 Check the issue's labels: `gh issue view <number> --json labels`.
 
-- **Refactor mode** if `kind:refactor` is present, or the body has a `## Trigger` section per the cross-cutting-refactor-lld-discipline ADR. Behaviour is preserved by definition (no Rev N blocks). The process is **directive** — apply the sweep targets the issue body lists.
+- **Refactor mode** if the issue body has a `## Trigger` section (per the cross-cutting-refactor-lld-discipline ADR), or if the issue has `kind:refactor` label. Behaviour is preserved by definition (no Rev N blocks). The process is **directive** — apply the sweep targets the issue body lists.
 - **Feature mode** otherwise. Process is **reactive** — analyse what was built vs spec; existing behaviour.
 
 Refactor-mode adjustments per step are tagged **[refactor]**. When unmarked, both modes share the step.
@@ -169,7 +169,7 @@ Step 3b handles `lld_revision` and `status` for both cases.
 
 ### Step 3d (refactor mode only): Refactor LLD lifecycle at epic close
 
-If the issue has `kind:refactor` AND its parent epic (per `## Parent epic` in the body, or via `gh issue view <epic_n>`) has `epic` + `kind:refactor` labels AND **the parent epic's task checklist is now fully closed** (every `- [x]` line links to a closed issue), handle refactor LLD retirement per the cross-cutting-refactor-lld-discipline ADR §"Refactor LLD lifecycle". Otherwise (epic still has open tasks), skip this step.
+If the issue is in refactor mode AND its parent epic (per `## Parent epic` in the body, or via `gh issue view <epic_n>`) has `epic` + (`kind:refactor` or `kind:lld-sweep`) labels AND **the parent epic's task checklist is now fully closed** (every `- [x]` line links to a closed issue), handle refactor LLD retirement per the cross-cutting-refactor-lld-discipline ADR §"Refactor LLD lifecycle". Otherwise (epic still has open tasks), skip this step.
 
 If retirement applies:
 

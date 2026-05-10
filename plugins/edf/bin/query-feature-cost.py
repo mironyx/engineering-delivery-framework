@@ -45,9 +45,17 @@ def git_root() -> pathlib.Path:
     return p.parent
 
 
+def _prom_dir() -> pathlib.Path:
+    """Resolve the Prometheus textfile directory, honoring EDF_FEATURE_PROM_DIR."""
+    env_override = os.environ.get("EDF_FEATURE_PROM_DIR")
+    if env_override:
+        return pathlib.Path(env_override)
+    return git_root() / "monitoring" / "textfile_collector"
+
+
 def read_feature_start(feature_id: str) -> datetime | None:
     """Return the recorded start timestamp for feature_id, or None if not available."""
-    timing_file = git_root() / "monitoring" / "textfile_collector" / "feature_timing.json"
+    timing_file = _prom_dir() / "feature_timing.json"
     if not timing_file.exists():
         return None
     try:
@@ -117,7 +125,7 @@ def _read_session_ids_from_prom(feature_id: str) -> list[str]:
 
 def _read_session_ids_from_file(feature_id: str) -> list[str]:
     """Fallback: read session IDs from the local .prom textfile."""
-    prom_file = git_root() / "monitoring" / "textfile_collector" / "session_feature.prom"
+    prom_file = _prom_dir() / "session_feature.prom"
     if not prom_file.exists():
         return []
     lines = prom_file.read_text(encoding="utf-8").splitlines()

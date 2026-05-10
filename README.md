@@ -37,6 +37,28 @@ Project-specific settings shared by the team. Commit this file.
 
 Overrides are read in this order: OS environment → `.env` → derivation.
 
+### `.github/project.env`
+
+GitHub project board configuration. Used by `gh-project-status.sh` and any skill that queries the board (`/feature-team`, `/backlog`, `/retro`). Create this file with:
+
+```
+REPO=owner/name
+PROJECT_NUMBER=N
+PROJECT_ID=PVT_...
+FIELD_ID=PVTSSF_...
+STATUS_TODO=...
+STATUS_BLOCKED=...
+STATUS_IN_PROGRESS=...
+STATUS_DONE=...
+```
+
+To set up a new repo:
+1. Create the project board in GitHub
+2. Run `gh project field-list <number> --owner <owner>`
+3. Copy the field ID and option IDs into `.github/project.env`
+
+Without this file, board-aware skills will fail with a configuration error.
+
 ### Prometheus env var
 
 | Variable | Script(s) | Purpose |
