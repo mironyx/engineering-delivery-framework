@@ -1,0 +1,3 @@
+This is some random output that does not contain a pytest summary line.
+It could be from a script that crashed before pytest got to run.
+No "== N passed" pattern here.

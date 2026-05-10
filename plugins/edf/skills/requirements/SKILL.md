@@ -1,4 +1,4 @@
- ---
+---
 name: requirements
 description: Transform discovery output or a freeform brief into a structured requirements document with epics, prioritised user stories, and testable acceptance criteria. Use after /discovery (or standalone for smaller projects) and before /kickoff.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite, WebSearch, WebFetch, Agent, Skill

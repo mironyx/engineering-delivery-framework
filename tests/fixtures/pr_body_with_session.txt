@@ -1,0 +1,8 @@
+## Summary
+Some feature changes.
+
+## Usage
+- **Cost:** $0.1234
+- **Tokens:** 50000 input / 12000 output
+
+<!-- claude-session-id: a1b2c3d4-e5f6-7890-abcd-ef1234567890 -->

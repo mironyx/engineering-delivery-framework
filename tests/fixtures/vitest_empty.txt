@@ -1,0 +1,8 @@
+
+ RUN  v1.5.0 C:/projects/myapp
+
+
+ Test Files  (0)
+      Tests  (0)
+   Start at  12:34:56
+   Duration  0.01s

@@ -1,0 +1,18 @@
+{
+  "data": {
+    "repository": {
+      "issue": {
+        "projectItems": {
+          "nodes": [
+            {
+              "id": "PVTI_other1",
+              "project": {
+                "id": "PVT_other"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

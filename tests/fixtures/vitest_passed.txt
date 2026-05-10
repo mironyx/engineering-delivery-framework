@@ -1,0 +1,11 @@
+
+ RUN  v1.5.0 C:/projects/myapp
+
+ ✓ src/__tests__/auth.test.ts (12 tests) 234ms
+ ✓ src/__tests__/api.test.ts (8 tests) 189ms
+ ✓ src/__tests__/utils.test.ts (5 tests) 45ms
+
+ Test Files  3 passed (3)
+      Tests  25 passed (25)
+   Start at  12:34:56
+   Duration  3.45s

@@ -1,0 +1,23 @@
+
+ RUN  v1.5.0 C:/projects/myapp
+
+ ✓ src/__tests__/auth.test.ts (10 tests) 234ms
+ ❯ src/__tests__/api.test.ts (8 tests | 2 failed) 189ms
+   × should create user 45ms
+     → expected 201 but got 500
+   × should delete user 12ms
+     → AssertionError: expected false to be true
+ ✓ src/__tests__/utils.test.ts (5 tests) 45ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/api.test.ts > should create user
+AssertionError: expected 201 but got 500
+
+ FAIL  src/__tests__/api.test.ts > should delete user
+AssertionError: expected false to be true
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  2 failed | 23 passed (25)
+   Start at  12:34:56
+   Duration  4.12s

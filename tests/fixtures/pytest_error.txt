@@ -1,0 +1,14 @@
+============================= test session starts =============================
+platform linux -- Python 3.12.0, pytest-8.0.0, pluggy-1.4.0
+collected 3 items
+
+tests/test_db.py::test_connection ERROR                                 [ 33%]
+tests/test_db.py::test_query ERROR                                      [ 66%]
+tests/test_db.py::test_migration PASSED                                 [100%]
+
+==================================== ERRORS ====================================
+___________ test_connection ____________
+ERROR tests/test_db.py::test_connection - psycopg2.OperationalError: could not connect to server
+___________ test_query ____________
+ERROR tests/test_db.py::test_query - psycopg2.OperationalError: could not connect to server
+========================= 2 errors, 1 passed in 1.05s =========================
