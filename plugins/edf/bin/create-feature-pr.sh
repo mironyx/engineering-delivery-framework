@@ -14,6 +14,12 @@
 #   Prints the PR URL on success, exits non-zero on error.
 set -euo pipefail
 
+# Derive plugin root from the script location. CLAUDE_PLUGIN_ROOT is only resolved
+# by Claude Code in hooks.json and skill markdown — it is not exported into the
+# Bash environment of tool-invoked commands, so the script cannot rely on it.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # --- Parse arguments ---
 ISSUE=""
 TITLE=""
@@ -91,7 +97,7 @@ PR_URL=$(gh pr create --title "$TITLE" --base main --body "$PR_BODY")
 PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]*$')
 
 # --- Cost tracking (best-effort) ---
-COST_OUTPUT=$("${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh" "${CLAUDE_PLUGIN_ROOT}/bin/query-feature-cost.py" \
+COST_OUTPUT=$("${PLUGIN_ROOT}/hooks/run-python.sh" "${PLUGIN_ROOT}/bin/query-feature-cost.py" \
   "$FEATURE_ID" --issue "$ISSUE" --pr "$PR_NUMBER" --stage pr 2>/dev/null) || true
 
 COST_LINE=$(echo "$COST_OUTPUT" | grep '^\- \*\*Cost:' || echo "- **Cost:** unavailable")
@@ -99,11 +105,11 @@ TOKEN_LINE=$(echo "$COST_OUTPUT" | grep '^\- \*\*Tokens:' || echo "- **Tokens:**
 TIME_LINE=$(echo "$COST_OUTPUT" | grep '^\- \*\*Time to PR:' || echo "- **Time to PR:** unavailable")
 
 # --- Resolve session ID (best-effort) ---
-SESSION_ID=$("${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh" "${CLAUDE_PLUGIN_ROOT}/bin/get-session-id.py" 2>/dev/null) || SESSION_ID="unknown"
+SESSION_ID=$("${PLUGIN_ROOT}/hooks/run-python.sh" "${PLUGIN_ROOT}/bin/get-session-id.py" 2>/dev/null) || SESSION_ID="unknown"
 
 # --- Patch the PR body with actual cost figures ---
 CURRENT_BODY=$(gh pr view "$PR_NUMBER" --json body -q '.body')
-UPDATED_BODY=$(echo "$CURRENT_BODY" | "${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh" -c "
+UPDATED_BODY=$(echo "$CURRENT_BODY" | "${PLUGIN_ROOT}/hooks/run-python.sh" -c "
 import sys
 cost_line = '''$COST_LINE'''
 token_line = '''$TOKEN_LINE'''

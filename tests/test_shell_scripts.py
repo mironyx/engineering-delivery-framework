@@ -9,6 +9,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import tempfile
 
 import pytest
 
@@ -27,13 +28,14 @@ def _to_msys2_path(p):
     return s
 
 
-def _bash(script_path, *args):
+def _bash(script_path, *args, cwd=None):
     """Run a bash script with arguments."""
     result = subprocess.run(
         [_BASH_EXE, _to_msys2_path(script_path), *args],
         capture_output=True,
         text=True,
         timeout=30,
+        cwd=cwd,
     )
     return result
 
@@ -121,6 +123,22 @@ class TestCreateFeaturePr:
         result = _bash(BIN_DIR / "create-feature-pr.sh", "--bogus")
         assert result.returncode != 0
 
+    def test_runs_without_claude_plugin_root_env(self):
+        # The script must not depend on $CLAUDE_PLUGIN_ROOT being set in the Bash
+        # environment — that variable is only resolved by Claude Code in hooks.json
+        # and skill markdown, not exported into tool-invoked commands. We unset it
+        # and invoke with a missing-arg path: the script should fail on the missing
+        # arg, NOT on "CLAUDE_PLUGIN_ROOT: unbound variable".
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_ROOT"}
+        result = subprocess.run(
+            [_BASH_EXE, _to_msys2_path(BIN_DIR / "create-feature-pr.sh"),
+             "--issue", "1", "--title", "x"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        assert "CLAUDE_PLUGIN_ROOT" not in result.stderr
+        assert "unbound variable" not in result.stderr
+        assert "Missing required argument" in result.stderr
+
 
 # ── gh-project-status.sh ─────────────────────────────────────────────────────
 
@@ -130,11 +148,23 @@ class TestGhProjectStatus:
         result = _bash(BIN_DIR / "gh-project-status.sh")
         assert result.returncode != 0
 
-    def test_missing_config_file(self):
-        # This script looks for .github/project.env relative to script dir's parent
-        result = _bash(BIN_DIR / "gh-project-status.sh", "add", "42")
-        # Should fail because no config file exists
+    def test_missing_config_file_in_repo(self, tmp_path):
+        # Script resolves repo root via `git rev-parse --show-toplevel`, not its own
+        # location. From inside a git repo with no .github/project.env, it must look
+        # at the *repo's* .github/, not the plugin's.
+        subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+        result = _bash(BIN_DIR / "gh-project-status.sh", "add", "42", cwd=tmp_path)
         assert result.returncode != 0
+        # The error message should reference the repo's .github path
+        assert str(tmp_path).replace("\\", "/").lower() in result.stderr.replace("\\", "/").lower() \
+            or ".github/project.env" in result.stderr
+
+    def test_outside_git_repo_fails_clearly(self, tmp_path):
+        # When invoked from outside any git repo, the script must fail with a clear
+        # message rather than silently looking at the plugin's directory.
+        result = _bash(BIN_DIR / "gh-project-status.sh", "add", "42", cwd=tmp_path)
+        assert result.returncode != 0
+        assert "git repository" in result.stderr.lower()
 
 
 # ── run-python.sh ────────────────────────────────────────────────────────────

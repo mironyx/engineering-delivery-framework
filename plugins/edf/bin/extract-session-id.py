@@ -12,11 +12,12 @@ Output: session ID UUID, or empty string if not found.
 """
 
 import argparse
-import os
 import pathlib
 import re
 import subprocess
 import sys
+
+import _edf_env
 
 
 def _git_root() -> pathlib.Path:
@@ -33,11 +34,7 @@ def _extract_from_pr_body(body: str) -> str:
 
 
 def _extract_from_prom(issue: str, root: pathlib.Path) -> str:
-    prom_dir = pathlib.Path(
-        os.environ.get("EDF_FEATURE_PROM_DIR")
-        or root / "monitoring" / "textfile_collector"
-    )
-    prom = prom_dir / "session_feature.prom"
+    prom = _edf_env.prom_dir(root) / "session_feature.prom"
     if not prom.exists():
         return ""
     m = re.search(

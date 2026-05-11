@@ -32,7 +32,14 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Resolve the user's project root from git, not the script location. When installed
+# as a plugin the script lives under ~/.claude/plugins/..., so $SCRIPT_DIR/.. is the
+# plugin directory, not the user's repo.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$REPO_ROOT" ]]; then
+  echo "Error: not inside a git repository — run from your project directory" >&2
+  exit 1
+fi
 CONFIG_FILE="$REPO_ROOT/.github/project.env"
 
 # --- Load configuration ---
