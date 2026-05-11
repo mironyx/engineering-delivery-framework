@@ -1,14 +1,8 @@
-"""Find the current session title from Claude Code JSONL files.
+"""Print the session's feature title from the Claude Code session JSONL.
 
-Searches the session JSONL for a custom-title entry and prints it.
-Falls back to 'pr-review' if no title is found.
-
-Primary method: find the JSONL open by the parent Claude Code process via
-/proc — the same approach used by tag-session.py. This is reliable after
-sub-agents have run because sub-agents write their own JSONL files, making
-mtime-based selection pick the wrong file.
-
-Fallback: sort all JSONL files by mtime and try each one in order.
+When CLAUDE_CODE_SESSION_ID is set, the JSONL path is constructed directly
+from the session UUID, skipping the old /proc and mtime-based search.
+Falls back to the old search methods when the env var is absent.
 
 Usage:
     python get-session-id.py
@@ -67,9 +61,35 @@ def read_title(jsonl: pathlib.Path) -> str | None:
     return None
 
 
-claude_dir = pathlib.Path.home() / ".claude" / "projects" / derive_project_key()
+def _compare(old_uuid: str, new_uuid: str) -> None:
+    if old_uuid and new_uuid and old_uuid != new_uuid:
+        print(
+            f"[get-session-id] CLAUDE_CODE_SESSION_ID={new_uuid} but old method found {old_uuid}",
+            file=sys.stderr,
+        )
 
-# Primary: use the JSONL the parent process has open (immune to sub-agent mtime races)
+
+claude_dir = pathlib.Path.home() / ".claude" / "projects" / derive_project_key()
+env_session_id = os.environ.get("CLAUDE_CODE_SESSION_ID")
+
+# New path: construct JSONL path from CLAUDE_CODE_SESSION_ID
+if env_session_id:
+    jsonl = claude_dir / f"{env_session_id}.jsonl"
+    if jsonl.exists():
+        title = read_title(jsonl)
+        if title:
+            # Compare old method (best-effort, for validation)
+            old = find_jsonl_via_proc(claude_dir)
+            if old:
+                _compare(old.stem, env_session_id)
+            else:
+                newest = max(claude_dir.glob("*.jsonl"), key=os.path.getmtime, default=None)
+                if newest:
+                    _compare(newest.stem, env_session_id)
+            print(title)
+            sys.exit(0)
+
+# Fallback: old method
 proc_jsonl = find_jsonl_via_proc(claude_dir)
 if proc_jsonl:
     title = read_title(proc_jsonl)
@@ -77,7 +97,6 @@ if proc_jsonl:
         print(title)
         sys.exit(0)
 
-# Fallback: try all JSONL files sorted by mtime
 for jsonl in sorted(claude_dir.glob("*.jsonl"), key=os.path.getmtime, reverse=True):
     title = read_title(jsonl)
     if title:

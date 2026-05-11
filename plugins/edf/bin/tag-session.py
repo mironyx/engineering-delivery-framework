@@ -195,23 +195,41 @@ def main() -> None:
     project_key = derive_project_key(root)
 
     claude_dir = pathlib.Path.home() / ".claude" / "projects" / project_key
+    env_session_id = os.environ.get("CLAUDE_CODE_SESSION_ID")
+
+    # Old method: search for JSONL (kept for comparison during validation)
     jsonl_path = (
         find_session_jsonl_via_proc(claude_dir)
         or find_session_jsonl(claude_dir, issue_hint=args.issue, feature_prefix=feature_prefix)
     )
-    if not jsonl_path:
+    old_session_id = jsonl_path.stem if jsonl_path else None
+
+    # Compare old and new session ID sources
+    if env_session_id and old_session_id and env_session_id != old_session_id:
+        print(
+            f"[tag-session] CLAUDE_CODE_SESSION_ID={env_session_id} but old method found {old_session_id}",
+            file=sys.stderr,
+        )
+
+    # Prefer env var, fall back to old method
+    session_id = env_session_id or old_session_id
+    if not session_id:
+        print("No session ID found — skipping session tagging")
+        sys.exit(0)
+
+    # Resolve JSONL path from session_id when env var was the source
+    if jsonl_path is None and env_session_id:
+        jsonl_path = claude_dir / f"{env_session_id}.jsonl"
+    if not jsonl_path or not jsonl_path.exists():
         print("No session JSONL found — skipping session tagging")
         sys.exit(0)
 
-    session_id = jsonl_path.stem
     title = f"{feature_id} (cont)" if args.cont else feature_id
 
     # 1. Tag session in JSONL
     write_custom_title(jsonl_path, session_id, title)
 
     # 2. Update Prometheus textfile
-    # Default is <repo-root>/monitoring/textfile_collector. Override via env var or
-    # .env (EDF_FEATURE_PROM_DIR=...) when node_exporter reads from a different location.
     textfile_dir = _edf_env.prom_dir(root)
     textfile_dir.mkdir(parents=True, exist_ok=True)
     update_prom_file(textfile_dir / "session_feature.prom", session_id, feature_id)

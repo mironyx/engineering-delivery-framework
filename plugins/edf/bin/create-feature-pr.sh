@@ -105,7 +105,9 @@ TOKEN_LINE=$(echo "$COST_OUTPUT" | grep '^\- \*\*Tokens:' || echo "- **Tokens:**
 TIME_LINE=$(echo "$COST_OUTPUT" | grep '^\- \*\*Time to PR:' || echo "- **Time to PR:** unavailable")
 
 # --- Resolve session ID (best-effort) ---
-SESSION_ID=$("${PLUGIN_ROOT}/hooks/run-python.sh" "${PLUGIN_ROOT}/bin/get-session-id.py" 2>/dev/null) || SESSION_ID="unknown"
+# Prefer CLAUDE_CODE_SESSION_ID env var; fall back to legacy get-session-id.py
+SESSION_ID="${CLAUDE_CODE_SESSION_ID:-$("${PLUGIN_ROOT}/hooks/run-python.sh" "${PLUGIN_ROOT}/bin/get-session-id.py" 2>/dev/null)}"
+SESSION_ID="${SESSION_ID:-unknown}"
 
 # --- Patch the PR body with actual cost figures ---
 CURRENT_BODY=$(gh pr view "$PR_NUMBER" --json body -q '.body')
