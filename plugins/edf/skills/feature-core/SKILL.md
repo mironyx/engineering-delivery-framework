@@ -295,7 +295,9 @@ Input: pr=<pr-number>
 run_in_background: true
 ```
 
-When the probe reports back:
+The background agent's completion notification only fires at a turn boundary, so the probe's report may not arrive before Step 9 starts. **Do not insert no-op tool calls to "advance turns" and force the notification** — Step 10 reconciles the CI outcome synchronously.
+
+When the probe reports back during Step 9:
 
 - **CI failure** — fix the root cause, push, note in the Step 10 report.
 - **CI pass** — note in the Step 10 report.
@@ -315,13 +317,25 @@ After any fixes, re-run `/pr-review <pr-number>` to confirm no new issues were i
 
 ### Step 10: Report
 
-Summarise what was done:
+**Before summarising, reconcile CI outcome.** The Step 8b background probe may not have
+reported back yet. Instead of waiting passively (which requires no-op tool calls to advance
+turns and force the notification), check CI status directly with a single synchronous call:
+
+```bash
+gh pr checks <pr-number>
+```
+
+- Output shows per-check status (`pass` / `fail` / `pending`). If all complete and pass: note **CI pass** in the report.
+- If any check failed: fix the root cause, push, then re-run `gh pr checks`. Note in the report.
+- If any check is still pending (CI slower than the review cycle): wait synchronously with `gh pr checks <pr-number> --watch --interval 30` (foreground; no no-op turns needed). On completion, classify pass/fail.
+
+Then summarise what was done:
 
 - Issue number and title
 - Branch and PR link
 - Tests added / total
 - Review outcome: what was found, what was fixed, what was deferred
-- CI outcome: pass / fail / pending (if the edf:ci-probe has not yet reported back)
+- CI outcome: pass / fail (always known by this point — no "pending" in the report)
 - Any warnings or notes (PR size, diagnostics findings, design drift)
 - Suggested next item from the board
 

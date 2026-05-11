@@ -21,6 +21,8 @@ import subprocess
 import sys
 import time
 
+import _edf_env
+
 
 def git_root() -> pathlib.Path:
     # Use --git-common-dir so this works correctly from linked worktrees:
@@ -46,36 +48,16 @@ def derive_project_key(root: pathlib.Path) -> str:
     return path_str.replace("\\", "-").replace("/", "-").replace(":", "")
 
 
-def _read_dotenv(root: pathlib.Path) -> dict[str, str]:
-    """Read KEY=value pairs from .env in the repo root (if it exists)."""
-    env_file = root / ".env"
-    if not env_file.exists():
-        return {}
-    result: dict[str, str] = {}
-    for line in env_file.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        result[key.strip()] = value.strip().strip("\"'")
-    return result
-
-
 def derive_feature_prefix(root: pathlib.Path) -> str:
     """Derive a feature-id prefix.
 
     Precedence: $EDF_FEATURE_PREFIX env var → .env in repo root → derivation.
     Derivation: "engineering-delivery-framework" -> "EDF", "myproject" -> "MYPROJECT".
     """
-    # 1. OS environment
-    env_prefix = os.environ.get("EDF_FEATURE_PREFIX")
-    if env_prefix:
-        return env_prefix
-    # 2. .env in repo root (team-shared override)
-    dotenv_prefix = _read_dotenv(root).get("EDF_FEATURE_PREFIX")
-    if dotenv_prefix:
-        return dotenv_prefix
-    # 3. Derive from repo name
+    prefix = _edf_env.resolve("EDF_FEATURE_PREFIX", root)
+    if prefix:
+        return prefix
+    # Derive from repo name
     name = root.name
     parts = [p for p in name.replace("_", "-").split("-") if p]
     if len(parts) >= 2:
@@ -228,11 +210,9 @@ def main() -> None:
     write_custom_title(jsonl_path, session_id, title)
 
     # 2. Update Prometheus textfile
-    # By default the textfile is written to <repo-root>/monitoring/textfile_collector.
-    # Set EDF_FEATURE_PROM_DIR when node_exporter reads from a different location (e.g.
-    # WSL → Windows path translation, or a shared collector dir outside the repo):
-    #   export EDF_FEATURE_PROM_DIR=/mnt/c/projects/myproject/monitoring/textfile_collector
-    textfile_dir = pathlib.Path(os.environ.get("EDF_FEATURE_PROM_DIR") or root / "monitoring" / "textfile_collector")
+    # Default is <repo-root>/monitoring/textfile_collector. Override via env var or
+    # .env (EDF_FEATURE_PROM_DIR=...) when node_exporter reads from a different location.
+    textfile_dir = _edf_env.prom_dir(root)
     textfile_dir.mkdir(parents=True, exist_ok=True)
     update_prom_file(textfile_dir / "session_feature.prom", session_id, feature_id)
 

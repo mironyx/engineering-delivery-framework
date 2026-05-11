@@ -28,6 +28,8 @@ from datetime import datetime, timezone
 
 import os
 
+import _edf_env
+
 _PROM_HOST = os.environ.get("WINDOWS_IP", "localhost")
 _PROM_PORT = os.environ.get("PROM_PORT", "9090")
 PROM = f"http://{_PROM_HOST}:{_PROM_PORT}/api/v1/query"
@@ -46,11 +48,11 @@ def git_root() -> pathlib.Path:
 
 
 def _prom_dir() -> pathlib.Path:
-    """Resolve the Prometheus textfile directory, honoring EDF_FEATURE_PROM_DIR."""
-    env_override = os.environ.get("EDF_FEATURE_PROM_DIR")
-    if env_override:
-        return pathlib.Path(env_override)
-    return git_root() / "monitoring" / "textfile_collector"
+    """Resolve the Prometheus textfile directory.
+
+    Honors $EDF_FEATURE_PROM_DIR, then .env in the repo root.
+    """
+    return _edf_env.prom_dir(git_root())
 
 
 def read_feature_start(feature_id: str) -> datetime | None:
@@ -261,45 +263,28 @@ def apply_labels(issue: int, metrics: UsageMetrics, stage: str, pr: int | None =
         print(f"Label applied: {label} -> {targets}")
 
 
-def _read_dotenv(root: pathlib.Path) -> dict[str, str]:
-    """Read KEY=value pairs from .env in the repo root (if it exists)."""
-    env_file = root / ".env"
-    if not env_file.exists():
-        return {}
-    result: dict[str, str] = {}
-    for line in env_file.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        result[key.strip()] = value.strip().strip("\"'")
-    return result
-
-
 def _derive_feature_prefix() -> str:
     """Derive a feature-id prefix.
 
     Precedence: $EDF_FEATURE_PREFIX env var → .env in repo root → derivation.
     """
-    env_prefix = os.environ.get("EDF_FEATURE_PREFIX")
-    if env_prefix:
-        return env_prefix
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
             capture_output=True, text=True, check=True,
         )
         root = pathlib.Path(result.stdout.strip())
-        dotenv_prefix = _read_dotenv(root).get("EDF_FEATURE_PREFIX")
-        if dotenv_prefix:
-            return dotenv_prefix
-        name = root.name
-        parts = [p for p in name.replace("_", "-").split("-") if p]
-        if len(parts) >= 2:
-            return "".join(p[0].upper() for p in parts)
-        return name.upper() or "FEAT"
     except (subprocess.CalledProcessError, FileNotFoundError):
         return "FEAT"
+
+    prefix = _edf_env.resolve("EDF_FEATURE_PREFIX", root)
+    if prefix:
+        return prefix
+    name = root.name
+    parts = [p for p in name.replace("_", "-").split("-") if p]
+    if len(parts) >= 2:
+        return "".join(p[0].upper() for p in parts)
+    return name.upper() or "FEAT"
 
 
 def main() -> None:

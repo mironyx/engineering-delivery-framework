@@ -26,7 +26,20 @@ Execute these steps sequentially. Do not skip steps. Do not ask for confirmation
 git checkout main && git pull origin main
 ```
 
-If checkout fails due to uncommitted changes, stop and tell the user.
+Then verify the working tree is clean. `git checkout main` is a no-op success when
+already on main with uncommitted changes, so the dirty state would otherwise be
+inherited by the feature branch:
+
+```bash
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Working tree has uncommitted changes on main. Stash or commit before /feature."
+  git status --short
+  exit 1
+fi
+```
+
+If checkout fails due to uncommitted changes, or the porcelain check reports any
+files, stop and tell the user.
 
 ### Step 1: Pick the work item and tag the session
 

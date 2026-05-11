@@ -18,6 +18,7 @@ extract_session_id = __import__("extract-session-id")
 query_feature_cost = __import__("query-feature-cost")
 update_coverage_manifest = __import__("update-coverage-manifest")
 check_epic_checkbox = __import__("check-epic-checkbox")
+edf_env = __import__("_edf_env")
 
 
 # ── derive_project_key ───────────────────────────────────────────────────────
@@ -66,30 +67,31 @@ class TestDeriveFeaturePrefix:
         assert prefix == "MYPROJECT"
 
 
-# ── _read_dotenv ─────────────────────────────────────────────────────────────
+# ── _edf_env.read_dotenv ─────────────────────────────────────────────────────
+# (moved from tag-session._read_dotenv to shared _edf_env module)
 
 
 class TestReadDotenv:
     def test_simple_key_value(self, tmp_path):
         env_file = tmp_path / ".env"
         env_file.write_text('KEY=value\nANOTHER=123\n')
-        result = tag_session._read_dotenv(tmp_path)
+        result = edf_env.read_dotenv(tmp_path)
         assert result == {"KEY": "value", "ANOTHER": "123"}
 
     def test_skips_comments_and_blanks(self, tmp_path):
         env_file = tmp_path / ".env"
         env_file.write_text('# comment\nKEY=value\n\nOTHER=thing\n')
-        result = tag_session._read_dotenv(tmp_path)
+        result = edf_env.read_dotenv(tmp_path)
         assert result == {"KEY": "value", "OTHER": "thing"}
 
     def test_strips_quotes(self, tmp_path):
         env_file = tmp_path / ".env"
         env_file.write_text('KEY="quoted value"\n')
-        result = tag_session._read_dotenv(tmp_path)
+        result = edf_env.read_dotenv(tmp_path)
         assert result == {"KEY": "quoted value"}
 
     def test_missing_file(self, tmp_path):
-        result = tag_session._read_dotenv(tmp_path)
+        result = edf_env.read_dotenv(tmp_path)
         assert result == {}
 
 
