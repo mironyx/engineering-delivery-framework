@@ -34,6 +34,7 @@ Project-specific settings shared by the team. Commit this file.
 | Variable | Script(s) | Purpose |
 |---|---|---|
 | `EDF_FEATURE_PREFIX` | `tag-session.py`, `query-feature-cost.py` | Override the auto-derived feature-id prefix (default: initials from repo name — `engineering-delivery-framework` → `EDF`). Set when the team uses a different prefix in their tracker. |
+| `EDF_FEATURE_PROM_DIR` | `tag-session.py`, `query-feature-cost.py`, `extract-session-id.py` | Override the Prometheus textfile collector directory (default: `<repo-root>/monitoring/textfile_collector`). Set when node_exporter reads from a non-standard location, or point at a gitignored path (e.g. `.claude/textfile_collector`) to keep the working tree clean. |
 
 Overrides are read in this order: OS environment → `.env` → derivation.
 
@@ -59,11 +60,15 @@ To set up a new repo:
 
 Without this file, board-aware skills will fail with a configuration error.
 
-### Prometheus env var
+### Model configuration
 
-| Variable | Script(s) | Purpose |
-|---|---|---|
-| `EDF_FEATURE_PROM_DIR` | `tag-session.py`, `feature-end` | Override the Prometheus textfile collector directory (default: `<repo-root>/monitoring/textfile_collector`). Set this when node_exporter reads from a non-standard location, e.g. on WSL: `export EDF_FEATURE_PROM_DIR=/mnt/c/projects/myproject/monitoring/textfile_collector` |
+Several EDF agents pin `model: haiku` in their frontmatter (`ci-probe`, `diagnostics-checker`, `gh-issue-manager`, `test-runner`) to keep cost low on mechanical work. This relies on the calling environment having a `haiku` model available — either:
+
+- **Anthropic API directly** — `claude-haiku-4-5` is selected automatically.
+- **External routing** — set `ANTHROPIC_DEFAULT_HAIKU_MODEL` (or your routing tool's equivalent) so the `haiku` selector resolves to your chosen backend (e.g. DeepSeek, a local model).
+- **No haiku available** — Claude Code falls back to the default model. EDF still works; you just pay the default-model rate on mechanical agents.
+
+The `haiku` label is a model *name*, not an agent type. EDF's agent types are namespaced (`edf:test-runner`, `edf:ci-probe`, etc.) and do not require a "haiku" agent type to be registered.
 
 ## Project documentation conventions
 
