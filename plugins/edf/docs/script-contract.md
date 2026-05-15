@@ -44,18 +44,22 @@ Convention: stdout/stderr captured by the skill; non-zero exit always means fail
 - `parse-vitest-output.py` — parses vitest output from stdin
 - `parse-pytest-output.py` — parses pytest output from stdin
 
-Call them from the project's `run-tests.sh` via `${CLAUDE_PLUGIN_ROOT}`:
+Call them from the project's `run-tests.sh` by deriving the plugin root from the script location. `CLAUDE_PLUGIN_ROOT` is only resolved by Claude Code in hooks.json and skill markdown — it is not exported into the Bash environment, so scripts must resolve it themselves:
 
 ```bash
 #!/usr/bin/env bash
 set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
 tmpfile=$(mktemp)
 trap 'rm -f "$tmpfile"' EXIT
 
 <test-runner> "$@" > "$tmpfile" 2>&1
 test_exit=$?
 
-"${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh" "${CLAUDE_PLUGIN_ROOT}/bin/<summarizer>.py" < "$tmpfile"
+"${PLUGIN_ROOT}/hooks/run-python.sh" "${PLUGIN_ROOT}/bin/<summarizer>.py" < "$tmpfile"
 exit $test_exit
 ```
 
