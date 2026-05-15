@@ -24,7 +24,7 @@ consuming project's `docs/adr/` and are numbered by the project.
 ## Numbering
 
 Framework ADRs use the same `NNNN-title.md` numbering as project ADRs. The
-plugin currently claims numbers 0018, 0019, 0021, 0022, 0026 — pulled from the
+plugin currently claims numbers 0018, 0019, 0021, 0022, 0026, 0030, 0033 — pulled from the
 seed project (`feature-comprehension-score`) where they originated. Consuming
 projects should treat those numbers as reserved by the framework and pick
 unused numbers for their own ADRs.
@@ -43,6 +43,8 @@ project side".
 | [0021](0021-project-bootstrap-pipeline.md) | Project bootstrap pipeline (`/discovery → /requirements → /kickoff → /architect → /feature`) |
 | [0022](0022-tiered-feature-process.md) | Tiered feature process (bug / feature / epic / phase tiers) |
 | [0026](0026-stable-ids-requirements-lld.md) | Stable IDs for requirements stories and LLD sections |
+| [0030](0030-feature-team-agent.md) | Feature team agent in `/feature-team` |
+| [0033](0033-feature-team-agent-implementation.md) | Feature team agent implementation details |
 
 ## How references resolve
 
