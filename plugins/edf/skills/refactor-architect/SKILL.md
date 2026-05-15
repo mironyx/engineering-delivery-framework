@@ -104,7 +104,19 @@ For each LLD anchor found, capture:
 
 Also consult `docs/design/coverage-*.yaml`, `kb/architecture.md` (helper catalogue), and `kb/anti-patterns.md` (patterns the refactor should eliminate or add).
 
-Output: full **Design references** list — `(LLD anchor)+ (kb-doc row)*`.
+Apply the following filter to every reference found. This gate separates "must change in the implementing PR" from "reconcile after merge" — the same authorship boundary ADR-0030 draws between `/architect` and `/lld-sync`, extended here to refactor-originated changes.
+
+For each grep hit, ask:
+
+> **"If the implementing PR ships and this section is unchanged, would a reader of this section be misled about what the code does?"**
+
+- **Yes** → the reference must change in the implementing PR. This includes: function signatures that changed, named adapters that were deleted, contracts that were reshaped, design rules the refactor revokes. Leaving the LLD unchanged would create a direct contradiction with shipped code.
+- **No** → the section is editorial / structural but not load-bearing. This includes: helper-table rows, kernel.md entries, coverage-manifest `lld_revision` bumps, wording that mentions the changed area but doesn't prescribe a contract. These belong to `/lld-sync` per ADR-0030's authorship boundary.
+
+Produce two outputs:
+
+- **Output A — Design references (must change in implementing PR).** Listed under `## Design references` in the issue body. Only entries where the answer is "Yes."
+- **Output B — Reconcile after merge. Listed under `## Out of scope for this PR (reconciled by /lld-sync after merge)` in the issue body. Entries where the answer is "No." This signals the implementing agent not to over-sweep into `/lld-sync`'s territory.
 
 ### Step 4: Decide decomposition
 
@@ -127,7 +139,7 @@ Two cases:
 
 Produce these refactor-specific artefacts (used by Step 6 to populate the issue body):
 
-1. **Boundary Contract Audit table** — format defined in the cross-cutting-refactor-lld-discipline ADR §"Boundary Contract Audit format". Do not duplicate the table format here; reference the ADR.
+1. **Boundary Contract Audit table** — format defined in ADR-0033 §"Boundary Contract Audit format". Do not duplicate the table format here; reference the ADR.
 2. **TypeScript interface signature** — full method signatures with parameter and return types. Copy from source where consumers exist; invent only where genuinely new.
 3. **DTOs / row shapes** — re-export current shapes by default; reshape only with explicit reason.
 4. **Mock helper API** — recommend a plain factory `make<Name>(overrides?: Partial<Interface>)` returning stubs (use the project's mocking convention as declared in CLAUDE.md — e.g. `vitest.fn()`, `unittest.mock`, `pytest.monkeypatch`).
@@ -144,10 +156,11 @@ This step **reuses `/architect`'s templates and creation machinery** with refact
 See `/architect` SKILL.md §"Task body template". Apply these deltas for refactor tasks:
 
 - Replace `## Stories` → **`## Trigger`** — name the smell category (Smell 1/2/3/Manual) and one-line detail.
-- Replace `## Design reference` (singular) → **`## Design references`** — anchor list of LLD sections the implementing PR will sweep (from Step 3).
-- Omit `## HLD reference` — refactors don't reference HLDs.
+- Replace `## Design reference` (singular) → **`## Design references`** — anchor list of LLD sections the implementing PR must change (Step 3 Output A only). Each entry must pass the "would a reader be misled" test.
+- Add **`## Out of scope for this PR (reconciled by /lld-sync after merge)`** — Step 3 Output B. Helper-table rows, coverage-manifest `lld_revision` bumps, kernel.md entries, editorial wording that mentions but does not prescribe. Signals to the implementing agent not to touch these.
+- Omit `## HLD reference` unless the HLD hosts a load-bearing design rule the refactor revokes or refines — in that case, include it. The refactor's ADR should make the rule change concrete; the HLD section reference belongs alongside it.
 - Omit `## Parent epic` if the refactor is a standalone task (not in an epic).
-- Add `## Boundary Contract Audit` — Case A only, format per the cross-cutting-refactor ADR.
+- Add `## Boundary Contract Audit` — Case A only, format per ADR-0033 §"Boundary Contract Audit format".
 - Add `## Interface and types` — Case A only (Step 5.2–3 output).
 - Add `## Mock helper` — Case A only (Step 5.4 output).
 - Add `## Step order within the implementing PR` — Case A only (Step 5.5 output).
@@ -162,7 +175,7 @@ See `/architect` SKILL.md §"Epic body template". Apply these deltas for refacto
 - Title prefix: `Epic: refactor — <title>` (instead of `Epic: V<N> E<X>.<Y>`).
 - Replace `### Requirements`, `### HLD reference`, `### Stories` → single **`### Trigger`** section naming the smell.
 - `### Design references` is cumulative across all child tasks (each child task body has its subset).
-- `### Related ADRs` always includes the cross-cutting-refactor-lld-discipline ADR.
+- `### Related ADRs` always includes ADR-0033.
 - Labels: `epic` + `kind:lld-sweep` (instead of feature-area labels).
 - All other fields (`### Tasks`, `### Dependency graph`, `### Execution waves`, `### Exit criteria`) inherit from `/architect`.
 
@@ -187,6 +200,7 @@ Report what was created and the recommended next step:
 - **Do not implement.** This skill produces issues only.
 - **Do not invoke other skills.** Skills surface findings; the human routes work (per the cross-cutting-refactor ADR).
 - **Lock symbol names at issue-creation time.** Method names, interface names, file paths in the issue body are the contract for `/feature`. They cannot drift between issue creation and implementation.
+- **Never include in the issue body's `## Design references`:** kernel.md rows, coverage manifest rows, "Reused helpers" tables (e.g. `lld-XX-eY §B.0`). These are `/lld-sync`-owned artefacts per ADR-0030's authorship boundary. Including them invites the implementing agent to write content that `/lld-sync` will immediately re-author after merge — work that contradicts itself across two commits.
 - **British English** in all documentation and issue bodies.
 - **Default to one issue.** Escalation to epic+tasks is the exception, not the norm.
 
@@ -194,5 +208,6 @@ Report what was created and the recommended next step:
 
 This skill inherits the project conventions documented in `/architect` SKILL.md (LLD path patterns, coverage manifests, kb docs, project board scripts, label set, `edf:gh-issue-manager` agent). It adds only:
 
-- **ADR reference:** The cross-cutting-refactor-lld-discipline ADR defines the refactor lifecycle, smells, Boundary Contract Audit format, and decomposition guideline. When porting to a project that records the refactor lifecycle in a different ADR, re-anchor accordingly.
+- **ADR-0030** defines the authorship boundary: `/architect` writes `## Pending changes — Rev N`; `/lld-sync` reconciles Part B after merge and owns helper tables, kernel.md rows, and coverage-manifest `lld_revision` bumps. This skill reuses that boundary for refactor-originated changes — the "must-change" filter in Step 3 and the exclusion list in Guidelines both derive from it.
+- **ADR-0033** defines the refactor lifecycle, smells, Boundary Contract Audit format, and decomposition guideline. When porting to a project that records these in different ADRs, re-anchor accordingly.
 - **Label:** `kind:lld-sweep` for refactor epics. Create on first use if not present.

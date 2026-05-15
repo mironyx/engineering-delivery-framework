@@ -110,9 +110,11 @@ Fetch it before proceeding or the call will fail with `InputValidationError`:
 2. Call `Agent` once per teammate, **all in the same message**, with `team_name`,
    `name`, and **`model` set to the same model the lead is running on** (inherit — do
    not let the agent definition override to a more expensive model):
+
+   
    ```
-   Agent(team_name="feature-team-<issues>", name="teammate-<N>", model="sonnet", run_in_background=true, prompt="...")
-   Agent(team_name="feature-team-<issues>", name="teammate-<M>", model="sonnet", run_in_background=true, prompt="...")
+   Agent(description="Implement issue #<N> — <short_title>", team_name="feature-team-<issues>", name="teammate-<N>", model="sonnet", run_in_background=true, prompt="...")
+   Agent(description="Implement issue #<M> — <short_title>", team_name="feature-team-<issues>", name="teammate-<M>", model="sonnet", run_in_background=true, prompt="...")
    ```
    Replace `"sonnet"` with whatever model the lead session is actually using (check
    `/model` output). The `model` field overrides the agent definition's default and
