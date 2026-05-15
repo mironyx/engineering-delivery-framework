@@ -18,11 +18,12 @@ Executes the implementation cycle from design reading through PR review. Called 
 
 These override any conflicting instinct. Violations are the top cost drivers.
 
-1. **Never run `${EDF_SCRIPTS}/run-tests.sh` without a file filter in Step 4.** Use `${EDF_SCRIPTS}/run-tests.sh <test-file>`. The full suite runs once in Step 5 — nowhere else.
-2. **Step 5 uses `edf:test-runner` agent, not Bash.** All verification commands run inside the agent — zero test output reaches the main context. This applies to single-file runs during the fix loop too.
-3. **Pass pointers to sub-agents, not content.** File paths, issue numbers, LLD paths. Never paste diffs or file contents into agent prompts.
-4. **Never invoke `/simplify`.** Only if the user explicitly asks.
-5. **Do not move the board item to Done.** `/feature-end` handles that.
+1. **Resolve `${EDF_SCRIPTS}` before running any command.** Read `.env` in the project root and substitute the actual value of `EDF_SCRIPTS`. If unset or `.env` is missing, default to `scripts`.
+2. **Never run `${EDF_SCRIPTS}/run-tests.sh` without a file filter in Step 4.** Use `${EDF_SCRIPTS}/run-tests.sh <test-file>`. The full suite runs once in Step 5 — nowhere else.
+3. **Step 5 uses `edf:test-runner` agent, not Bash.** All verification commands run inside the agent — zero test output reaches the main context. This applies to single-file runs during the fix loop too.
+4. **Pass pointers to sub-agents, not content.** File paths, issue numbers, LLD paths. Never paste diffs or file contents into agent prompts.
+5. **Never invoke `/simplify`.** Only if the user explicitly asks.
+6. **Do not move the board item to Done.** `/feature-end` handles that.
 
 ## Steps
 

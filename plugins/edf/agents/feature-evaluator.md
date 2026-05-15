@@ -64,6 +64,8 @@ You will receive:
 
 ## Process
 
+Before running any command containing `${EDF_SCRIPTS}`, read `.env` in the project root and substitute the actual value of `EDF_SCRIPTS`. If unset or `.env` is missing, default to `scripts`.
+
 ### Step 1: Extract acceptance criteria from all sources
 
 Read in this order, most authoritative first:
