@@ -7,7 +7,7 @@ This plugin ships two kinds of scripts:
 | **Plugin scripts** | `${CLAUDE_PLUGIN_ROOT}/bin/` | Claude Code | `gh-create-issue.sh`, `tag-session.py`, `query-feature-cost.py`, `create-feature-pr.sh` |
 | **Project scripts** | `${EDF_SCRIPTS}/` | Claude Code, CI | `run-tests.sh`, `run-lint.sh` |
 
-Plugin scripts are invoked directly via `${CLAUDE_PLUGIN_ROOT}/bin/<name>` (or through `run-python.sh` for Python scripts). Project scripts are invoked via `${EDF_SCRIPTS}/<name>`.
+Plugin scripts are invoked via `${CLAUDE_PLUGIN_ROOT}/bin/<name>` — prefix `.sh` scripts with `bash` (e.g., `bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh`) to avoid execute-bit issues in plugin caches. Python scripts are invoked through `run-python.sh`. Project scripts are invoked via `${EDF_SCRIPTS}/<name>`.
 
 ## Project scripts
 

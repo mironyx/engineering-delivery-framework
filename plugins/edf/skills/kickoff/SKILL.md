@@ -298,7 +298,7 @@ docs/design/<version>-design.md#<anchor>
 - [ ] (to be filled by /architect)
 EOF
 )
-RESULT=$(${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
+RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
   --title "Epic E<n>.<m>: <name>" \
   --body "$BODY" \
   --labels "epic,version:<version>,area:<area>" \
