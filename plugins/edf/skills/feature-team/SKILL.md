@@ -156,7 +156,7 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 >    ```
 > 2. Tag your session (must run AFTER worktree is set up so /proc detects the correct JSONL):
 >    ```bash
->    ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <N>
+>    bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <N>
 >    ```
 > 3. Move issue to In Progress:
 >    ```bash

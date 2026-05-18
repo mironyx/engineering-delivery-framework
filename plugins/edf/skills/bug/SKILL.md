@@ -228,14 +228,14 @@ EOF
 )
 
 # Code-only or LLD gap class:
-RESULT=$(${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
+RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
   --title "fix: [concise bug title]" \
   --body "$BODY" \
   --labels "kind:task" \
   --add-to-board)
 
 # Missing functionality, or architectural decision needed:
-RESULT=$(${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
+RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
   --title "fix: [concise bug title]" \
   --body "$BODY" \
   --labels "kind:task,needs-design" \
