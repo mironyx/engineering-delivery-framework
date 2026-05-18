@@ -62,7 +62,7 @@ files, stop and tell the user.
 Once the issue number is known, tag the session so it is identifiable in the IDE and in Grafana:
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <issue-number>
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <issue-number>
 ```
 
 ### Step 2: Create feature branch

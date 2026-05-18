@@ -30,7 +30,7 @@ If an issue number argument was provided:
    If no open PR is found, try `--state merged` in case it was already merged. If still none, stop and report.
 2. Extract the head branch (`headRefName`) and read the session ID — PR body first, prom file as fallback:
    ```bash
-   OLD_SESSION_ID=$(gh pr view <pr-number> --json body --jq '.body' | ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/extract-session-id.py --issue <issue-number>)
+   OLD_SESSION_ID=$(gh pr view <pr-number> --json body --jq '.body' | bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/extract-session-id.py --issue <issue-number>)
    ```
 3. Detect an orphaned worktree — a worktree on that branch left behind by a crashed teammate:
    ```bash
@@ -49,7 +49,7 @@ If an issue number argument was provided:
    - Switch into it and register this recovery session under the same feature ID for cost aggregation:
      ```bash
      cd "$ORPHAN_WORKTREE"
-     ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <issue-number> --cont
+     bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <issue-number> --cont
      ```
    - Proceed with all remaining steps from inside the worktree. `IS_WORKTREE=yes` will be detected automatically in Step 5+6, which handles self-cleanup.
 5. **If no orphaned worktree is found** (normal mode — e.g. triggered by lead via SendMessage):
@@ -152,13 +152,13 @@ Derive the issue number from the git log and run the shared script:
 ```bash
 ISSUE=$(git log --oneline -10 | grep -o '#[0-9]*' | head -1 | tr -d '#')
 PR=$(gh pr view --json number --jq .number 2>/dev/null || echo "")
-COST_OUTPUT=$(${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/query-feature-cost.py --issue $ISSUE ${PR:+--pr $PR} --stage final)
+COST_OUTPUT=$(bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/query-feature-cost.py --issue $ISSUE ${PR:+--pr $PR} --stage final)
 echo "$COST_OUTPUT"
 ```
 
 **If the command must run as a background task**, redirect to a file and use the Read tool:
 ```bash
-${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/query-feature-cost.py --issue $ISSUE ${PR:+--pr $PR} --stage final > /tmp/cost-output.txt 2>&1
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/query-feature-cost.py --issue $ISSUE ${PR:+--pr $PR} --stage final > /tmp/cost-output.txt 2>&1
 ```
 Then read `/tmp/cost-output.txt` with the Read tool — never `cat`, which can silently produce empty output on some platforms.
 
@@ -302,7 +302,7 @@ the entries that this feature implemented.
 
 1. Determine the epic slug:
    ```bash
-   EPIC_SLUG=$(gh issue view <issue-number> --json body --jq '.body' | ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/update-coverage-manifest.py --extract-epic-slug)
+   EPIC_SLUG=$(gh issue view <issue-number> --json body --jq '.body' | bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/update-coverage-manifest.py --extract-epic-slug)
    MANIFEST="docs/design/coverage-${EPIC_SLUG}.yaml"
    ```
 
@@ -322,7 +322,7 @@ the entries that this feature implemented.
 
 4. Verify the manifest entries point at anchors that resolve:
    ```bash
-   ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/update-coverage-manifest.py --verify-anchors "$MANIFEST"
+   bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/update-coverage-manifest.py --verify-anchors "$MANIFEST"
    ```
 
 5. Stage and amend the manifest into the existing session-log commit (Step 3) if it has not been
@@ -353,7 +353,7 @@ If the closed issue has a parent epic, tick its checkbox in the epic body.
 
 1. Find the parent epic and tick its checkbox:
    ```bash
-   gh issue view <issue-number> --json body --jq '.body' | ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/check-epic-checkbox.py --issue <issue-number>
+   gh issue view <issue-number> --json body --jq '.body' | bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/check-epic-checkbox.py --issue <issue-number>
    ```
 
 2. If no `## Parent epic` section exists (chore or standalone task), skip silently.
