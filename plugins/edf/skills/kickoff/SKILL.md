@@ -70,9 +70,9 @@ Three mandatory stop points. Do not proceed past any gate without explicit user 
 1. **After orientation summary (Step 1)** — confirm detected mode, version,
    and proposed scope before any artefact is written
 2. **After HLD + drift-scan 1 (Step 3)** — coverage matrix reviewed, HLD patched if needed
-3. **After plan + drift-scan 2 (Step 6)** — coverage matrix reviewed, plan patched if needed
+3. **After plan + drift-scan 2 (Step 7)** — coverage matrix reviewed, plan patched if needed
 
-Plus a per-ADR gate inside Step 4 (one ADR drafted, committed, approved, then the next).
+Plus a per-ADR gate inside Step 5 (one ADR drafted, committed, approved, then the next).
 
 ## Process
 
@@ -137,7 +137,19 @@ git add docs/design/<version>-design.md
 git commit -m "docs: HLD <version> — capabilities, components, interactions"
 ```
 
-### Step 3: Gate 1 — drift scan and review
+### Step 3: HLD review
+
+Launch the `edf:hld-review` agent:
+
+```
+Agent({subagent_type: "edf:hld-review", description: "Review HLD", prompt: "hld_path: docs/design/<version>-design.md\nrequirements_path: docs/requirements/<version>-requirements.md\nmode: <initial|delta>\nprior_hld_path: <path or 'none'>\nadr_dir: docs/adr/"})
+```
+
+Triage findings:
+- **block** — fix before Gate 1.
+- **warn** — present at Gate 1; human decides.
+
+### Step 4: Gate 1 — drift scan and review
 
 Run the `edf:requirements-design-drift` agent against the requirements doc and
 the new HLD. The agent emits a coverage matrix mapping every requirement
@@ -152,7 +164,7 @@ Present the matrix. Flag:
 **Stop. Wait for user approval.** Apply patches and re-run the scan as
 many times as needed.
 
-### Step 4: Propose and draft load-bearing ADRs
+### Step 5: Propose and draft load-bearing ADRs
 
 From the HLD, identify load-bearing decisions — those that shape multiple
 components or constrain future choices. Typical categories:
@@ -182,7 +194,7 @@ For each confirmed ADR:
 Do not draft ADRs for non-load-bearing decisions. Those belong in LLDs
 produced later by `/architect`.
 
-### Step 5: Draft the epic-shaped plan
+### Step 6: Draft the epic-shaped plan
 
 Produce `docs/plans/YYYY-MM-DD-<version>-implementation-plan.md`. The plan
 sequences epics within the version, derived from the HLD.
@@ -252,7 +264,7 @@ git add docs/plans/YYYY-MM-DD-<version>-implementation-plan.md
 git commit -m "docs: <version> implementation plan"
 ```
 
-### Step 6: Gate 2 — second drift scan and review
+### Step 7: Gate 2 — second drift scan and review
 
 Run `edf:requirements-design-drift` again, this time checking that the plan's
 epics cover the HLD (and transitively the requirements). Present the
@@ -260,7 +272,7 @@ matrix.
 
 **Stop. Wait for user approval.** Patch and re-run as needed.
 
-### Step 7: Create epic issues on the board
+### Step 8: Create epic issues on the board
 
 Propose the list of epics with their titles, scopes, and dependencies as
 a summary table. The summary must include each epic's `Requirements covered`
@@ -308,7 +320,7 @@ RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
 **Do not create task issues here.** `/architect` produces tasks per epic
 along with their LLDs.
 
-### Step 8: Update CLAUDE.md (initial mode only)
+### Step 9: Update CLAUDE.md (initial mode only)
 
 Skip this step entirely in delta mode unless a new ADR explicitly
 invalidates a CLAUDE.md block.
@@ -326,13 +338,13 @@ git add CLAUDE.md
 git commit -m "docs: CLAUDE.md — project-specific configuration"
 ```
 
-### Step 9: Session log
+### Step 10: Session log
 
 Follow `.claude/skills/shared/session-log.md`. Use `<skill>=kickoff` and
 `<slug>=<version>-bootstrap`. Record drift-scan verdicts from Steps 3 and
 6, ADRs produced, and any gate-driven course corrections.
 
-### Step 10: Report and stop
+### Step 11: Report and stop
 
 Summarise to the user:
 
@@ -366,7 +378,7 @@ implementation.
   it has the actual file paths. If component ownership cannot be made
   disjoint (e.g. two epics genuinely both modify the same component),
   serialise them rather than pretending they parallelise.
-- **Drift scans are gates.** Do not proceed past Step 3 or Step 6 without
+- **Drift scans are gates.** Do not proceed past Step 4 or Step 7 without
   running the scan and showing the matrix.
 - **REQ- anchors propagate downstream (ADR-0026).** Every epic in the plan and
   every epic issue body lists the `REQ-<epic-slug>-<story-slug>` anchors of the

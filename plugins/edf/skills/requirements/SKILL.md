@@ -334,7 +334,19 @@ git add docs/requirements/v{N}-requirements.md
 git commit -m "docs: v{N} requirements structure — epics, stories, roles"
 ```
 
-### Step 3b: Cross-reference validation
+### Step 3b: Automated review
+
+Launch the `edf:requirements-review` agent with `mode: "structure"`:
+
+```
+Agent({subagent_type: "edf:requirements-review", description: "Review requirements structure", prompt: "requirements_path: docs/requirements/v{N}-requirements.md\nmode: structure\ndiscovery_path: <path or 'none'>"})
+```
+
+Triage findings:
+- **block** — fix before Gate 1.
+- **warn** — present at Gate 1; human decides.
+
+### Step 3c: Cross-reference validation
 
 Before presenting Gate 1, verify coverage:
 
@@ -467,6 +479,18 @@ If issues are found:
    ```
 
 If no issues are found, state that explicitly.
+
+### Step 5b: Automated review
+
+Launch the `edf:requirements-review` agent with `mode: "complete"`:
+
+```
+Agent({subagent_type: "edf:requirements-review", description: "Review requirements completeness", prompt: "requirements_path: docs/requirements/v{N}-requirements.md\nmode: complete\ndiscovery_path: <path or 'none'>"})
+```
+
+Triage findings:
+- **block** — fix before Gate 2.
+- **warn** — present at Gate 2; human decides.
 
 ### Gate 2 — Full document review
 

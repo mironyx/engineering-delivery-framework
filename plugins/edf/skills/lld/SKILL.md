@@ -138,6 +138,32 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 - **Reused helpers table is mandatory** when the LLD touches any module that already has helpers (auth/membership/gate, request-context, validation, response, error handling, DB clients). Add a "Reused helpers — DO NOT re-implement" table to Part B.0 listing each helper, its import path, and what re-implementing pattern it replaces. Inline code samples elsewhere in the LLD must call these helpers by name — not inline the equivalent query/logic. Rationale: `/feature` agents follow LLD code samples literally; if the sample inlines a raw query against a shared table, the agent writes that query even when a canonical helper already exists. The table at B.0 is the agent's first stop.
 - **No raw queries against shared / access-controlled tables in code samples.** For any table that is access-controlled, multi-tenant-scoped, or sits behind a reusable accessor in this project's kb, LLD code samples must use the helper from the Reused helpers table — not an inline query. The only exception is when no helper covers the exact shape needed — and in that case, the LLD must explicitly say so and propose either extending an existing helper or adding a new one (with its signature) to the table.
 
+### Step 2.6: Automated LLD review
+
+After the self-critique pass, launch the `edf:lld-review` agent as an independent
+second pair of eyes:
+
+```
+Agent({subagent_type: "edf:lld-review", description: "Review LLD design", prompt: "lld_path: docs/design/lld-<epic-id>-<short-name>.md\nrequirements_path: docs/requirements/<version>-requirements.md\nhld_path: docs/design/<version>-design.md\nkb_architecture_path: kb/architecture.md\nissue_context: epic <number>"})
+```
+
+Triage findings by tier:
+
+**Tier 1 (design quality):**
+- **block** — unjustified deviation from best practices, violated constraint.
+  Fix before Step 3.
+- **warn** — over-engineering concern, unstated trade-off. Present to human;
+  authoring agent applies judgment.
+
+**Tier 2 (mechanical completeness):**
+- **block** — broken file path, unverifiable invariant, contract gap. Fix
+  before Step 3.
+- **warn** — missing helper reuse table, happy-path-only section. Fix quick
+  wins; note the rest.
+
+Re-run self-critique + review after fixing blockers. Do not proceed to Step 3
+until clean.
+
 ### Step 3: Task breakdown
 
 The LLD ends with a single `## Tasks` section covering all sections in the phase. Tasks should be:
