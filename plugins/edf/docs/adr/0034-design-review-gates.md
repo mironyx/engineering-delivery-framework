@@ -86,6 +86,9 @@ Key differences from `/pr-review`:
   flagged; missing negative cases called out.
 - AC specificity — every AC states a concrete, observable outcome with clear
   pass/fail conditions.
+- Visual coverage — every UI-impacting story has a visual reference (wireframe
+  or mockup link) or an explicit deferral note. Stories whose ACs describe UI
+  surfaces but lack a linked visual spec are flagged (ADR-0035).
 
 The review report is presented alongside the gate summary. The human can
 override warnings but not skip blockers.
@@ -141,6 +144,13 @@ second pair of eyes.
   FE. Defence-in-depth is acceptable but the primary layer must be stated.
 - **Error paths** — at least one BDD spec per non-trivial error case. Happy-
   path-only LLDs are flagged.
+- **Visual specification presence** — every LLD section with a Frontend layer has
+  a Visual Specifications subsection in Part A (ADR-0035). Flag FE sections whose
+  Part A lacks visual specs.
+- **Visual state coverage** — every state declared in the UI states table has a
+  corresponding visual representation in Part A. A state declared in text but not
+  shown visually is a blocker — the implementing agent has no reference for what
+  to build.
 - **Boundary Contract Audit** — per ADR-0033, when an LLD section claims
   "shared X reused unchanged", the audit table is present and each row has a
   non-empty Impedance column.
@@ -154,9 +164,9 @@ self-critique cannot: blind spots the model doesn't know it has.
 | Stage | Review runs | Blocks on | Human sees |
 |-------|------------|-----------|------------|
 | `/requirements` Step 3 | Before Gate 1 | INVEST failures, missing anchors | Review report + structure summary |
-| `/requirements` Step 5 | Before Gate 2 | Untestable ACs, missing negative cases | Review report + full document |
+| `/requirements` Step 5 | Before Gate 2 | Untestable ACs, missing negative cases, missing visual references for UI stories | Review report + full document |
 | `/kickoff` Step 3 | After HLD draft, before Gate 1 | Uncovered capabilities, broken references, missing non-responsibilities | Review report + drift matrix |
-| `/lld` Step 2.5 | After self-critique, before Step 3 | Thin contracts, missing BDD, oversized tasks, unverifiable invariants | Review report + task breakdown |
+| `/lld` Step 2.5 | After self-critique, before Step 3 | Thin contracts, missing BDD, oversized tasks, unverifiable invariants, missing visual specs in Part A | Review report + task breakdown |
 
 ### What stays the same
 

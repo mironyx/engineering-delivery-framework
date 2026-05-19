@@ -43,8 +43,10 @@ project side".
 | [0021](0021-project-bootstrap-pipeline.md) | Project bootstrap pipeline (`/discovery → /requirements → /kickoff → /architect → /feature`) |
 | [0022](0022-tiered-feature-process.md) | Tiered feature process (bug / feature / epic / phase tiers) |
 | [0026](0026-stable-ids-requirements-lld.md) | Stable IDs for requirements stories and LLD sections |
-| [0030](0030-feature-team-agent.md) | Feature team agent in `/feature-team` |
-| [0033](0033-feature-team-agent-implementation.md) | Feature team agent implementation details |
+| [0030](0030-lld-revision-tracking.md) | LLD revision tracking — append-only Rev N sections for requirements changes |
+| [0033](0033-cross-cutting-refactor-lld-discipline.md) | Cross-cutting refactor LLD discipline |
+| [0034](0034-design-review-gates.md) | Design review gates — automated checks on requirements, HLD, and LLD artifacts |
+| [0035](0035-visual-specifications-in-design-pipeline.md) | Visual specifications — wireframes/mockups propagated from requirements through LLD |
 
 ## How references resolve
 

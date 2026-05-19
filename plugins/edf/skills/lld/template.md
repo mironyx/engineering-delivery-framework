@@ -100,6 +100,37 @@ or adds new dependencies between existing modules. Changes touching the ports/ad
 **When optional:** Changes within a single existing module that do not alter its public
 surface or dependencies.
 
+### Visual Specifications
+
+> **When required:** Any section that includes a Frontend layer. The visual spec
+> shows what the user sees — layout, spatial hierarchy, and all relevant UI states.
+> It is the third view alongside behavioural flows (how it works) and structural
+> overview (how pieces connect).
+
+Screenshots of the wireframes/mockups for each screen this section touches.
+Generated during `/requirements` via `frontend-design` and propagated here.
+If the LLD refines visual details, the HTML wireframe is updated and new
+screenshots are taken.
+
+| Screen | Visual reference | States shown | REQ anchors | HLD component |
+|--------|-----------------|--------------|-------------|---------------|
+| [Page/Screen name] | [docs/design/visuals/name.html](../visuals/name.html) | Loading, Error, Empty, Success | [REQ-xxx-xxx](#req-xxx-xxx) | [Component name](v<N>-design.md#anchor) |
+
+[Screenshot embedded — one per screen, showing the primary state. Additional
+screenshots for error, empty, and edge-case states as needed.]
+
+![Screen name — Success state](../visuals/name-success.png)
+
+![Screen name — Error state](../visuals/name-error.png)
+
+> **Constraint:** Every state declared in the UI states table (Part B) must have a
+> corresponding visual representation shown here. A state declared in text but not
+> shown visually is a review blocker — the implementing agent has no reference for
+> what to build.
+
+**When optional:** Pure backend sections, CLI-only changes, API-only changes,
+schema migrations — anything with no UI surface.
+
 ### Invariants
 
 Hard constraints that the implementation must satisfy. Collected in one place so the
