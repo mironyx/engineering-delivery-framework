@@ -124,6 +124,56 @@ This is the highest-leverage review because LLDs directly drive `/feature`
 agent behaviour. Launched after the self-critique pass as an independent
 second pair of eyes.
 
+The review has two tiers. Tier 1 is the core design assessment — is this a
+good design? Tier 2 checks mechanical completeness — are the contracts,
+specs, and references complete enough for an agent to implement against?
+
+**Tier 1 — Design quality (the core review):**
+
+There is no single "best design." But within the project's specific
+constraints — existing architecture, performance targets, tool budget,
+team knowledge, simplicity mandate — some designs are clearly better than
+others. The review agent evaluates the design against those constraints.
+
+- **Simplicity** — is there a demonstrably simpler approach that achieves the
+  same goals? Could a direct implementation replace an abstraction? Could an
+  existing component be extended rather than a new one introduced? Flag over-
+  engineered designs. The burden of proof is on complexity — a design that
+  introduces new abstractions, new layers, or new patterns must state what
+  concrete problem each addition solves.
+- **Constraint awareness** — does the design acknowledge and work within the
+  project's stated constraints? Read `CLAUDE.md` and relevant ADRs for the
+  constraint baseline. Flag designs that violate a stated constraint without
+  explicit justification, or that ignore a constraint entirely.
+- **Trade-off explicitness** — where the design makes a trade-off (performance
+  vs simplicity, flexibility vs delivery speed, generality vs fit), is the
+  trade-off stated and the reasoning sound? A design that picks a side without
+  acknowledging the cost is flagged. A design that claims to have no trade-offs
+  is flagged — every non-trivial design trades something off.
+- **Best practice alignment** — does the design follow established principles
+  (single responsibility, separation of concerns, dependency inversion,
+  functions over classes unless state requires a class)? Deviation is
+  acceptable with explicit justification. Deviation without justification is
+  a blocker.
+- **Fit-to-problem** — does the design solve the stated problem, or does it
+  solve a more general or adjacent problem? Flag designs that are clearly
+  building for hypothetical future requirements (YAGNI violation).
+- **Component coupling** — are dependencies between components explicit and
+  minimal? Flag designs where components reach across layers unnecessarily,
+  or where the dependency graph has cycles or ambiguous ownership.
+- **Data flow clarity** — for any non-trivial data transformation, is the
+  flow from input to output visible and auditable? Flag designs where data
+  disappears into an abstraction and re-emerges transformed without the
+  transformation being named or specified.
+
+These checks are inherently judgment-based — the agent provides reasoned
+findings, not mechanical matches. Each finding must state: what the design
+does, what the concern is, and what a better alternative looks like (even
+if brief). The human gate weighs these findings; the agent is an advisor,
+not an arbiter.
+
+**Tier 2 — Mechanical completeness:**
+
 - **Contract completeness** — every non-trivial function or component has a
   named signature. "Service does X" prose without a concrete function name is
   a blocker.
