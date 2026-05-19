@@ -51,9 +51,12 @@ those constraints.
   new layers, or new patterns must state what concrete problem each addition solves.
 
 - **Constraint awareness** — does the design acknowledge and work within the project's
-  stated constraints? Read `CLAUDE.md` and relevant ADRs for the constraint baseline.
-  Flag designs that violate a stated constraint without explicit justification, or
-  that ignore a constraint entirely.
+  stated constraints? Read `CLAUDE.md`, the `kb/` directory (`kb/architecture.md`,
+  `kb/conventions.md`, `kb/anti-patterns.md`), and relevant ADRs for the constraint
+  baseline. The kb captures project-specific conventions, reusable helpers, and
+  anti-patterns — designs must work within these, not around them. Flag designs that
+  violate a stated constraint without explicit justification, or that ignore a
+  constraint entirely.
 
 - **Trade-off explicitness** — where the design makes a trade-off (performance vs
   simplicity, flexibility vs delivery speed, generality vs fit), is the trade-off
