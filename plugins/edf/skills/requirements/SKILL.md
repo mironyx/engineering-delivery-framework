@@ -334,6 +334,108 @@ git add docs/requirements/v{N}-requirements.md
 git commit -m "docs: v{N} requirements structure — epics, stories, roles"
 ```
 
+### Step 3a: Generate visual specifications
+
+After the structure is committed, identify UI-impacting stories and generate
+visual specs before ACs are written. Visual specs exist before Gate 2 so the
+human can see what each screen looks like alongside the ACs.
+
+**1. Identify UI-impacting stories**
+
+Scan every story title and description for UI surface keywords: page, screen,
+dashboard, view, form, modal, dialog, button, table, list, card, filter,
+search, navigation, sidebar, header, footer, layout, display, render, show,
+UI, frontend, FE, component.
+
+A story has UI impact if its ACs describe something the user sees and interacts
+with visually. Pure API stories, CLI commands, schema migrations, background
+jobs, and config changes are not UI-impacting.
+
+**2. Cluster related stories**
+
+Group UI-impacting stories that share the same screen or page. Stories in the
+same epic that describe different states or sections of the same page become
+one visual spec. Different pages get separate visual specs.
+
+**3. Infer mode**
+
+For each cluster, infer `full` or `lite`:
+
+| Signal | → Full | → Lite |
+|--------|--------|--------|
+| `docs/design/visuals/<screen>.html` already exists | | x |
+| Story references existing component from frontend-architect catalog | | x |
+| Story REQ- anchor maps to a known page route in prior LLD | | x |
+| No prior visual artifact exists | x | |
+| Story describes a complete new page/screen | x | |
+| ACs describe net-new interactions, not modifications | x | |
+
+When signals conflict, bias toward **lite**. The human can re-run with
+`--fe-mode full` if the result lacks fidelity.
+
+The `--fe-mode full|lite` flag (passed via `$ARGUMENTS`) bypasses inference.
+
+**4. Generate wireframes**
+
+Create `docs/design/visuals/` if it doesn't exist.
+
+**Full mode** — invoke the `frontend-design` skill:
+```
+Skill({skill: "frontend-design", args: "<screen description from stories>"})
+```
+Save the output to `docs/design/visuals/<screen-name>.html`.
+
+**Lite mode** — write a lightweight structural HTML file directly (~40-80
+lines). Use grayscale, grid/flexbox for layout, placeholder content for data,
+and `data-state` attributes to mark different UI states (loading, error, empty,
+success). No design tokens, no colour system, no typography scale. The goal is
+spatial reference, not pixel accuracy.
+
+Example of lite mode output:
+
+```html
+<!-- <screen-name> — structural wireframe -->
+<style>
+  .page { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+  .header { padding: 16px; border-bottom: 1px solid #ccc; }
+  .content { padding: 16px; }
+  .card { padding: 12px; border: 1px solid #ddd; margin-bottom: 8px; }
+  [data-state] { display: none; }
+  [data-state="success"] { display: block; }
+</style>
+<div class="page">
+  <header class="header">[Page title]</header>
+  <div class="content">
+    <div data-state="loading">[Skeleton placeholder]</div>
+    <div data-state="error">[Error message + retry]</div>
+    <div data-state="empty">[Empty state message]</div>
+    <div data-state="success">[Content — cards, table, form, etc.]</div>
+  </div>
+</div>
+```
+
+Both modes must show all relevant UI states (loading, error, empty, success,
+and any edge cases identified in the stories).
+
+**5. Link visual references back to stories**
+
+For each story that has a visual spec, add a `## Visual Reference` subsection
+after the story's ACs placeholder:
+
+```markdown
+## Visual Reference
+
+- [<Screen name> wireframe](../../design/visuals/<screen-name>.html)
+```
+
+**6. Commit**
+
+```bash
+git add docs/design/visuals/
+git add docs/requirements/v{N}-requirements.md
+git commit -m "docs: v{N} visual specifications — <N> screen wireframes"
+```
+
 ### Step 3b: Automated review
 
 Launch the `edf:requirements-review` agent with `mode: "structure"`:
@@ -392,7 +494,10 @@ address them later via `[Review]` comments.
 
 ### Step 4: Write acceptance criteria
 
-For each story, write acceptance criteria in Given/When/Then format:
+For each story, write acceptance criteria in Given/When/Then format.
+If visual specs were generated in Step 3a, refer to them as you write —
+the wireframe shows layout and states; the ACs codify the expected behaviour
+for each state.
 
 ```markdown
 **Acceptance Criteria:**
@@ -500,6 +605,8 @@ Present to the user:
 - Testability report (issues found and fixed)
 - Any stories that were split or merged during AC writing
 - INVEST violations found and how they were addressed
+- Visual spec coverage — which UI-impacting stories have wireframes, which are
+  deferred
 - Open questions or ambiguities that need human decision
 
 Ask explicitly: **"Are the acceptance criteria testable and complete? Any
