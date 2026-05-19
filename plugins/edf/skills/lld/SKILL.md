@@ -115,6 +115,24 @@ Present this overview and **wait for user confirmation** before generating the L
 - Reference HLD sections by link: `See [v<N>-design.md §<X.Y>](v<N>-design.md#<X.Y>-<section-anchor>)`
 - Only add implementation-level detail the HLD does not contain: file paths, internal function signatures, component trees, state machines, error handling strategies, internal types not in the public contract
 
+**Visual specifications (FE sections)** — when a section includes a Frontend layer,
+check for existing HTML wireframes in `docs/design/visuals/` that match the screen
+or page. If found:
+1. Open each wireframe in Playwright and capture screenshots for each state
+   (loading, error, empty, success, and any edge cases from BDD specs).
+2. Save screenshots to `docs/design/visuals/<screen>-<state>.png`.
+3. Populate the Visual Specifications table in Part A with the screen name,
+   wireframe link, states shown, REQ- anchors, and HLD component references.
+4. Embed the screenshots below the table.
+
+If the LLD refines visual details (e.g. a new state discovered during LLD that
+wasn't in the requirements wireframe), update the HTML wireframe and capture new
+screenshots.
+
+If no wireframe exists for an FE section, flag it as a gap — the requirements
+review gate should have caught this, but if it didn't, surface it to the human
+rather than proceeding without a visual reference.
+
 **Section mode** (`/lld 2.3`): Update the relevant section within the existing phase LLD file rather than creating a new file.
 
 **Cross-cutting LLDs** (e.g., `lld-artefact-pipeline.md`) remain as standalone files when they span multiple phases or cover a topic orthogonal to the phase structure.
@@ -137,6 +155,7 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 - **Existing code reuse.** Did I grep for existing helpers/types/services that already do part of this work? Re-implementing what exists is the second-biggest cause of bad `/feature` runs.
 - **Reused helpers table is mandatory** when the LLD touches any module that already has helpers (auth/membership/gate, request-context, validation, response, error handling, DB clients). Add a "Reused helpers — DO NOT re-implement" table to Part B.0 listing each helper, its import path, and what re-implementing pattern it replaces. Inline code samples elsewhere in the LLD must call these helpers by name — not inline the equivalent query/logic. Rationale: `/feature` agents follow LLD code samples literally; if the sample inlines a raw query against a shared table, the agent writes that query even when a canonical helper already exists. The table at B.0 is the agent's first stop.
 - **No raw queries against shared / access-controlled tables in code samples.** For any table that is access-controlled, multi-tenant-scoped, or sits behind a reusable accessor in this project's kb, LLD code samples must use the helper from the Reused helpers table — not an inline query. The only exception is when no helper covers the exact shape needed — and in that case, the LLD must explicitly say so and propose either extending an existing helper or adding a new one (with its signature) to the table.
+- **Visual specs populated (FE sections).** For every section with a Frontend layer, does Part A have a Visual Specifications subsection with a populated table and screenshots? Flag sections where FE work is described but no visual reference exists. The self-critique catches the mechanical omission; the lld-review agent catches whether the visual spec is correct and complete (state coverage, REQ- traceability).
 
 ### Step 2.6: Automated LLD review
 
