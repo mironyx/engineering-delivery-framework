@@ -90,7 +90,7 @@ Output: explicit list of source-file paths.
 
 ### Step 3: Discover affected LLD sections
 
-For each affected source file, grep `docs/design/lld-*.md` for references to:
+For each affected source file, grep `docs/design/lld-*.md` and `docs/design/v*/lld-*.md` for references to:
 - The file path itself.
 - The symbols (functions, types, classes) it exports.
 
@@ -102,7 +102,7 @@ For each LLD anchor found, capture:
 - Prose references the refactor will invalidate.
 - Any "shared X reused" claims that warrant a Boundary Contract Audit update.
 
-Also consult `docs/design/coverage-*.yaml`, `kb/architecture.md` (helper catalogue), and `kb/anti-patterns.md` (patterns the refactor should eliminate or add).
+Also consult coverage manifests (`docs/design/v*/coverage-*.yaml` and `docs/design/coverage-*.yaml`), `kb/architecture.md` (helper catalogue), and `kb/anti-patterns.md` (patterns the refactor should eliminate or add).
 
 Apply the following filter to every reference found. This gate separates "must change in the implementing PR" from "reconcile after merge" — the same authorship boundary ADR-0030 draws between `/architect` and `/lld-sync`, extended here to refactor-originated changes.
 

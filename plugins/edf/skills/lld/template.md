@@ -114,14 +114,14 @@ screenshots are taken.
 
 | Screen | Visual reference | States shown | REQ anchors | HLD component |
 |--------|-----------------|--------------|-------------|---------------|
-| [Page/Screen name] | [docs/design/visuals/name.html](../visuals/name.html) | Loading, Error, Empty, Success | [REQ-xxx-xxx](#req-xxx-xxx) | [Component name](v<N>-design.md#anchor) |
+| [Page/Screen name] | [docs/design/v{N}/vis-name.html](vis-name.html) | Loading, Error, Empty, Success | [REQ-xxx-xxx](#req-xxx-xxx) | [Component name](v<N>-design.md#anchor) |
 
 [Screenshot embedded — one per screen, showing the primary state. Additional
 screenshots for error, empty, and edge-case states as needed.]
 
-![Screen name — Success state](../visuals/name-success.png)
+![Screen name — Success state](vis-name-success.png)
 
-![Screen name — Error state](../visuals/name-error.png)
+![Screen name — Error state](vis-name-error.png)
 
 > **Constraint:** Every state declared in the UI states table (Part B) must have a
 > corresponding visual representation shown here. A state declared in text but not

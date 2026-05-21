@@ -34,7 +34,7 @@ Scan the repository's requirements, design documents, and source code to detect:
 Read the full contents of:
 - `docs/requirements/` — All requirement documents
 - `docs/design/` — All design documents (HLD + LLDs)
-- `docs/design/coverage-*.yaml` — Coverage manifests (per ADR-0026 §Stage 2)
+- `docs/design/coverage-*.yaml` and `docs/design/v*/coverage-*.yaml` — Coverage manifests (per ADR-0026 §Stage 2; new in version folders per ADR-0036)
 - `docs/adr/` — All Architecture Decision Records
 - `docs/plans/` — Implementation plans
 - `CLAUDE.md` — Project context and current phase
@@ -82,7 +82,7 @@ Scan `tests/` for test artefacts:
   `Requirements covered:` list. A REQ- anchor with no plan reference is an
   uncovered requirement at the plan level — flag as Critical.
 - For each `REQ-` anchor, check whether it appears in any coverage manifest
-  (`docs/design/coverage-*.yaml`) as the `req:` key. Missing → uncovered at LLD
+  (`docs/design/coverage-*.yaml` and `docs/design/v*/coverage-*.yaml`) as the `req:` key. Missing → uncovered at LLD
   level. Flag as Critical for implemented epics, Warning for not-yet-designed
   epics.
 - For each manifest entry, dereference the `lld:` field and check the named

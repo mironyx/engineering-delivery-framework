@@ -11,6 +11,9 @@ and produces the design artefacts needed before `/architect` can generate
 LLDs and `/feature` can implement. Owns Levels 1–3 of the design-down
 process at version-wide scope.
 
+Design artefacts for a version are written into `docs/design/<version>/`
+per ADR-0036 (document organisation convention).
+
 The unit of delivery is the **epic** (ADR-0018). This skill produces a
 plan that sequences epics and creates one GitHub issue per epic. It does
 **not** produce per-task issues — `/architect` handles task breakdown
@@ -37,7 +40,7 @@ The skill detects mode from existing artefacts and adapts.
 
 | Mode | Trigger | HLD | CLAUDE.md | First epic on board |
 |---|---|---|---|---|
-| **Initial** (v1) | No `docs/design/v*-design.md` exists | Full HLD | Fill template blocks | Yes |
+| **Initial** (v1) | No `docs/design/v*/v*-design.md` exists | Full HLD | Fill template blocks | Yes |
 | **Major-version delta** (v2, v11, …) | Prior-version HLD exists | Delta HLD referencing prior | Skip (only update if new ADRs invalidate a block) | Yes |
 
 In both modes the plan is epic-shaped, ADRs are reviewed individually,
@@ -48,13 +51,13 @@ and drift scans gate progression.
 **Inputs**
 
 - `docs/requirements/<version>-requirements.md` — the version's requirements
-- `docs/design/v*-design.md` — prior-version HLDs (delta mode only)
+- `docs/design/v*/v*-design.md` — prior-version HLDs (delta mode only)
 - `docs/adr/` — existing ADRs (do not contradict)
 - `CLAUDE.md` — project conventions to preserve
 
 **Outputs (in order)**
 
-1. `docs/design/<version>-design.md` — HLD (full for initial, delta for major-version)
+1. `docs/design/<version>/<version>-design.md` — HLD (full for initial, delta for major-version)
 2. `docs/adr/NNNN-*.md` — one ADR per load-bearing decision
 3. `docs/plans/YYYY-MM-DD-<version>-implementation-plan.md` — epic-shaped plan
 4. GitHub epic issues with `version:<slug>` label and HLD/ADR cross-references
@@ -89,13 +92,13 @@ Use `TodoWrite` to track progress.
    technology choices already locked in.
 4. List existing artefacts:
    - `docs/adr/` — read load-bearing ones; do not re-decide
-   - `docs/design/v*-design.md` — read all for delta-mode context
+   - `docs/design/v*/v*-design.md` — read all for delta-mode context (search recursively)
    - `docs/plans/` — note what exists
    - `CLAUDE.md` — note current conventions
 5. **Detect mode:**
-   - No `docs/design/v*-design.md` exists → **initial bootstrap**
+   - No `docs/design/v*/v*-design.md` exists → **initial bootstrap**
    - One or more prior `v*-design.md` exists → **major-version delta**
-   - `docs/design/<version>-design.md` already exists → ask user if this is
+   - `docs/design/<version>/<version>-design.md` already exists → ask user if this is
      a rewrite (otherwise abort)
 6. Present a short orientation summary: detected version, mode,
    requirement count, load-bearing-ADR candidates spotted, prior artefacts
@@ -103,7 +106,7 @@ Use `TodoWrite` to track progress.
 
 ### Step 2: Draft the HLD
 
-Produce `docs/design/<version>-design.md`.
+Produce `docs/design/<version>/<version>-design.md`. Ensure `docs/design/<version>/` exists first.
 
 **Initial mode** — full HLD with three levels:
 
@@ -133,7 +136,7 @@ Target length for delta: under 300 lines.
 Commit:
 
 ```bash
-git add docs/design/<version>-design.md
+git add docs/design/<version>/<version>-design.md
 git commit -m "docs: HLD <version> — capabilities, components, interactions"
 ```
 
@@ -142,7 +145,7 @@ git commit -m "docs: HLD <version> — capabilities, components, interactions"
 Launch the `edf:hld-review` agent:
 
 ```
-Agent({subagent_type: "edf:hld-review", description: "Review HLD", prompt: "hld_path: docs/design/<version>-design.md\nrequirements_path: docs/requirements/<version>-requirements.md\nmode: <initial|delta>\nprior_hld_path: <path or 'none'>\nadr_dir: docs/adr/"})
+Agent({subagent_type: "edf:hld-review", description: "Review HLD", prompt: "hld_path: docs/design/<version>/<version>-design.md\nrequirements_path: docs/requirements/<version>-requirements.md\nmode: <initial|delta>\nprior_hld_path: <path or 'none'>\nadr_dir: docs/adr/"})
 ```
 
 Triage findings:
@@ -209,7 +212,7 @@ Required structure:
 
 **Date:** YYYY-MM-DD
 **Version:** <version>
-**HLD:** docs/design/<version>-design.md
+**HLD:** docs/design/<version>/<version>-design.md
 **Related ADRs:** ADR-NNNN, ADR-MMMM
 
 ## Overview
@@ -298,7 +301,7 @@ and a one-line title for human readability. -->
 - [ ] <observable signal 2>
 
 ## HLD reference
-docs/design/<version>-design.md#<anchor>
+docs/design/<version>/<version>-design.md#<anchor>
 
 ## Related ADRs
 - ADR-NNNN <title>

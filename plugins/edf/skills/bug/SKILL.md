@@ -100,7 +100,7 @@ design was incomplete or wrong.
 coverage manifest entry:
 
 ```bash
-grep -r "<REQ-anchor or LLD anchor>" docs/design/coverage-*.yaml
+grep -r "<REQ-anchor or LLD anchor>" docs/design/coverage-*.yaml docs/design/v*/coverage-*.yaml
 ```
 
 Capture from the entry:

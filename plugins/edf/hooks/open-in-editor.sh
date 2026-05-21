@@ -1,13 +1,13 @@
 #!/bin/bash
 # PostToolUse hook: opens the edited file in the user's editor so diagnostics extensions
-# (e.g. CodeScene) can analyse it. Tries windsurf, then code, then skips silently.
+# (e.g. CodeScene) can analyse it. Tries code, then windsurf (fallback), then skips silently.
 # Must run BEFORE check-diagnostics.sh so the extension has time to produce fresh output.
 
 EDITOR_CMD=""
-if command -v windsurf &>/dev/null; then
-    EDITOR_CMD="windsurf"
-elif command -v code &>/dev/null; then
+if command -v code &>/dev/null; then
     EDITOR_CMD="code"
+elif command -v windsurf &>/dev/null; then
+    EDITOR_CMD="windsurf"
 else
     exit 0
 fi

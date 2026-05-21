@@ -4,7 +4,7 @@ Shared template referenced by planning skills (`/kickoff`, `/requirements`, `/ar
 
 ## Filename
 
-`docs/sessions/YYYY-MM-DD-session-N-<skill>-<slug>.md`
+`docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<skill>-<slug>.md`
 
 Examples:
 
@@ -12,7 +12,7 @@ Examples:
 - `2026-03-09-session-1-kickoff-feature-comprehension-score.md`
 - `2026-04-02-session-2-requirements-v2.md`
 
-If a pre-compact-hook draft exists for the same session ID (`docs/sessions/YYYY-MM-DD-session-N-draft.md`), promote it to the real log and delete the draft in the same commit.
+If a pre-compact-hook draft exists for the same session ID (`docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-draft.md`), promote it to the real log and delete the draft in the same commit.
 
 ## Required sections
 
@@ -31,7 +31,7 @@ Keep it concise — one screen is typical. Density over completeness.
 Session logs commit separately from the artefacts they describe:
 
 ```bash
-git add docs/sessions/<filename>
+git add docs/sessions/YYYY-MM/<filename>
 git commit -m "docs(sessions): <skill> session for <scope>"
 ```
 

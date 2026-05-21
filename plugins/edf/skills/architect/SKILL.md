@@ -146,7 +146,7 @@ For each item in the plan, determine the artefact type:
 | Item type | Repo artefact (source of truth) | Issue update |
 |-----------|--------------------------------|--------------|
 | Cross-cutting decision (new technology, convention) | ADR in `docs/adr/` via `/create-adr` | Reference ADR |
-| Implementation item with contracts | LLD section in `docs/design/` | Reference LLD section |
+| Implementation item with contracts | LLD in `docs/design/v{N}/` (new) or `docs/design/` (legacy, flat) | Reference LLD section |
 | Design doc update (existing doc needs correction) | Edit to existing `docs/design/` file | Reference updated section |
 | Simple bug fix (already covered by existing LLD) | None needed | Add BDD specs, reference existing LLD |
 | Small feature (no existing LLD coverage) | LLD section for the item | Reference LLD section |
@@ -283,8 +283,8 @@ Skill({skill: "lld", args: "epic <epic-issue-number> v<version> --non-interactiv
 `<epic-issue-number>` is the GitHub issue number of the epic. `<version>` is the project version slug (`v11`, `v12`, …). The `--non-interactive` flag skips `/lld`'s Step 1 overview — `/architect`'s Step 2 already obtained user approval on the batch.
 
 `/lld` produces:
-- `docs/design/lld-<epic-id>-<short-name>.md` — the LLD with Part A, Part B, self-critique pass, `## Tasks`, and execution order.
-- `docs/design/coverage-<epic-id>.yaml` — the coverage manifest with `issue: null` placeholders.
+- `docs/design/v<N>/lld-<epic-id>-<short-name>.md` — the LLD with Part A, Part B, self-critique pass, `## Tasks`, and execution order.
+- `docs/design/v<N>/coverage-<epic-id>.yaml` — the coverage manifest with `issue: null` placeholders.
 
 `<epic-id>` is the canonical epic identifier — see `/lld` Step 2 for the format. `<short-name>` is a 1–3-word lower-kebab phrase capturing the epic's domain concept; see `/lld` Step 2 for the derivation rule.
 
@@ -332,10 +332,10 @@ The agent runs `gh issue create` per task (via `${CLAUDE_PLUGIN_ROOT}/bin/gh-cre
 - Story X.Y: <one-line from LLD>
 
 ## Design reference
-[docs/design/lld-<epic-id>-<short-name>.md §B.N](docs/design/lld-<epic-id>-<short-name>.md#LLD-<epic-id>-<section-slug>)
+[docs/design/v<N>/lld-<epic-id>-<short-name>.md §B.N](docs/design/v<N>/lld-<epic-id>-<short-name>.md#LLD-<epic-id>-<section-slug>)
 
 ## HLD reference
-[v<N>-design.md §section](docs/design/v<N>-design.md)
+[v<N>-design.md §section](docs/design/v<N>/v<N>-design.md)
 
 ## What
 <1-2 sentences from LLD task>
@@ -366,10 +366,10 @@ DB | BE | FE
 [v<N>-requirements.md §Epic X](docs/requirements/v<N>-requirements.md#epic-x-…)
 
 ### Design reference
-[docs/design/lld-<epic-id>-<short-name>.md](docs/design/lld-<epic-id>-<short-name>.md)
+[docs/design/v<N>/lld-<epic-id>-<short-name>.md](docs/design/v<N>/lld-<epic-id>-<short-name>.md)
 
 ### HLD reference
-[v<N>-design.md §sections](docs/design/v<N>-design.md)
+[v<N>-design.md §sections](docs/design/v<N>/v<N>-design.md)
 
 ### Related ADRs
 - [ADR-NNNN](docs/adr/NNNN-….md) — one-line description
@@ -401,7 +401,7 @@ The agent substitutes `T1` → `#<created-issue-number>`, `T2` → `#<created-is
 
 #### 4. Coverage manifest backfill
 
-After `edf:gh-issue-manager` returns the mapping `{T1: #N, T2: #M, …}` (or the parent skill reads it from the agent's output), edit `docs/design/coverage-<epic-id>.yaml` and replace each `issue: null` with the corresponding real number. Match by the LLD section anchor: every task in the LLD has one section anchor, and every coverage entry's `lld:` field points at one of those anchors — that's the join key.
+After `edf:gh-issue-manager` returns the mapping `{T1: #N, T2: #M, …}` (or the parent skill reads it from the agent's output), edit `docs/design/v<N>/coverage-<epic-id>.yaml` and replace each `issue: null` with the corresponding real number. Match by the LLD section anchor: every task in the LLD has one section anchor, and every coverage entry's `lld:` field points at one of those anchors — that's the join key.
 
 ```yaml
 epic: <epic-id>

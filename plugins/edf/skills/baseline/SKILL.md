@@ -71,7 +71,7 @@ This is informational, not a gate.
 - Most recent `docs/reports/baseline/*` — previous baseline, if any, for delta.
 
 **Coverage manifests (per ADR-0026):**
-- Read all `docs/design/coverage-*.yaml` files.
+- Read all coverage manifests: `docs/design/**/coverage-*.yaml` (new in `v{N}/`) and `docs/design/coverage-*.yaml` (legacy flat).
 - For each entry, the `status` field is authoritative for that story's delivery state:
   - `Implemented` → classify the linked REQ- as **Delivered** without re-deriving.
   - `Revised` → classify as **Delivered**, but note in the report that drift-scan owns

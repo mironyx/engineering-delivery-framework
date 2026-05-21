@@ -24,7 +24,7 @@ consuming project's `docs/adr/` and are numbered by the project.
 ## Numbering
 
 Framework ADRs use the same `NNNN-title.md` numbering as project ADRs. The
-plugin currently claims numbers 0018, 0019, 0021, 0022, 0026, 0030, 0033 — pulled from the
+plugin currently claims numbers 0018, 0019, 0021, 0022, 0026, 0030, 0033, 0034, 0035, 0036 — pulled from the
 seed project (`feature-comprehension-score`) where they originated. Consuming
 projects should treat those numbers as reserved by the framework and pick
 unused numbers for their own ADRs.
@@ -47,6 +47,7 @@ project side".
 | [0033](0033-cross-cutting-refactor-lld-discipline.md) | Cross-cutting refactor LLD discipline |
 | [0034](0034-design-review-gates.md) | Design review gates — automated checks on requirements, HLD, and LLD artifacts |
 | [0035](0035-visual-specifications-in-design-pipeline.md) | Visual specifications — wireframes/mockups propagated from requirements through LLD |
+| [0036](0036-document-organisation-convention.md) | Document organisation — version-foldered design, flat requirements, date-foldered sessions |
 
 ## How references resolve
 

@@ -363,7 +363,7 @@ For each cluster, infer `full` or `lite`:
 
 | Signal | → Full | → Lite |
 |--------|--------|--------|
-| `docs/design/visuals/<screen>.html` already exists | | x |
+| `docs/design/v{N}/vis-<screen>.html` already exists | | x |
 | Story references existing component from frontend-architect catalog | | x |
 | Story REQ- anchor maps to a known page route in prior LLD | | x |
 | No prior visual artifact exists | x | |
@@ -377,13 +377,13 @@ The `--fe-mode full|lite` flag (passed via `$ARGUMENTS`) bypasses inference.
 
 **4. Generate wireframes**
 
-Create `docs/design/visuals/` if it doesn't exist.
+Create `docs/design/v{N}/` if it doesn't exist (where `v{N}` matches the requirements version).
 
 **Full mode** — invoke the `frontend-design` skill:
 ```
 Skill({skill: "frontend-design", args: "<screen description from stories>"})
 ```
-Save the output to `docs/design/visuals/<screen-name>.html`.
+Save the output to `docs/design/v{N}/vis-<screen-name>.html`.
 
 **Lite mode** — write a lightweight structural HTML file directly (~40-80
 lines). Use grayscale, grid/flexbox for layout, placeholder content for data,
@@ -425,13 +425,13 @@ after the story's ACs placeholder:
 ```markdown
 ## Visual Reference
 
-- [<Screen name> wireframe](../../design/visuals/<screen-name>.html)
+- [<Screen name> wireframe](../../design/v{N}/vis-<screen-name>.html)
 ```
 
 **6. Commit**
 
 ```bash
-git add docs/design/visuals/
+git add docs/design/v{N}/
 git add docs/requirements/v{N}-requirements.md
 git commit -m "docs: v{N} visual specifications — <N> screen wireframes"
 ```

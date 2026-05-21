@@ -186,6 +186,6 @@ class TestRunPython:
 
 class TestOpenInEditor:
     def test_skips_gracefully_without_editor(self):
-        # This should exit 0 even when neither windsurf nor code is installed
+        # This should exit 0 even when neither code nor windsurf is installed
         result = _bash(HOOKS_DIR / "open-in-editor.sh")
         assert result.returncode == 0

@@ -12,7 +12,7 @@ Generates implementation-ready Low-Level Design documents from the implementatio
 
 `$ARGUMENTS` determines the scope:
 
-- **Epic mode** (e.g., `epic 45`, `epic <number>`): Generate **one LLD per epic** containing one Part B section per task. This is the primary mode for new work. Reads the epic issue, identifies tasks, and produces `docs/design/lld-<epic-id>-<short-name>.md`.
+- **Epic mode** (e.g., `epic 45`, `epic <number>`): Generate **one LLD per epic** containing one Part B section per task. This is the primary mode for new work. Reads the epic issue, identifies tasks, and produces `docs/design/v{N}/lld-<epic-id>-<short-name>.md`.
 - **Phase mode** (e.g., `phase2`, `phase 2`): Generate LLDs for ALL sections in the phase. Legacy mode for existing phase-based work.
 - **Section mode** (e.g., `2.3`, `2.1`): Regenerate or refine a single section's LLD. Use after reviewing phase output.
 - **No arguments**: Ask the user which epic, phase, or section to target.
@@ -25,7 +25,7 @@ Generates implementation-ready Low-Level Design documents from the implementatio
 Determine the version slug `v<N>` from `$ARGUMENTS` or by asking the user (e.g. `epic 45 v11` ⇒ `v11`). All version-scoped paths derive from it:
 
 - Requirements: `docs/requirements/v<N>-requirements.md`
-- High-level design: `docs/design/v<N>-design.md`
+- High-level design: `docs/design/v<N>/v<N>-design.md`
 - Implementation plan: newest match for `docs/plans/*-v<N>-*.md` (use `ls -t` if multiple)
 
 If any of these are missing, stop and ask. Do not guess.
@@ -41,7 +41,7 @@ If any of these are missing, stop and ask. Do not guess.
 1. Read the epic issue: `gh issue view <number>`. Extract the task list and scope.
 2. For each task issue, read the issue body: `gh issue view <task-number>`.
 3. Read the resolved HLD. Identify relevant sections.
-4. Read existing LLDs in `docs/design/` to understand the established format and avoid duplication.
+4. Read existing LLDs in `docs/design/` (search recursively — old LLDs are flat, new ones are in `v{N}/` folders) to understand the established format and avoid duplication.
 5. Read relevant ADRs from `docs/adr/`.
 6. Read the resolved requirements file.
 7. Read existing source code in `src/` to understand what already exists.
@@ -50,7 +50,7 @@ If any of these are missing, stop and ask. Do not guess.
 
 1. Read the resolved implementation plan. Extract all sections for the target phase.
 2. Read the resolved HLD. Identify which L4 contract sections are relevant.
-3. Read existing LLDs in `docs/design/` to understand the established format and avoid duplication.
+3. Read existing LLDs in `docs/design/` (search recursively — old LLDs are flat, new ones are in `v{N}/` folders) to understand the established format and avoid duplication.
 4. Read relevant ADRs from `docs/adr/` referenced by the phase sections.
 5. Read the resolved requirements file for the stories referenced.
 6. Read existing source code in `src/` to understand what already exists.
@@ -86,11 +86,11 @@ Present this overview and **wait for user confirmation** before generating the L
 
 ### Step 2: Generate LLD
 
-**Epic mode:** Generate **one file per epic**, with one Part B section per task within it. File naming: `docs/design/lld-<epic-id>-<short-name>.md` where `<epic-id>` is the canonical epic identifier (format: `v<N>-e<X>` for top-level epics, `v<N>-e<X>-<Y>` for nested epics) and `<short-name>` is a lower-kebab-case domain phrase. Reuse the convention of existing LLDs in `docs/design/`.
+**Epic mode:** Generate **one file per epic**, with one Part B section per task within it. File naming: `docs/design/v{N}/lld-<epic-id>-<short-name>.md` where `<epic-id>` is the canonical epic identifier (format: `v<N>-e<X>` for top-level epics, `v<N>-e<X>-<Y>` for nested epics) and `<short-name>` is a lower-kebab-case domain phrase. Reuse the convention of existing LLDs in `docs/design/`.
 
-**Deriving `<short-name>`:** take the epic title's distinguishing nouns and reduce to a 1–3-word lower-kebab phrase that names the domain concept. Drop filler words (the, a, and, of, for), version prefixes (`v<N>-`), epic-id prefixes (`e<N>-`), and process verbs (build, implement, add). Generic example: epic title *"V<N> E<X> — <Domain Concept>"* → `<domain-concept>`. The short-name must be unique among existing LLDs in `docs/design/`.
+**Deriving `<short-name>`:** take the epic title's distinguishing nouns and reduce to a 1–3-word lower-kebab phrase that names the domain concept. Drop filler words (the, a, and, of, for), version prefixes (`v<N>-`), epic-id prefixes (`e<N>-`), and process verbs (build, implement, add). Generic example: epic title *"V<N> E<X> — <Domain Concept>"* → `<domain-concept>`. The short-name must be unique among existing LLDs for this version (`docs/design/v{N}/`).
 
-**Phase mode:** Generate a **single file per phase** containing all sections. Each implementation plan section becomes a top-level heading within the file. File naming: `docs/design/lld-phase-<N>-<short-name>.md`.
+**Phase mode:** Generate a **single file per phase** containing all sections. Each implementation plan section becomes a top-level heading within the file. File naming: `docs/design/v{N}/lld-phase-<N>-<short-name>.md`.
 
 **Stable LLD anchors (per ADR-0026):** every Part B section heading must be preceded by an HTML anchor:
 
@@ -116,11 +116,11 @@ Present this overview and **wait for user confirmation** before generating the L
 - Only add implementation-level detail the HLD does not contain: file paths, internal function signatures, component trees, state machines, error handling strategies, internal types not in the public contract
 
 **Visual specifications (FE sections)** — when a section includes a Frontend layer,
-check for existing HTML wireframes in `docs/design/visuals/` that match the screen
-or page. If found:
+check for existing HTML wireframes in `docs/design/v{N}/` (`vis-<screen>.html`) that
+match the screen or page. If found:
 1. Open each wireframe in Playwright and capture screenshots for each state
    (loading, error, empty, success, and any edge cases from BDD specs).
-2. Save screenshots to `docs/design/visuals/<screen>-<state>.png`.
+2. Save screenshots to `docs/design/v{N}/vis-<screen>-<state>.png`.
 3. Populate the Visual Specifications table in Part A with the screen name,
    wireframe link, states shown, REQ- anchors, and HLD component references.
 4. Embed the screenshots below the table.
@@ -163,7 +163,7 @@ After the self-critique pass, launch the `edf:lld-review` agent as an independen
 second pair of eyes:
 
 ```
-Agent({subagent_type: "edf:lld-review", description: "Review LLD design", prompt: "lld_path: docs/design/lld-<epic-id>-<short-name>.md\nrequirements_path: docs/requirements/<version>-requirements.md\nhld_path: docs/design/<version>-design.md\nkb_architecture_path: kb/architecture.md\nissue_context: epic <number>"})
+Agent({subagent_type: "edf:lld-review", description: "Review LLD design", prompt: "lld_path: docs/design/v{N}/lld-<epic-id>-<short-name>.md\nrequirements_path: docs/requirements/<version>-requirements.md\nhld_path: docs/design/v{N}/<version>-design.md\nkb_architecture_path: kb/architecture.md\nissue_context: epic <number>"})
 ```
 
 Triage findings by tier:
@@ -263,7 +263,7 @@ graph LR
 ### Step 3c: Coverage manifest (epic mode, pilot epics only)
 
 After the LLD is generated, write a coverage manifest at
-`docs/design/coverage-<epic-id>.yaml` linking requirements stories to LLD sections.
+`docs/design/v{N}/coverage-<epic-id>.yaml` linking requirements stories to LLD sections.
 
 Schema:
 

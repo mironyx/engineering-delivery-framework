@@ -1,3 +1,6 @@
 .claude/
 .claude-plugin/cache/
 __pycache__/
+
+.dagnostics
+.vs
