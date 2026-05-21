@@ -59,11 +59,23 @@ Determine the version slug `v<N>` from `$ARGUMENTS` or by asking the user.
 **Load QA config.** Read `kb/qa-config.json` (or the path from `--qa-config`). Extract `app_url`, `default_role`, and `roles`. CLI flags override these values. If the file doesn't exist and no CLI overrides are provided, ask the user for the missing values.
 
 Read in order:
-1. The LLD file(s) for the target epic(s) — `docs/design/v{N}/lld-<epic-id>-<short-name>.md`
-2. The requirements doc — `docs/requirements/v<N>-requirements.md`
-3. The coverage manifest — `docs/design/v{N}/coverage-<epic-id>.yaml` (if it exists)
-4. The HLD — `docs/design/v{N}/v{N}-design.md`
-5. `kb/architecture.md` — for helper catalogue and conventions
+1. The requirements doc — `docs/requirements/v<N>-requirements.md`
+2. The HLD — `docs/design/v{N}/v{N}-design.md` (or `docs/design/v{N}-design.md` in old flat structure)
+3. `kb/architecture.md` — for helper catalogue and conventions
+
+**Locate LLD and coverage files.** The design directory may follow the new version-foldered convention (`docs/design/v{N}/`) or the old flat convention (`docs/design/`). Use Glob to find the actual paths:
+
+```bash
+glob: docs/design/v{N}/lld-v{N}-*.md
+glob: docs/design/lld-v{N}-*.md
+glob: docs/design/v{N}/coverage-*.yaml
+glob: docs/design/coverage-*.yaml
+```
+
+If both new and old paths exist for the same version, prefer the new structure and warn about the stale flat copies.
+
+**Version mode vs. epic mode:** If the scope is a version (multiple epics), do NOT read all LLDs in-memory here — Step 1 will spawn sub-agents per epic to extract BDD specs and invariants, avoiding context exhaustion. For a single epic, read the LLD now:
+4. The LLD file — resolved path from the Glob above
 
 If `app_url` is set, verify the app is reachable:
 ```bash
@@ -93,7 +105,37 @@ Resolve the target GitHub username: `--auth-user` > `qa-config.json roles[--auth
 
 ### Step 1: Extract testable scenarios from the LLD
 
-The LLD is the sole source of truth for what to test. Extract scenarios in-memory from these LLD sections:
+The LLD is the sole source of truth for what to test. Extraction approach depends on scope:
+
+**Version mode (multiple epics):** Spawn one `Explore` agent per epic LLD to extract BDD specs and invariant tables. Each agent returns a compact summary — the main agent never loads full LLD text, keeping context free for E2E execution.
+
+For each epic in the version:
+```
+Agent({subagent_type: "Explore", description: "Extract BDD specs from epic <id> LLD", prompt: "Read the LLD file at <resolved-path> (found via Glob in Step 0) and extract ONLY:
+
+1. BDD Specs — full text of every describe/it block (include the it() descriptions verbatim)
+2. Invariants table — each row: invariant text + Verification method
+
+Return just these two sections. Do NOT return the full LLD content. Be thorough: every BDD spec, every invariant."})
+```
+
+Run all epic agents in parallel (they're read-only). Aggregate their results into the in-memory scenario list, then print the summary:
+
+```
+## QA Scenario Summary — Version v<N> (M epics)
+
+E2E scenarios (from BDD specs):   N
+Invariant checks:                  N
+Acceptance criteria assertions:    N
+Visual state checks:               N
+API contract checks:               N
+---
+Total:                             N
+```
+
+If any single epic has >80 scenarios, warn the user and suggest narrowing scope to that epic first.
+
+**Epic mode (single epic):** The LLD was already read in Step 0. Extract scenarios in-memory from these LLD sections:
 
 **A. BDD Specs → E2E scenarios**
 Every BDD spec in the LLD (`describe`/`it` blocks) maps to a browser-based test scenario. The `it()` descriptions become the test steps. Track the mapping:
@@ -121,7 +163,7 @@ Every API route declared in Part B (Backend layer) becomes an integration check:
 - Expected response shape (from return types)
 - Error cases (from error handling section)
 
-Build an **in-memory scenario list** — do NOT write a test plan file. Print a summary for the user:
+Build an **in-memory scenario list** — do NOT write a test plan file. Print a summary:
 
 ```
 ## QA Scenario Summary — Epic <id>

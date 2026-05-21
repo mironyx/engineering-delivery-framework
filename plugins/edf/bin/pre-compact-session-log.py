@@ -334,14 +334,22 @@ def render_section(facts: dict, session_id: str, compact_time: str) -> str:
 # ---------------------------------------------------------------------------
 
 def find_or_create_draft_path(sessions_dir: pathlib.Path, session_id: str) -> pathlib.Path:
-    """Return an existing draft for this session_id, or a new path for today."""
-    today = datetime.now().strftime("%Y-%m-%d")
-    for p in sorted(sessions_dir.glob(f"{today}-session-*-draft.md")):
+    """Return an existing draft for this session_id, or a new path for today.
+
+    Drafts live under docs/sessions/YYYY-MM/ per ADR-0036.
+    """
+    today = datetime.now()
+    today_str = today.strftime("%Y-%m-%d")
+    month_str = today.strftime("%Y-%m")
+    month_dir = sessions_dir / month_str
+    month_dir.mkdir(parents=True, exist_ok=True)
+
+    for p in sorted(month_dir.glob(f"{today_str}-session-*-draft.md")):
         if session_id[:8] in p.read_text(encoding="utf-8", errors="replace"):
             return p
-    matches = [re.search(rf"{today}-session-(\d+)", p.name) for p in sessions_dir.glob(f"{today}-session-*.md")]
+    matches = [re.search(rf"{today_str}-session-(\d+)", p.name) for p in month_dir.glob(f"{today_str}-session-*.md")]
     max_n = max((int(m.group(1)) for m in matches if m), default=0)
-    return sessions_dir / f"{today}-session-{max_n + 1}-draft.md"
+    return month_dir / f"{today_str}-session-{max_n + 1}-draft.md"
 
 
 def write_draft(draft_path: pathlib.Path, section: str, session_id: str) -> None:

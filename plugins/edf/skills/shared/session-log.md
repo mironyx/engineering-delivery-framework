@@ -27,6 +27,14 @@ If a pre-compact-hook draft exists for the same session ID (`docs/sessions/YYYY-
 
 Keep it concise — one screen is typical. Density over completeness.
 
+## Write
+
+Create the month folder if it doesn't exist, then write the log:
+
+```bash
+mkdir -p docs/sessions/YYYY-MM
+```
+
 ## Commit
 
 Session logs commit separately from the artefacts they describe:
