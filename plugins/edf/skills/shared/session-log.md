@@ -22,7 +22,8 @@ If a pre-compact-hook draft exists for the same session ID (`docs/sessions/YYYY-
 4. **Cross-cutting decisions** — ADRs created, architectural pivots, invariants that span multiple artefacts.
 5. **What didn't go to plan** — mid-session rewrites, scope revisions, design pivots. Be candid. Fastest-decaying content, so capture now.
 6. **Process notes for `/retro`** — explicit hand-off: friction in the skill itself, requirements gaps, missed guardrails, template improvements.
-7. **Next step** — which follow-on skill invocation picks this up.
+7. **Skill self-reflection** — what the skill got right this session and what it struggled with. Be specific: which step had unclear instructions, what guardrail was missing, what would have prevented a mistake. Include one concrete suggestion for improving the skill's own SKILL.md or its agents. This section is the skill debugging itself — it feeds back into the framework, not into the project.
+8. **Next step** — which follow-on skill invocation picks this up.
 
 Keep it concise — one screen is typical. Density over completeness.
 

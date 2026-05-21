@@ -1,0 +1,9 @@
+{
+  "app_url": "http://localhost:3000",
+  "default_role": "admin",
+  "roles": {
+    "admin": "leonid-mironyx",
+    "admin_repo": "leonid-mironyx",
+    "participant": "leonid-mironyx-test"
+  }
+}
