@@ -6,7 +6,11 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill
 
 # QA — Quality Assurance Skill
 
-Validates the implementation surface described by the LLD against reality. Operates in two modes: pre-implementation (design-time contract validation — no app needed) and post-implementation (runtime verification against a running app via Playwright MCP).
+Validates the implementation surface described by the LLD against reality. Operates in three modes:
+
+- **`pre`** — design-time only: contract validation, invariant checks, coverage audit. No app needed.
+- **`post`** — runtime verification: BDD-based E2E tests + all pre-mode checks against a running app.
+- **`exploratory`** — everything in `post` plus creative edge-case hunting. BDD specs are a starting point, not the script. The QA explorer tries to break the system.
 
 ## Arguments
 
@@ -19,7 +23,7 @@ Validates the implementation surface described by the LLD against reality. Opera
 All other parameters read from `kb/qa-config.json` by default and can be overridden on the command line:
 
 - **`--app-url <url>`**: The base URL of the running application.
-- **`--mode pre|post`**: Design-time only (`pre`) or full runtime QA (`post`, default).
+- **`--mode pre|post|exploratory`**: Design-time only (`pre`), BDD-based runtime QA (`post`, default), or full exploratory edge-case hunting (`exploratory`).
 - **`--no-auth`**: Skip authentication entirely.
 - **`--auth-role <role>`**: Which role to sign in as. Resolves to a GitHub username via the config file's `roles` map. Default: the config file's `default_role`, or `admin`.
 - **`--auth-user <github-username>`**: GitHub username directly — bypasses the role map. Default: `$env:QA_USER`.
@@ -35,6 +39,7 @@ The file at `kb/qa-config.json` (or `--qa-config <path>`) supplies defaults so y
 {
   "app_url": "http://localhost:3000",
   "default_role": "admin",
+  "exploratory_budget_minutes": 5,
   "roles": {
     "admin": "leonid-mironyx",
     "admin_repo": "leonid-mironyx",
@@ -43,12 +48,20 @@ The file at `kb/qa-config.json` (or `--qa-config <path>`) supplies defaults so y
 }
 ```
 
-`app_url` and `default_role` are optional in the config — if absent, the skill asks when needed. `roles` is required only if you use `--auth-role`; the keys are role names meaningful to your app, and the values are GitHub usernames available in the machine's GitHub session.
+`app_url` and `default_role` are optional in the config — if absent, the skill asks when needed. `exploratory_budget_minutes` controls the self-managed time budget per epic in exploratory mode (default 5). `roles` is required only if you use `--auth-role`; the keys are role names meaningful to your app, and the values are GitHub usernames available in the machine's GitHub session.
 
 **Human prerequisites** (not automated by this skill):
 - The GitHub accounts must be logged in on the machine where the agent runs
 - The accounts must be authorized with the app (first-time OAuth consent already completed)
 - If an account is not in the picker list, the agent reports it and stops — the human adds it
+
+## Critical rules
+
+These override any conflicting instinct. Violations are the top cost drivers.
+
+1. **Resolve `${EDF_SCRIPTS}` before running any command.** Read `.env` in the project root and substitute the actual value of `EDF_SCRIPTS`. If unset or `.env` is missing, default to `scripts`.
+2. **Use agents for all verification, never inline.** E2E scenarios run in `edf:qa-executor`, invariants run in `edf:test-runner`, integration contracts run in `edf:qa-contracts`, coverage audit runs in `edf:qa-coverage`. Zero verification output reaches the main context.
+3. **Pass pointers to sub-agents, not content.** File paths, epic IDs, LLD paths, version slugs. Never paste diffs, file contents, or BDD spec text into agent prompts — let agents read the files they need.
 
 ## Process
 
@@ -56,7 +69,7 @@ The file at `kb/qa-config.json` (or `--qa-config <path>`) supplies defaults so y
 
 Determine the version slug `v<N>` from `$ARGUMENTS` or by asking the user.
 
-**Load QA config.** Read `kb/qa-config.json` (or the path from `--qa-config`). Extract `app_url`, `default_role`, and `roles`. CLI flags override these values. If the file doesn't exist and no CLI overrides are provided, ask the user for the missing values.
+**Load QA config.** Read `kb/qa-config.json` (or the path from `--qa-config`). Extract `app_url`, `default_role`, `exploratory_budget_minutes`, and `roles`. CLI flags override these values. If the file doesn't exist and no CLI overrides are provided, ask the user for the missing values.
 
 Read in order:
 1. The requirements doc — `docs/requirements/v<N>-requirements.md`
@@ -91,8 +104,29 @@ The default auth model is GitHub OAuth with an account picker. The human ensures
 
 Resolve the target GitHub username: `--auth-user` > `qa-config.json roles[--auth-role]` > `qa-config.json roles[default_role]` > `$env:QA_USER`. If none of these are set, ask the user.
 
-1. Navigate to `<app-url>`.
-2. If the app loads directly (already authenticated from a prior session), skip auth.
+#### 0b-1: Restore saved auth state (cross-session persistence)
+
+The Playwright MCP starts a fresh browser per Claude session. To avoid re-authenticating every session, save and restore cookies via `browser_run_code_unsafe`.
+
+Check whether `kb/qa-auth-state.json` exists (use Bash `test -f`). If it does:
+
+```
+browser_run_code_unsafe(code: "async (page) => {
+  const fs = require('fs');
+  const state = JSON.parse(fs.readFileSync('kb/qa-auth-state.json', 'utf-8'));
+  await page.context().addCookies(state.cookies);
+  return 'cookies restored';
+}")
+```
+
+Then navigate to `<app-url>`. If the restored GitHub OAuth session cookie is still valid, the app loads directly — skip the rest of Step 0b.
+
+If the file doesn't exist or the app still redirects to GitHub OAuth after restore, proceed through the normal auth flow below.
+
+#### 0b-2: Authenticate
+
+1. Navigate to `<app-url>` (if not already there from 0b-1).
+2. If the app loads directly (already authenticated via restored cookies), skip auth.
 3. If redirected to a GitHub OAuth page showing an account list:
    - Take a snapshot and find the account matching the resolved username
    - Click it
@@ -101,7 +135,26 @@ Resolve the target GitHub username: `--auth-user` > `qa-config.json roles[--auth
 4. If the GitHub page shows a "Sign in to GitHub" form (no accounts on this machine): **stop and report** — the human needs to sign into GitHub first.
 5. If the app shows its own login screen (not GitHub): fall back to the `qa-config.json` file's `login` section if one exists. Otherwise **stop and ask** — the app's auth flow differs from the default GitHub OAuth assumption.
 
-**Session persistence note:** The Playwright MCP browser instance is shared across the skill session. Once authenticated, cookies persist. Every spawned `qa-executor` agent inherits the authenticated session. If an agent reports `BLOCKED` (redirected to login), re-authenticate and re-run that scenario.
+#### 0b-3: Save auth state
+
+After successful authentication (app loaded with correct user), persist cookies for the next session:
+
+```
+browser_run_code_unsafe(code: "async (page) => {
+  const fs = require('fs');
+  const state = await page.context().storageState();
+  fs.writeFileSync('kb/qa-auth-state.json', JSON.stringify(state, null, 2));
+  return 'auth state saved';
+}")
+```
+
+Then ensure the file is gitignored (one-time setup — only if not already covered):
+
+```bash
+grep -q 'qa-auth-state' .gitignore 2>/dev/null || echo 'kb/qa-auth-state.json' >> .gitignore
+```
+
+**Session persistence note:** The Playwright MCP browser instance is shared across the skill session. Once authenticated, cookies persist. Every spawned `qa-executor` or `qa-explorer` agent inherits the authenticated session. If an agent reports `BLOCKED` (redirected to login), re-authenticate and re-run that scenario. The `kb/qa-auth-state.json` file bridges auth across Claude Code sessions — it's gitignored automatically on first save.
 
 ### Step 1: Extract testable scenarios from the LLD
 
@@ -202,26 +255,44 @@ starting_url: <optional — specific page to start from>"})
 
 **Execution strategy:**
 - Run scenarios sequentially (browser state is shared). Do not parallelise.
-- If a scenario fails, take a screenshot and continue to the next scenario.
+- If a scenario fails, the qa-executor agent captures a screenshot and reports failure. Continue to the next scenario.
 - If 3 consecutive scenarios fail, pause and ask the user whether to continue — the app may be in a broken state.
+- Each agent invocation covers one scenario. The scenario prompt is compact — scenario ID, description, steps, assertions — not file contents.
 
-**Scenario grouping:** If multiple BDD specs cover the same screen/flow, group them into a single agent invocation to reduce navigation overhead. Pass all related scenarios in one prompt with clear boundaries.
+### Step 2b: Exploratory testing (exploratory mode only)
+
+**Skip if not `--mode exploratory`.**
+
+After BDD verification establishes a baseline, spawn the `edf:qa-explorer` agent to hunt for breakage. The explorer reads the LLD for context (screens, flows, API contracts) but is not constrained by it — it actively looks for what the spec didn't anticipate.
+
+For each epic:
+```
+Agent({subagent_type: "edf:qa-explorer", description: "Exploratory QA for epic <id>", prompt: "app_url: <app-url>
+epic_id: <epic-id>
+lld_path: <resolved LLD path from Step 0>
+auth_established: true
+budget_minutes: <exploratory_budget_minutes from config>"})
+```
+
+Run one explorer per epic. If version mode has multiple epics, run explorers sequentially (shared browser state). The explorer walks the happy path once for orientation, then attacks edges: input boundaries, interaction abuse (double-submit, back button, refresh mid-flow), state manipulation (URL hacking, stale state), error handling, and visual stress (viewport resize, long text overflow).
+
+The explorer returns a severity-ranked finding list — it does not list what works, only what's broken. Findings are self-contained: the main agent never sees the full exploration trace, only the verdict table and evidence for High+ findings.
 
 ### Step 3: Integration contract validation
 
-Validate API contracts from Step 1E. Approach depends on mode:
+Delegate to the `edf:qa-contracts` agent. This keeps all grep output, HTTP responses,
+and schema comparisons out of the main context.
 
-**Pre-implementation (`--mode pre`):**
-- Type-check: for each API function signature in the LLD, grep the codebase for the actual implementation and compare types
-- Schema-check: for each DB schema reference, verify the LLD types match the canonical DB types
-- Route-check: verify each declared API route exists in the routing layer (grep for path patterns)
+```
+Agent({subagent_type: "edf:qa-contracts", description: "Contract validation for epic <id>", prompt: "mode: <pre|post>
+lld_path: <resolved LLD path from Step 0>
+app_url: <app-url or empty for pre-mode>
+epic_id: <epic-id>
+version: <v{N}>"})
+```
 
-**Post-implementation (`--mode post`):**
-- For each API endpoint, send a request and validate the response shape against the LLD contract
-- Check HTTP status codes for error cases declared in the LLD
-- If the project has an OpenAPI spec or similar, validate it matches the LLD
-
-Run the checks inline (no sub-agent needed — contract validation is compact).
+The agent reads the LLD directly, extracts API contracts from Part B, and returns
+a compact pass/fail table. No contract content reaches the main context.
 
 ### Step 4: Invariant verification
 
@@ -240,21 +311,22 @@ Batch invariant checks per type — one agent invocation per command, not per in
 
 ### Step 5: Cross-story coverage audit
 
-1. Read the coverage manifest: `docs/design/v{N}/coverage-<epic-id>.yaml`
-2. For every REQ- anchor in the requirements doc, verify it has a manifest entry
-3. For every manifest entry:
-   - Check `lld:` is non-null (story has a design section)
-   - Check `issue:` is non-null (story has an implementation issue)
-   - Check `status:` is not `Draft` (story is implemented or approved)
-4. Flag gaps:
-   - **Uncovered REQ-** — in requirements but not in manifest
-   - **No LLD** — in manifest but `lld:` is null
-   - **Stale Draft** — `status: Draft` for epics approved > 2 weeks ago
-   - **No issue** — `status: Approved` but `issue:` is null
+Delegate to the `edf:qa-coverage` agent. This keeps all manifest parsing and
+REQ- cross-referencing out of the main context.
+
+```
+Agent({subagent_type: "edf:qa-coverage", description: "Coverage audit for epic <id>", prompt: "version: <v{N}>
+epic_id: <epic-id>
+requirements_path: docs/requirements/v<N>-requirements.md
+coverage_glob: docs/design/v{N}/coverage-*.yaml"})
+```
+
+The agent reads the manifest and requirements doc directly, cross-references every
+REQ- anchor, and returns a compact gap table. No manifest content reaches the main context.
 
 ### Step 6: Quality report
 
-Produce the report at `docs/reports/qa/v{N}-qa-report-<epic-id>.md`.
+Produce the report at `docs/reports/qa/<YYYY-MM-DD>-v{N}-qa-report-<epic-id>.md`.
 
 Create the directory if it doesn't exist:
 ```bash
@@ -268,7 +340,7 @@ mkdir -p docs/reports/qa
 
 **Date:** <today>
 **Version:** v<N>
-**Mode:** pre | post
+**Mode:** pre | post | exploratory
 **App URL:** <url or "N/A">
 
 ## 1. Summary
@@ -290,6 +362,22 @@ mkdir -p docs/reports/qa
 |----|----------|--------|----------|
 | QA-<epic>-1 | <description> | PASS | — |
 | QA-<epic>-2 | <description> | FAIL | [Screenshot](qa-v<N>-<epic>-2-fail.png), console errors: ... |
+
+## 2b. Exploratory Findings (exploratory mode only)
+
+| # | Severity | Screen | What happened | Expected |
+|---|----------|--------|---------------|----------|
+| 1 | High | /checkout | Double-submit created duplicate order | Should idempotent-guard |
+
+**Edge coverage:**
+
+| Category | Tested | Notes |
+|----------|--------|-------|
+| Input edges | Yes | — |
+| Interaction edges | Yes | Double-submit, back button |
+| State edges | Yes | URL hacking |
+| Error handling | Partial | 500 path not reachable |
+| Visual edges | Yes | 320px layout broken on /settings |
 
 ## 3. Integration Contract Results
 
@@ -352,6 +440,7 @@ In addition to the standard sections, the QA session log must include:
 | Dimension | Total | Passed | Failed | Blocked | Skipped |
 |-----------|-------|--------|--------|---------|---------|
 | E2E scenarios | N | N | N | N | N |
+| Exploratory (epics) | N | N findings | — | — | — |
 | Integration contracts | N | N | N | — | N |
 | Invariants | N | N | N | — | N |
 | Visual states | N | N | N | N | N |
@@ -395,7 +484,7 @@ git commit -m "docs(sessions): qa session for <epic-id>"
 
 ## Guidelines
 
-- **LLD is the source of truth.** Do not invent test scenarios not traceable to an LLD section. If the LLD is missing a scenario, flag it as a coverage gap — don't fill it in.
+- **LLD is the starting point, not the boundary.** BDD specs guide verification, but the explorer hunts beyond them. Spec gaps found during exploratory testing are findings, not out-of-scope. In `post` mode, stick to BDD-traceable scenarios.
 - **Pre-mode is always available.** Even without a running app, contract validation, invariant checks, and coverage audit provide value. Don't skip QA just because the app isn't running.
 - **Failures are findings, not errors in the QA process.** A failed E2E test means the app has a bug — report it, don't fix it  (unless the user asks).
 - **Keep the report actionable.** Each gap or failure must have a clear next step: fix the app, update the LLD, create an issue, or accept the risk.
