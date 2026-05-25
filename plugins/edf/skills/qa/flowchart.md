@@ -30,7 +30,7 @@ flowchart TD
     S2_CHK -->|"Yes"| S2_PAUSE(["fa:fa-hand-o-right Pause: app broken?"])
     S2_CHK -->|"No"| S2_MODE{"Exploratory?"}
     S2_PAUSE --> S2_MODE
-    S2_MODE -->|"Yes"| S2B(("S2b: edf:qa-explorer agent<br/>One per epic, self-managed<br/>time budget")))
+    S2_MODE -->|"Yes"| S2B(("S2b: edf:qa-explorer agent<br/>One per epic, self-managed<br/>time budget"))
     S2_MODE -->|"No"| S3
     S2B --> S3
 

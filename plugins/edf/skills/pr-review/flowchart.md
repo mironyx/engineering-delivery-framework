@@ -20,8 +20,8 @@ flowchart TD
     S3_SINGLE --> S4
 
     subgraph PARALLEL["Parallel Agents (>= 150 lines)"]
-        S3A(("Agent A: Code Quality<br/>Bugs, justification,<br/>design principles,<br/>CLAUDE.md compliance,<br/>anti-patterns")))
-        S3C(("Agent C: Design Conformance<br/>LLD matching, silent swallow,<br/>diagnostics, helper reuse,<br/>DB efficiency")))
+        S3A(("Agent A: Code Quality<br/>Bugs, justification,<br/>design principles,<br/>CLAUDE.md compliance,<br/>anti-patterns"))
+        S3C(("Agent C: Design Conformance<br/>LLD matching, silent swallow,<br/>diagnostics, helper reuse,<br/>DB efficiency"))
     end
 
     S3_MULTI --> S3A
@@ -29,7 +29,7 @@ flowchart TD
 
     S3A --> S3_PAT{"PATTERNS_NEEDED?"}
     S3C --> S3_PAT
-    S3_PAT -->|"Yes"| S3B(("Agent B: Framework<br/>Best practices, web search<br/>per framework dep")))
+    S3_PAT -->|"Yes"| S3B(("Agent B: Framework<br/>Best practices, web search<br/>per framework dep"))
     S3_PAT -->|"No"| S4
     S3B --> S4
 
