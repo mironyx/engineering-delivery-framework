@@ -15,6 +15,8 @@ and verifies the result.
 **Idempotent.** Safe to re-run — backups are timestamped, existing files are never
 overwritten without confirmation.
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the phase order, scaffold steps, or verification checks.
+
 ## Process
 
 Use `TodoWrite` to track progress through the phases.

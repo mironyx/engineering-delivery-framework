@@ -8,9 +8,9 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 
 Detects misalignment across the full delivery stack: Requirements ↔ Design ↔ Code.
 
-## Instructions
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the artefact set, drift classification levels, or report structure.
 
-1. **Gather artefacts.** Read all of:
+## Instructions Read all of:
    - `docs/requirements/` — stories, epics, acceptance criteria
    - `docs/design/` — LLDs, HLDs, design spikes
    - `docs/adr/` — architecture decisions

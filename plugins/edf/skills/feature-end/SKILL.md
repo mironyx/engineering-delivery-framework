@@ -14,6 +14,8 @@ Finalises a feature branch after the PR has been reviewed and approved. Handles 
 - `/feature-end` — detects the PR from the current branch (original behaviour)
 - `/feature-end <issue-number>` — looks up the PR for the given issue. If an orphaned worktree exists (crashed teammate), switches into it and recovers. Otherwise checks out the branch (used by `/feature-team` lead when triggering remotely via message).
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the wrap-up sequence, merge strategy, or cleanup steps.
+
 ## Process
 
 Execute these steps sequentially. Do not skip steps.

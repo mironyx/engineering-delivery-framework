@@ -14,6 +14,8 @@ Establishes the frontend design system for the project. This skill runs **once**
 
 - `/frontend-architect` — surveys the codebase and produces the design system spec
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the design token categories, component patterns, or bootstrap task list.
+
 ## Process
 
 ### Step 1: Survey the existing frontend

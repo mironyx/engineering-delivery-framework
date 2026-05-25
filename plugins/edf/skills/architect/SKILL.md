@@ -34,6 +34,8 @@ Examples:
 
 When `--epics` is omitted, all epics in the plan are processed.
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing artefact production order, agent delegation, or the decomposition rules.
+
 ---
 
 ## Review Mode

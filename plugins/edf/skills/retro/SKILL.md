@@ -8,6 +8,8 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 
 Analyses the development process since the last retro (or project start) and produces a process improvement report.
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing data sources, health dimensions, or the report structure.
+
 ## Instructions
 
 ### 1. Gather data

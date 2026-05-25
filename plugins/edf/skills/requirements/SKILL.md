@@ -77,6 +77,8 @@ When the skill is re-invoked (or continues after a gate), it:
 3. Removes the resolved `[Review]` markers
 4. Presents a summary of what changed
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing input sources, gate structure, or the review cycle.
+
 ## Human gates
 
 **Two** mandatory stop points.

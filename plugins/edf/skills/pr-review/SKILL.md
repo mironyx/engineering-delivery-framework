@@ -18,6 +18,8 @@ Two modes:
 
 ---
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the cost-adaptive threshold, agent count, or agent prompt structure.
+
 ## Process
 
 ### Step 1: Gather context

@@ -22,6 +22,8 @@ For a single issue, use `/feature` instead. Epic issues (label `epic`) cannot be
 
 **Wave handling:** When given an epic, the lead reads the epic body for an `## Execution Order` table or a `## Dependency graph` Mermaid diagram and spawns teammates wave-by-wave. Without either, all tasks spawn in parallel. See Step 1 for parsing rules.
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing step order, wave orchestration, or agent spawn logic.
+
 ## Lead Process
 
 Execute these steps sequentially without pausing for confirmation.

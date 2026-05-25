@@ -18,6 +18,8 @@ Generates implementation-ready Low-Level Design documents from the implementatio
 - **No arguments**: Ask the user which epic, phase, or section to target.
 - **`--non-interactive`** (optional, with epic mode): Skip the Step 1 overview and confirmation. Used by `/architect` when it calls `/lld` — the parent skill already obtained user approval on the batch. Example: `epic 462 v12 --non-interactive`.
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing mode routing, quality gates, or the self-critique/review loop.
+
 ## Process
 
 ### Step 0: Resolve version

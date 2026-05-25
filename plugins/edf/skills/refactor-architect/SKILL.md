@@ -63,9 +63,9 @@ Inputs combine freely. The recommended shape is **file path(s) + textual descrip
 - `/refactor-architect --finding "<paste BCA row from /lld>"` — audit handoff.
 - `/refactor-architect #N` — refine an existing placeholder refactor issue.
 
-## Process
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the file discovery logic, decomposition rules, or issue body templates.
 
-Steps 1–5 are refactor-specific. Step 6 reuses `/architect`'s machinery; Step 7 is the stop point.
+## Process Step 6 reuses `/architect`'s machinery; Step 7 is the stop point.
 
 ### Step 1: Parse input and orient
 

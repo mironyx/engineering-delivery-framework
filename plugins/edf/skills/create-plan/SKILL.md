@@ -16,6 +16,8 @@ off cleanly to `/architect epic <n>`.
 - `/create-plan docs/adr/NNNN-<title>.md` — plan from an ADR.
 - `/create-plan <issue-number>` — plan from an existing GitHub issue.
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing decomposition rules or plan template structure.
+
 ## Process
 
 1. **Read the input** fully. Also read everything it references: ADRs in

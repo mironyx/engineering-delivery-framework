@@ -14,6 +14,8 @@ The `diagnostics-exporter` extension exports diagnostics for files that are **op
 
 This means: after making fixes in a CLI session, the diagnostics file may be **stale** (shows old issues) or **missing** entirely. The fix is to open the file in the editor using `bash ${CLAUDE_PLUGIN_ROOT}/hooks/open-in-editor.sh <file>`, which triggers a fresh CodeScene pass, then wait for the export.
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the diagnostics reading flow, CodeScene MCP integration, or fix-and-recheck loop.
+
 ## Instructions
 
 1. **Identify target files.**

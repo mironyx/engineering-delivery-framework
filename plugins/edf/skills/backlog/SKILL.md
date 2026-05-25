@@ -18,9 +18,9 @@ This skill **never** mutates state:
 
 Write only the report file in `docs/reports/`. The human reads the report and actions approved items manually (or invokes the relevant skill: `/feature`, `gh-create-issue.sh`, etc.).
 
-## Instructions
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the scoring formula, health checks, or report structure.
 
-### 1. Gather data
+## Instructions
 
 Read broadly. Do not cap inputs arbitrarily — if a file is relevant, read it.
 

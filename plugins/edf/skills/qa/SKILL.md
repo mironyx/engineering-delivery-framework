@@ -57,6 +57,8 @@ The file at `kb/qa-config.json` (or `--qa-config <path>`) supplies defaults so y
 
 ## Critical rules
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing mode routing, agent spawns, or the quality report structure.
+
 These override any conflicting instinct. Violations are the top cost drivers.
 
 1. **Resolve `${EDF_SCRIPTS}` before running any command.** Read `.env` in the project root and substitute the actual value of `EDF_SCRIPTS`. If unset or `.env` is missing, default to `scripts`.

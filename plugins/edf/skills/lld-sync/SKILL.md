@@ -19,9 +19,9 @@ they close the Theory Building loop: design informs implementation, implementati
 `$ARGUMENTS` is the issue number (e.g., `52`). If omitted, infer from the current branch name
 (`feat/<slug>` → look for `Closes #N` in the most recent PR or branch commits).
 
-## Process
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing mode detection, the delta analysis categories, or the manifest update logic.
 
-### Mode detection (run before Step 1)
+## Process
 
 Check the issue's labels: `gh issue view <number> --json labels`.
 

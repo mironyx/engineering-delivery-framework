@@ -25,7 +25,9 @@ These override any conflicting instinct. Violations are the top cost drivers.
 5. **Never invoke `/simplify`.** Only if the user explicitly asks.
 6. **Do not move the board item to Done.** `/feature-end` handles that.
 
-## Steps
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing step order, adding/removing agent spawns, or modifying branching logic.
+
+## Steps — Shared preamble
 
 Execute sequentially. Do not skip steps. Do not ask for confirmation — only pause on blockers.
 
@@ -39,7 +41,7 @@ Execute sequentially. Do not skip steps. Do not ask for confirmation — only pa
 
 ### Step 3b: Pick the simplest approach
 
-Before writing any code, list 2–3 approaches in 1–2 sentences each. Pick the one that fixes the root cause with the least code. State why. Prefer fixing data at the source over adding complexity downstream (CLAUDE.md: "Simplicity first").
+Before writing any code, list 2-3 approaches in 1-2 sentences each. Pick the one that fixes the root cause with the least code. State why. Prefer fixing data at the source over adding complexity downstream (CLAUDE.md: "Simplicity first").
 
 **Critically evaluate the LLD — do not follow it blindly.** LLD sections are written before
 implementation; reality may reveal a simpler path, an incorrect assumption, an outdated pattern,
@@ -57,36 +59,34 @@ notes and update the design doc accordingly.
 ### Step 3c: Classify change pressure
 
 After picking the approach but before writing code, estimate the change size and set the
-**pressure tier**. This controls how much ceremony the rest of the pipeline applies.
+**pressure tier**. This determines which track you follow for the rest of the pipeline.
 
 **How to estimate:** Count the lines of production code you expect to add or modify (exclude
 tests, docs, config). Use your approach from Step 3b as the basis — you know the fix by now.
 
-| Tier | Estimated src lines | Files touched | Pipeline adjustments |
-|------|-------------------|---------------|---------------------|
-| **Light** | < 30 lines | ≤ 3 files | Inline tests (skip edf:test-author agent), skip evaluator, /diag on src/ only |
-| **Standard** | 30–150 lines | any | Full pipeline as documented |
-| **Heavy** | 150+ lines | any | Full pipeline, consider splitting into sub-issues |
+| Tier | Estimated src lines | Files touched | Track |
+|------|-------------------|---------------|-------|
+| **Light** | < 30 lines | <= 3 files | Inline tests, no sub-agents, `/diag` on `src/` only, skip evaluator |
+| **Standard** | 30-150 lines | any | Interface -> test-author -> implement, full `/diag`, evaluator |
+| **Heavy** | 150+ lines | any | Same as Standard; consider splitting into sub-issues |
 
 **Bug fixes default to Light** unless the fix is genuinely complex (multi-file refactor,
 new module, schema change). A 3-line query fix does not need a 256-line test file from
 a sub-agent.
 
-State the tier and reasoning in one line before proceeding:
+State the tier and reasoning in one line before proceeding, then follow the corresponding track:
 > **Pressure: Light** — 3-line query filter change in one file.
-
-### Step 4: Implement with test authorship
-
-The approach depends on the **pressure tier** set in Step 3c.
 
 ---
 
-#### Light pressure path (< 30 src lines, bug fixes)
+## Light track — bug fixes, <30 src lines, <=3 files
 
 No sub-agents. Write the fix and regression tests in one pass.
 
+### Step 4L: Implement with inline tests
+
 1. **Write the fix** directly in the source file.
-2. **Write 2–5 focused regression tests** in the target test file. Each test should:
+2. **Write 2-5 focused regression tests** in the target test file. Each test should:
    - Reference the issue number in a comment or test name
    - Test through the public interface, not internals
    - Include at least one test that would fail on the pre-fix behaviour (for bug fixes)
@@ -96,32 +96,31 @@ No sub-agents. Write the fix and regression tests in one pass.
    ${EDF_SCRIPTS}/run-tests.sh <test-file>
    ```
    Runs only the affected test file (the script takes an optional path argument). Do not launch a sub-agent for this — the output is compact and belongs in the main context.
-4. Proceed directly to Step 5 (full verification).
 
-**Do not** launch the edf:test-author or edf:feature-evaluator agents.
+Proceed to Step 5.
 
 ---
 
-#### Standard / Heavy pressure path (≥ 30 src lines, new features)
+## Full track — features, >=30 src lines
 
 Tests must be written by a separate agent against the spec only, before implementation.
 
-Flow: interface → independent tests → implementation → green.
+Flow: interface -> independent tests -> implementation -> green.
 
-##### Step 4a: Write the interface, not the behaviour
+### Step 4aF: Write the interface, not the behaviour
 
 Main agent writes only the *public surface* of the unit under change: exported types,
 schemas, function signatures, and stub bodies that throw `not implemented`. No
 behaviour logic, no happy-path code, no error handling. The surface is derived from the
 LLD or issue contract, not from any implementation choice.
 
-For bug fixes the interface usually already exists — skip to Step 4b. If the bug fix
+For bug fixes the interface usually already exists — skip to Step 4bF. If the bug fix
 requires a new signature (e.g. adding a parameter), commit the signature change first.
 
 The PostToolUse hook opens edited files in the editor automatically for diagnostics analysis.
 If the hook fires with inline findings, address them before moving on.
 
-##### Step 4b: Hand off to the `edf:test-author` sub-agent
+### Step 4bF: Hand off to the `edf:test-author` sub-agent
 
 **HTTP mocking constraint:** instruct the sub-agent to use the project's HTTP mocking convention as declared in CLAUDE.md (e.g. MSW for TypeScript, `respx` or `pytest-httpx` for Python) — not manual stubs, spies, or monkeypatching. The CLAUDE.md convention is authoritative; do not override it in the agent prompt.
 
@@ -146,7 +145,7 @@ requirements files the issue or LLD references.
 spec gaps, **stop and escalate to the user** — the spec is too vague to implement against.
 Do not write the tests yourself.
 
-##### Step 4c: Implement against the tests
+### Step 4cF: Implement against the tests
 
 Main agent reads the test file written by the sub-agent and implements the stub bodies
 to make the tests pass.
@@ -164,12 +163,16 @@ Launch Agent: edf:test-runner
 Input: command="${EDF_SCRIPTS}/run-tests.sh <test-file>"
 ```
 
-##### Step 4d: Self-check coverage before Step 5
+### Step 4dF: Self-check coverage before Step 5
 
 Before running the full suite, re-read the sub-agent's report and confirm every listed
 property maps to a passing test. If the sub-agent missed a property you can see in the
 spec, add the test yourself and note this in the Step 10 report (so we can feed it back
 into the sub-agent's prompt).
+
+---
+
+## Verification & diagnostics (both tracks)
 
 ### Step 5: Full verification
 
@@ -206,15 +209,12 @@ If any fail, fix and re-run via `edf:test-runner`. If stuck after 3 attempts on 
 
 ### Step 6: Diagnostics (blocking gate)
 
-Run `/diag` on changed files. This is a **blocking gate** — do not proceed to Step 7 until clean.
+Run `/diag` on changed files. This is a **blocking gate** — do not proceed until clean.
 
-**Scope depends on pressure tier:**
+**Scope by track:**
 
-- **Light:** Run `/diag` on changed `src/` files only. Skip MCP code health checks on test
-  files — they add cost for low-value findings on small test additions.
-- **Standard / Heavy:** Run `/diag` on all changed files — including every modified test
-  file under `tests/`. CodeScene analyses test files and flags Code Duplication in them
-  (repeated `it()` blocks, repeated arrange/render patterns). These warnings are blocking.
+- **Light track:** Run `/diag` on changed `src/` files only. Skip test files.
+- **Full track:** Run `/diag` on all changed files — including test files under `tests/`.
 
 Then:
 
@@ -224,18 +224,18 @@ Then:
 4. Repeat until `/diag` reports zero findings on non-generated files.
 5. Re-run Step 5 (full verification) after any fixes.
 
-### Step 6b: Evaluate (pressure-gated)
+### Step 6b: Evaluate (Full track only)
 
-**Light pressure: skip.** Proceed to Step 7.
+**Light track: skip this step.** Proceed to Step 7.
 
-**Standard / Heavy pressure:** Launch the `edf:feature-evaluator` agent. Pass it:
+**Full track:** Launch the `edf:feature-evaluator` agent. Pass it:
 
-- `requirements_paths` — same list passed to the edf:test-author in Step 4b
+- `requirements_paths` — same list passed to the edf:test-author in Step 4bF
 - `lld_path` — the LLD file read in Step 3 (or the issue number if no LLD exists)
 - `issue_number` — the current issue number
 - `changed_files` — all `src/` files created or modified in this cycle
 - `test_files` — all `tests/` files created or modified in this cycle (including the
-  file the `edf:test-author` sub-agent produced in Step 4b)
+  file the `edf:test-author` sub-agent produced in Step 4bF)
 
 ```
 Launch Agent: edf:feature-evaluator
@@ -253,6 +253,10 @@ Input: requirements_paths=<list> lld_path=<path> issue_number=<N> changed_files=
 If evaluator writes > 3 adversarial tests, note count in Step 10 report and PR body — but do not block.
 
 Evaluator tests follow the project's test file convention, committed in Step 7.
+
+---
+
+## Shared delivery (Steps 7-10)
 
 ### Step 7: Commit
 

@@ -6,9 +6,9 @@ allowed-tools: Read, Write, Glob
 
 # Create Mermaid Diagram
 
-## Process
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing diagram type selections or output conventions.
 
-1. **Understand the subject**: Identify what is being diagrammed — read relevant docs, ADRs, or design files if needed
+## Process: Identify what is being diagrammed — read relevant docs, ADRs, or design files if needed
 2. **Choose the right diagram type**: Select the most appropriate Mermaid diagram type (see types below)
 3. **Draft the diagram**: Write the Mermaid syntax
 4. **Embed or save**: Either embed inline in the target document or create a standalone `.md` file in `docs/design/`

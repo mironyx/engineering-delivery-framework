@@ -23,6 +23,8 @@ it spawns. When launching agents, pass `model: "opus"`.
 - `/bug` (with pasted error log in conversation) — investigate from context
 - `/bug #301` — investigate an existing issue that lacks root cause analysis
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the investigation flow, classification logic, or issue creation template.
+
 ## Process
 
 Execute these steps sequentially.

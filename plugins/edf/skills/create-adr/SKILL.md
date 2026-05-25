@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Bash, Glob
 
 # Create Architecture Decision Record
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the ADR template or decision process.
+
 ## Process
 
 1. **Check existing ADRs**: Read `docs/adr/` to find the next available number and check for related decisions

@@ -18,6 +18,8 @@ This skill **never** mutates state:
 
 Write only the report file in `docs/reports/baseline/`.
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the reconciliation logic, coverage matrix format, or report structure.
+
 ## Instructions
 
 ### 0. Parse arguments

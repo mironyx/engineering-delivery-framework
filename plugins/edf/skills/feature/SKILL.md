@@ -16,6 +16,8 @@ Implements a single feature end-to-end without user intervention unless blocked.
 
 **Pre-requisite:** The issue's design document (LLD, design doc section, or ADR) must be complete. If not, stop and tell the user. Epic issues (label `epic`) cannot be implemented directly — pick a task within the epic instead.
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the pre-flight sequence, issue selection logic, or handoff to feature-core.
+
 ## Process
 
 Execute these steps sequentially. Do not skip steps. Do not ask for confirmation between steps — only pause if a step fails after remediation attempts.

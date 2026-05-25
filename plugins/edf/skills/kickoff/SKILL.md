@@ -77,6 +77,8 @@ Three mandatory stop points. Do not proceed past any gate without explicit user 
 
 Plus a per-ADR gate inside Step 5 (one ADR drafted, committed, approved, then the next).
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing mode detection, human gates, or the drift-scan gating sequence.
+
 ## Process
 
 Use `TodoWrite` to track progress.
