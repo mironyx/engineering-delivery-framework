@@ -48,7 +48,9 @@ anti-scope lists, and explicit constraints that should carry forward.
     to allow implementation choices? Flag over-specified stories (design decisions
     disguised as requirements).
   - **Valuable** — does the story deliver value to at least one role? Flag stories
-    with no clear beneficiary.
+    with no clear beneficiary. For stories with "As the system", flag if they do
+    not reference which user-facing stories they enable — system stories are
+    acceptable as infrastructure enablers but must state their downstream consumer.
   - **Estimable** — is the scope clear enough for effort estimation? Flag vague
     stories.
   - **Small** — can this fit in a single PR? Flag stories likely to exceed 200 lines.
@@ -69,6 +71,22 @@ anti-scope lists, and explicit constraints that should carry forward.
 
 - **Role coverage** — every story's "As a" references a role defined in the Roles table.
   Flag stories referencing undefined roles.
+
+- **Epic journey completeness** — for each epic, infer the user journey from
+  trigger to outcome based on the epic description and story titles. Flag any
+  obvious step in the journey that has no corresponding story. Example gaps:
+  "data is generated but no story shows it to the user", "an action is
+  triggered but no story covers the outcome/confirmation", "a configurable
+  feature has no configuration story."
+
+- **Scope magnitude** — count total stories and epics. If stories > 10 or
+  epics > 3, emit a warning suggesting the version may benefit from splitting.
+  This is a heuristic, not a hard rule.
+
+- **Metric validity** — when a story describes computing statistical measures
+  (variance, distribution, averages, trends), flag if the story does not
+  specify a minimum sample size or data threshold. Metrics computed over
+  insufficient data produce misleading results.
 
 #### Gate 2 checks (mode: `complete`)
 
