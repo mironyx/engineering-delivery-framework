@@ -78,7 +78,7 @@ flowchart TD
         S7 --> S7_EPIC{"Epic mode?"}
         S7_EPIC -->|"Yes"| S7_CLOSE["Close epic:<br/>gh-project-status done<br/>gh issue close"]
         S7_EPIC -->|"No"| S8
-        S7_CLOSE --> S8["S8: Team session log<br/>docs/sessions/YYYY-MM-DD-team-...md"]
+        S7_CLOSE --> S8["S8: Team session log<br/>docs/sessions/YYYY-MM/YYYY-MM-DD-team-...md"]
         S8 --> S9(("S9: SendMessage shutdown_request<br/>to ALL remaining teammates<br/>Parallel, same message"))
     end
 

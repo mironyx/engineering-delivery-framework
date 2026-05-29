@@ -231,8 +231,8 @@ orchestration decisions, cross-cutting changes, coordination events, and process
 that span multiple teammates. Write a team session log to capture this *before* shutting
 the final wave's teammates down, while context is still fresh.
 
-Path: `docs/sessions/YYYY-MM-DD-team-<issues>-<short-slug>.md` (e.g.
-`2026-04-16-team-223-224-225-comprehension-depth.md`).
+Path: `docs/sessions/YYYY-MM/YYYY-MM-DD-team-<issues>-<short-slug>.md` (e.g.
+`2026-04/2026-04-16-team-223-224-225-comprehension-depth.md`).
 
 Required sections:
 

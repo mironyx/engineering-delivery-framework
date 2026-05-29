@@ -81,7 +81,7 @@ Read in order:
 **Locate LLD and coverage files.** The design directory may follow the new version-foldered convention (`docs/design/v{N}/`) or the old flat convention (`docs/design/`). Use Glob to find the actual paths:
 
 ```bash
-glob: docs/design/v{N}/lld-v{N}-*.md
+glob: docs/design/v{N}/lld-*.md
 glob: docs/design/lld-v{N}-*.md
 glob: docs/design/v{N}/coverage-*.yaml
 glob: docs/design/coverage-*.yaml

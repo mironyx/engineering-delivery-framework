@@ -39,7 +39,7 @@ Read broadly. Do not cap inputs arbitrarily — if a file is relevant, read it.
 Treat future-version requirements as a **source of ideas**, not an immediate gap. Flag them as "not yet scheduled" but surface them when the current phase nears completion.
 
 **Recent activity:**
-- `docs/sessions/` — all session logs since the last grooming report. If there is no prior grooming, read the last ~14 days of sessions. These reveal stuck patterns, deferred work, recurring themes, and mood.
+- `docs/sessions/` — all session logs since the last grooming report (search recursively — sessions are organised in `YYYY-MM/` monthly folders per ADR-0036). If there is no prior grooming, read the last ~14 days of sessions. These reveal stuck patterns, deferred work, recurring themes, and mood.
 - `git log --oneline --since="<date of last grooming or 14d ago>"` — commit cadence.
 
 **Reports:**

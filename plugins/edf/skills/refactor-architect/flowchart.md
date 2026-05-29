@@ -14,7 +14,7 @@ flowchart TD
 
     S2["S2: Identify affected source files<br/>Grep for symbols, call sites,<br/>patterns; ask about siblings"]
 
-    S2 --> S3["S3: Discover affected LLD sections<br/>Grep docs/design/lld-*.md for<br/>file paths and exported symbols"] --> S3_FILTER
+    S2 --> S3["S3: Discover affected LLD sections<br/>Grep docs/design/v*/lld-*.md and<br/>docs/design/lld-*.md for<br/>file paths and exported symbols"] --> S3_FILTER
 
     subgraph FILTER["Must-change vs Reconcile-after"]
         S3_FILTER{"Would reader be<br/>misled if unchanged?"}

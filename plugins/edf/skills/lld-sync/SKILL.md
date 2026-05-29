@@ -121,7 +121,8 @@ When the kb changes, mention it in the sync report (Step 4).
 
 ### Step 3b: Update the coverage manifest
 
-If `docs/design/coverage-<epic-slug>.yaml` exists for this epic, update the entries that match
+If a coverage manifest exists for this epic (at `docs/design/v*/coverage-<epic-slug>.yaml` per
+ADR-0036 or `docs/design/coverage-<epic-slug>.yaml` legacy flat), update the entries that match
 the LLD sections you just changed:
 
 - For any section touched by a **Correction** (the spec was wrong and got rewritten), flip the
@@ -180,7 +181,7 @@ If retirement applies:
    - Surface any missing reference to the user as a blocker before proceeding.
 
 2. **Prompt the user for retirement mode:**
-   - **Retire (default):** delete `docs/design/lld-refactor-<slug>.md`. Pure consolidation refactors fit this — contract lives in source, mock helper in test util, kb/architecture.md has the entry, consumer LLDs got their reused-helpers rows.
+   - **Retire (default):** delete the refactor LLD file. Pure consolidation refactors fit this — contract lives in source, mock helper in test util, kb/architecture.md has the entry, consumer LLDs got their reused-helpers rows.
    - **Promote to ADR:** the refactor LLD contains durable architectural rationale (alternatives considered, load-bearing decisions). Spin out a new ADR with the durable content; then delete the refactor LLD.
    - **Persist as canonical component LLD:** rare. The shared component is non-trivial with ongoing design questions. Rename `lld-refactor-<slug>.md` → `lld-component-<slug>.md`; strip transitional sections (Step order, Per-task decomposition, BCA results); keep durable ones (Interface, types, ongoing rationale).
 
@@ -208,7 +209,7 @@ Print the report below to the agent's output (stdout). **`/feature-end` Step 2 p
 - [item]: built as specified
 
 ### LLD updated
-File: docs/design/lld-phase-N-name.md §N.N
+File: docs/design/v{N}/lld-<epic-id>-<short-name>.md §B.N (or legacy flat path)
 Version: 0.1 → 0.2
 ```
 

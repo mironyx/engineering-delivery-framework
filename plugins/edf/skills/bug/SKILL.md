@@ -180,7 +180,8 @@ Compose the issue body:
 
 ## Manifest reference
 
-`docs/design/coverage-<epic-slug>.yaml` — REQ-<anchor> (status: `<current>`,
+`docs/design/v*/coverage-<epic-slug>.yaml` (ADR-0036) or
+`docs/design/coverage-<epic-slug>.yaml` (legacy flat) — REQ-<anchor> (status: `<current>`,
 lld_revision: `<rN>`)
 
 Or: No manifest entry covers this area — design-system gap.
@@ -213,8 +214,8 @@ describe('[context]', () => {
 
 ## Design reference
 
-`docs/design/lld-<epic-slug>.md#LLD-<epic-id>-<section-slug>` (stable anchor
-per [ADR-0026](../../docs/adr/0026-stable-ids-requirements-lld.md))
+`docs/design/v{N}/lld-<epic-slug>.md#LLD-<epic-id>-<section-slug>` (stable anchor
+per [ADR-0026](../../docs/adr/0026-stable-ids-requirements-lld.md); version-foldered per ADR-0036)
 
 Or: none — new LLD section needed.
 ```

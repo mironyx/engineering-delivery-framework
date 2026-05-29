@@ -14,7 +14,7 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 ### 1. Gather data
 
-- **Session logs** — Read all files in `docs/sessions/` since the last retro (or all if this is the first retro). These capture completed work, decisions, and conversation summaries.
+- **Session logs** — Read all files in `docs/sessions/` since the last retro (search recursively — sessions are organised in `YYYY-MM/` monthly folders per ADR-0036). These capture completed work, decisions, and conversation summaries.
 - **Git history** — Run `git log --oneline` to see commit frequency, message quality, and whether atomic commits per task are happening.
 - **GitHub Issues** — Run `gh issue list --state all --json number,title,state,labels` to assess backlog health.
 - **Project board** — Run `PROJECT_NUMBER=$(grep '^PROJECT_NUMBER=' .github/project.env | cut -d= -f2) && OWNER=$(grep '^REPO=' .github/project.env | cut -d= -f2 | cut -d/ -f1) && gh project item-list $PROJECT_NUMBER --owner $OWNER` to check priority ordering and status accuracy.

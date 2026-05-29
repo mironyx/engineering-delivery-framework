@@ -7,7 +7,8 @@ Two operations:
 
 Usage:
   gh issue view <N> --json body --jq .body | update-coverage-manifest.py --extract-epic-slug
-  update-coverage-manifest.py --verify-anchors docs/design/coverage-<slug>.yaml
+  update-coverage-manifest.py --verify-anchors docs/design/v{N}/coverage-<slug>.yaml  # ADR-0036
+  update-coverage-manifest.py --verify-anchors docs/design/coverage-<slug>.yaml         # legacy flat
 """
 
 import argparse

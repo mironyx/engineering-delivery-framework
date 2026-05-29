@@ -68,7 +68,7 @@ In both cases:
 - Extract the **base branch**, **PR number**, and **URL**.
 - Find the associated issue number from the PR body (look for `Closes #N` or `#N` references).
 - **Check review status:** `gh pr view <number> --json reviewDecision --jq .reviewDecision`. If the result is `CHANGES_REQUESTED`, stop and report per the Blocker policy. (Empty/null or `APPROVED` are fine — repos without required reviews will return empty.)
-- Read the latest session log in `docs/sessions/` to understand what has been done this session. **Skip this in crash recovery mode** (`OLD_SESSION_ID` set) — the JSONL read in Step 2 provides the implementation history instead.
+- Read the latest session log in `docs/sessions/` (search recursively — session logs are organised in `YYYY-MM/` monthly folders per ADR-0036). **Skip this in crash recovery mode** (`OLD_SESSION_ID` set) — the JSONL read in Step 2 provides the implementation history instead.
 
 ### Step 1.5: Sync the LLD (pressure-adaptive)
 
@@ -79,7 +79,8 @@ git log --oneline origin/main..HEAD | grep -i "lld-sync\|lld sync" | head -1
 If a matching commit exists, skip this step and note "lld-sync already committed" in the session log.
 
 **Determine whether the issue has an LLD:** check the issue body for an `LLD reference` link or
-search `docs/design/lld/` for files referencing this issue number. If no LLD covers this
+search `docs/design/v*/lld-*.md` (new version-foldered per ADR-0036) and `docs/design/lld-*.md`
+(legacy flat) for files referencing this issue number. If no LLD covers this
 issue (chore or infrastructure task), skip and note "lld-sync skipped — no LLD covers this
 issue" in the session log.
 
@@ -100,7 +101,7 @@ If a matching file exists, skip writing and proceed to Step 2.5.
 
 **Do not skip.** A session log must always be written, even for small changes.
 
-1. Check for a compact draft: `ls docs/sessions/*-draft.md 2>/dev/null | tail -1`.
+1. Check for a compact draft: `ls docs/sessions/**/*-draft.md 2>/dev/null | tail -1`.
    - If a draft exists, read it — it contains pre-compact snapshots with tool counts, files
      touched, agent spawns, and git milestones captured automatically before context was lost.
      Use this data to populate the cost retrospective (Step 2.6) with actual numbers rather
@@ -133,7 +134,7 @@ If a matching file exists, skip writing and proceed to Step 2.5.
    - **`## LLD Sync report`** — paste the structured `/lld-sync` Step 4 output **verbatim** (the Corrections / Additions / Omissions / Confirmations / LLD updated sections you saw in the previous turn). Do not summarise or paraphrase; future readers and the dogfood retro need the unedited report. If `/lld-sync` was skipped because no LLD covers this issue, write: _"Skipped — no LLD covers this issue."_
    - Next steps or follow-up items
    - Final feature cost (from Step 2.5) — include both the PR-creation cost (from PR body) and the final total, so the delta is visible
-3. If a draft file was used, delete it: `rm docs/sessions/*-draft.md`.
+3. If a draft file was used, delete it: `rm docs/sessions/**/*-draft.md`.
 4. Stage the session log (and the draft deletion if applicable).
 
 ### Step 2.5: Query final feature cost
@@ -299,13 +300,15 @@ The `|| true` inside `{ }` groups ensures:
 
 ### Step 6.4: Update coverage manifest (per ADR-0026)
 
-If the parent epic has a coverage manifest at `docs/design/coverage-<epic-slug>.yaml`, populate
-the entries that this feature implemented.
+If the parent epic has a coverage manifest (at `docs/design/v*/coverage-<epic-slug>.yaml` per
+ADR-0036 or `docs/design/coverage-<epic-slug>.yaml` legacy flat), populate the entries that
+this feature implemented.
 
-1. Determine the epic slug:
+1. Determine the epic slug and locate the manifest:
    ```bash
    EPIC_SLUG=$(gh issue view <issue-number> --json body --jq '.body' | bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/update-coverage-manifest.py --extract-epic-slug)
-   MANIFEST="docs/design/coverage-${EPIC_SLUG}.yaml"
+   # Search version-foldered first (ADR-0036), then legacy flat
+   MANIFEST=$(ls docs/design/v*/coverage-${EPIC_SLUG}.yaml docs/design/coverage-${EPIC_SLUG}.yaml 2>/dev/null | head -1)
    ```
 
 2. If `$MANIFEST` does not exist, skip this step silently — the feature predates Stage 2 or the
