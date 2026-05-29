@@ -53,7 +53,7 @@ DESIGN_REF="${DESIGN_REF:-N/A}"
 # --- Derive feature ID ---
 FEATURE_PREFIX="${EDF_FEATURE_PREFIX:-}"
 if [[ -z "$FEATURE_PREFIX" ]]; then
-  REPO=$(gh repo view --json name -q '.name' 2>/dev/null || basename "$(git rev-parse --show-toplevel)")
+  REPO=$(gh repo view --json name -q '.name' 2>/dev/null || basename "$(dirname "$(git rev-parse --git-common-dir)")")
   NORMALIZED=$(echo "$REPO" | tr '_' '-' | tr ' ' '-')
   if echo "$NORMALIZED" | grep -q '-'; then
     FEATURE_PREFIX=$(echo "$NORMALIZED" | awk -F- '{for(i=1;i<=NF;i++) if(length($i)) printf toupper(substr($i,1,1)); print ""}')

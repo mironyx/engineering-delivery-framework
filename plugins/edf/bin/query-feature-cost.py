@@ -270,10 +270,10 @@ def _derive_feature_prefix() -> str:
     """
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
+            ["git", "rev-parse", "--git-common-dir"],
             capture_output=True, text=True, check=True,
         )
-        root = pathlib.Path(result.stdout.strip())
+        root = pathlib.Path(result.stdout.strip()).parent.resolve()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return "FEAT"
 
