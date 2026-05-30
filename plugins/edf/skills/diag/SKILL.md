@@ -64,9 +64,9 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
    After the diagnostics-exporter pass (Steps 1–5), run `mcp__codescene__code_health_score` on each target source file (use absolute paths, forward slashes). This works independently of the editor — no need for files to be open.
 
-   - **Score ≥ 9.0 (green/optimal):** clean — no action needed.
-   - **Score 4.0–8.9 (yellow):** run `mcp__codescene__code_health_review` for the detailed smell breakdown. Fix all findings that are within the scope of the current change. If a finding is pre-existing and unrelated to the current work, note it but do not fix.
-   - **Score < 4.0 (red):** blocking — run `mcp__codescene__code_health_review`, fix all findings, and re-check until the score is at least 4.0 (ideally 9.0+).
+   - **Score > 9.8 (green/optimal):** clean — no action needed. Target 10.0.
+   - **Score 4.0–9.8 (yellow):** run `mcp__codescene__code_health_review` for the detailed smell breakdown. Fix all findings that are within the scope of the current change. If a finding is pre-existing and unrelated to the current work, note it but do not fix.
+   - **Score < 4.0 (red):** blocking — run `mcp__codescene__code_health_review`, fix all findings, and re-check until the score is at least 4.0 (ideally 10.0).
 
    Report MCP scores alongside the diagnostics-exporter findings:
 
@@ -77,7 +77,7 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
    - `tests/foo/bar.test.ts` — 9.5 ✓
    ```
 
-   **If any file scores below 9.0**, include the detailed review findings in the report and fix them before proceeding, following the same fix-and-recheck loop as Step 5.
+   **If any file scores ≤ 9.8**, include the detailed review findings in the report and fix them before proceeding, following the same fix-and-recheck loop as Step 5.
 
 ## Diagnostics JSON Format
 

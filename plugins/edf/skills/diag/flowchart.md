@@ -23,8 +23,8 @@ flowchart TD
 
     S6["S6: CodeScene MCP health check<br/>code_health_score per file"] --> S6_CHK{"Score < 4.0?"}
     S6_CHK -->|"Yes, red"| S6_FIX["code_health_review →<br/>fix all findings → re-check"]
-    S6_CHK -->|"4.0-8.9, yellow"| S6_REVIEW["Review findings,<br/>fix in-scope items"]
-    S6_CHK -->|">= 9.0, green"| DONE
+    S6_CHK -->|"4.0-9.8, yellow"| S6_REVIEW["Review findings,<br/>fix in-scope items"]
+    S6_CHK -->|"> 9.8, green"| DONE
 
     S6_FIX --> S6_CHK
     S6_REVIEW --> DONE(["fa:fa-check Diagnostics clean"])

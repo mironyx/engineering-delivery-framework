@@ -19,7 +19,7 @@ they close the Theory Building loop: design informs implementation, implementati
 `$ARGUMENTS` is the issue number (e.g., `52`). If omitted, infer from the current branch name
 (`feat/<slug>` → look for `Closes #N` in the most recent PR or branch commits).
 
-A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing mode detection, the delta analysis categories, or the manifest update logic.
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing any step — gather context, mode detection, delta analysis, LLD/kb/manifest updates, or the sync report.
 
 ## Process
 
@@ -41,11 +41,18 @@ Refactor-mode adjustments per step are tagged **[refactor]**. When unmarked, bot
    - Look for LLD files: search `docs/design/v*/lld-*.md` (new versioned), `docs/design/lld-*.md` (legacy flat), and `docs/design/lld-phase-*.md` (legacy phase).
    - Read the relevant section (use Grep to find the task number/title).
 4. Read the PR body for this branch:
-   - `gh pr view --json body -q '.body'` (or `gh pr view <number> --json body -q '.body'`).
+   - `gh pr view <number> --json body -q '.body'`.
    - Look for a `## Design deviations` section — these are deliberate departures from the LLD
      that the implementer documented during `/feature-core` Step 3b.
    - Each deviation note explains what the LLD recommended, what was built instead, and why.
      Use these as the primary source for **Corrections** in Step 2.
+4a. Read PR comments:
+   - `gh api repos/:owner/:repo/issues/<pr-number>/comments --jq '.[].body'`.
+   - PR comments often contain review findings (`/pr-review` output), discussion threads about
+     design decisions, and feedback that was addressed during implementation.
+   - Scan for design-relevant content: contract mismatches, type corrections, decisions about
+     deferred items, rationale for approach changes. Use these alongside the PR body's
+     `## Design deviations` as input for **Corrections** and **Additions** in Step 2.
 5. Read all source files created or modified by this feature:
    - Use `git diff --name-only main...HEAD` to get the changed file list.
    - Read each `src/` file that changed.
@@ -62,7 +69,7 @@ Refactor-mode adjustments per step are tagged **[refactor]**. When unmarked, bot
 **[feature]** Compare what the LLD specified vs what was actually built. For each category, list findings:
 
 **Additions** — things built that were not in the LLD spec (new files, new patterns, new decisions):
-- Capture the _why_ from commit messages, PR description, or code comments.
+- Capture the _why_ from commit messages, PR description, PR comments, or code comments.
 
 **Corrections** — things the LLD got wrong that were fixed during implementation:
 - Wrong client types, incorrect file structure, missing constraints, etc.

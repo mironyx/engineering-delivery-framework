@@ -12,7 +12,7 @@ flowchart TD
     REFACTOR --> S1
     FEATURE --> S1
 
-    S1["S1: Gather context<br/>Issue body, PR body, LLD file,<br/>git diff changed files, tests"]
+    S1["S1: Gather context<br/>Issue body, PR body + comments,<br/>LLD file, git diff changed files, tests"]
 
     S1 --> S2
 
