@@ -1,6 +1,6 @@
 # /diag — Process flowchart
 
-Visual overview of the on-demand diagnostics check. Identifies target files, opens them in the editor, reads diagnostics exports, fixes findings, and runs CodeScene MCP health checks. Decisions are orange, blocking gates are red.
+Visual overview of the on-demand diagnostics check. Identifies target files, opens them in the editor, reads diagnostics exports, fixes findings, runs CodeScene MCP health checks, and enforces the SonarQube quality gate. Decisions are orange, blocking gates are red.
 
 ```mermaid
 flowchart TD
@@ -24,10 +24,17 @@ flowchart TD
     S6["S6: CodeScene MCP health check<br/>code_health_score per file"] --> S6_CHK{"Score < 4.0?"}
     S6_CHK -->|"Yes, red"| S6_FIX["code_health_review →<br/>fix all findings → re-check"]
     S6_CHK -->|"4.0-9.8, yellow"| S6_REVIEW["Review findings,<br/>fix in-scope items"]
-    S6_CHK -->|"> 9.8, green"| DONE
+    S6_CHK -->|"> 9.8, green"| S7
 
     S6_FIX --> S6_CHK
-    S6_REVIEW --> DONE(["fa:fa-check Diagnostics clean"])
+    S6_REVIEW --> S7
+
+    S7["S7: SonarQube quality gate<br/>sonarqube:sonar-quality-gate"] --> S7_CHK{"Gate pass?"}
+    S7_CHK -->|"Yes"| DONE
+    S7_CHK -->|"No"| S7_FIX["sonarqube:sonar-list-issues →<br/>fix in-scope issues → re-check"]
+    S7_FIX --> S7
+
+    DONE(["fa:fa-check Diagnostics clean"])
 
     %% ── Styles ──
     classDef startend fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
@@ -35,6 +42,6 @@ flowchart TD
     classDef decision fill:#f7eed6,stroke:#8a6d2d,color:#443a1a
 
     class START,DONE startend
-    class S1,S2,S3,S4,S4_FIX,S5,S6,S6_FIX,S6_REVIEW process
-    class S4_CHK,S5_CHK,S6_CHK decision
+    class S1,S2,S3,S4,S4_FIX,S5,S6,S6_FIX,S6_REVIEW,S7,S7_FIX process
+    class S4_CHK,S5_CHK,S6_CHK,S7_CHK decision
 ```

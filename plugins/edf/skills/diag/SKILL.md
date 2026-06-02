@@ -1,7 +1,7 @@
 ---
 name: diag
-description: Check diagnostics-exporter output for changed files. Use when the user wants to check code quality, review diagnostics, or before committing code.
-allowed-tools: Read, Write, Edit, MultiEdit, Glob, Bash, mcp__codescene__code_health_review, mcp__codescene__code_health_score
+description: Check diagnostics-exporter output for changed files, run CodeScene health checks, and SonarQube quality gate. Use when the user wants to check code quality, review diagnostics, or before committing code.
+allowed-tools: Read, Write, Edit, MultiEdit, Glob, Bash, Skill, mcp__codescene__code_health_review, mcp__codescene__code_health_score
 ---
 
 # Check Diagnostics — On-Demand Code Quality Check
@@ -14,7 +14,7 @@ The `diagnostics-exporter` extension exports diagnostics for files that are **op
 
 This means: after making fixes in a CLI session, the diagnostics file may be **stale** (shows old issues) or **missing** entirely. The fix is to open the file in the editor using `bash ${CLAUDE_PLUGIN_ROOT}/hooks/open-in-editor.sh <file>`, which triggers a fresh CodeScene pass, then wait for the export.
 
-A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the diagnostics reading flow, CodeScene MCP integration, or fix-and-recheck loop.
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the diagnostics reading flow, CodeScene MCP integration, SonarQube quality gate, or fix-and-recheck loop.
 
 ## Instructions
 
@@ -79,6 +79,55 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
    **If any file scores ≤ 9.8**, include the detailed review findings in the report and fix them before proceeding, following the same fix-and-recheck loop as Step 5.
 
+7. **SonarQube quality gate.**
+
+   After the CodeScene MCP pass, run the SonarQube quality gate. This works independently of
+   the editor and worktree status — no files need to be open, no editor required.
+
+   **Important:** SonarQube is a project-level check, not a file-level check. It analyses the
+   state of the branch, not individual files. Run it to catch issues that diagnostics-exporter
+   and CodeScene may miss (security hotspots, vulnerability injections, coverage gaps, duplication).
+
+   1. **Run the quality gate:** Invoke `sonarqube:sonar-quality-gate`.
+      ```
+      Skill: sonarqube:sonar-quality-gate
+      ```
+      - **Pass:** clean — no action needed.
+      - **Fail:** the gate reported one or more failed conditions. Drill into issues (step 2).
+
+   2. **If the gate fails, drill into issues:** Invoke `sonarqube:sonar-list-issues` scoped to
+      the project. Filter to issues on the changed files (pass the file paths to focus the search).
+      ```
+      Skill: sonarqube:sonar-list-issues
+      ```
+      Fix all findings that are within the scope of the current change. Pre-existing issues
+      unrelated to the current work are noted but not fixed.
+
+   3. **Confirm resolution:** Re-run `sonarqube:sonar-quality-gate` after fixes. If the gate
+      still fails on pre-existing issues outside your scope, note them in the report and
+      proceed — do not block on pre-existing debt.
+
+   Report SonarQube results alongside the CodeScene scores:
+
+   ```
+   ### SonarQube Quality Gate
+   - Quality Gate: **PASS** ✓
+   - Bugs: 0 | Vulnerabilities: 0 | Code Smells: 0 | Coverage: 82%
+   ```
+
+   Or on failure:
+
+   ```
+   ### SonarQube Quality Gate
+   - Quality Gate: **FAIL** ✗
+   - Failed conditions: Coverage < 80% (actual: 76%), New Bugs > 0 (found: 2)
+   - `src/foo/bar.ts:42` — Potential SQL injection (new, fixed)
+   - `src/old/legacy.ts:15` — Unused parameter (pre-existing, out of scope)
+   ```
+
+   **This is a blocking gate** for issues introduced by the current change. Pre-existing
+   failures are documented but do not block.
+
 ## Diagnostics JSON Format
 
 ```json
@@ -116,4 +165,12 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 ### No diagnostics available
 - `tests/helpers/baz.test.ts` — Extension has not exported diagnostics for this file
+
+### Code Health (MCP)
+- `src/foo/bar.ts` — 7.2 ⚠ (complex conditional, bumpy road)
+- `src/foo/types.ts` — 10.0 ✓
+
+### SonarQube Quality Gate
+- Quality Gate: **PASS** ✓
+- Bugs: 0 | Vulnerabilities: 0 | Code Smells: 1 (pre-existing, out of scope) | Coverage: 82%
 ```
