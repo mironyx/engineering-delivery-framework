@@ -65,6 +65,7 @@ You will receive:
 ## Process
 
 Before running any command containing `${EDF_SCRIPTS}`, read `.env` in the project root and substitute the actual value of `EDF_SCRIPTS`. If unset or `.env` is missing, default to `scripts`.
+Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `all` if spanning both.
 
 ### Step 1: Extract acceptance criteria from all sources
 
@@ -176,7 +177,7 @@ Keep tests focused — one assertion per test where possible.
 ### Step 5: Run all tests
 
 ```bash
-${EDF_SCRIPTS}/run-tests.sh
+${EDF_SCRIPTS}/run-tests.sh <ts|p>
 ```
 
 This runs the full suite including your new evaluation tests. Record results.

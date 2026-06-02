@@ -19,7 +19,7 @@ Executes the implementation cycle from design reading through PR review. Called 
 These override any conflicting instinct. Violations are the top cost drivers.
 
 1. **Resolve `${EDF_SCRIPTS}` before running any command.** Read `.env` in the project root and substitute the actual value of `EDF_SCRIPTS`. If unset or `.env` is missing, default to `scripts`.
-2. **Never run `${EDF_SCRIPTS}/run-tests.sh` without a file filter in Step 4.** Use `${EDF_SCRIPTS}/run-tests.sh <test-file>`. The full suite runs once in Step 5 — nowhere else.
+2. **Never run `${EDF_SCRIPTS}/run-tests.sh` without a file filter in Step 4.** Use `${EDF_SCRIPTS}/run-tests.sh <ts|p> <test-file>`. The full suite runs once in Step 5 — nowhere else. Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `all` if the feature spans both languages.
 3. **Step 5 uses `edf:test-runner` agent, not Bash.** All verification commands run inside the agent — zero test output reaches the main context. This applies to single-file runs during the fix loop too.
 4. **Pass pointers to sub-agents, not content.** File paths, issue numbers, LLD paths. Never paste diffs or file contents into agent prompts.
 5. **Never invoke `/simplify`.** Only if the user explicitly asks.
@@ -93,7 +93,7 @@ No sub-agents. Write the fix and regression tests in one pass.
    - Match the style of neighbouring test files (grep for sibling tests first)
 3. **Run the target test file** to confirm tests pass:
    ```bash
-   ${EDF_SCRIPTS}/run-tests.sh <test-file>
+   ${EDF_SCRIPTS}/run-tests.sh <ts|p> <test-file>
    ```
    Runs only the affected test file (the script takes an optional path argument). Do not launch a sub-agent for this — the output is compact and belongs in the main context.
 
@@ -160,7 +160,7 @@ Run only the target test file after each increment:
 
 ```
 Launch Agent: edf:test-runner
-Input: command="${EDF_SCRIPTS}/run-tests.sh <test-file>"
+Input: command="${EDF_SCRIPTS}/run-tests.sh <ts|p> <test-file>"
 ```
 
 ### Step 4dF: Self-check coverage before Step 5
@@ -181,7 +181,7 @@ This keeps verbose output out of the main context.
 
 ```
 Launch Agent: edf:test-runner
-Input: command="${EDF_SCRIPTS}/run-tests.sh && ${EDF_SCRIPTS}/run-typecheck.sh && ${EDF_SCRIPTS}/run-lint.sh"
+Input: command="${EDF_SCRIPTS}/run-tests.sh <ts|p> && ${EDF_SCRIPTS}/run-typecheck.sh <ts|p> && ${EDF_SCRIPTS}/run-lint.sh <ts|p>"
 ```
 
 Check whether E2E tests exist by reading `kb/conventions.md` for the `e2e-dir` value, then:
@@ -197,7 +197,7 @@ If the directory exists and is non-empty, also run:
 
 ```
 Launch Agent: edf:test-runner
-Input: command="${EDF_SCRIPTS}/run-build.sh && ${EDF_SCRIPTS}/run-e2e.sh"
+Input: command="${EDF_SCRIPTS}/run-build.sh <ts|p> && ${EDF_SCRIPTS}/run-e2e.sh <ts|p>"
 ```
 
 The project's `run-e2e.sh` is responsible for setting any environment variables the build or
