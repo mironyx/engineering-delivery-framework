@@ -29,10 +29,28 @@ language — `.ts`/`.tsx`, `.py`, `.go`, `.rs`, etc. For example:
 
 ## How to Check
 
-### Step 1: Wait for diagnostics
+### Step 1: Pre-check — does .diagnostics/ exist?
 
-The VS Code extension needs a moment to analyse changed files. Wait 3 seconds before
-reading diagnostics:
+The diagnostics-exporter extension only runs when files are open in a VS Code editor.
+In worktrees, CI agents, or non-editor environments, the `.diagnostics/` directory will
+not exist. Check first:
+
+```bash
+test -d .diagnostics && echo "EXISTS" || echo "MISSING"
+```
+
+If `MISSING`, stop immediately. Report:
+
+```
+## Diagnostics Report
+
+**Skipped** — `.diagnostics/` directory not found (worktree or non-editor environment).
+```
+
+Do not wait, do not glob, do not read anything. Exit after this report.
+
+If `EXISTS`, proceed to Step 2. The VS Code extension needs a moment to analyse
+changed files. Wait 3 seconds before reading diagnostics:
 
 ```bash
 sleep 3
