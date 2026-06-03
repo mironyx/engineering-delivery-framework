@@ -22,7 +22,25 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
    - If arguments are provided (`$ARGUMENTS`), check only those files.
    - Otherwise, check **all** files that have a diagnostics export: list every `.json` file under `.diagnostics/` (these are the files the extension has analysed). Also run `git diff --name-only` and `git diff --cached --name-only` to find modified source files (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`) under **both `src/` and `tests/`** that may not have a diagnostics file yet. Union both sets. Test files are analysed by CodeScene and must be included — do not restrict to `src/` only.
 
-2. **Open all target files in the editor immediately.**
+2. **Pre-check: does `.diagnostics/` exist?**
+
+   ```bash
+   test -d .diagnostics && echo "EXISTS" || echo "MISSING"
+   ```
+
+   **If MISSING** (worktree, CI, or non-editor environment): skip Steps 3–5 entirely.
+   The diagnostics-exporter extension only runs when files are open in a VS Code editor.
+   Report this clearly and proceed directly to Step 6 (CodeScene MCP):
+
+   ```
+   ### Diagnostics-exporter
+   **Skipped** — `.diagnostics/` directory not found (worktree or non-editor environment).
+   CodeScene and SonarQube checks will still run.
+   ```
+
+   **If EXISTS**, continue to Step 3.
+
+3. **Open all target files in the editor immediately.**
 
    Do this **before reading diagnostics or making any fixes**. Once a file is open, the editor detects every subsequent on-disk save and triggers a fresh CodeScene pass automatically — so diagnostics will be live as you edit.
 
@@ -33,12 +51,12 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
    The `sleep 5` gives the initial analysis time to complete before you read diagnostics.
 
-3. **Read diagnostics for each file.** For each source file:
+4. **Read diagnostics for each file.** For each source file:
    - Look for `.diagnostics/<relative-path>.json`
    - Read the JSON file if it exists
    - Parse the diagnostics array: `{source, severity, message, line, column, code}`
 
-4. **Report findings, then fix them all.**
+5. **Report findings, then fix them all.**
    - Total files checked vs files with diagnostics available
    - **Errors and Warnings:** always report, grouped by severity (Errors first, then Warnings)
    - **Info / Hints:** suppress from output. Only include if `--verbose` was passed as an argument.
@@ -49,9 +67,9 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
    After listing all findings, fix every one of them before proceeding. Do not stop at "documenting" a warning — fix it or, if it genuinely cannot be fixed without a major cross-file refactor, add an explicit `// Justification:` comment explaining why.
 
-5. **Confirm resolution.**
+6. **Confirm resolution.**
 
-   After all fixes are applied, re-read the diagnostics files for the changed files. Because the files are already open in the editor (from Step 2), the extension will have exported fresh diagnostics after each save — no need to re-open. If any findings remain, fix them and re-check.
+   After all fixes are applied, re-read the diagnostics files for the changed files. Because the files are already open in the editor (from Step 3), the extension will have exported fresh diagnostics after each save — no need to re-open. If any findings remain, fix them and re-check.
 
    If a file's diagnostics timestamp has not advanced since before your edits (stale), run:
    ```bash
@@ -60,26 +78,26 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
    ```
    then re-read once more as a safety net.
 
-6. **CodeScene MCP code health check.**
+7. **CodeScene MCP code health check.**
 
-   After the diagnostics-exporter pass (Steps 1–5), run `mcp__codescene__code_health_score` on each target source file (use absolute paths, forward slashes). This works independently of the editor — no need for files to be open.
+   After the diagnostics-exporter pass (Steps 1–6), run `mcp__codescene__code_health_score` on each target source file (use absolute paths, forward slashes). This works independently of the editor — no need for files to be open.
 
    - **Score > 9.8 (green/optimal):** clean — no action needed. Target 10.0.
-   - **Score 4.0–9.8 (yellow):** run `mcp__codescene__code_health_review` for the detailed smell breakdown. Fix all findings that are within the scope of the current change. If a finding is pre-existing and unrelated to the current work, note it but do not fix.
-   - **Score < 4.0 (red):** blocking — run `mcp__codescene__code_health_review`, fix all findings, and re-check until the score is at least 4.0 (ideally 10.0).
+   - **Score 4.0–9.8 (yellow):** run `mcp__codescene__code_health_review` for the detailed smell breakdown. **Attempt to fix every finding.** Only skip a finding if the fix would require changes to >5 unrelated files, touch infrastructure/config outside the feature scope, or involve generated code. In those cases, document the finding and the specific reason for skipping. Do NOT skip with a generic "pre-existing" label — that's not a reason.
+   - **Score < 4.0 (red):** blocking — run `mcp__codescene__code_health_review`, fix all findings, and re-check until the score is at least 4.0 (ideally 10.0). Even here, document any finding you genuinely cannot fix rather than silently moving on.
 
    Report MCP scores alongside the diagnostics-exporter findings:
 
    ```
    ### Code Health (MCP)
    - `src/foo/bar.ts` — 10.0 ✓
-   - `src/foo/baz.ts` — 7.2 ⚠ (complex conditional, bumpy road)
+   - `src/foo/baz.ts` — 7.2 ⚠ (complex conditional, bumpy road — fixed)
    - `tests/foo/bar.test.ts` — 9.5 ✓
    ```
 
    **If any file scores ≤ 9.8**, include the detailed review findings in the report and fix them before proceeding, following the same fix-and-recheck loop as Step 5.
 
-7. **SonarQube quality gate.**
+8. **SonarQube quality gate.**
 
    After the CodeScene MCP pass, run the SonarQube quality gate. This works independently of
    the editor and worktree status — no files need to be open, no editor required.
@@ -100,12 +118,18 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
       ```
       Skill: sonarqube:sonar-list-issues
       ```
-      Fix all findings that are within the scope of the current change. Pre-existing issues
-      unrelated to the current work are noted but not fixed.
+      **Attempt to fix every finding.** Only skip a finding if the fix would:
+      - Require changes to >5 unrelated files
+      - Touch infrastructure/config outside the feature scope
+      - Involve generated code or third-party vendored code
+      - Require a coordinated migration across multiple services
+
+      In those cases, document the finding and the specific reason for skipping.
+      Do NOT skip with a generic "pre-existing" label — state what makes it unfixable now.
 
    3. **Confirm resolution:** Re-run `sonarqube:sonar-quality-gate` after fixes. If the gate
-      still fails on pre-existing issues outside your scope, note them in the report and
-      proceed — do not block on pre-existing debt.
+      still fails on issues you cannot fix (with documented reasons per step 2), note them
+      in the report and proceed — do not block on documented, genuinely-unfixable debt.
 
    Report SonarQube results alongside the CodeScene scores:
 
@@ -121,12 +145,12 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
    ### SonarQube Quality Gate
    - Quality Gate: **FAIL** ✗
    - Failed conditions: Coverage < 80% (actual: 76%), New Bugs > 0 (found: 2)
-   - `src/foo/bar.ts:42` — Potential SQL injection (new, fixed)
-   - `src/old/legacy.ts:15` — Unused parameter (pre-existing, out of scope)
+   - `src/foo/bar.ts:42` — Potential SQL injection (fixed)
+   - `src/old/legacy.ts:15` — Unused parameter (skipped: requires refactor of 12 call sites across 3 packages)
    ```
 
-   **This is a blocking gate** for issues introduced by the current change. Pre-existing
-   failures are documented but do not block.
+   **This is a blocking gate** for issues you can fix. Issues with documented,
+   genuine blockers are noted but do not block.
 
 ## Diagnostics JSON Format
 
@@ -172,5 +196,5 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 ### SonarQube Quality Gate
 - Quality Gate: **PASS** ✓
-- Bugs: 0 | Vulnerabilities: 0 | Code Smells: 1 (pre-existing, out of scope) | Coverage: 82%
+- Bugs: 0 | Vulnerabilities: 0 | Code Smells: 1 (skipped: requires refactor of 12 call sites across 3 packages) | Coverage: 82%
 ```

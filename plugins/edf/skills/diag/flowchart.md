@@ -8,31 +8,34 @@ flowchart TD
 
     S1["S1: Identify target files<br/>Args provided → check those<br/>Otherwise → .diagnostics/ + git diff"] --> S2
 
-    S2["S2: Open files in editor<br/>open-in-editor.sh, sleep 5<br/>Triggers CodeScene analysis"] --> S3
+    S2{"S2: .diagnostics/<br/>directory exists?"} -->|"No (worktree/CI)"| S7
+    S2 -->|"Yes"| S3
 
-    S3["S3: Read diagnostics<br/>Parse .diagnostics/*.json<br/>Extract severity, message, line"] --> S4
+    S3["S3: Open files in editor<br/>open-in-editor.sh, sleep 5<br/>Triggers CodeScene analysis"] --> S4
 
-    S4["S4: Report findings<br/>Errors first, then Warnings<br/>Suppress Info/Hints"] --> S4_CHK{"Errors or<br/>Warnings?"}
-    S4_CHK -->|"No"| S6
-    S4_CHK -->|"Yes"| S4_FIX["Fix all findings"]
+    S4["S4: Read diagnostics<br/>Parse .diagnostics/*.json<br/>Extract severity, message, line"] --> S5
 
-    S4_FIX --> S5["S5: Confirm resolution<br/>Re-read diagnostics,<br/>verify timestamp advanced"]
-    S5 --> S5_CHK{"Clean?"}
-    S5_CHK -->|"No"| S4_FIX
-    S5_CHK -->|"Yes"| S6
+    S5["S5: Report findings<br/>Errors first, then Warnings<br/>Suppress Info/Hints"] --> S5_CHK{"Errors or<br/>Warnings?"}
+    S5_CHK -->|"No"| S7
+    S5_CHK -->|"Yes"| S5_FIX["Fix all findings"]
 
-    S6["S6: CodeScene MCP health check<br/>code_health_score per file"] --> S6_CHK{"Score < 4.0?"}
-    S6_CHK -->|"Yes, red"| S6_FIX["code_health_review →<br/>fix all findings → re-check"]
-    S6_CHK -->|"4.0-9.8, yellow"| S6_REVIEW["Review findings,<br/>fix in-scope items"]
-    S6_CHK -->|"> 9.8, green"| S7
+    S5_FIX --> S6["S6: Confirm resolution<br/>Re-read diagnostics,<br/>verify timestamp advanced"]
+    S6 --> S6_CHK{"Clean?"}
+    S6_CHK -->|"No"| S5_FIX
+    S6_CHK -->|"Yes"| S7
 
-    S6_FIX --> S6_CHK
-    S6_REVIEW --> S7
+    S7["S7: CodeScene MCP health check<br/>code_health_score per file"] --> S7_CHK{"Score < 4.0?"}
+    S7_CHK -->|"Yes, red"| S7_FIX["code_health_review →<br/>fix all findings → re-check"]
+    S7_CHK -->|"4.0-9.8, yellow"| S7_REVIEW["code_health_review →<br/>fix all findings<br/>(skip only if blocked)"]
+    S7_CHK -->|"> 9.8, green"| S8
 
-    S7["S7: SonarQube quality gate<br/>sonarqube:sonar-quality-gate"] --> S7_CHK{"Gate pass?"}
-    S7_CHK -->|"Yes"| DONE
-    S7_CHK -->|"No"| S7_FIX["sonarqube:sonar-list-issues →<br/>fix in-scope issues → re-check"]
-    S7_FIX --> S7
+    S7_FIX --> S7_CHK
+    S7_REVIEW --> S8
+
+    S8["S8: SonarQube quality gate<br/>sonarqube:sonar-quality-gate"] --> S8_CHK{"Gate pass?"}
+    S8_CHK -->|"Yes"| DONE
+    S8_CHK -->|"No"| S8_FIX["sonarqube:sonar-list-issues →<br/>fix all findings → re-check<br/>(skip only if blocked)"]
+    S8_FIX --> S8
 
     DONE(["fa:fa-check Diagnostics clean"])
 
@@ -42,6 +45,6 @@ flowchart TD
     classDef decision fill:#f7eed6,stroke:#8a6d2d,color:#443a1a
 
     class START,DONE startend
-    class S1,S2,S3,S4,S4_FIX,S5,S6,S6_FIX,S6_REVIEW,S7,S7_FIX process
-    class S4_CHK,S5_CHK,S6_CHK,S7_CHK decision
+    class S1,S3,S4,S5,S5_FIX,S6,S7,S7_FIX,S7_REVIEW,S8,S8_FIX process
+    class S2,S5_CHK,S6_CHK,S7_CHK,S8_CHK decision
 ```
