@@ -11,27 +11,39 @@ Plugin scripts are invoked via `${CLAUDE_PLUGIN_ROOT}/bin/<name>` — prefix `.s
 
 ## Project scripts
 
-Each consuming project sets `EDF_SCRIPTS` in its `.env` to point at the project's scripts directory. Starters for TypeScript and Python are provided at `starters/scripts/{typescript,python}/`; point `EDF_SCRIPTS` to the appropriate one:
+Each consuming project sets `EDF_SCRIPTS` in its `.env` to point at the universal wrapper scripts. The wrappers dispatch to language-specific implementations based on the first argument:
 
 ```bash
-# .env (TypeScript project)
-EDF_SCRIPTS=${CLAUDE_PLUGIN_ROOT}/starters/scripts/typescript
+# .env
+EDF_SCRIPTS=${CLAUDE_PLUGIN_ROOT}/starters/scripts
 ```
 
+### Language parameter
+
+All project scripts accept a language code as the first argument:
+
+- `ts` — TypeScript/JavaScript
+- `p` — Python
+- `all` — run both languages sequentially (summed exit codes)
+
 ```bash
-# .env (Python project)
-EDF_SCRIPTS=${CLAUDE_PLUGIN_ROOT}/starters/scripts/python
+# Examples
+${EDF_SCRIPTS}/run-tests.sh ts tests/foo.test.ts
+${EDF_SCRIPTS}/run-typecheck.sh p
+${EDF_SCRIPTS}/run-lint.sh all
 ```
+
+Skills infer `<ts|p>` from the file extensions they're working with: `.ts/.tsx` → `ts`, `.py` → `p`.
 
 ### Required scripts
 
 | Script | Purpose | Args | Exit codes |
 |---|---|---|---|
-| `run-tests.sh` | Run unit tests with compact output | optional file path | 0 = pass |
-| `run-typecheck.sh` | Type check | none | 0 = pass |
-| `run-lint.sh` | Lint | none | 0 = pass |
-| `run-build.sh` | Build (exec `true` if N/A) | none | 0 = pass |
-| `run-e2e.sh` | E2E (optional, skill skips if absent) | none | 0 = pass |
+| `run-tests.sh` | Run unit tests with compact output | `<ts\|p\|all>` [test-file] | 0 = pass |
+| `run-typecheck.sh` | Type check | `<ts\|p\|all>` | 0 = pass |
+| `run-lint.sh` | Lint | `<ts\|p\|all>` | 0 = pass |
+| `run-build.sh` | Build (exec `true` if N/A) | `<ts\|p\|all>` | 0 = pass |
+| `run-e2e.sh` | E2E (optional, skill skips if absent) | `<ts\|p\|all>` | 0 = pass |
 
 `run-markdown-lint.sh` and `run-format-check.sh` are optional CI-only scripts — not invoked by any skill. Starters include them in CI workflow templates (`starters/.github/workflows/`); projects that want them in CI can keep them.
 
@@ -44,7 +56,7 @@ Convention: stdout/stderr captured by the skill; non-zero exit always means fail
 - `parse-vitest-output.py` — parses vitest output from stdin
 - `parse-pytest-output.py` — parses pytest output from stdin
 
-Call them from the project's `run-tests.sh` by deriving the plugin root from the script location. `CLAUDE_PLUGIN_ROOT` is only resolved by Claude Code in hooks.json and skill markdown — it is not exported into the Bash environment, so scripts must resolve it themselves:
+The universal wrappers dispatch to language-specific scripts in `starters/scripts/typescript/` and `starters/scripts/python/`. Those leaf scripts derive the plugin root from their own location. `CLAUDE_PLUGIN_ROOT` is only resolved by Claude Code in hooks.json and skill markdown — it is not exported into the Bash environment, so scripts must resolve it themselves:
 
 ```bash
 #!/usr/bin/env bash

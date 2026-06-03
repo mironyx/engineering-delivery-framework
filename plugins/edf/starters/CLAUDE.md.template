@@ -6,13 +6,17 @@
 
 | Command | Purpose |
 | --- | --- |
-| `${EDF_SCRIPTS}/run-tests.sh` | Unit tests |
-| `${EDF_SCRIPTS}/run-typecheck.sh` | Type check |
-| `${EDF_SCRIPTS}/run-lint.sh` | Lint |
-| `${EDF_SCRIPTS}/run-build.sh` | Build |
-| `${EDF_SCRIPTS}/run-markdown-lint.sh` | Markdown lint |
-| `${EDF_SCRIPTS}/run-format-check.sh` | Format check |
-| `${EDF_SCRIPTS}/run-e2e.sh` | E2E tests |
+| `${EDF_SCRIPTS}/run-tests.sh <ts\|p>` | Unit tests |
+| `${EDF_SCRIPTS}/run-typecheck.sh <ts\|p>` | Type check |
+| `${EDF_SCRIPTS}/run-lint.sh <ts\|p>` | Lint |
+| `${EDF_SCRIPTS}/run-build.sh <ts\|p>` | Build |
+| `${EDF_SCRIPTS}/run-markdown-lint.sh <ts\|p>` | Markdown lint |
+| `${EDF_SCRIPTS}/run-format-check.sh <ts\|p>` | Format check |
+| `${EDF_SCRIPTS}/run-e2e.sh <ts\|p>` | E2E tests |
+
+<!-- If the project uses multiple languages (e.g. TypeScript + Python), list them here.
+     Scripts accept ts (TypeScript), p (Python), or all as the first argument.
+     Example: run-tests.sh ts tests/foo.test.ts  or  run-typecheck.sh all -->
 
 ## Path Conventions
 

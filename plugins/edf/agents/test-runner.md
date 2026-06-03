@@ -17,7 +17,7 @@ verbose output out of the main agent's context window.
 ## Input
 
 You will receive:
-- `command` — a bash command string to execute (e.g. `${EDF_SCRIPTS}/run-tests.sh <test-file>`)
+- `command` — a bash command string to execute (e.g. `${EDF_SCRIPTS}/run-tests.sh <ts|p> <test-file>`)
 
 ## Process
 

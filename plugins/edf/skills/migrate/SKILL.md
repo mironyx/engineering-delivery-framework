@@ -39,10 +39,14 @@ Run ALL of the following in parallel:
    - `Cargo.toml` → **Rust**
    - `go.mod` → **Go**
    - If none found, ask the user.
+   - If **both** TypeScript and Python markers are found, note both — the project is multi-language. The universal script wrappers support `ts`, `p`, or `all`.
 
 3. Resolve the scripts directory. Read `.env` if it exists and extract
-   `EDF_SCRIPTS`. If absent, default to `scripts/`. This path — call it
-   `$EDF_SCRIPTS_DIR` throughout — is where the 5 required scripts live.
+   `EDF_SCRIPTS`. If absent, default to `${CLAUDE_PLUGIN_ROOT}/starters/scripts`
+   (the plugin's universal wrapper scripts). No copying is needed — the
+   wrappers dispatch to language-specific implementations at runtime.
+   This path — call it `$EDF_SCRIPTS_DIR` throughout — is where the 7
+   wrapper scripts live.
 
 4. List what exists and doesn't:
    - `kb/` directory and which files are present (`file-map.md`, `conventions.md`,
@@ -84,7 +88,7 @@ Present a summary table:
 |----------|--------|
 | CLAUDE.md | merge needed (3 sections to add) |
 | kb/ | 4 files to populate — `kernel.md` detected, will reference instead of duplicating |
-| scripts | 5 scripts to copy (TypeScript starter) to `$EDF_SCRIPTS_DIR` |
+| scripts | point `EDF_SCRIPTS` to universal wrappers (no copy needed) |
 | .env | add EDF_FEATURE_PREFIX |
 | .gitignore | add .diagnostics/ |
 | docs/adr/ | create directory |
@@ -292,58 +296,27 @@ Skip committing if no kb files changed.
 
 #### 3c. Scripts
 
-The plugin requires 5 scripts at the path resolved in Phase 1 (`$EDF_SCRIPTS_DIR`,
-referenced as `${EDF_SCRIPTS}/` in CLAUDE.md):
+The plugin provides universal wrapper scripts at `starters/scripts/` that dispatch
+to language-specific implementations based on a `<ts|p|all>` first argument. No
+copying is needed — just set `EDF_SCRIPTS` in `.env` to point to them (handled in
+Phase 3d).
+
+The 7 scripts:
 
 | Script | Purpose |
 |--------|---------|
 | `run-tests.sh` | Unit tests |
 | `run-typecheck.sh` | Type check |
 | `run-lint.sh` | Lint |
-| `run-build.sh` | Build (can be `exit 0` if N/A) |
-| `run-e2e.sh` | E2E tests (can be `exit 0` if not yet) |
+| `run-build.sh` | Build (no-op for Python) |
+| `run-e2e.sh` | E2E tests (no-op if not configured) |
+| `run-format-check.sh` | Format check |
+| `run-markdown-lint.sh` | Markdown lint |
 
-Copy the appropriate starter scripts based on detected language:
-
-```bash
-mkdir -p $EDF_SCRIPTS_DIR
-```
-
-**TypeScript:**
-```bash
-cp ${CLAUDE_PLUGIN_ROOT}/starters/scripts/typescript/run-tests.sh $EDF_SCRIPTS_DIR/
-cp ${CLAUDE_PLUGIN_ROOT}/starters/scripts/typescript/run-typecheck.sh $EDF_SCRIPTS_DIR/
-cp ${CLAUDE_PLUGIN_ROOT}/starters/scripts/typescript/run-lint.sh $EDF_SCRIPTS_DIR/
-cp ${CLAUDE_PLUGIN_ROOT}/starters/scripts/typescript/run-build.sh $EDF_SCRIPTS_DIR/
-cp ${CLAUDE_PLUGIN_ROOT}/starters/scripts/typescript/run-e2e.sh $EDF_SCRIPTS_DIR/
-```
-
-**Python:**
-```bash
-cp ${CLAUDE_PLUGIN_ROOT}/starters/scripts/python/run-tests.sh $EDF_SCRIPTS_DIR/
-cp ${CLAUDE_PLUGIN_ROOT}/starters/scripts/python/run-typecheck.sh $EDF_SCRIPTS_DIR/
-cp ${CLAUDE_PLUGIN_ROOT}/starters/scripts/python/run-lint.sh $EDF_SCRIPTS_DIR/
-cp ${CLAUDE_PLUGIN_ROOT}/starters/scripts/python/run-build.sh $EDF_SCRIPTS_DIR/
-cp ${CLAUDE_PLUGIN_ROOT}/starters/scripts/python/run-e2e.sh $EDF_SCRIPTS_DIR/
-```
-
-**Other languages (Rust, Go):** use the closest starter and tell the user to
-adjust the commands inside.
-
-If a script already exists from a previous run, skip it. If a script exists
-that the user wrote (not from a starter), it should have been backed up in
-Phase 2 — confirm before overwriting.
-
-Make scripts executable:
-```bash
-chmod +x $EDF_SCRIPTS_DIR/*.sh
-```
-
-Commit:
-```bash
-git add $EDF_SCRIPTS_DIR/
-git commit -m "chore: add EDF verification scripts"
-```
++If the project had locally-copied scripts (`$EDF_SCRIPTS_DIR` pointing to `scripts/`
+or similar), those are now obsolete — the plugin's universal wrappers replace them.
+Remove them if they were EDF starter copies, or back them up first if the user has
+customised them (Phase 2 covers this).
 
 #### 3d. Environment configuration
 
@@ -355,7 +328,7 @@ and `EDF_FEATURE_PROM_DIR`.
 If `EDF_SCRIPTS` is missing, append with the default resolved in Phase 1:
 
 ```
-EDF_SCRIPTS=scripts
+EDF_SCRIPTS=${CLAUDE_PLUGIN_ROOT}/starters/scripts
 ```
 
 If `EDF_FEATURE_PREFIX` is missing, derive a default from the repo name
@@ -473,10 +446,10 @@ git commit -m "ci: add EDF CI workflow"
 
 Run verification checks. Each check passes or fails — report all results.
 
-1. **Scripts exist and are executable:**
+1. **Scripts reachable:**
    ```bash
-   for script in run-tests.sh run-typecheck.sh run-lint.sh run-build.sh run-e2e.sh; do
-     if [ -x "$EDF_SCRIPTS_DIR/$script" ]; then
+   for script in run-tests.sh run-typecheck.sh run-lint.sh run-build.sh run-e2e.sh run-format-check.sh run-markdown-lint.sh; do
+     if [ -f "$EDF_SCRIPTS_DIR/$script" ]; then
        echo "  OK $EDF_SCRIPTS_DIR/$script"
      else
        echo "  MISSING $EDF_SCRIPTS_DIR/$script"
@@ -532,13 +505,13 @@ Summarise everything that was done:
 - kb/conventions.md — populated 5 concepts
 - kb/architecture.md — template (needs project-specific rules)
 - kb/anti-patterns.md — template (needs project-specific patterns)
-- $EDF_SCRIPTS_DIR/ — 5 verification scripts (TypeScript)
+- $EDF_SCRIPTS_DIR/ — 7 universal verification scripts (pointed at plugin)
 - .env — added EDF_SCRIPTS, EDF_FEATURE_PREFIX, EDF_FEATURE_PROM_DIR
 - .gitignore — added .diagnostics/, .claude/
 - docs/adr/ — created directory
 
 ### Verification
-- 5/5 scripts executable
+- 7/7 scripts reachable
 - 4/4 kb files present
 - 6/6 CLAUDE.md sections present
 - 3/3 .env variables set
@@ -551,9 +524,10 @@ Summarise everything that was done:
    architecture rules as soon as possible — `/pr-review` reads them on every
    review. Add entries to `kb/anti-patterns.md` as the team discovers
    recurring issues.
-3. **Scripts at `$EDF_SCRIPTS_DIR/`.** These wrap your project's test/lint/build
-   commands. Edit them if your commands differ from the starter defaults. The
-   path is configured via `EDF_SCRIPTS` in `.env` — change it there if needed.
+3. **Scripts at `$EDF_SCRIPTS_DIR/`.** The plugin's universal wrappers accept
+   a language parameter: `ts` (TypeScript), `p` (Python), or `all` (both).
+   Example: `$EDF_SCRIPTS_DIR/run-tests.sh ts tests/foo.test.ts`.
+   The path is configured via `EDF_SCRIPTS` in `.env` — change it there if needed.
 4. **Skills that were backed up** are in `skills.backup.<timestamp>/`.
    Reconcile any that your team still needs.
 5. **`.github/project.env` is not yet configured.** Board-aware skills will
@@ -563,7 +537,7 @@ Summarise everything that was done:
 1. Push this branch and create a PR for the team to review the migration changes.
 2. Once merged, fill in `kb/architecture.md` — start with the boundary rule.
 3. Fill in `kb/anti-patterns.md` — start with framework anti-patterns.
-4. Verify the scripts work: `$EDF_SCRIPTS_DIR/run-tests.sh`.
+4. Verify the scripts work: `$EDF_SCRIPTS_DIR/run-tests.sh <ts|p> <test-file>`.
 5. Set up `.github/project.env` if using GitHub Projects.
 ```
 

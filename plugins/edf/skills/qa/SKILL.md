@@ -61,7 +61,7 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 These override any conflicting instinct. Violations are the top cost drivers.
 
-1. **Resolve `${EDF_SCRIPTS}` before running any command.** Read `.env` in the project root and substitute the actual value of `EDF_SCRIPTS`. If unset or `.env` is missing, default to `scripts`.
+1. **Resolve `${EDF_SCRIPTS}` before running any command.** Read `.env` in the project root and substitute the actual value of `EDF_SCRIPTS`. If unset or `.env` is missing, default to `scripts`. Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `all` if the QA scope spans both languages.
 2. **Use agents for all verification, never inline.** E2E scenarios run in `edf:qa-executor`, invariants run in `edf:test-runner`, integration contracts run in `edf:qa-contracts`, coverage audit runs in `edf:qa-coverage`. Zero verification output reaches the main context.
 3. **Pass pointers to sub-agents, not content.** File paths, epic IDs, LLD paths, version slugs. Never paste diffs, file contents, or BDD spec text into agent prompts — let agents read the files they need.
 
@@ -301,12 +301,12 @@ a compact pass/fail table. No contract content reaches the main context.
 Run verification for each invariant classified in Step 1B:
 
 - `grep` invariants: run the grep command directly, record pass/fail
-- `type` invariants: spawn `edf:test-runner` with `${EDF_SCRIPTS}/run-typecheck.sh`
-- `lint` invariants: spawn `edf:test-runner` with `${EDF_SCRIPTS}/run-lint.sh`
-- `test` invariants: spawn `edf:test-runner` with `${EDF_SCRIPTS}/run-tests.sh <test-file>`
+- `type` invariants: spawn `edf:test-runner` with `${EDF_SCRIPTS}/run-typecheck.sh <ts|p>`
+- `lint` invariants: spawn `edf:test-runner` with `${EDF_SCRIPTS}/run-lint.sh <ts|p>`
+- `test` invariants: spawn `edf:test-runner` with `${EDF_SCRIPTS}/run-tests.sh <ts|p> <test-file>`
 
 ```
-Agent({subagent_type: "edf:test-runner", description: "Invariant verification", prompt: "command=${EDF_SCRIPTS}/run-typecheck.sh"})
+Agent({subagent_type: "edf:test-runner", description: "Invariant verification", prompt: "command=${EDF_SCRIPTS}/run-typecheck.sh <ts|p>"})
 ```
 
 Batch invariant checks per type — one agent invocation per command, not per invariant.
