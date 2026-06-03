@@ -64,7 +64,9 @@ You will receive:
 
 ## Process
 
-Before running any command containing `${EDF_SCRIPTS}`, read `.env` in the project root and substitute the actual value of `EDF_SCRIPTS`. If unset or `.env` is missing, default to `scripts`.
+Before running any command containing `${EDF_SCRIPTS}`: replace it with
+`${CLAUDE_PLUGIN_ROOT}/starters/scripts/` (resolved by Claude Code at agent load time).
+If that path doesn't exist, fall back to `scripts/` in the project root.
 Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `all` if spanning both.
 
 ### Step 1: Extract acceptance criteria from all sources

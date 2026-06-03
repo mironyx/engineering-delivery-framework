@@ -26,11 +26,10 @@ You will receive:
 
 Before running ANY command, resolve `${EDF_SCRIPTS}`:
 
-1. Read `.env` in the project root.
-2. Extract the value of `EDF_SCRIPTS`. Ignore quotes and trailing comments.
-3. If `EDF_SCRIPTS` is unset or `.env` is missing, default to `scripts`.
-4. If the resolved path is relative, make it absolute from the project root.
-5. Substitute the resolved path for every `${EDF_SCRIPTS}` in the command.
+1. Replace it with `${CLAUDE_PLUGIN_ROOT}/starters/scripts/` — this path is resolved by
+   Claude Code at agent load time.
+2. If that path doesn't exist (e.g. plugin cache key changed), fall back to `scripts/`
+   in the project root.
 
 Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `all`
 if the scope spans both languages.

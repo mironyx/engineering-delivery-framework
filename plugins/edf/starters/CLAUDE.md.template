@@ -10,63 +10,21 @@
 | `${EDF_SCRIPTS}/run-typecheck.sh <ts\|p>` | Type check |
 | `${EDF_SCRIPTS}/run-lint.sh <ts\|p>` | Lint |
 | `${EDF_SCRIPTS}/run-build.sh <ts\|p>` | Build |
-| `${EDF_SCRIPTS}/run-markdown-lint.sh <ts\|p>` | Markdown lint |
-| `${EDF_SCRIPTS}/run-format-check.sh <ts\|p>` | Format check |
 | `${EDF_SCRIPTS}/run-e2e.sh <ts\|p>` | E2E tests |
-
-<!-- If the project uses multiple languages (e.g. TypeScript + Python), list them here.
-     Scripts accept ts (TypeScript), p (Python), or all as the first argument.
-     Example: run-tests.sh ts tests/foo.test.ts  or  run-typecheck.sh all -->
 
 ## Path Conventions
 
-<!-- Set test file convention, source directory, and eval test path for your project.
-     These override the defaults in kb/conventions.md. Examples:
-  TypeScript: tests/<area>/<unit>.test.ts
-  Python:     tests/<area>/test_<unit>.py
--->
-- Test file convention: `tests/<area>/<unit>.test.ts` <!-- update for your language -->
+- Test file convention: `tests/<area>/<unit>.test.ts` <!-- e.g. `.test.ts` or `test_<unit>.py` -->
 - Source directory: `src/`
 - Eval test path convention: `tests/eval/`
 
-## Engineering Process
-
-Pipeline: `idea → /discovery → /requirements → /kickoff → /architect → /feature → /feature-end → /retro`.
-
-## Task Tracking
-
-<!-- Project-specific board and issue tracking setup -->
-
 ## Coding Principles
 
-<!-- Project-specific principles. The EDF skills read this section for language/framework conventions.
-     Be specific — name the exact library, not a category. Examples:
+<!-- Skills read this section for HTTP mocking, test runner, and typechecker. Be specific. -->
 
-TypeScript project:
-- HTTP mocking: Use MSW for all HTTP interactions in tests.
-  Do not use fetchImpl, fetch spies, or manual stubs.
-- Test runner: vitest. Typecheck: tsc --noEmit.
-
-Python project:
-- HTTP mocking: Use respx (HTTPX) or pytest-httpx for all HTTP interactions in tests.
-  Do not use manual stubs or monkeypatching.
-- Test runner: pytest. Typecheck: mypy or pyright.
-
-Skills reference this section for HTTP mocking convention, test runner, typechecker,
-and framework-specific patterns. Keep it current. -->
-
-## Knowledge Base (kb/)
-
-The `kb/` directory documents project-specific conventions that EDF skills read at runtime:
-
-| File | Purpose | Read by |
-|------|---------|---------|
-| `kb/architecture.md` | Architecture rules, API composition patterns, reusable helper catalogue | `/lld`, `/pr-review`, `/lld-sync` |
-| `kb/anti-patterns.md` | Framework/language anti-patterns, Helper reuse section | `/pr-review`, `/lld-sync` |
-| `kb/conventions.md` | File naming/path conventions, test suffix, schema patterns | `/pr-review` |
-| `kb/file-map.md` | Logical concept → file path mappings (engine-dir, api-dir, etc.) | `/pr-review`, `/lld-sync` |
-
-Populate these from `starters/kb/` on first use.
+- **HTTP mocking:** <!-- MSW (TypeScript), respx/pytest-httpx (Python) -->
+- **Test runner:** <!-- vitest, pytest -->
+- **Type checker:** <!-- tsc --noEmit, mypy/pyright -->
 
 ## Key Directories
 
