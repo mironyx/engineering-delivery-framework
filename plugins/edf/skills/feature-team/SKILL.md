@@ -18,7 +18,7 @@ Not supported in VS Code.
 - `/feature-team -n 3` — implement the top 3 Todo task items from the project board
 - `/feature-team epic 45` — implement all tasks from epic #45, wave-by-wave when the epic body declares dependencies
 
-For a single issue, use `/feature` instead. Epic issues (label `epic`) cannot be implemented directly — pass task issues or use `epic <N>` mode.
+For a single issue, use `edf:feature` instead. Epic issues (label `epic`) cannot be implemented directly — pass task issues or use `epic <N>` mode.
 
 **Wave handling:** When given an epic, the lead reads the epic body for an `## Execution Order` table or a `## Dependency graph` Mermaid diagram and spawns teammates wave-by-wave. Without either, all tasks spawn in parallel. See Step 1 for parsing rules.
 
@@ -166,12 +166,12 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 >    ```bash
 >    bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh add <N> "in progress"
 >    ```
-> 4. Run `/feature-core <N>`. This covers everything from reading the design through PR
+> 4. Run `edf:feature-core <N>`. This covers everything from reading the design through PR
 >    creation and review. Follow all coding principles in CLAUDE.md. Do not ask for
 >    confirmation between steps.
 > 5. Report back to the lead with the PR URL and wait — **do not exit**.
-> 6. When the lead sends you a feature-end message, run `/feature-end <N>`.
->    **Follow every step in `/feature-end` without skipping — especially lld-sync (Step 1.5)
+> 6. When the lead sends you a feature-end message, run `edf:feature-end <N>`.
+>    **Follow every step in `edf:feature-end` without skipping — especially lld-sync (Step 1.5)
 >    and session log (Step 2). These are mandatory.**
 
 ### Step 5: Monitor
@@ -189,17 +189,17 @@ When all teammates have reported their PR URLs, summarise:
 
 **Do NOT send shutdown_request yet.** Teammates stay alive in their panes, waiting for feature-end.
 
-When the user runs `/feature-end <N>` in the lead pane, forward it to the relevant teammate
-via SendMessage: "Please run `/feature-end <N>`."
+When the user runs `edf:feature-end <N>` in the lead pane, forward it to the relevant teammate
+via SendMessage: "Please run `edf:feature-end <N>`."
 
-**Human review gate (critical):** The lead MUST NOT send `/feature-end` to any teammate
+**Human review gate (critical):** The lead MUST NOT send `edf:feature-end` to any teammate
 autonomously. Every PR requires human review before merge. The flow is:
 
 1. Teammate reports PR → lead summarises to user
 2. User reviews the PR (outside the lead session)
-3. User says `/feature-end <N>` or equivalent → lead forwards to teammate
+3. User says `edf:feature-end <N>` or equivalent → lead forwards to teammate
 
-**Wave progression after merge:** Once all PRs in a wave have been merged via `/feature-end`,
+**Wave progression after merge:** Once all PRs in a wave have been merged via `edf:feature-end`,
 the lead **immediately shuts down that wave's teammates** (parallel `SendMessage` with
 `shutdown_request`) and then auto-spawns the next wave's teammates — no further user input
 needed. The human gate is per-PR (review before merge), not per-wave (no extra approval to
@@ -213,7 +213,7 @@ When all are received, summarise:
 - Each issue → PR merged → board/issue closed
 - Any notes from individual feature-ends (rebases, review fixes, etc.)
 
-**Only now** is the team fully done. Individual task board items are handled by `/feature-end`.
+**Only now** is the team fully done. Individual task board items are handled by `edf:feature-end`.
 
 **If running in `epic` mode**, close the epic itself now that all tasks are shipped:
 ```bash
@@ -226,7 +226,7 @@ gh issue close <epic-number> --comment "All tasks shipped. Closing epic."
 Write this log only **after all waves are complete** — not after each wave. It captures the
 lead's view across the entire run.
 
-Per-teammate `/feature-end` logs capture per-issue work, but they miss the **lead's view** —
+Per-teammate `edf:feature-end` logs capture per-issue work, but they miss the **lead's view** —
 orchestration decisions, cross-cutting changes, coordination events, and process observations
 that span multiple teammates. Write a team session log to capture this *before* shutting
 the final wave's teammates down, while context is still fresh.
@@ -243,7 +243,7 @@ Required sections:
 - **Coordination events** — spawn pattern, blockers relayed, rebases, conflicts, CI flakes,
   protocol deviations, anything where lead intervention shaped the run.
 - **What worked / what didn't** — short, candid. Decay fast otherwise.
-- **Process notes for `/retro`** — explicit hand-off so that the next retrospective can pick
+- **Process notes for `edf:retro`** — explicit hand-off so that the next retrospective can pick
   up these observations without re-deriving them from git.
 
 Keep it concise (one screen typically). The goal is to preserve orchestration context that

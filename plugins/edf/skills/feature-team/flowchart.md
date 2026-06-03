@@ -58,13 +58,13 @@ flowchart TD
         S4A_CHK -->|"Yes, has teammates"| S4B
         S4A_CHK -->|"Yes, lead only"| S4B
         S4A_CHK -->|"No"| S4B
-        S4B(("S4b: Agent calls<br/>One per teammate<br/>Same message, background")) --> S4B_NOTE["Each teammate: worktree →<br/>tag session → /feature-core →<br/>report PR, wait for /feature-end"]
+        S4B(("S4b: Agent calls<br/>One per teammate<br/>Same message, background")) --> S4B_NOTE["Each teammate: worktree →<br/>tag session → edf:feature-core →<br/>report PR, wait for edf:feature-end"]
         S4B_NOTE --> S5["S5: Monitor<br/>Teammates notify lead<br/>when idle or blocked"]
         S5 --> S6["S6: Report PRs to user"]
-        S6 --> S6_GATE["Human review gate<br/>Lead MUST NOT send /feature-end<br/>autonomously"]
-        S6_GATE --> S6_WAIT["Wait for user:<br/>/feature-end N"]
-        S6_WAIT --> S6_FWD["Lead forwards /feature-end<br/>to teammate via SendMessage"]
-        S6_FWD --> S6_TEAM_DONE["Teammate runs /feature-end<br/>reports complete"]
+        S6 --> S6_GATE["Human review gate<br/>Lead MUST NOT send edf:feature-end<br/>autonomously"]
+        S6_GATE --> S6_WAIT["Wait for user:<br/>edf:feature-end N"]
+        S6_WAIT --> S6_FWD["Lead forwards edf:feature-end<br/>to teammate via SendMessage"]
+        S6_FWD --> S6_TEAM_DONE["Teammate runs edf:feature-end<br/>reports complete"]
         S6_TEAM_DONE --> S6_WAVES{"More waves?"}
         S6_WAVES -->|"Yes"| S6_SHUTDOWN["SendMessage shutdown_request<br/>to current wave teammates"]
         S6_SHUTDOWN --> WAVE_ENTRY

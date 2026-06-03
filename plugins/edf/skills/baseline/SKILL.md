@@ -244,7 +244,7 @@ into a version that already supersedes the story (e.g. PRCC stories carried into
 | v1-requirements.md | 3.5 Story title | Not started | Carry to v13 | Pre-projects spec; needs re-specification under v11 project model |
 | ... |
 
-This section is the bridge to `/requirements` — it tells the next requirements pass
+This section is the bridge to `edf:requirements` — it tells the next requirements pass
 which legacy stories need attention.
 
 ## Delta from Previous Baseline
@@ -270,11 +270,11 @@ The report is authoritative — do not duplicate it in the terminal.
 - At phase transitions (finishing Phase 1, starting Phase 2).
 - Before from-scratch reimplementation of a feature area.
 - When requirements docs feel unreliable or stale.
-- Before running `/backlog` for higher-quality recommendations.
+- Before running `edf:backlog` for higher-quality recommendations.
 - When onboarding (gives a new contributor the real picture).
 
 ## What this skill is NOT
 
-- **Not `/drift-scan`** — drift-scan finds mismatches and flags them. /baseline reconciles everything into a coherent snapshot.
-- **Not `/backlog`** — backlog recommends next work. /baseline describes current state. /backlog *consumes* baseline output.
+- **Not `edf:drift-scan`** — drift-scan finds mismatches and flags them. baseline reconciles everything into a coherent snapshot.
+- **Not `edf:backlog`** — backlog recommends next work. baseline describes current state. `edf:backlog` *consumes* baseline output.
 - **Not a requirements rewrite** — the output is a report, not an updated spec. Requirements capture intent; baseline captures reality.

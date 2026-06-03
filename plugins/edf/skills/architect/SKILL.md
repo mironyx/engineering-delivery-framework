@@ -1,12 +1,12 @@
 ---
 name: architect
-description: Read a plan document and produce all design artefacts in one pass (ADRs, LLDs, design doc updates, enriched issue bodies), so /feature agents can implement against approved designs.
+description: Read a plan document and produce all design artefacts in one pass (ADRs, LLDs, design doc updates, enriched issue bodies), so edf:feature agents can implement against approved designs.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill, TodoWrite
 ---
 
 # Architect — Batch Design Artefact Generator
 
-Reads a plan file and produces the design artefacts needed for each item, so `/feature` can implement against approved designs.
+Reads a plan file and produces the design artefacts needed for each item, so `edf:feature` can implement against approved designs.
 
 **Model:** Use Opus (the latest Claude model) for this skill and all sub-agents it spawns. When launching agents, pass `model: "opus"`. Exception: purely-mechanical agents whose frontmatter pins a smaller model (e.g. `gh-issue-manager` runs on Haiku because it only executes pre-assembled `gh` commands and string substitution) — leave their pinned model alone.
 
@@ -42,7 +42,7 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 If `$ARGUMENTS` starts with `review`, extract the issue number and run the review process instead of the creation process.
 
-**Purpose:** Audit an existing design before handing off to `/feature`. Catches stale references, gaps in contract detail, and contradictions introduced since the design was written.
+**Purpose:** Audit an existing design before handing off to `edf:feature`. Catches stale references, gaps in contract detail, and contradictions introduced since the design was written.
 
 ### Review Step 1: Read the issue and its design artefacts
 
@@ -62,7 +62,7 @@ Check each of the following and note findings:
 | **Stale file paths** | LLD references files that have been moved, renamed, or deleted |
 | **Pattern drift** | Codebase has adopted new patterns (new helpers, request-context abstractions, framework upgrades) that the LLD predates |
 | **ADR conflicts** | Design contradicts a decision recorded in `docs/adr/` after the design was written |
-| **Thin contracts** | Function signatures, types, or internal decomposition are vague or missing — would block a `/feature` agent |
+| **Thin contracts** | Function signatures, types, or internal decomposition are vague or missing — would block a `edf:feature` agent |
 | **Missing BDD specs** | No `describe`/`it` blocks for an agent to implement against |
 | **Uncovered acceptance criteria** | Acceptance criteria in the issue have no corresponding design detail |
 | **Missing behavioural flows** | Multi-component interactions lack sequence diagrams — reviewer cannot build theory from text alone |
@@ -82,10 +82,10 @@ Present a concise health report:
 | 1 | High/Med/Low | <check> | <what's wrong and where> |
 
 ### Verdict
-Ready for /feature | Needs patches before /feature
+Ready for edf:feature | Needs patches before edf:feature
 ```
 
-Severity guide: **High** = would cause a `/feature` agent to implement incorrectly or get stuck. **Med** = gap or ambiguity that needs resolving. **Low** = minor stale reference, cosmetic.
+Severity guide: **High** = would cause a `edf:feature` agent to implement incorrectly or get stuck. **Med** = gap or ambiguity that needs resolving. **Low** = minor stale reference, cosmetic.
 
 If there are High or Med findings, offer to patch the affected docs in place. **Wait for user confirmation before making any changes.**
 
@@ -126,7 +126,7 @@ in **revision mode** instead of the greenfield creation process.
      the standard Part B style (file paths, component reuse, contracts, BDD
      specs).
 3. **Manifest** — flip affected entries to `status: Revised`. Do **not**
-   touch `lld_revision` here — that field is owned by `/lld-sync`.
+   touch `lld_revision` here — that field is owned by `edf:lld-sync`.
 4. **Stacking is allowed.** If a previous Rev N section already exists and
    has not yet shipped, append the new section alongside it.
 5. **Commits per LLD touched** — same convention as the greenfield creation
@@ -147,7 +147,7 @@ For each item in the plan, determine the artefact type:
 
 | Item type | Repo artefact (source of truth) | Issue update |
 |-----------|--------------------------------|--------------|
-| Cross-cutting decision (new technology, convention) | ADR in `docs/adr/` via `/create-adr` | Reference ADR |
+| Cross-cutting decision (new technology, convention) | ADR in `docs/adr/` via `edf:create-adr` | Reference ADR |
 | Implementation item with contracts | LLD in `docs/design/v{N}/` (new) or `docs/design/` (legacy, flat) | Reference LLD section |
 | Design doc update (existing doc needs correction) | Edit to existing `docs/design/` file | Reference updated section |
 | Simple bug fix (already covered by existing LLD) | None needed | Add BDD specs, reference existing LLD |
@@ -263,7 +263,7 @@ Read broadly — understanding the full context prevents design artefacts that c
 Process epics in the order listed in the plan. For each epic, run these sub-steps in execution order:
 
 1. **ADR** — produce any cross-cutting decisions first (LLD may reference them).
-2. **LLD** — delegate to `/lld`; this produces the LLD file, the task list, and a draft coverage manifest with `issue: null`.
+2. **LLD** — delegate to `edf:lld`; this produces the LLD file, the task list, and a draft coverage manifest with `issue: null`.
 3. **Task issues** — read the LLD's `## Tasks` section and dispatch the `edf:gh-issue-manager` agent to create GitHub issues and update the epic body.
 4. **Coverage manifest backfill** — patch the manifest with real issue numbers.
 5. **Design doc update** — edit any pre-existing design docs (only when the decision logic flagged this).
@@ -272,25 +272,25 @@ The subsections below describe each in detail, in execution order. The "Epic bod
 
 #### 1. ADR (cross-cutting decision)
 
-Use `/create-adr` to produce the ADR. Provide the context, options, and recommended decision based on what the plan says and what you read in Step 3.
+Use `edf:create-adr` to produce the ADR. Provide the context, options, and recommended decision based on what the plan says and what you read in Step 3.
 
 #### 2. LLD (implementation item with contracts)
 
-Delegate to the `/lld` skill:
+Delegate to the `edf:lld` skill:
 
 ```
-Skill({skill: "lld", args: "epic <epic-issue-number> v<version> --non-interactive"})
+Skill({skill: "edf:lld", args: "epic <epic-issue-number> v<version> --non-interactive"})
 ```
 
-`<epic-issue-number>` is the GitHub issue number of the epic. `<version>` is the project version slug (`v11`, `v12`, …). The `--non-interactive` flag skips `/lld`'s Step 1 overview — `/architect`'s Step 2 already obtained user approval on the batch.
+`<epic-issue-number>` is the GitHub issue number of the epic. `<version>` is the project version slug (`v11`, `v12`, …). The `--non-interactive` flag skips `edf:lld`'s Step 1 overview — `/architect`'s Step 2 already obtained user approval on the batch.
 
-`/lld` produces:
+`edf:lld` produces:
 - `docs/design/v<N>/lld-<epic-id>-<short-name>.md` — the LLD with Part A, Part B, self-critique pass, `## Tasks`, and execution order.
 - `docs/design/v<N>/coverage-<epic-id>.yaml` — the coverage manifest with `issue: null` placeholders.
 
-`<epic-id>` is the canonical epic identifier — see `/lld` Step 2 for the format. `<short-name>` is a 1–3-word lower-kebab phrase capturing the epic's domain concept; see `/lld` Step 2 for the derivation rule.
+`<epic-id>` is the canonical epic identifier — see `edf:lld` Step 2 for the format. `<short-name>` is a 1–3-word lower-kebab phrase capturing the epic's domain concept; see `edf:lld` Step 2 for the derivation rule.
 
-After `/lld` returns: read the produced LLD to extract task definitions for the next sub-step, and verify each non-null `lld:` value in the coverage manifest resolves to an actual `<a id="LLD-...">` anchor in the LLD file.
+After `edf:lld` returns: read the produced LLD to extract task definitions for the next sub-step, and verify each non-null `lld:` value in the coverage manifest resolves to an actual `<a id="LLD-...">` anchor in the LLD file.
 
 #### 3. Task issues (from LLD task breakdown)
 
@@ -413,18 +413,18 @@ entries:
     issue: <number>
     files: []
     status: Approved # Draft | Approved | Implemented | Revised
-    lld_revision: r1 # latest LLD revision shipped; bumped by /lld-sync
-    # files: populated by /feature-end after merge
+    lld_revision: r1 # latest LLD revision shipped; bumped by edf:lld-sync
+    # files: populated by edf:feature-end after merge
 ```
 
 **Valid statuses and who sets them:**
 
 | Status | Meaning | Set by |
 |--------|---------|--------|
-| `Draft` | Story deferred — no implementing LLD section yet | `/lld` or `/architect` at creation |
-| `Approved` | LLD written, not yet implemented | `/lld` or `/architect` at creation |
-| `Implemented` | PR merged, `files:` populated | `/feature-end` after merge |
-| `Revised` | LLD corrected post-implementation (regression or design gap found) | `/lld-sync` on LLD patch |
+| `Draft` | Story deferred — no implementing LLD section yet | `edf:lld` or `/architect` at creation |
+| `Approved` | LLD written, not yet implemented | `edf:lld` or `/architect` at creation |
+| `Implemented` | PR merged, `files:` populated | `edf:feature-end` after merge |
+| `Revised` | LLD corrected post-implementation (regression or design gap found) | `edf:lld-sync` on LLD patch |
 
 Rules:
 - One entry per REQ anchor in the requirements for stories covered by this epic.
@@ -432,7 +432,7 @@ Rules:
 - Do NOT invent status values — `Regression`, `Pending`, etc. are not valid. Use `Revised` + a comment when an LLD is corrected.
 - Stories already implemented by a prior epic get `status: Implemented` with the implementing epic's LLD and issue referenced. Add a comment noting the origin.
 - Stories with no LLD section yet get `lld: null` and `status: Draft`.
-- If `/kickoff` already created a coverage matrix for this epic, update it rather than creating a new file.
+- If `edf:kickoff` already created a coverage matrix for this epic, update it rather than creating a new file.
 
 #### 5. Design doc update (only when decision logic flags it)
 
@@ -459,11 +459,11 @@ After all in-scope epics are processed, summarise:
 
 - **Scope** — which epics were processed (and which were filtered out)
 - What was produced (table of epics and their artefacts)
-- **Execution waves** — final wave assignments showing which items can be implemented in parallel by `/feature-team`
+- **Execution waves** — final wave assignments showing which items can be implemented in parallel by `edf:feature-team`
 - **Parallelism refinements vs. kickoff's map (if any)** — list any epic pairs kickoff marked `Parallelisable with` that file-level analysis revealed as conflicting (and the converse: pairs serialised in the plan that LLDs prove are actually parallel-safe). Recommend a plan patch where appropriate.
 - Any items skipped and why
 - Any open questions or ambiguities found during design
-- Suggested next step: human reviews the artefacts, then `/feature` or `/feature-team` implements
+- Suggested next step: human reviews the artefacts, then `edf:feature` or `edf:feature-team` implements
 
 **Stop here.** The user reviews all artefacts before implementation begins.
 
@@ -475,8 +475,8 @@ After all in-scope epics are processed, summarise:
 - **British English** in all documentation.
 - **Keep artefacts proportional.** A one-line bug fix with existing LLD coverage needs only BDD specs in the issue. A small feature without LLD coverage needs an LLD section. Do not over-engineer the design for trivial items.
 - **Respect existing decisions.** Read ADRs before proposing new ones — the decision may already be recorded.
-- **Repo docs are source of truth.** GitHub issue bodies are convenient but not version-controlled. Every item that `/feature` will implement must have its design detail (fix approach, BDD specs, acceptance criteria) traceable to a file in `docs/`. Issue bodies reference these docs — they do not replace them.
+- **Repo docs are source of truth.** GitHub issue bodies are convenient but not version-controlled. Every item that `edf:feature` will implement must have its design detail (fix approach, BDD specs, acceptance criteria) traceable to a file in `docs/`. Issue bodies reference these docs — they do not replace them.
 - **Check before creating.** Always check for existing issues and design docs before creating new ones. Duplicate artefacts cause confusion.
-- **API route internal decomposition and reused helpers are `/lld`'s responsibility.** The `/lld` skill's template and self-critique pass already enforce API route internal decomposition, kb-based reused helpers tables, and no-raw-queries rules. `/architect` delegates to `/lld` — do not duplicate these rules here.
+- **API route internal decomposition and reused helpers are `edf:lld`'s responsibility.** The `edf:lld` skill's template and self-critique pass already enforce API route internal decomposition, kb-based reused helpers tables, and no-raw-queries rules. `/architect` delegates to `edf:lld` — do not duplicate these rules here.
 - **MCP tool handlers stay thin.** Tool handlers should parse inputs, delegate to a service function, and return. Business logic, store calls, and embedding work belong in services or store wrappers — not in the handler body. The LLD for any new tool must name the handler, the service function it delegates to, and the store/embedding boundaries it crosses.
 - **One LLD per epic.** Each epic gets a single LLD file (`lld-<epic-id>-<short-name>.md`). Tasks within the epic are sections of that LLD, not separate files.

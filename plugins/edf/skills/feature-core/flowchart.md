@@ -55,8 +55,8 @@ flowchart TD
         S5_E2E -->|"Yes"| S5_E2E_RUN(("edf:test-runner<br/>build + e2e"))
         S5_E2E -->|"No"| S6
         S5_E2E_RUN --> S6
-        S6["S6: /diag<br/>Light: src/ only<br/>Full: all files"] --> S6_CHK{"Zero findings?"}
-        S6_CHK -->|"No"| S6_FIX["Fix -> re-run /diag -> re-run S5"]
+        S6["S6: edf:diag<br/>Light: src/ only<br/>Full: all files"] --> S6_CHK{"Zero findings?"}
+        S6_CHK -->|"No"| S6_FIX["Fix -> re-run edf:diag -> re-run S5"]
         S6_FIX --> S6
         S6_CHK -->|"Yes"| S6B_GATE{"Track?"}
     end
@@ -77,7 +77,7 @@ flowchart TD
         S8_DEV -->|"Yes"| S8_PATCH["Patch PR body"]
         S8_DEV -->|"No"| S8B
         S8_PATCH --> S8B(("S8b: edf:ci-probe<br/>background"))
-        S8B --> S9["S9: /pr-review"]
+        S8B --> S9["S9: edf:pr-review"]
         S9 --> S9_T["Triage findings"]
         S9_T --> S9_B{"Blocker?"}
         S9_B -->|"Yes"| S9_FIX["Fix -> re-run S5 -> push"]

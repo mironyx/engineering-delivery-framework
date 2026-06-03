@@ -1,6 +1,6 @@
 ---
 name: discovery
-description: Explore a problem space from a freeform idea using adapted Lean Inception activities. Produces a structured discovery document with product vision, boundaries, personas, user journeys, features, and MVP sequencing. Use before /kickoff when starting a new project or major version. Web research included.
+description: Explore a problem space from a freeform idea using adapted Lean Inception activities. Produces a structured discovery document with product vision, boundaries, personas, user journeys, features, and MVP sequencing. Use before edf:kickoff when starting a new project or major version. Web research included.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite, WebSearch, WebFetch, Agent, Skill
 ---
 
@@ -342,9 +342,9 @@ After Gate 2 approval:
 ```markdown
 ## Next steps
 
-1. Run `/requirements` to produce `docs/requirements/v{N}-requirements.md`
+1. Run `edf:requirements` to produce `docs/requirements/v{N}-requirements.md`
    from this discovery
-2. Run `/kickoff docs/requirements/v{N}-requirements.md` to produce HLD,
+2. Run `edf:kickoff docs/requirements/v{N}-requirements.md` to produce HLD,
    ADRs, and implementation plan
 ```
 
@@ -358,7 +358,7 @@ git commit -m "docs: finalise discovery for v{N}"
 4. Report to the user: what was produced, key decisions, and suggested
    next step.
 
-**Stop here.** Do not proceed to `/kickoff` automatically.
+**Stop here.** Do not proceed to `edf:kickoff` automatically.
 
 ---
 
@@ -392,9 +392,9 @@ git commit -m "docs: address discovery review comments"
 
 - **Do not write requirements.** This skill explores the problem space and
   catalogues features. Formal user stories with acceptance criteria belong
-  in a requirements document (produced later, manually or via `/requirements`).
+  in a requirements document (produced later, manually or via `edf:requirements`).
 - **Do not design.** No components, no architecture, no technology choices.
-  Those belong in `/kickoff` and `/architect`.
+  Those belong in `edf:kickoff` and `edf:architect`.
 - **Research actively.** Use web search to ground the discovery in real
   domain knowledge, not just the human's initial idea. But keep research
   proportional — 3–5 searches, not 30.

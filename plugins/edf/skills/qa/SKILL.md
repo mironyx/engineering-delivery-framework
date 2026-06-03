@@ -1,6 +1,6 @@
 ---
 name: qa
-description: Quality assurance — executes E2E tests via Playwright, validates integration contracts, audits cross-story coverage, and produces a quality gate report. Invoked after /lld, before /feature, or post-implementation against a running app.
+description: Quality assurance — executes E2E tests via Playwright, validates integration contracts, audits cross-story coverage, and produces a quality gate report. Invoked after edf:lld, before edf:feature, or post-implementation against a running app.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill
 ---
 
@@ -426,7 +426,7 @@ Present the report path and summary verdict. Wait for user confirmation.
 If the user identifies issues:
 - E2E failures → the user may re-run specific scenarios or fix the app
 - Coverage gaps → the user may decide to defer, create issues, or update the manifest
-- Contract mismatches → flag for `/lld-sync` reconciliation
+- Contract mismatches → flag for `edf:lld-sync` reconciliation
 
 ### Step 8: Session log
 
@@ -490,4 +490,4 @@ git commit -m "docs(sessions): qa session for <epic-id>"
 - **Pre-mode is always available.** Even without a running app, contract validation, invariant checks, and coverage audit provide value. Don't skip QA just because the app isn't running.
 - **Failures are findings, not errors in the QA process.** A failed E2E test means the app has a bug — report it, don't fix it  (unless the user asks).
 - **Keep the report actionable.** Each gap or failure must have a clear next step: fix the app, update the LLD, create an issue, or accept the risk.
-- **Coverage manifest is authoritative for cross-story audit.** If it's missing, flag it — the `/lld` skill should have created it.
+- **Coverage manifest is authoritative for cross-story audit.** If it's missing, flag it — the `edf:lld` skill should have created it.

@@ -1,6 +1,6 @@
 ---
 name: feature
-description: Autonomously implement the next feature from the project board. Picks the top Todo item, creates a branch, implements with TDD, runs diagnostics, commits, creates a PR, runs /pr-review and fixes any findings, then reports. Only pauses for real blockers.
+description: Autonomously implement the next feature from the project board. Picks the top Todo item, creates a branch, implements with TDD, runs diagnostics, commits, creates a PR, runs edf:pr-review and fixes any findings, then reports. Only pauses for real blockers.
 allowed-tools: Read, Write, Edit, MultiEdit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 ---
 
@@ -82,7 +82,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-ses
 With the branch checked out and the board item In Progress, hand off to the core implementation cycle:
 
 ```
-/feature-core <issue-number>
+edf:feature-core <issue-number>
 ```
 
 This covers: read design → TDD → full verification → silent-swallow check → diagnostics → commit → PR + CI probe → review → report.
@@ -94,4 +94,4 @@ This covers: read design → TDD → full verification → silent-swallow check 
 - Issue not found on the board or has no kind:task label
 - Issue lacks a design reference or acceptance criteria (caught in Step 1 validation)
 
-For all other blockers (test failures, type errors, design mismatches, missing dependencies), see the blocker policy in `/feature-core`.
+For all other blockers (test failures, type errors, design mismatches, missing dependencies), see the blocker policy in `edf:feature-core`.

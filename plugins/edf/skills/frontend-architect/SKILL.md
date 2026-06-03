@@ -1,6 +1,6 @@
 ---
 name: frontend-architect
-description: Establish the frontend design system before any UI feature work. Surveys existing pages and components, commits to a bold aesthetic direction (drawing on /frontend-design thinking), chooses a CSS framework, defines design tokens, and produces docs/design/frontend-system.md as the spec all subsequent /feature agents implement against. Stops for human review before implementation.
+description: Establish the frontend design system before any UI feature work. Surveys existing pages and components, commits to a bold aesthetic direction (drawing on /frontend-design thinking), chooses a CSS framework, defines design tokens, and produces docs/design/frontend-system.md as the spec all subsequent edf:feature agents implement against. Stops for human review before implementation.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill, TodoWrite
 ---
 

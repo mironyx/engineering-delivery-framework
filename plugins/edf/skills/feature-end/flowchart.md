@@ -10,9 +10,9 @@ flowchart TD
     S1_CHK -->|"Yes"| STOP_REVIEW(["fa:fa-ban Stop: CHANGES_REQUESTED"])
     S1_CHK -->|"No"| S1_5
 
-    S1_5["S1.5: LLD Sync<br/>Run /lld-sync if<br/>LLD covers this issue"] --> S1_5_CHK{"Already<br/>synced?"}
+    S1_5["S1.5: LLD Sync<br/>Run edf:lld-sync if<br/>LLD covers this issue"] --> S1_5_CHK{"Already<br/>synced?"}
     S1_5_CHK -->|"Yes"| S2
-    S1_5_CHK -->|"No"| S1_5_RUN(("/lld-sync"))
+    S1_5_CHK -->|"No"| S1_5_RUN(("edf:lld-sync"))
     S1_5_RUN --> S2
 
     S2["S2: Write session log<br/>Work completed, decisions,<br/>LLD sync report, cost retro"] --> S2_5["S2.5: Query final cost<br/>query-feature-cost.py --stage final"]

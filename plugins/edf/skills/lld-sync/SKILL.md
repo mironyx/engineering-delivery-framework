@@ -1,6 +1,6 @@
 ---
 name: lld-sync
-description: Sync the LLD back to the implementation after a feature is complete. Reads the design spec and the actual code, produces a structured diff, and updates the LLD in-place. Run after implementation, before feature-end.
+description: Sync the LLD back to the implementation after a feature is complete. Reads the design spec and the actual code, produces a structured diff, and updates the LLD in-place. Run after implementation, before edf:feature-end.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 ---
 
@@ -9,9 +9,9 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 Updates the Low-Level Design document to reflect what was actually built, capturing implementation
 learnings back into the design so future features start from accurate specs.
 
-**Run after implementation is complete, before `/feature-end`.**
+**Run after implementation is complete, before `edf:feature-end`.**
 
-This is the symmetric complement to `/lld` (which generates design _before_ implementation). Together
+This is the symmetric complement to `edf:lld` (which generates design _before_ implementation). Together
 they close the Theory Building loop: design informs implementation, implementation corrects design.
 
 ## Arguments
@@ -43,12 +43,12 @@ Refactor-mode adjustments per step are tagged **[refactor]**. When unmarked, bot
 4. Read the PR body for this branch:
    - `gh pr view <number> --json body -q '.body'`.
    - Look for a `## Design deviations` section — these are deliberate departures from the LLD
-     that the implementer documented during `/feature-core` Step 3b.
+     that the implementer documented during `edf:feature-core` Step 3b.
    - Each deviation note explains what the LLD recommended, what was built instead, and why.
      Use these as the primary source for **Corrections** in Step 2.
 4a. Read PR comments:
    - `gh api repos/:owner/:repo/issues/<pr-number>/comments --jq '.[].body'`.
-   - PR comments often contain review findings (`/pr-review` output), discussion threads about
+   - PR comments often contain review findings (`edf:pr-review` output), discussion threads about
      design decisions, and feedback that was addressed during implementation.
    - Scan for design-relevant content: contract mismatches, type corrections, decisions about
      deferred items, rationale for approach changes. Use these alongside the PR body's
@@ -139,15 +139,15 @@ the LLD sections you just changed:
 - For each entry whose `### Story <REQ>` block was just deleted from a `## Pending changes — Rev N`
   section (Step 3c below), set `lld_revision` to the revision number that just shipped (e.g. `r2`)
   and flip `status` to `Implemented`. This is the only place `lld_revision` is written.
-- Do **not** touch `files:` for entries unrelated to this issue — `/feature-end` owns the
+- Do **not** touch `files:` for entries unrelated to this issue — `edf:feature-end` owns the
   initial population.
 
 Manifest ownership summary (for reference):
 
 | Skill | Writes | Flips status to |
 |-------|--------|-----------------|
-| `/lld` | Creates manifest, one row per REQ- anchor, empty `files`, `status: Approved` | `Approved` |
-| `/feature-end` | Populates `files:` after merge | `Implemented` |
+| `edf:lld` | Creates manifest, one row per REQ- anchor, empty `files`, `status: Approved` | `Approved` |
+| `edf:feature-end` | Populates `files:` after merge | `Implemented` |
 | `/lld-sync` | Updates entries for sections changed by Corrections/Additions | `Revised` |
 | `/lld-sync` | Removes shipped Rev X blocks; bumps `lld_revision` for those entries | `Implemented` |
 
@@ -198,7 +198,7 @@ This step does not apply in feature mode.
 
 ### Step 4: Produce the sync report
 
-Print the report below to the agent's output (stdout). **`/feature-end` Step 2 picks it up from the conversation context and pastes it verbatim into the session log under a `## LLD Sync report` heading.** Do not write to a file yourself — single-writer model, `/feature-end` owns the session log.
+Print the report below to the agent's output (stdout). **`edf:feature-end` Step 2 picks it up from the conversation context and pastes it verbatim into the session log under a `## LLD Sync report` heading.** Do not write to a file yourself — single-writer model, `edf:feature-end` owns the session log.
 
 ```
 ## LLD Sync — Issue #N: [title]

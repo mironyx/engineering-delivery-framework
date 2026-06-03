@@ -1,6 +1,6 @@
 ---
 name: feature-core
-description: Core implementation cycle: read design, TDD, verify, diagnostics, commit, PR, CI probe, review, report. Called by /feature and /feature-team skills after branch setup.
+description: Core implementation cycle: read design, TDD, verify, diagnostics, commit, PR, CI probe, review, report. Called by edf:feature and edf:feature-team skills after branch setup.
 allowed-tools: Read, Write, Edit, MultiEdit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 ---
 
@@ -66,8 +66,8 @@ tests, docs, config). Use your approach from Step 3b as the basis — you know t
 
 | Tier | Estimated src lines | Files touched | Track |
 |------|-------------------|---------------|-------|
-| **Light** | < 30 lines | <= 3 files | Inline tests, no sub-agents, `/diag` on `src/` only, skip evaluator |
-| **Standard** | 30-150 lines | any | Interface -> test-author -> implement, full `/diag`, evaluator |
+| **Light** | < 30 lines | <= 3 files | Inline tests, no sub-agents, `edf:diag` on `src/` only, skip evaluator |
+| **Standard** | 30-150 lines | any | Interface -> test-author -> implement, full `edf:diag`, evaluator |
 | **Heavy** | 150+ lines | any | Same as Standard; consider splitting into sub-issues |
 
 **Bug fixes default to Light** unless the fix is genuinely complex (multi-file refactor,
@@ -209,19 +209,19 @@ If any fail, fix and re-run via `edf:test-runner`. If stuck after 3 attempts on 
 
 ### Step 6: Diagnostics (blocking gate)
 
-Run `/diag` on changed files. This is a **blocking gate** — do not proceed until clean.
+Run `edf:diag` on changed files. This is a **blocking gate** — do not proceed until clean.
 
 **Scope by track:**
 
-- **Light track:** Run `/diag` on changed `src/` files only. Skip test files.
-- **Full track:** Run `/diag` on all changed files — including test files under `tests/`.
+- **Light track:** Run `edf:diag` on changed `src/` files only. Skip test files.
+- **Full track:** Run `edf:diag` on all changed files — including test files under `tests/`.
 
 Then:
 
-1. Run `/diag` on the scoped file set.
+1. Run `edf:diag` on the scoped file set.
 2. If any findings exist, fix them all. **Exception: ignore smells on generated files** (e.g. content under `<migration-dir>` for projects that generate migrations from a declarative schema).
-3. After fixing, re-run `/diag` to confirm the findings are gone.
-4. Repeat until `/diag` reports zero findings on non-generated files.
+3. After fixing, re-run `edf:diag` to confirm the findings are gone.
+4. Repeat until `edf:diag` reports zero findings on non-generated files.
 5. Re-run Step 5 (full verification) after any fixes.
 
 ### Step 6b: Evaluate (Full track only)
@@ -248,7 +248,7 @@ Input: requirements_paths=<list> lld_path=<path> issue_number=<N> changed_files=
 
 - **PASS** — every acceptance criterion maps to at least one passing test, no gaps. Proceed to Step 7.
 - **PASS WITH WARNINGS** — minor gaps found, evaluator added a small number of adversarial tests. Review warnings, fix quick wins, note the rest in the PR body. Proceed to Step 7.
-- **FAIL** — a criterion is uncovered or an adversarial test exposed a real defect. Fix the implementation, re-run Step 5 (verification) and Step 6 (`/diag`). Do NOT re-run the evaluator — proceed to Step 7 after verification passes.
+- **FAIL** — a criterion is uncovered or an adversarial test exposed a real defect. Fix the implementation, re-run Step 5 (verification) and Step 6 (`edf:diag`). Do NOT re-run the evaluator — proceed to Step 7 after verification passes.
 
 If evaluator writes > 3 adversarial tests, note count in Step 10 report and PR body — but do not block.
 
@@ -309,7 +309,7 @@ When the probe reports back during Step 9:
 
 ### Step 9: Review
 
-Run `/pr-review <pr-number>` on the PR just created. This posts a comment on the PR and
+Run `edf:pr-review <pr-number>` on the PR just created. This posts a comment on the PR and
 returns findings. Triage each finding:
 
 - **Blocker / correctness issue** — fix it: update the code, re-run Step 5 (verification), add a commit, push.
@@ -318,7 +318,7 @@ returns findings. Triage each finding:
 - **Non-blocking suggestion** — decide whether it is worth fixing now (quick win) or deferring. If deferring, note it in the Step 10 report.
 - **Style / minor** — fix if trivial; otherwise note and move on.
 
-After any fixes, re-run `/pr-review <pr-number>` to confirm no new issues were introduced.
+After any fixes, re-run `edf:pr-review <pr-number>` to confirm no new issues were introduced.
 
 ### Step 10: Report
 

@@ -79,7 +79,7 @@ Save to `docs/reports/retro/YYYY-MM-DD-process-retro.md` using this structure:
 
 ### 4. Run drift scan
 
-After writing the retro report, run `/drift-scan` to produce a fresh drift report. Reference
+After writing the retro report, run `edf:drift-scan` to produce a fresh drift report. Reference
 the drift findings in the retro report's "What needs improving" section if any Critical or
 Warning items are found. This replaces the previous practice of carrying "run drift scan" as
 a retro action.

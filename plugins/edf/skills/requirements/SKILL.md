@@ -1,6 +1,6 @@
 ---
 name: requirements
-description: Transform discovery output or a freeform brief into a structured requirements document with epics, prioritised user stories, and testable acceptance criteria. Use after /discovery (or standalone for smaller projects) and before /kickoff.
+description: Transform discovery output or a freeform brief into a structured requirements document with epics, prioritised user stories, and testable acceptance criteria. Use after edf:discovery (or standalone for smaller projects) and before edf:kickoff.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite, WebSearch, WebFetch, Agent, Skill
 ---
 
@@ -616,7 +616,7 @@ Ask explicitly: **"Are the acceptance criteria testable and complete? Any
 
 **Stop. Wait for explicit user approval.** The user may:
 
-- Approve — the requirements doc is ready for `/kickoff`
+- Approve — the requirements doc is ready for `edf:kickoff`
 - Add `[Review]` comments and re-invoke `/requirements`
 - Request changes to specific ACs or stories
 
@@ -630,7 +630,7 @@ After Gate 2 approval:
 ```markdown
 ## Next steps
 
-1. Run `/kickoff docs/requirements/v{N}-requirements.md` to produce HLD,
+1. Run `edf:kickoff docs/requirements/v{N}-requirements.md` to produce HLD,
    ADRs, and implementation plan
 ```
 
@@ -647,7 +647,7 @@ After Gate 2 approval:
 6. Report to the user: what was produced, key decisions, and suggested next
    step.
 
-**Stop here.** Do not proceed to `/kickoff` automatically.
+**Stop here.** Do not proceed to `edf:kickoff` automatically.
 
 ---
 

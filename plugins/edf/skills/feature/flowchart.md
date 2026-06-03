@@ -1,6 +1,6 @@
 # /feature — Process flowchart
 
-Visual overview of the autonomous implementation cycle. The skill handles pre-flight, issue selection, branch creation, and hands off to /feature-core. Agent spawns are purple, decisions are orange, blocking gates are red.
+Visual overview of the autonomous implementation cycle. The skill handles pre-flight, issue selection, branch creation, and hands off to edf:feature-core. Agent spawns are purple, decisions are orange, blocking gates are red.
 
 ```mermaid
 flowchart TD
@@ -29,7 +29,7 @@ flowchart TD
     S1_TAG --> S2["S2: Create feature branch<br/>feat/slug from origin/main"]
     S2 --> S2_BOARD["Move issue to In Progress<br/>gh-project-status.sh"]
 
-    S2_BOARD --> S3(("S3: /feature-core<br/>Hand off to core<br/>implementation cycle"))
+    S2_BOARD --> S3(("S3: edf:feature-core<br/>Hand off to core<br/>implementation cycle"))
 
     S3 --> DONE(["fa:fa-check Feature complete"])
 

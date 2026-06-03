@@ -1,14 +1,14 @@
 ---
 name: kickoff
-description: Bootstrap a project version from a versioned requirements document. Produces the HLD (Levels 1–3, full or delta), load-bearing ADRs, an epic-shaped plan, and epic issues — with human gates after each. Version slug derived from the requirements filename. Use at the start of v1 or any major version (v2, v11, …), before /architect. See ADR-0021 (pipeline) and ADR-0018 (epic model).
+description: Bootstrap a project version from a versioned requirements document. Produces the HLD (Levels 1–3, full or delta), load-bearing ADRs, an epic-shaped plan, and epic issues — with human gates after each. Version slug derived from the requirements filename. Use at the start of v1 or any major version (v2, v11, …), before edf:architect. See ADR-0021 (pipeline) and ADR-0018 (epic model).
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill, TodoWrite
 ---
 
 # Kickoff — Version Bootstrap
 
 Takes a versioned requirements document (`docs/requirements/<version>-requirements.md`)
-and produces the design artefacts needed before `/architect` can generate
-LLDs and `/feature` can implement. Owns Levels 1–3 of the design-down
+and produces the design artefacts needed before `edf:architect` can generate
+LLDs and `edf:feature` can implement. Owns Levels 1–3 of the design-down
 process at version-wide scope.
 
 Design artefacts for a version are written into `docs/design/<version>/`
@@ -16,7 +16,7 @@ per ADR-0036 (document organisation convention).
 
 The unit of delivery is the **epic** (ADR-0018). This skill produces a
 plan that sequences epics and creates one GitHub issue per epic. It does
-**not** produce per-task issues — `/architect` handles task breakdown
+**not** produce per-task issues — `edf:architect` handles task breakdown
 within each epic.
 
 See [ADR-0021](../../docs/adr/0021-project-bootstrap-pipeline.md) for
@@ -187,7 +187,7 @@ user to confirm the list** before drafting any ADR.
 
 For each confirmed ADR:
 
-1. Use `/create-adr` to draft. Follow the project's ADR format and
+1. Use `edf:create-adr` to draft. Follow the project's ADR format and
    numbering (next free number in `docs/adr/`).
 2. Commit:
    ```bash
@@ -197,7 +197,7 @@ For each confirmed ADR:
 3. **Stop. Wait for user approval before drafting the next ADR.**
 
 Do not draft ADRs for non-load-bearing decisions. Those belong in LLDs
-produced later by `/architect`.
+produced later by `edf:architect`.
 
 ### Step 6: Draft the epic-shaped plan
 
@@ -254,9 +254,9 @@ graph TD
   E11.3 --> E11.4
 ```
 
-Recommendation for the human running `/feature-team`: the `parallel-safe`
+Recommendation for the human running `edf:feature-team`: the `parallel-safe`
 groups are candidate batches. File-level conflict analysis happens later
-in `/architect` and may further constrain ordering once tasks are known.
+in `edf:architect` and may further constrain ordering once tasks are known.
 ```
 
 Numbering: use `E<version-number>.<sequence>` (e.g. `E11.1`, `E11.2`) so
@@ -312,7 +312,7 @@ docs/design/<version>/<version>-design.md#<anchor>
 - #<other-epic-issue> (or "none")
 
 ## Tasks
-- [ ] (to be filled by /architect)
+- [ ] (to be filled by edf:architect)
 EOF
 )
 RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
@@ -322,7 +322,7 @@ RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
   --add-to-board)
 ```
 
-**Do not create task issues here.** `/architect` produces tasks per epic
+**Do not create task issues here.** `edf:architect` produces tasks per epic
 along with their LLDs.
 
 ### Step 9: Update CLAUDE.md (initial mode only)
@@ -358,10 +358,10 @@ Summarise to the user:
 - Plan file
 - Epic issues created (numbers, titles, dependency order)
 - Drift-scan verdicts (both runs)
-- Suggested next step: `/architect <first-epic-issue>` to produce per-task
+- Suggested next step: `edf:architect <first-epic-issue>` to produce per-task
   LLDs and task issues for the first epic in the dependency order
 
-**Stop.** Do not auto-trigger `/architect` or `/feature`. Bootstrap is a
+**Stop.** Do not auto-trigger `edf:architect` or `edf:feature`. Bootstrap is a
 deliberate, gated process — the user drives the transition to
 implementation.
 
@@ -375,11 +375,11 @@ implementation.
 - **Delta mode reuses prior HLDs.** Do not restate v1 in v11. Reference
   unchanged areas by anchor.
 - **One ADR at a time.** Batching ADR review encourages rubber-stamping.
-- **No task issues from kickoff.** Task creation is `/architect`'s job per
+- **No task issues from kickoff.** Task creation is `edf:architect`'s job per
   ADR-0018.
 - **Plan for parallelism, but only at epic granularity.** Decide which
   epics can run concurrently based on disjoint component ownership and
-  dependency order. File-level conflict analysis is `/architect`'s job —
+  dependency order. File-level conflict analysis is `edf:architect`'s job —
   it has the actual file paths. If component ownership cannot be made
   disjoint (e.g. two epics genuinely both modify the same component),
   serialise them rather than pretending they parallelise.
@@ -388,7 +388,7 @@ implementation.
 - **REQ- anchors propagate downstream (ADR-0026).** Every epic in the plan and
   every epic issue body lists the `REQ-<epic-slug>-<story-slug>` anchors of the
   stories it owns. If the requirements doc lacks anchors, stop — re-run
-  `/requirements` to emit them rather than proceeding with text-only references.
+  `edf:requirements` to emit them rather than proceeding with text-only references.
   Coverage at the plan level is the user's last chance to spot a story that
   fell off the truck before issues are cut.
 - **Respect existing ADRs.** If requirements contradict an accepted ADR,
@@ -399,5 +399,5 @@ implementation.
   stop and ask.
 - **Keep the HLD proportional.** Three levels covering the main shape —
   not an exhaustive design. Level 4 detail belongs in LLDs produced by
-  `/architect`.
+  `edf:architect`.
 - **British English.** No Co-Authored-By trailers.

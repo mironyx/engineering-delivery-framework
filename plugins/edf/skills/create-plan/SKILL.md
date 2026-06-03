@@ -1,13 +1,13 @@
 ---
 name: create-plan
-description: Create a detailed implementation plan for a feature, phase, or epic, derived from an existing HLD. Use when an HLD already exists and a phase or epic needs planning. Do NOT use for initial project bootstrap — use /kickoff instead, which owns HLD + plan together. See ADR-0021.
+description: Create a detailed implementation plan for a feature, phase, or epic, derived from an existing HLD. Use when an HLD already exists and a phase or epic needs planning. Do NOT use for initial project bootstrap — use edf:kickoff instead, which owns HLD + plan together. See ADR-0021.
 allowed-tools: Read, Write, Bash, Glob, Grep
 ---
 
 # Create Implementation Plan
 
 Produces a plan doc shaped around the **epic/task model** (ADR-0018) so it hands
-off cleanly to `/architect epic <n>`.
+off cleanly to `edf:architect epic <n>`.
 
 ## Usage
 
@@ -31,14 +31,14 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 4. **Propose the epic + task breakdown** (see decomposition rules below) and get
    approval before writing the full plan.
 5. **Write the plan** to `docs/plans/YYYY-MM-DD-<short-name>.md`.
-6. **Report next step**: `/architect epic <n>` once the epic issue is created,
-   or `/architect <plan-path>` if no epic issue yet.
+6. **Report next step**: `edf:architect epic <n>` once the epic issue is created,
+   or `edf:architect <plan-path>` if no epic issue yet.
 
-## Decomposition Rules (from ADR-0018 + `/architect`)
+## Decomposition Rules (from ADR-0018 + `edf:architect`)
 
 - One **epic** = one deliverable feature. The plan produces exactly one epic
   unless the input genuinely covers multiple unrelated deliverables.
-- **Tasks** are sized for a single `/feature` cycle (< 200 lines of diff).
+- **Tasks** are sized for a single `edf:feature` cycle (< 200 lines of diff).
 - Split a task only if **both** hold: > 200 lines estimated **and** a natural
   seam (independently testable, non-overlapping files).
 - Each task must name its design artefact need: new LLD, update to existing
@@ -108,7 +108,7 @@ plan sits at (usually Level 5 — Implementation, assuming Levels 1–4 exist).>
 ## Next Step
 
 1. Create the epic issue on the project board (body = Epic section above).
-2. Run `/architect epic <epic-issue-number>` to produce per-task LLDs and
+2. Run `edf:architect epic <epic-issue-number>` to produce per-task LLDs and
    task issues.
 ```
 
@@ -122,4 +122,4 @@ plan sits at (usually Level 5 — Implementation, assuming Levels 1–4 exist).>
 - **Separate automated from manual verification** in success criteria.
 - **British English** in all documentation.
 - **Do not create issues or design artefacts here.** This skill produces the
-  plan document only. `/architect` creates epic/task issues and LLDs.
+  plan document only. `edf:architect` creates epic/task issues and LLDs.

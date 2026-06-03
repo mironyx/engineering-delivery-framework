@@ -12,7 +12,7 @@ Finalises a feature branch after the PR has been reviewed and approved. Handles 
 
 **Usage:**
 - `/feature-end` — detects the PR from the current branch (original behaviour)
-- `/feature-end <issue-number>` — looks up the PR for the given issue. If an orphaned worktree exists (crashed teammate), switches into it and recovers. Otherwise checks out the branch (used by `/feature-team` lead when triggering remotely via message).
+- `/feature-end <issue-number>` — looks up the PR for the given issue. If an orphaned worktree exists (crashed teammate), switches into it and recovers. Otherwise checks out the branch (used by `edf:feature-team` lead when triggering remotely via message).
 
 A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the wrap-up sequence, merge strategy, or cleanup steps.
 
@@ -84,12 +84,12 @@ search `docs/design/v*/lld-*.md` (new version-foldered per ADR-0036) and `docs/d
 issue (chore or infrastructure task), skip and note "lld-sync skipped — no LLD covers this
 issue" in the session log.
 
-- **Any change that touches files under an LLD:** Run `/lld-sync <issue-number>` to update
+- **Any change that touches files under an LLD:** Run `edf:lld-sync <issue-number>` to update
   the LLD with implementation learnings. **Capture the structured sync report (Corrections /
   Additions / Omissions / Confirmations / LLD updated) — Step 2 copies it verbatim into the
   session log under `## LLD Sync report`.** Decisions narrative and review feedback narrative
   still go into their own sections; the `## LLD Sync report` section is the unedited
-  `/lld-sync` Step 4 output, preserved for future readers.
+  `edf:lld-sync` Step 4 output, preserved for future readers.
 
 ### Step 2: Write session log — MANDATORY
 
@@ -131,7 +131,7 @@ If a matching file exists, skip writing and proceed to Step 2.5.
    - Work completed (reference issue number and PR)
    - Decisions made during the session
    - Any review feedback addressed
-   - **`## LLD Sync report`** — paste the structured `/lld-sync` Step 4 output **verbatim** (the Corrections / Additions / Omissions / Confirmations / LLD updated sections you saw in the previous turn). Do not summarise or paraphrase; future readers and the dogfood retro need the unedited report. If `/lld-sync` was skipped because no LLD covers this issue, write: _"Skipped — no LLD covers this issue."_
+   - **`## LLD Sync report`** — paste the structured `edf:lld-sync` Step 4 output **verbatim** (the Corrections / Additions / Omissions / Confirmations / LLD updated sections you saw in the previous turn). Do not summarise or paraphrase; future readers and the dogfood retro need the unedited report. If `edf:lld-sync` was skipped because no LLD covers this issue, write: _"Skipped — no LLD covers this issue."_
    - Next steps or follow-up items
    - Final feature cost (from Step 2.5) — include both the PR-creation cost (from PR body) and the final total, so the delta is visible
 3. If a draft file was used, delete it: `rm docs/sessions/**/*-draft.md`.
@@ -145,7 +145,7 @@ gh issue view <issue-number> --json labels --jq '.labels[].name' | grep -q "^ai-
 ```
 If `SKIP`, note "cost already labelled" in the session log and proceed to Step 2.6.
 
-Query Prometheus for the full feature total (all sessions since `/feature` started — same
+Query Prometheus for the full feature total (all sessions since `edf:feature` started — same
 session IDs registered in the textfile). This is the **final** cost snapshot; comparing it
 to the cost recorded in the PR body at creation time shows how much effort was spent
 post-PR (review fixes, re-runs, etc.). Applies `ai-cost-final:*`, `input-tokens-final:*`, and `output-tokens-final:*` labels to the issue and PR (complementing the `*-pr` labels written at PR creation).
@@ -321,7 +321,7 @@ this feature implemented.
    - Append every merged source file path (from `git diff --name-only origin/main...HEAD -- 'src/**'`,
      captured **before** the rebase in Step 3.5) to `files:`.
    - Flip `status` from `Approved` (or `Revised`) to `Implemented`.
-   - Leave `status` at `Revised` if `/lld-sync` already flipped it — `Revised` outranks
+   - Leave `status` at `Revised` if `edf:lld-sync` already flipped it — `Revised` outranks
      `Implemented` until the next feature confirms the new shape; in that case still set
      `issue:` and append to `files:` but keep `status: Revised`.
 

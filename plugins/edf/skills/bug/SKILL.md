@@ -1,6 +1,6 @@
 ---
 name: bug
-description: Investigate a bug from a vague symptom, error message, or behaviour description. Researches the codebase to find root cause, checks for LLD gaps, and creates a well-formed GitHub issue ready for /feature. Use when the user reports a bug, error, unexpected behaviour, or says something like "X is broken", "I'm seeing an error in Y", or "this doesn't work". Also use when the user pastes an error log, stack trace, or describes a symptom without knowing the cause.
+description: Investigate a bug from a vague symptom, error message, or behaviour description. Researches the codebase to find root cause, checks for LLD gaps, and creates a well-formed GitHub issue ready for edf:feature. Use when the user reports a bug, error, unexpected behaviour, or says something like "X is broken", "I'm seeing an error in Y", or "this doesn't work". Also use when the user pastes an error log, stack trace, or describes a symptom without knowing the cause.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 ---
 
@@ -128,21 +128,21 @@ one of three classes. Each maps to a distinct downstream path.
 
 - Manifest status is `Implemented` and the LLD spec matches intent.
 - Fix touches `src/` only; no design artefacts change.
-- Downstream: `/feature <N>` to implement.
+- Downstream: `edf:feature <N>` to implement.
 
 **LLD gap** — the design was wrong or incomplete; code and LLD must change.
 
 - Manifest status is `Implemented` but the LLD spec is missing/incorrect, or
   the code has diverged from a still-correct LLD.
 - Fix touches `src/`; the LLD will be patched after merge.
-- Downstream: `/feature <N>` implements; after merge `/lld-sync` flips the
+- Downstream: `edf:feature <N>` implements; after merge `edf:lld-sync` flips the
   manifest entry to `Revised` and patches the LLD.
 
 **Missing functionality** — the story was never implemented.
 
 - Manifest status is `Draft`, or no manifest entry exists for the area.
 - Needs design before implementation.
-- Downstream: `/architect` adds an LLD section, then `/feature <N>`.
+- Downstream: `edf:architect` adds an LLD section, then `edf:feature <N>`.
 
 Add the `needs-design` label whenever the class is **Missing functionality**,
 or whenever the bug spans multiple components, requires an architectural
@@ -265,19 +265,19 @@ Present a concise summary:
 ### Next step
 
 [Code-only:]
-Run `/feature <N>` to implement the fix. No design artefacts change.
+Run `edf:feature <N>` to implement the fix. No design artefacts change.
 
 [LLD gap:]
-Run `/feature <N>` to fix the code. After merge, `/lld-sync` will patch the
+Run `edf:feature <N>` to fix the code. After merge, `edf:lld-sync` will patch the
 LLD and flip the manifest entry to `Revised`.
 
 [Missing functionality:]
-Run `/architect` to design the LLD section (issue carries `needs-design`),
-then `/feature <N>` to implement. After merge, `/lld-sync` finalises the
+Run `edf:architect` to design the LLD section (issue carries `needs-design`),
+then `edf:feature <N>` to implement. After merge, `edf:lld-sync` finalises the
 manifest.
 ```
 
-**Stop here.** Do not proceed to `/feature`, `/architect`, or `/lld-sync`
+**Stop here.** Do not proceed to `edf:feature`, `edf:architect`, or `edf:lld-sync`
 automatically.
 
 ## Guidelines

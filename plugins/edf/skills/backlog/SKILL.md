@@ -16,7 +16,7 @@ This skill **never** mutates state:
 - No `gh-project-status.sh` calls that change status.
 - No edits to `docs/requirements/`, `docs/design/`, `docs/adr/`, or `CLAUDE.md`.
 
-Write only the report file in `docs/reports/`. The human reads the report and actions approved items manually (or invokes the relevant skill: `/feature`, `gh-create-issue.sh`, etc.).
+Write only the report file in `docs/reports/`. The human reads the report and actions approved items manually (or invokes the relevant skill: `edf:feature`, `gh-create-issue.sh`, etc.).
 
 A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the scoring formula, health checks, or report structure.
 
@@ -265,7 +265,7 @@ The report is authoritative — do not duplicate it in the terminal.
 
 ## What this skill is NOT
 
-- **Not `/retro`** — /retro is about process health (how we work). /backlog is about product health (what we build next).
-- **Not `/drift-scan`** — /drift-scan detects requirements↔design↔code mismatches. /backlog consumes drift output.
-- **Not PO acceptance** — a separate skill (future) will walk deployed features against requirements on a test environment. /backlog is desk-based analysis only.
+- **Not `edf:retro`** — retro is about process health (how we work). backlog is about product health (what we build next).
+- **Not `edf:drift-scan`** — drift-scan detects requirements↔design↔code mismatches. backlog consumes drift output.
+- **Not PO acceptance** — a separate skill (future) will walk deployed features against requirements on a test environment. backlog is desk-based analysis only.
 - **Not auto-actioning** — propose-only. The human reviews and invokes the relevant skill to action approved items.
