@@ -27,6 +27,40 @@ These override any conflicting instinct. Violations are the top cost drivers.
 
 A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing step order, adding/removing agent spawns, or modifying branching logic.
 
+## Managing technical debt
+
+**Rule: if you knowingly leave something unfixed, leave a visible marker.**
+
+When you defer a fix, skip a refactor, accept a rough edge, or hit a limitation that prevents
+a full resolution — **leave a `TODO` comment in the code**. Tech debt that lives only in PR
+comments or session logs is invisible to the next developer who reads the file. A `grep TODO`
+in the source tree should surface everything that was intentionally deferred.
+
+Each TODO must:
+1. **Reference the issue or PR number** for traceability (e.g. `#42` or `PR #128`)
+2. **Describe what should be done** and why it was deferred
+3. **Be on its own line** so `grep -rn "TODO" src/` catches it without extra context
+
+Pattern:
+```
+// TODO(#123): Refactor this cache once the shared invalidation layer lands (PR #456).
+// Deferred — the fix here is correct but duplicated; consolidation is tracked separately.
+```
+
+Prefer `TODO` over `FIXME`, `HACK`, or `NOTE` — it is the single convention every editor
+highlights and every grep finds. Keep them in source files (not test files, not config) so
+they sit where the next developer will actually see them.
+
+**When to leave a TODO (non-exhaustive):**
+- A PR review finding was deferred (Step 9 non-blocking suggestion)
+- A diagnostic finding was intentionally not fixed (Step 6 false positive or out-of-scope)
+- A design deviation created a known gap that the LLD expects but was cut for scope
+- A dependency or util doesn't exist yet and a stub was written instead
+- A refactor opportunity was noted but is too large for the current PR
+
+**Do NOT leave TODOs for:** things you plan to fix in the same PR, obvious typos, or
+temporary debugging code (remove that before committing).
+
 ## Steps — Shared preamble
 
 Execute sequentially. Do not skip steps. Do not ask for confirmation — only pause on blockers.
@@ -376,7 +410,7 @@ returns findings. Triage each finding:
 - **Blocker / correctness issue** — fix it: update the code, re-run Step 5 (verification), add a commit, push.
 - **Design contract mismatch** — check whether the design or the implementation is wrong:
   if the implementation is wrong, fix it; if the design is outdated, update the design doc in the same branch.
-- **Non-blocking suggestion** — decide whether it is worth fixing now (quick win) or deferring. If deferring, note it in the Step 10 report.
+- **Non-blocking suggestion** — decide whether it is worth fixing now (quick win) or deferring. If deferring, **leave a `TODO` comment in the affected file** (see [Managing technical debt](#managing-technical-debt)) and note it in the Step 10 report.
 - **Style / minor** — fix if trivial; otherwise note and move on.
 
 After any fixes, re-run `edf:pr-review <pr-number>` to confirm no new issues were introduced.
@@ -424,3 +458,7 @@ Then summarise what was done:
 - Issue has no acceptance criteria
 
 **Do NOT pause for:** lint issues, minor test adjustments, missing exports, diagnostic warnings, PR slightly over 200 lines.
+
+If you write a workaround (e.g. stub, backfill, hardcoded value) to unblock progress when a
+dependency is missing or a full fix is not possible in this PR, **leave a `TODO` comment**
+(see [Managing technical debt](#managing-technical-debt)) so the stub is discoverable later.

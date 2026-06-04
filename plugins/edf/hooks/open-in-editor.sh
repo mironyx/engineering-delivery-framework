@@ -1,6 +1,6 @@
 #!/bin/bash
 # PostToolUse hook: opens the edited file in the user's editor so diagnostics extensions
-# (e.g. CodeScene) can analyse it. Tries code, then windsurf (fallback), then skips silently.
+# (e.g. CodeScene) can analyse it. Only opens .py, .ts, and .tsx files.
 # Must run BEFORE check-diagnostics.sh so the extension has time to produce fresh output.
 
 EDITOR_CMD=""
@@ -29,7 +29,9 @@ except Exception:
 
 if [ -n "$DATA" ]; then
     case "$(basename "$DATA")" in
+        *.py|*.ts|*.tsx) ;;  # supported — open below
         .tmp-*.md) exit 0 ;;
+        *) exit 0 ;;  # skip unsupported file types
     esac
     $EDITOR_CMD --reuse-window "$DATA" &>/dev/null &
 fi
