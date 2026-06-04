@@ -1,6 +1,6 @@
 # /feature-end — Process flowchart
 
-Visual overview of the post-review wrap-up pipeline. Handles session log, cost tracking, rebase, merge, cleanup, manifest updates, and epic checklist ticking. Decisions are orange, blocking gates are red.
+Visual overview of the post-review wrap-up pipeline. Handles session log (find by feature ID per ADR-0037), cost tracking, rebase, merge, cleanup, manifest updates, and epic checklist ticking. Decisions are orange, blocking gates are red.
 
 ```mermaid
 flowchart TD
@@ -15,8 +15,8 @@ flowchart TD
     S1_5_CHK -->|"No"| S1_5_RUN(("edf:lld-sync"))
     S1_5_RUN --> S2
 
-    S2["S2: Write session log<br/>Work completed, decisions,<br/>LLD sync report, cost retro"] --> S2_5["S2.5: Query final cost<br/>query-feature-cost.py --stage final"]
-    S2_5 --> S2_6["S2.6: Cost retrospective<br/>Analyse drivers, record<br/>improvement actions"]
+    S2["S2: Find session log by feature ID<br/>Append narrative sections<br/>(or write full log if not found)"] --> S2_5["S2.5: Query final cost<br/>query-feature-cost.py --stage final"]
+    S2_5 --> S2_6["S2.6: Cost retrospective<br/>Read checkpoint table from<br/>session log (if Full track)"]
 
     S2_6 --> S3["S3: Commit remaining changes<br/>Session log + final fixes"]
     S3 --> S3_5["S3.5: Rebase onto latest base<br/>git rebase origin/base"]

@@ -67,6 +67,7 @@ If no argument was provided (original behaviour):
 In both cases:
 - Extract the **base branch**, **PR number**, and **URL**.
 - Find the associated issue number from the PR body (look for `Closes #N` or `#N` references).
+- Derive the feature ID: `FEATURE_ID="${EDF_FEATURE_PREFIX}-<issue-number>"`. Read `EDF_FEATURE_PREFIX` from `.env`.
 - **Check review status:** `gh pr view <number> --json reviewDecision --jq .reviewDecision`. If the result is `CHANGES_REQUESTED`, stop and report per the Blocker policy. (Empty/null or `APPROVED` are fine — repos without required reviews will return empty.)
 - Read the latest session log in `docs/sessions/` (search recursively — session logs are organised in `YYYY-MM/` monthly folders per ADR-0036). **Skip this in crash recovery mode** (`OLD_SESSION_ID` set) — the JSONL read in Step 2 provides the implementation history instead.
 
@@ -91,25 +92,26 @@ issue" in the session log.
   still go into their own sections; the `## LLD Sync report` section is the unedited
   `edf:lld-sync` Step 4 output, preserved for future readers.
 
-### Step 2: Write session log — MANDATORY
+### Step 2: Write or complete session log — MANDATORY
 
-**Idempotency check:** Before writing, check whether a session log for this issue already exists:
+**Idempotency check:** find the session log by feature ID:
 ```bash
-grep -rl "#<issue-number>\|closes #<issue-number>" docs/sessions/ 2>/dev/null | head -1
+ls docs/sessions/YYYY-MM/*-<FEATURE_ID>.md 2>/dev/null | head -1
 ```
-If a matching file exists, skip writing and proceed to Step 2.5.
+If a file exists, skip to step 2.2 (append narrative). Otherwise, the file does not exist
+(Light track, or crash recovery where feature-core didn't run) — proceed to step 2.1 (write full log).
 
 **Do not skip.** A session log must always be written, even for small changes.
 
-1. Check for a compact draft: `ls docs/sessions/**/*-draft.md 2>/dev/null | tail -1`.
-   - If a draft exists, read it — it contains pre-compact snapshots with tool counts, files
-     touched, agent spawns, and git milestones captured automatically before context was lost.
-     Use this data to populate the cost retrospective (Step 2.6) with actual numbers rather
-     than estimates. The final session log filename should match the draft name minus `-draft`
-     (e.g., `2026-03-26-session-3-draft.md` → `2026-03-26-session-3.md`).
-   - If no draft exists, determine the filename as `YYYY-MM-DD-session-N-<slug>.md` where N increments from the latest log for today and `<slug>` is a short kebab-case label derived from the issue title (e.g. issue #130 "show rubric_generation status" → `rubric-generation-status`).
+**2.1 — Log not found (Light track / crash recovery): write full log in one pass**
 
-1a. **Crash recovery only** — if `OLD_SESSION_ID` is set and non-empty, recover the original session's implementation history from its JSONL:
+If no existing session log was found (feature-core was on Light track, or was skipped):
+
+1. Determine the filename:
+   - Slug: derive from issue title (2-4 words, kebab-case).
+   - N: increment from the latest log for today in `docs/sessions/YYYY-MM/`.
+   - Filename: `docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md`
+2. **Crash recovery only** — if `OLD_SESSION_ID` is set and non-empty, recover the original session's implementation history from its JSONL:
    ```python
    import json, pathlib, subprocess, os, re
 
@@ -126,16 +128,28 @@ If a matching file exists, skip writing and proceed to Step 2.5.
        # Use this as the primary source for "Work completed" and "Decisions made".
    ```
    Note in the session log: _"Session recovered from crashed teammate (original session: `<OLD_SESSION_ID>`)."_
+3. Write the full session log with all sections (approach rationale, work completed, decisions, LLD sync report, cost retrospective).
+   Use `## Approach rationale` as the first section even on Light track — it is cheap to add and valuable later.
+4. Skip to step 2.3 (stage).
 
-2. Write the session log capturing:
-   - Work completed (reference issue number and PR)
-   - Decisions made during the session
-   - Any review feedback addressed
-   - **`## LLD Sync report`** — paste the structured `edf:lld-sync` Step 4 output **verbatim** (the Corrections / Additions / Omissions / Confirmations / LLD updated sections you saw in the previous turn). Do not summarise or paraphrase; future readers and the dogfood retro need the unedited report. If `edf:lld-sync` was skipped because no LLD covers this issue, write: _"Skipped — no LLD covers this issue."_
-   - Next steps or follow-up items
-   - Final feature cost (from Step 2.5) — include both the PR-creation cost (from PR body) and the final total, so the delta is visible
-3. If a draft file was used, delete it: `rm docs/sessions/**/*-draft.md`.
-4. Stage the session log (and the draft deletion if applicable).
+**2.2 — Log found (Full track): append narrative sections**
+
+Read the existing session log. It contains `## Approach rationale` and `## Cost checkpoints` written
+by feature-core (per ADR-0037). Append the remaining sections:
+
+- **## Work completed** — what was implemented, issue number, PR link
+- **## Decisions made** — approach choices, design deviations, anything the next dev should know
+- **## Review feedback** — what pr-review found, what was fixed, what was deferred
+- **## LLD Sync report** — paste the structured `edf:lld-sync` Step 4 output **verbatim** (the Corrections / Additions / Omissions / Confirmations / LLD updated sections you saw in the previous turn). Do not summarise or paraphrase; future readers and the dogfood retro need the unedited report. If `edf:lld-sync` was skipped because no LLD covers this issue, write: _"Skipped — no LLD covers this issue."_
+- **## Cost retrospective** — see Step 2.6; write a data-backed analysis using the `## Cost checkpoints` table already in the file.
+- **## Next steps** — follow-up items, suggested next board item
+
+**2.3 — Stage**
+
+Stage the session log:
+```bash
+git add docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md
+```
 
 ### Step 2.5: Query final feature cost
 
@@ -175,30 +189,40 @@ Store the cost figures — you will include them in the session log in Step 2.
 
 ### Step 2.6: Cost retrospective
 
-Analyse the full cost and write a brief retrospective to include in the session log.
-This is the institutional memory that makes future features cheaper.
+Analyse the full cost and write a brief retrospective to include in the session log under
+`## Cost retrospective`. This is the institutional memory that makes future features cheaper.
+
+**Data source:** If the session log already contains a `## Cost checkpoints` table (written by
+feature-core on Full track per ADR-0037), use it as the primary data source. The gaps between
+rows are the cost buckets:
+- **3c → 5:** design reading + test-author + implementation + fix cycles (the implementation friction)
+- **5 → 8:** diagnostics + evaluator + commit/push (quality gate overhead)
+- **8 → 9:** review + review fixes (post-PR rework)
+
+If no checkpoint table exists (Light track), fall back to git log analysis as below.
 
 1. **Cost summary:** PR-creation cost (from PR body `Usage` section) vs final total.
    Delta = post-PR work (review fixes, re-runs, extra commits).
+   On Full track, the Step 8 checkpoint row IS the PR-creation cost.
 
-2. **Identify cost drivers.** Check each of these against the git log and session history:
+2. **Identify cost drivers.** For Full track, read the checkpoint table:
+   - "green on attempt N" where N > 1 → fix cycles were expensive
+   - Large 5→8 gap → evaluator found many issues or diagnostics needed multiple rounds
+   - Large 8→9 gap → review returned blockers that needed rework
+
+   For Light track, check the git log and session history:
 
    | Driver | How to detect | Typical impact |
    |--------|--------------|----------------|
    | Context compaction | Session summary starts "This session is being continued..." | High — re-summarising inflates cache-write tokens |
    | Fix cycles (RED→fix rounds) | Count commits before the first green run | Medium — each test run adds tokens |
-   | Agent spawns | Count Agent calls in the session: simplify (3), pr-review (3), diagnostics, ci-probe | Medium — each spawn re-sends the full diff |
+   | Agent spawns | Count Agent calls in the session | Medium — each spawn re-sends the full diff |
    | LLD quality gaps | pr-review found design-contract violations → extra fix commit | Medium — avoidable with better LLD signatures upfront |
-   | Mock complexity | Many test fix rounds before mocks worked | Low–medium |
-   | Framework version gotchas | Fix cycles on schema/type issues | Low |
 
 3. **Improvement actions:** For each driver, record a concrete change for next time:
+   - "Step 4cF→5: 3 fix cycles (58% of tokens) → test-author missed edge case X; add to contract properties checklist"
    - "LLD private-helper signatures were wrong → validate signatures in a quick typecheck pass before writing tests"
    - "Context compaction hit → keep PRs under 200 lines; break large features into two issues"
-   - "3 simplify agents re-read the full diff → run simplify before pr-review, not both"
-   - "Framework upgrade breaking change → read migration notes at session start for framework upgrades"
-
-Record under **## Cost retrospective** in the session log.
 
 ### Step 3: Commit remaining changes
 
