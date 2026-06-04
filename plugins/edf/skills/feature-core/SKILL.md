@@ -18,8 +18,8 @@ Executes the implementation cycle from design reading through PR review. Called 
 
 These override any conflicting instinct. Violations are the top cost drivers.
 
-1. **Resolve `${EDF_SCRIPTS}` before running any command.** Read `.env` in the project root and substitute the actual value of `EDF_SCRIPTS`. If unset or `.env` is missing, default to `scripts`.
-2. **Never run `${EDF_SCRIPTS}/run-tests.sh` without a file filter in Step 4.** Use `${EDF_SCRIPTS}/run-tests.sh <ts|p> <test-file>`. The full suite runs once in Step 5 — nowhere else. Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `all` if the feature spans both languages.
+1. **Pass fully-resolved `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-*.sh` commands to sub-agents.** `${CLAUDE_PLUGIN_ROOT}` is resolved by Claude Code in skill markdown. No `EDF_SCRIPTS` variable, no `.env` reading — the `bash` prefix avoids execute-bit issues.
+2. **Never run `run-tests.sh` without a file filter in Step 4.** Use `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test-file>`. The full suite runs once in Step 5 — nowhere else. Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `all` if the feature spans both languages.
 3. **Step 5 uses `edf:test-runner` agent, not Bash.** All verification commands run inside the agent — zero test output reaches the main context. This applies to single-file runs during the fix loop too.
 4. **Pass pointers to sub-agents, not content.** File paths, issue numbers, LLD paths. Never paste diffs or file contents into agent prompts.
 5. **Never invoke `/simplify`.** Only if the user explicitly asks.
@@ -77,6 +77,51 @@ a sub-agent.
 State the tier and reasoning in one line before proceeding, then follow the corresponding track:
 > **Pressure: Light** — 3-line query filter change in one file.
 
+### Step 3dF: Create session log (Full track only)
+
+**Light track: skip this step.** Proceed to the [Light track](#light-track---bug-fixes-30-src-lines-3-files) section.
+
+Full track: create the session log **now**, before writing any code. This captures
+design rationale before context compacts, and the cost checkpoint table is appended
+incrementally through the pipeline. `/feature-end` will add the narrative sections
+later.
+
+1. Derive the feature ID:
+   ```bash
+   FEATURE_ID="${EDF_FEATURE_PREFIX}-<issue-number>"
+   ```
+   Read `${EDF_FEATURE_PREFIX}` from the project `.env`; it was set during `/migrate`.
+2. Derive the slug from the issue title (kebab-case, 2-4 words).
+3. Determine N: count existing session logs for today in `docs/sessions/YYYY-MM/` and increment.
+4. Create the file at `docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md`:
+   ````markdown
+   # Session log — [FEATURE_ID]
+
+   ## Approach rationale
+   - **Issue:** #<N>
+   - **Approach chosen:** <1-2 sentences from Step 3b>
+   - **LLD deviations:** <what changed and why, or "none">
+   - **Pressure:** <standard | heavy> — <reasoning from Step 3c>
+
+   ## Cost checkpoints
+   | Step | Timestamp | Cost (cumulative) | Tokens (cumulative) | Note |
+   |------|-----------|--------------------|----------------------|------|
+   | 3c   | <timestamp>        | <cost-or-unavailable>       | <tokens-or-unavailable>        | pressure: <tier> |
+   ````
+   Query the cumulative session cost from Prometheus via the session ID:
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/query-feature-cost.py --session ${CLAUDE_CODE_SESSION_ID} --format "Cost: \$<cost> | Tokens: <tokens>" 2>/dev/null || echo "Cost: unavailable | Tokens: unavailable"
+   ```
+5. Stage the file immediately so it survives:
+   ```bash
+   git add docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md
+   ```
+   Do NOT commit yet — the file is live and will be amended with cost checkpoints.
+
+This file is the session log. No rename later — `/feature-end` appends the remaining
+sections (work completed, LLD sync report, cost retrospective) into the same file.
+Do NOT use a `-draft` suffix — that is reserved for the compaction hook.
+
 ---
 
 ## Light track — bug fixes, <30 src lines, <=3 files
@@ -93,7 +138,7 @@ No sub-agents. Write the fix and regression tests in one pass.
    - Match the style of neighbouring test files (grep for sibling tests first)
 3. **Run the target test file** to confirm tests pass:
    ```bash
-   ${EDF_SCRIPTS}/run-tests.sh <ts|p> <test-file>
+   bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test-file>
    ```
    Runs only the affected test file (the script takes an optional path argument). Do not launch a sub-agent for this — the output is compact and belongs in the main context.
 
@@ -160,7 +205,7 @@ Run only the target test file after each increment:
 
 ```
 Launch Agent: edf:test-runner
-Input: command="${EDF_SCRIPTS}/run-tests.sh <ts|p> <test-file>"
+Input: command="bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test-file>"
 ```
 
 ### Step 4dF: Self-check coverage before Step 5
@@ -181,7 +226,7 @@ This keeps verbose output out of the main context.
 
 ```
 Launch Agent: edf:test-runner
-Input: command="${EDF_SCRIPTS}/run-tests.sh <ts|p> && ${EDF_SCRIPTS}/run-typecheck.sh <ts|p> && ${EDF_SCRIPTS}/run-lint.sh <ts|p>"
+Input: command="bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-typecheck.sh <ts|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh <ts|p>"
 ```
 
 Check whether E2E tests exist by reading `kb/conventions.md` for the `e2e-dir` value, then:
@@ -197,7 +242,7 @@ If the directory exists and is non-empty, also run:
 
 ```
 Launch Agent: edf:test-runner
-Input: command="${EDF_SCRIPTS}/run-build.sh <ts|p> && ${EDF_SCRIPTS}/run-e2e.sh <ts|p>"
+Input: command="bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-build.sh <ts|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-e2e.sh <ts|p>"
 ```
 
 The project's `run-e2e.sh` is responsible for setting any environment variables the build or
@@ -206,6 +251,14 @@ keeps that detail inside the project, not in the skill.
 
 All must pass — zero failures, including integration tests — before proceeding.
 If any fail, fix and re-run via `edf:test-runner`. If stuck after 3 attempts on the same failure, pause and report.
+
+**Full track:** after Step 5 passes, append a cost checkpoint row to the session log created in Step 3dF:
+```bash
+cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
+| 5    | <timestamp> | <cost>  | <tokens>  | green on attempt <N> |
+EOF
+```
+Count the verification attempts since Step 4cF. Use the same Prometheus query as Step 3dF.
 
 ### Step 6: Diagnostics (blocking gate)
 
@@ -290,6 +343,14 @@ PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]*$')
 
 If you deviated from the LLD (Step 3b), patch the PR body to add a `## Design deviations` section.
 
+**Full track:** append a cost checkpoint row to the session log:
+```bash
+cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
+| 8    | <timestamp> | <cost>  | <tokens>  | [PR #<pr-number>](<pr-url>) |
+EOF
+```
+Use the same Prometheus query as Step 3dF. The PR number and URL are available from the `create-feature-pr.sh` output above.
+
 ### Step 8b: CI probe (background)
 
 Launch `edf:ci-probe` in the background (uses status polling). **Do not wait** — continue with Step 9.
@@ -319,6 +380,14 @@ returns findings. Triage each finding:
 - **Style / minor** — fix if trivial; otherwise note and move on.
 
 After any fixes, re-run `edf:pr-review <pr-number>` to confirm no new issues were introduced.
+
+**Full track:** once review is resolved (no blockers remain), append a final cost checkpoint row:
+```bash
+cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
+| 9    | <timestamp> | <cost>  | <tokens>  | review clean |
+EOF
+```
+Use the same Prometheus query as Step 3dF.
 
 ### Step 10: Report
 

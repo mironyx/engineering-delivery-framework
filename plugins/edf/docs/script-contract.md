@@ -5,17 +5,17 @@ This plugin ships two kinds of scripts:
 | Kind | Location | Runtime | Examples |
 |---|---|---|---|
 | **Plugin scripts** | `${CLAUDE_PLUGIN_ROOT}/bin/` | Claude Code | `gh-create-issue.sh`, `tag-session.py`, `query-feature-cost.py`, `create-feature-pr.sh` |
-| **Project scripts** | `${EDF_SCRIPTS}/` | Claude Code, CI | `run-tests.sh`, `run-lint.sh` |
+| **Project scripts** | `${CLAUDE_PLUGIN_ROOT}/starters/scripts/` | Claude Code, CI | `run-tests.sh`, `run-lint.sh` |
 
-Plugin scripts are invoked via `${CLAUDE_PLUGIN_ROOT}/bin/<name>` — prefix `.sh` scripts with `bash` (e.g., `bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh`) to avoid execute-bit issues in plugin caches. Python scripts are invoked through `run-python.sh`. Project scripts are invoked via `${EDF_SCRIPTS}/<name>`.
+Plugin scripts are invoked via `${CLAUDE_PLUGIN_ROOT}/bin/<name>` — prefix `.sh` scripts with `bash` (e.g., `bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh`) to avoid execute-bit issues in plugin caches. Python scripts are invoked through `run-python.sh`. Project scripts follow the same convention: prefix with `bash` and use `${CLAUDE_PLUGIN_ROOT}` (e.g., `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh ts ...`). `${CLAUDE_PLUGIN_ROOT}` is resolved by Claude Code in skill markdown — it is never expected to be available as a shell variable.
 
 ## Project scripts
 
-Each consuming project sets `EDF_SCRIPTS` in its `.env` to point at the universal wrapper scripts. The wrappers dispatch to language-specific implementations based on the first argument:
+Each consuming project references the universal wrapper scripts via `${CLAUDE_PLUGIN_ROOT}/starters/scripts/` — skills resolve this at invocation time. No `.env` variable is needed; the skills construct the path directly:
 
 ```bash
-# .env
-EDF_SCRIPTS=${CLAUDE_PLUGIN_ROOT}/starters/scripts
+# Skills invoke scripts with bash prefix + CLAUDE_PLUGIN_ROOT:
+bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh ts tests/foo.test.ts
 ```
 
 ### Language parameter
@@ -28,9 +28,9 @@ All project scripts accept a language code as the first argument:
 
 ```bash
 # Examples
-${EDF_SCRIPTS}/run-tests.sh ts tests/foo.test.ts
-${EDF_SCRIPTS}/run-typecheck.sh p
-${EDF_SCRIPTS}/run-lint.sh all
+bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh ts tests/foo.test.ts
+bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-typecheck.sh p
+bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh all
 ```
 
 Skills infer `<ts|p>` from the file extensions they're working with: `.ts/.tsx` → `ts`, `.py` → `p`.

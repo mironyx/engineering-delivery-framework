@@ -64,7 +64,7 @@ You will receive:
 
 ## Process
 
-Before running any command containing `${EDF_SCRIPTS}`, read `.env` in the project root and substitute the actual value of `EDF_SCRIPTS`. If unset or `.env` is missing, default to `scripts`.
+All commands use `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-*.sh` — fully resolved by Claude Code in skill markdown. The `bash` prefix avoids execute-bit issues.
 Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `all` if spanning both.
 
 ### Step 1: Extract acceptance criteria from all sources
@@ -177,7 +177,7 @@ Keep tests focused — one assertion per test where possible.
 ### Step 5: Run all tests
 
 ```bash
-${EDF_SCRIPTS}/run-tests.sh <ts|p>
+bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p>
 ```
 
 This runs the full suite including your new evaluation tests. Record results.

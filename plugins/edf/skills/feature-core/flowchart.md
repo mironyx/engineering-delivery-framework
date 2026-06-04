@@ -25,7 +25,7 @@ flowchart TD
     %% ── Light track ──
     subgraph LIGHT["Light Track (<30 lines)"]
         L1["4L: Write fix directly"] --> L2["4L: Write 2-5 regression<br/>tests inline"]
-        L2 --> L3["4L: Run target test file<br/>bash run-tests.sh"]
+        L2 --> L3["4L: Run target test file<br/>bash run-tests.sh ts &lt;test-file&gt;"]
     end
 
     %% ── Full track ──
@@ -41,7 +41,8 @@ flowchart TD
     end
 
     S3C_TIER -->|"Light"| L1
-    S3C_TIER -->|"Standard / Heavy"| F1
+    S3C_TIER -->|"Standard / Heavy"| F3DF["3dF: Create session log<br/>Approach rationale +<br/>cost checkpoint table"]
+    F3DF --> F1
 
     L3 --> S5
     F4 --> S5
@@ -53,8 +54,9 @@ flowchart TD
         S5_FIX --> S5
         S5_CHK -->|"Yes"| S5_E2E{"E2E tests?"}
         S5_E2E -->|"Yes"| S5_E2E_RUN(("edf:test-runner<br/>build + e2e"))
-        S5_E2E -->|"No"| S6
-        S5_E2E_RUN --> S6
+        S5_E2E -->|"No"| S5_CP["Append cost checkpoint<br/>step 5: green on attempt N"]
+        S5_E2E_RUN --> S5_CP
+        S5_CP --> S6
         S6["S6: edf:diag<br/>Light: src/ only<br/>Full: all files"] --> S6_CHK{"Zero findings?"}
         S6_CHK -->|"No"| S6_FIX["Fix -> re-run edf:diag -> re-run S5"]
         S6_FIX --> S6
@@ -75,15 +77,17 @@ flowchart TD
         S7["S7: git add & commit"] --> S8["S8: git push + create PR"]
         S8 --> S8_DEV{"Design<br/>deviations?"}
         S8_DEV -->|"Yes"| S8_PATCH["Patch PR body"]
-        S8_DEV -->|"No"| S8B
-        S8_PATCH --> S8B(("S8b: edf:ci-probe<br/>background"))
+        S8_DEV -->|"No"| S8_CP["Append cost checkpoint<br/>step 8: PR link"]
+        S8_PATCH --> S8_CP
+        S8_CP --> S8B(("S8b: edf:ci-probe<br/>background"))
         S8B --> S9["S9: edf:pr-review"]
         S9 --> S9_T["Triage findings"]
         S9_T --> S9_B{"Blocker?"}
         S9_B -->|"Yes"| S9_FIX["Fix -> re-run S5 -> push"]
         S9_FIX --> S9
         S9_B -->|"No"| S9_D["Fix or defer"]
-        S9_D --> S10["S10: Reconcile CI<br/>gh pr checks"]
+        S9_D --> S9_CP["Append cost checkpoint<br/>step 9: review clean"]
+        S9_CP --> S10["S10: Reconcile CI<br/>gh pr checks"]
         S10 --> S10_CI{"CI?"}
         S10_CI -->|"pass"| S10_OK["Summarize report"]
         S10_CI -->|"fail"| S10_F["Fix -> push"]
@@ -102,7 +106,7 @@ flowchart TD
     classDef stop fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S3,S3_READ,S3B,S3B_DEV,S3C,L1,L2,L3,F1,F3,F3_FIX,F4,S6,S6_FIX,S6B_W,S6B_F,S7,S8,S8_PATCH,S9,S9_T,S9_D,S9_FIX,S10,S10_F,S10_OK,S10_W process
+    class S3,S3_READ,S3B,S3B_DEV,S3C,F3DF,L1,L2,L3,F1,F3,F3_FIX,F4,S5_CP,S6,S6_FIX,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S10,S10_F,S10_OK,S10_W process
     class F2,S5,S5_E2E_RUN,S6B,S8B agent
     class S3_EPIC,S3B_LLD,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6B_GATE,S6B_V,S8_DEV,S9_B,S10_CI decision
     class STOP_EPIC,STOP_SPEC stop

@@ -6,17 +6,17 @@
 
 | Command | Purpose |
 | --- | --- |
-| `${EDF_SCRIPTS}/run-tests.sh <ts\|p>` | Unit tests |
-| `${EDF_SCRIPTS}/run-typecheck.sh <ts\|p>` | Type check |
-| `${EDF_SCRIPTS}/run-lint.sh <ts\|p>` | Lint |
-| `${EDF_SCRIPTS}/run-build.sh <ts\|p>` | Build |
-| `${EDF_SCRIPTS}/run-markdown-lint.sh <ts\|p>` | Markdown lint |
-| `${EDF_SCRIPTS}/run-format-check.sh <ts\|p>` | Format check |
-| `${EDF_SCRIPTS}/run-e2e.sh <ts\|p>` | E2E tests |
+| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts\|p>` | Unit tests |
+| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-typecheck.sh <ts\|p>` | Type check |
+| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh <ts\|p>` | Lint |
+| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-build.sh <ts\|p>` | Build |
+| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-markdown-lint.sh <ts\|p>` | Markdown lint |
+| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-format-check.sh <ts\|p>` | Format check |
+| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-e2e.sh <ts\|p>` | E2E tests |
 
 <!-- If the project uses multiple languages (e.g. TypeScript + Python), list them here.
      Scripts accept ts (TypeScript), p (Python), or all as the first argument.
-     Example: run-tests.sh ts tests/foo.test.ts  or  run-typecheck.sh all -->
+     Example: bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh ts tests/foo.test.ts  or  bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-typecheck.sh all -->
 
 ## Path Conventions
 
