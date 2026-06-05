@@ -135,14 +135,14 @@ If no existing session log was found (feature-core was on Light track, or was sk
 **2.2 — Log found (Full track): append narrative sections**
 
 Read the existing session log. It contains `## Approach rationale` and `## Cost checkpoints` written
-by feature-core (per ADR-0037). Append the remaining sections:
+by feature-core (per ADR-0037). Append these sections **in this exact order with these exact headings:**
 
-- **## Work completed** — what was implemented, issue number, PR link
-- **## Decisions made** — approach choices, design deviations, anything the next dev should know
-- **## Review feedback** — what pr-review found, what was fixed, what was deferred
-- **## LLD Sync report** — paste the structured `edf:lld-sync` Step 4 output **verbatim** (the Corrections / Additions / Omissions / Confirmations / LLD updated sections you saw in the previous turn). Do not summarise or paraphrase; future readers and the dogfood retro need the unedited report. If `edf:lld-sync` was skipped because no LLD covers this issue, write: _"Skipped — no LLD covers this issue."_
-- **## Cost retrospective** — see Step 2.6; write a data-backed analysis using the `## Cost checkpoints` table already in the file.
-- **## Next steps** — follow-up items, suggested next board item
+- `## Work completed` — what was implemented, PR link, key files, tests added
+- `## Decisions made` — approach choices, design deviations, anything the next dev should know
+- `## Review feedback addressed` — what review found, what was fixed, what was deferred
+- `## LLD Sync report` — paste `edf:lld-sync` Step 4 output verbatim (Corrections / Additions / Omissions / Confirmations / LLD updated). If skipped: _"Skipped — no LLD covers this issue."_
+- `## Cost retrospective` — data-backed analysis per Step 2.6
+- `## Next steps` — follow-up items, suggested next board item
 
 **2.3 — Stage**
 
@@ -210,14 +210,7 @@ If no checkpoint table exists (Light track), fall back to git log analysis as be
    - Large 5→8 gap → evaluator found many issues or diagnostics needed multiple rounds
    - Large 8→9 gap → review returned blockers that needed rework
 
-   For Light track, check the git log and session history:
-
-   | Driver | How to detect | Typical impact |
-   |--------|--------------|----------------|
-   | Context compaction | Session summary starts "This session is being continued..." | High — re-summarising inflates cache-write tokens |
-   | Fix cycles (RED→fix rounds) | Count commits before the first green run | Medium — each test run adds tokens |
-   | Agent spawns | Count Agent calls in the session | Medium — each spawn re-sends the full diff |
-   | LLD quality gaps | pr-review found design-contract violations → extra fix commit | Medium — avoidable with better LLD signatures upfront |
+   For Light track, common drivers: context compaction (session continued), fix cycles (commits before first green), agent spawns (each re-sends full diff), LLD gaps (design-contract violations caught by review → extra fix commit).
 
 3. **Improvement actions:** For each driver, record a concrete change for next time:
    - "Step 4cF→5: 3 fix cycles (58% of tokens) → test-author missed edge case X; add to contract properties checklist"

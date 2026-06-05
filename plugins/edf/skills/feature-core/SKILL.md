@@ -142,9 +142,9 @@ later.
    |------|-----------|--------------------|----------------------|------|
    | 3c   | <timestamp>        | <cost-or-unavailable>       | <tokens-or-unavailable>        | pressure: <tier> |
    ````
-   Query the cumulative session cost from Prometheus via the session ID:
+   Query the cumulative session cost from Prometheus via the feature ID:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/query-feature-cost.py --session ${CLAUDE_CODE_SESSION_ID} --format "Cost: \$<cost> | Tokens: <tokens>" 2>/dev/null || echo "Cost: unavailable | Tokens: unavailable"
+   bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/query-feature-cost.py --issue <N> 2>/dev/null || echo "Cost: unavailable | Tokens: unavailable"
    ```
 5. Stage the file immediately so it survives:
    ```bash
