@@ -197,7 +197,13 @@ autonomously. Every PR requires human review before merge. The flow is:
 
 1. Teammate reports PR → lead summarises to user
 2. User reviews the PR (outside the lead session)
-3. User says `edf:feature-end <N>` or equivalent → lead forwards to teammate
+3. User says `edf:feature-end <N>` → lead quotes the message verbatim, then forwards to teammate
+
+**Forwarding gate:** Before forwarding, the lead MUST quote the user's triggering
+message verbatim. If it cannot quote an actual user message that explicitly invokes
+`edf:feature-end <N>` (or contains equivalent explicit merge approval language),
+it MUST NOT forward — wait. This is a self-audit: if you find yourself inventing
+the trigger, stop.
 
 **Wave progression after merge:** Once all PRs in a wave have been merged via `edf:feature-end`,
 the lead **immediately shuts down that wave's teammates** (parallel `SendMessage` with

@@ -377,6 +377,30 @@ PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]*$')
 
 If you deviated from the LLD (Step 3b), patch the PR body to add a `## Design deviations` section.
 
+**PR body patch guard:** When editing the PR body, **append** to the existing body — never replace it.
+The `create-feature-pr.sh` script auto-generates a `Closes #<N>` reference in the PR body.
+Replacing the body silently drops that reference, which means the GitHub issue won't auto-close on merge.
+
+How to append safely:
+```bash
+gh pr view <pr-number> --json body -q '.body' > updated-body.md  # capture existing body
+cat >> updated-body.md << 'EOF'
+
+## Design deviations
+...
+EOF
+gh api repos/$(gh repo view --json nameWithOwner -q '.nameWithOwner')/pulls/<pr-number> \
+  --method PATCH -F "body=@updated-body.md"
+```
+Note: the file must contain the **full** body (existing + appended). Read the existing body first,
+concatenate, then push.
+
+After patching, verify the closing reference is intact:
+```bash
+gh pr view <pr-number> --json body -q '.body' | grep -c 'Closes #<N>'
+```
+Must return `>= 1`. If not, fix immediately.
+
 **Full track:** append a cost checkpoint row to the session log:
 ```bash
 cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
