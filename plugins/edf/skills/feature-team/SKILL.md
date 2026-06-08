@@ -149,7 +149,7 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 >    git worktree add "../${REPO}-feat-<N>-$SLUG" -b feat/$SLUG origin/main
 >    cd "../${REPO}-feat-<N>-$SLUG"
 >    ```
-> 1a. Copy gitignored local files from the main repo so config and integration tests work:
+> 1a. Copy gitignored local files and provision dependencies from the main repo:
 >    ```bash
 >    MAIN_REPO=$(git rev-parse --git-common-dir | python3 -c "import sys,os; print(os.path.dirname(sys.stdin.read().strip()))")
 >    for f in .env .env.test.local; do
@@ -157,6 +157,19 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 >        ln -sf "$MAIN_REPO/$f" "$f" 2>/dev/null || cp "$MAIN_REPO/$f" "$f"
 >      fi
 >    done
+>    if [ -f "package.json" ] && [ ! -d "node_modules" ]; then
+>      if [ -d "$MAIN_REPO/node_modules" ]; then
+>        ln -sf "$MAIN_REPO/node_modules" node_modules
+>      elif [ -f "pnpm-lock.yaml" ]; then
+>        pnpm install --frozen-lockfile
+>      elif [ -f "yarn.lock" ]; then
+>        yarn install --frozen-lockfile
+>      elif [ -f "package-lock.json" ]; then
+>        npm ci
+>      else
+>        npm install
+>      fi
+>    fi
 >    ```
 > 2. Tag your session (must run AFTER worktree is set up so /proc detects the correct JSONL):
 >    ```bash
