@@ -303,6 +303,7 @@ cd "$MAIN_REPO" && git pull --rebase \
   && { [ "$IS_WORKTREE" = "yes" ] && git worktree remove "$WORKTREE_PATH" --force 2>&1 || true; } \
   && { git branch -d <feature-branch> 2>&1 || true; } \
   && { bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh <issue-number> done 2>&1 || true; } \
+  && { gh issue view <issue-number> --json body --jq '.body' | bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/check-epic-checkbox.py --issue <issue-number> 2>&1 || true; } \
   && { gh issue close <issue-number> 2>&1 || true; }
 ```
 
@@ -310,6 +311,7 @@ The `|| true` inside `{ }` groups ensures:
 - Not in a worktree — `git worktree remove` skipped cleanly.
 - A missing local branch does not abort the chain.
 - A board item already at Done (script exits 0 with no-op) continues cleanly.
+- An epic checkbox tick on a non-epic issue returns empty (script skips silently).
 - An already-closed issue (`gh issue close` 422) is silently ignored.
 - If `cd` or `git pull` fails, the chain **stops** rather than running from the wrong directory.
 
@@ -369,16 +371,20 @@ git push
 
 Choose whichever path keeps the manifest atomically updated with the code it documents.
 
-### Step 6.5: Tick the parent epic checklist
+### Step 6.5: kb/ coverage check
 
-If the closed issue has a parent epic, tick its checkbox in the epic body.
+Read kb/architecture.md to discover what catalog sections exist. Each section catalogs a category
+of shared artifact. For each section, identify the file-path conventions it implies (a "UI component
+library" section implies components under the project's component directory; a "Design token system"
+section implies CSS custom properties in the project's stylesheet entry point).
 
-1. Find the parent epic and tick its checkbox:
-   ```bash
-   gh issue view <issue-number> --json body --jq '.body' | bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/check-epic-checkbox.py --issue <issue-number>
-   ```
+Scan the merged PR's changed files (`git diff --name-only origin/main...HEAD`).
+For any new file or addition that falls within a kb/ section's catalog scope:
+- If the artifact is already listed in kb/architecture.md → pass.
+- If the artifact is missing → add the entry now, matching the section's format.
+- If no matching kb/ section exists → skip (the project may not catalog this category).
 
-2. If no `## Parent epic` section exists (chore or standalone task), skip silently.
+If the project has no kb/architecture.md, skip this step.
 
 ### Step 7: Report
 

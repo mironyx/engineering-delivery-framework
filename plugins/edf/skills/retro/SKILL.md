@@ -19,6 +19,7 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 - **GitHub Issues** — Run `gh issue list --state all --json number,title,state,labels` to assess backlog health.
 - **Project board** — Run `PROJECT_NUMBER=$(grep '^PROJECT_NUMBER=' .github/project.env | cut -d= -f2) && OWNER=$(grep '^REPO=' .github/project.env | cut -d= -f2 | cut -d/ -f1) && gh project item-list $PROJECT_NUMBER --owner $OWNER` to check priority ordering and status accuracy.
 - **Drift reports** — Read any drift reports in `docs/reports/drift/` generated since the last retro. Note whether any design↔code drift findings (Critical/Warning) were raised and whether they were resolved within the same or next session.
+- **kb/ coverage** — Compare new source files added since the last retro (`git log --oneline --since="<last retro date>" -- 'src/'`) against kb/architecture.md sections. Are there shared artifacts (helpers, components, tokens) added without kb/ entries? List them.
 - **Previous retro** — Read the most recent `docs/reports/retro/YYYY-MM-DD-process-retro.md` if one exists, to check whether previous actions were implemented.
 
 ### 2. Assess process health
@@ -27,12 +28,13 @@ Evaluate against these dimensions:
 
 | Dimension | What to look for |
 |-----------|-----------------|
-| **Backlog hygiene** | Are issues labelled (`ready`/`blocked`/`in-progress`)? Is priority ordering maintained? Are dependencies explicit? |
-| **Definition of done** | Are issues being closed with all DoD checklist items ticked? Or are cross-references and drift checks being skipped? |
-| **Commit discipline** | One commit per completed task? Conventional commit messages with issue references? Untracked files at session end? |
-| **Session continuity** | Are session logs being written? Do they contain all four sections (completed work, decisions, summary, next guidance)? Is the next session able to orient quickly? |
-| **Drift management** | Is drift scan being run at session end and before level transitions? Are critical drift items (including design↔code mismatches) being resolved within one session? |
-| **Multi-agent readiness** | Are tasks scoped to single files? Are cross-reference updates deferred as follow-up issues? Could a second agent pick up a `ready` issue and work independently? |
+| **Backlog hygiene** | Issues labelled? Priority ordered? Dependencies explicit? |
+| **Definition of done** | All DoD items ticked? Cross-references and drift checks happening? |
+| **Commit discipline** | One commit per task? Conventional messages with issue refs? Untracked files? |
+| **Session continuity** | Session logs written? All sections present? Next session orient quickly? |
+| **Drift management** | Drift scan run at session end? Critical items resolved within one session? |
+| **kb/ coverage** | New shared artifacts (helpers, components, tokens) registered in kb/architecture.md? Catalogue truthful? |
+| **Multi-agent readiness** | Tasks scoped to single files? Cross-ref updates deferred? Second agent pick up `ready` issue independently? |
 
 ### 3. Write the report
 
