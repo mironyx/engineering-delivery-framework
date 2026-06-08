@@ -62,7 +62,7 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 These override any conflicting instinct. Violations are the top cost drivers.
 
 1. **Pass fully-resolved `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-*.sh` commands to sub-agents.** `${CLAUDE_PLUGIN_ROOT}` is resolved by Claude Code in skill markdown. No `EDF_SCRIPTS` variable, no `.env` reading — the `bash` prefix avoids execute-bit issues. Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `all` if the QA scope spans both languages.
-2. **Use agents for all verification, never inline.** E2E scenarios run in `edf:qa-executor`, invariants run in `edf:test-runner`, integration contracts run in `edf:qa-contracts`, coverage audit runs in `edf:qa-coverage`. Zero verification output reaches the main context.
+2. **Use agents for all verification, never inline.** E2E scenarios run in `edf:qa-executor`, invariants run in `edf:test`, integration contracts run in `edf:qa-contracts`, coverage audit runs in `edf:qa-coverage`. Zero verification output reaches the main context.
 3. **Pass pointers to sub-agents, not content.** File paths, epic IDs, LLD paths, version slugs. Never paste diffs, file contents, or BDD spec text into agent prompts — let agents read the files they need.
 
 ## Process
@@ -301,15 +301,15 @@ a compact pass/fail table. No contract content reaches the main context.
 Run verification for each invariant classified in Step 1B:
 
 - `grep` invariants: run the grep command directly, record pass/fail
-- `type` invariants: spawn `edf:test-runner` with `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-typecheck.sh <ts|p>`
-- `lint` invariants: spawn `edf:test-runner` with `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh <ts|p>`
-- `test` invariants: spawn `edf:test-runner` with `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test-file>`
+- `type` invariants: invoke `edf:test typecheck <ts|p>`
+- `lint` invariants: invoke `edf:test lint <ts|p>`
+- `test` invariants: invoke `edf:test <test-file>`
 
 ```
-Agent({subagent_type: "edf:test-runner", description: "Invariant verification", prompt: "command=bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-typecheck.sh <ts|p>"})
+Skill: edf:test typecheck <ts|p>
 ```
 
-Batch invariant checks per type — one agent invocation per command, not per invariant.
+Batch invariant checks per type — one invocation per check type, not per invariant.
 
 ### Step 5: Cross-story coverage audit
 

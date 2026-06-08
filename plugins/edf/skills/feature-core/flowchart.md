@@ -49,11 +49,11 @@ flowchart TD
 
     %% ── Verification & diagnostics ──
     subgraph VERIFY["Verification & Diagnostics"]
-        S5(("S5: edf:test-runner agent<br/>tests + typecheck + lint")) --> S5_CHK{"All pass?"}
+        S5(("S5: edf:test skill<br/>tests + typecheck + lint")) --> S5_CHK{"All pass?"}
         S5_CHK -->|"No"| S5_FIX["Fix, max 3 attempts"]
         S5_FIX --> S5
         S5_CHK -->|"Yes"| S5_E2E{"E2E tests?"}
-        S5_E2E -->|"Yes"| S5_E2E_RUN(("edf:test-runner<br/>build + e2e"))
+        S5_E2E -->|"Yes"| S5_E2E_RUN(("edf:test e2e<br/>build + e2e"))
         S5_E2E -->|"No"| S5_CP["Append cost checkpoint<br/>step 5: green on attempt N"]
         S5_E2E_RUN --> S5_CP
         S5_CP --> S6

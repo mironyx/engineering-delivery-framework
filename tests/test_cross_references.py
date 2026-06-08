@@ -75,30 +75,41 @@ def _all_agent_names():
 # ── Skill → Agent references ─────────────────────────────────────────────────
 
 
+def _agent_refs_in_skill(skill_dir):
+    """Extract edf:<agent-name> from Launch Agent and subagent_type contexts only.
+
+    Matches only contexts that are unambiguously agent launches — not skill
+    references like edf:diag or edf:test.
+    """
+    skill_file = SKILLS_DIR / skill_dir / "SKILL.md"
+    if not skill_file.exists():
+        return []
+    text = skill_file.read_text(encoding="utf-8")
+    refs = set()
+    # Launch Agent: edf:<name>  (in code blocks)
+    refs.update(re.findall(r'Launch Agent: edf:([\w-]+)', text))
+    # Agent({subagent_type: "edf:<name>", ...})  (in Agent() calls)
+    refs.update(re.findall(r'subagent_type: "edf:([\w-]+)"', text))
+    return refs
+
+
 class TestSkillAgentReferences:
     """Skills that invoke Agent tool with edf: prefix should reference real agents."""
 
     def test_feature_core_refers_real_agents(self):
-        """feature-core spawns edf:test-runner and edf:diagnostics-checker."""
-        text = (SKILLS_DIR / "feature-core" / "SKILL.md").read_text(encoding="utf-8")
+        """feature-core spawns edf:test-author, edf:feature-evaluator, edf:ci-probe."""
         agent_names = _all_agent_names()
-        # Look for Agent invocations with edf: prefix
-        agent_refs = re.findall(r'edf:([\w-]+)', text)
-        for ref in agent_refs:
+        for ref in _agent_refs_in_skill("feature-core"):
             assert ref in agent_names, f"feature-core references unknown agent edf:{ref}"
 
     def test_pr_review_refers_real_agents(self):
-        text = (SKILLS_DIR / "pr-review" / "SKILL.md").read_text(encoding="utf-8")
         agent_names = _all_agent_names()
-        agent_refs = re.findall(r'edf:([\w-]+)', text)
-        for ref in agent_refs:
+        for ref in _agent_refs_in_skill("pr-review"):
             assert ref in agent_names, f"pr-review references unknown agent edf:{ref}"
 
     def test_feature_refers_real_agents(self):
-        text = (SKILLS_DIR / "feature" / "SKILL.md").read_text(encoding="utf-8")
         agent_names = _all_agent_names()
-        agent_refs = re.findall(r'edf:([\w-]+)', text)
-        for ref in agent_refs:
+        for ref in _agent_refs_in_skill("feature"):
             assert ref in agent_names, f"feature references unknown agent edf:{ref}"
 
 

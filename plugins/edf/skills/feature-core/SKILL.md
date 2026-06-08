@@ -19,8 +19,8 @@ Executes the implementation cycle from design reading through PR review. Called 
 These override any conflicting instinct. Violations are the top cost drivers.
 
 1. **Pass fully-resolved `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-*.sh` commands to sub-agents.** `${CLAUDE_PLUGIN_ROOT}` is resolved by Claude Code in skill markdown. No `EDF_SCRIPTS` variable, no `.env` reading — the `bash` prefix avoids execute-bit issues.
-2. **Never run `run-tests.sh` without a file filter in Step 4.** Use `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test-file>`. The full suite runs once in Step 5 — nowhere else. Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `all` if the feature spans both languages.
-3. **Step 5 uses `edf:test-runner` agent, not Bash.** All verification commands run inside the agent — zero test output reaches the main context. This applies to single-file runs during the fix loop too.
+2. **Never run tests without a file filter in Step 4.** Use `edf:test <test-file>`. The full suite runs once in Step 5 — nowhere else. The skill auto-infers language from file extensions.
+3. **Step 5 uses `edf:test` skill.** All verification runs through the skill — zero test output reaches the main context. This applies to single-file runs during the fix loop too.
 4. **Pass pointers to sub-agents, not content.** File paths, issue numbers, LLD paths. Never paste diffs or file contents into agent prompts.
 5. **Never invoke `/simplify`.** Only if the user explicitly asks.
 6. **Do not move the board item to Done.** `/feature-end` handles that.
@@ -238,8 +238,7 @@ to make the tests pass.
 Run only the target test file after each increment:
 
 ```
-Launch Agent: edf:test-runner
-Input: command="bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test-file>"
+Skill: edf:test <test-file>
 ```
 
 ### Step 4dF: Self-check coverage before Step 5
@@ -255,12 +254,11 @@ into the sub-agent's prompt).
 
 ### Step 5: Full verification
 
-Delegate all checks to the `edf:test-runner` agent — **do not run these as Bash directly**.
+Delegate all checks to the `edf:test` skill — **do not run these as Bash directly**.
 This keeps verbose output out of the main context.
 
 ```
-Launch Agent: edf:test-runner
-Input: command="bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-typecheck.sh <ts|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh <ts|p>"
+Skill: edf:test full <ts|p>
 ```
 
 Check whether E2E tests exist by reading `kb/conventions.md` for the `e2e-dir` value, then:
@@ -275,16 +273,15 @@ fi
 If the directory exists and is non-empty, also run:
 
 ```
-Launch Agent: edf:test-runner
-Input: command="bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-build.sh <ts|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-e2e.sh <ts|p>"
+Skill: edf:test e2e <ts|p>
 ```
 
 The project's `run-e2e.sh` is responsible for setting any environment variables the build or
-test-runner needs (e.g. placeholder service URLs, test API keys, etc.). The script-contract
+`edf:test` needs (e.g. placeholder service URLs, test API keys, etc.). The script-contract
 keeps that detail inside the project, not in the skill.
 
 All must pass — zero failures, including integration tests — before proceeding.
-If any fail, fix and re-run via `edf:test-runner`. If stuck after 3 attempts on the same failure, pause and report.
+If any fail, fix and re-run via `edf:test`. If stuck after 3 attempts on the same failure, pause and report.
 
 **Full track:** after Step 5 passes, append a cost checkpoint row to the session log created in Step 3dF:
 ```bash
