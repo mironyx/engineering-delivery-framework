@@ -81,7 +81,9 @@ If a matching commit exists, skip this step and note "lld-sync already committed
 
 **Determine whether the issue has an LLD:** check the issue body for an `LLD reference` link or
 search `docs/design/v*/lld-*.md` (new version-foldered per ADR-0036) and `docs/design/lld-*.md`
-(legacy flat) for files referencing this issue number. If no LLD covers this
+(legacy flat) for files referencing this issue number. **Paths in issue bodies are repo-root-relative;
+resolve them to absolute** (`REPO_ROOT=$(git rev-parse --show-toplevel)`) before passing to
+`edf:lld-sync`. If no LLD covers this
 issue (chore or infrastructure task), skip and note "lld-sync skipped — no LLD covers this
 issue" in the session log.
 

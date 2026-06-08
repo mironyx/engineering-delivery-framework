@@ -39,6 +39,7 @@ Refactor-mode adjustments per step are tagged **[refactor]**. When unmarked, bot
    - **[refactor]** Read every listed LLD anchor; the task body's `## Design references` enumerates all sections this PR sweeps. Treat the list as exhaustive.
 3. Identify which LLD file covers this issue:
    - Look for LLD files: search `docs/design/v*/lld-*.md` (new versioned), `docs/design/lld-*.md` (legacy flat), and `docs/design/lld-phase-*.md` (legacy phase).
+   - If the issue body `## Design reference` has an explicit file path, use it directly — but **resolve it against the repo root** first: `REPO_ROOT=$(git rev-parse --show-toplevel)`; the path in the issue body is repo-root-relative (e.g. `docs/design/v1/lld-foo.md`), and your CWD may not be the repo root.
    - Read the relevant section (use Grep to find the task number/title).
 4. Read the PR body for this branch:
    - `gh pr view <number> --json body -q '.body'`.

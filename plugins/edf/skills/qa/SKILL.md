@@ -90,7 +90,7 @@ glob: docs/design/coverage-*.yaml
 If both new and old paths exist for the same version, prefer the new structure and warn about the stale flat copies.
 
 **Version mode vs. epic mode:** If the scope is a version (multiple epics), do NOT read all LLDs in-memory here — Step 1 will spawn sub-agents per epic to extract BDD specs and invariants, avoiding context exhaustion. For a single epic, read the LLD now:
-4. The LLD file — resolved path from the Glob above
+4. The LLD file — resolved path from the Glob above. **Resolve to absolute** (`REPO_ROOT=$(git rev-parse --show-toplevel)`) before passing to sub-agents — sub-agent CWD may differ from yours.
 
 If `app_url` is set, verify the app is reachable:
 ```bash

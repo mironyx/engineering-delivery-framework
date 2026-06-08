@@ -70,6 +70,12 @@ Execute sequentially. Do not skip steps. Do not ask for confirmation — only pa
 1. Read the issue body: `gh issue view <issue-number>`.
 2. **Epic guard:** Check the issue labels. If the issue has the `epic` label, stop: "Issue #N is an epic, not a task. Use `/feature epic <N>` to pick a task within it."
 3. Read all files referenced in the issue body (design docs, LLDs, type files, related source).
+   **Path resolution:** Issue body paths are repo-root-relative (e.g. `docs/design/v1/lld-foo.md`).
+   Resolve them to absolute before passing to sub-agents — sub-agents may not share your CWD.
+   ```bash
+   REPO_ROOT=$(git rev-parse --show-toplevel)
+   # Then read/use: $REPO_ROOT/docs/design/v1/lld-foo.md
+   ```
 4. Read any existing source files in the target directory.
 5. Understand the contract: inputs, outputs, types, error cases.
 
@@ -209,8 +215,8 @@ Launch the `edf:test-author` agent with:
 Launch Agent: edf:test-author
 Input:
   issue_number: <N>
-  requirements_paths: <list of paths, e.g. ["docs/requirements/v1-requirements.md"]>
-  lld_path: <path or "none">
+  requirements_paths: <list of absolute paths, e.g. ["/absolute/path/to/docs/requirements/v1-requirements.md"]>
+  lld_path: <absolute path or "none"> (resolved in Step 3)
   target_test_file: <tests/.../<unit>.test.ts>
   unit_under_test: <src/.../<unit>.ts>
   mode: "feature" | "bugfix"
@@ -314,16 +320,16 @@ Then:
 
 **Full track:** Launch the `edf:feature-evaluator` agent. Pass it:
 
-- `requirements_paths` — same list passed to the edf:test-author in Step 4bF
-- `lld_path` — the LLD file read in Step 3 (or the issue number if no LLD exists)
+- `requirements_paths` — same absolute list passed to the edf:test-author in Step 4bF
+- `lld_path` — the LLD file absolute path from Step 3 (or the issue number if no LLD exists)
 - `issue_number` — the current issue number
-- `changed_files` — all `src/` files created or modified in this cycle
-- `test_files` — all `tests/` files created or modified in this cycle (including the
+- `changed_files` — all `src/` files created or modified in this cycle (absolute paths)
+- `test_files` — all `tests/` files created or modified in this cycle (absolute paths; including the
   file the `edf:test-author` sub-agent produced in Step 4bF)
 
 ```
 Launch Agent: edf:feature-evaluator
-Input: requirements_paths=<list> lld_path=<path> issue_number=<N> changed_files=<list> test_files=<list>
+Input: requirements_paths=<absolute list> lld_path=<absolute path> issue_number=<N> changed_files=<absolute list> test_files=<absolute list>
 ```
 
 **HTTP mocking check:** verify the test files use the project's HTTP mocking convention as declared in CLAUDE.md. If they use manual stubs, spies, or monkeypatching instead, flag it as a blocker — the tests must be rewritten before the feature can proceed.
