@@ -101,8 +101,10 @@ notes and update the design doc accordingly.
 After picking the approach but before writing code, estimate the change size and set the
 **pressure tier**. This determines which track you follow for the rest of the pipeline.
 
-**How to estimate:** Count the lines of production code you expect to add or modify (exclude
-tests, docs, config). Use your approach from Step 3b as the basis — you know the fix by now.
+**How to estimate:** Count the lines of production code you expect to add or modify —
+every source file counts, including scripts, tooling, utilities, and migration helpers.
+The only exclusions are test files, docs, and config. Use your approach from Step 3b
+as the basis — you know the fix by now.
 
 | Tier | Estimated src lines | Files touched | Track |
 |------|-------------------|---------------|-------|
@@ -110,12 +112,18 @@ tests, docs, config). Use your approach from Step 3b as the basis — you know t
 | **Standard** | 30-150 lines | any | Interface -> test-author -> implement, full `edf:diag`, evaluator |
 | **Heavy** | 150+ lines | any | Same as Standard; consider splitting into sub-issues |
 
-**Bug fixes default to Light** unless the fix is genuinely complex (multi-file refactor,
-new module, schema change). A 3-line query fix does not need a 256-line test file from
-a sub-agent.
+**Do not default on instinct.** The table is the decision, not a suggestion. "It's just
+tooling" or "it's a bug fix" are not tier criteria — line count and file count are.
+Estimate both explicitly before picking a tier. If you find yourself reasoning backward
+from a desired tier, stop and count.
 
-State the tier and reasoning in one line before proceeding, then follow the corresponding track:
-> **Pressure: Light** — 3-line query filter change in one file.
+**When in doubt, round up.** The cost of over-classification is a few extra steps. The
+cost of under-classification is permanent: Light track skips the session log (Step 3dF),
+and cost checkpoint data cannot be backfilled — it is lost for good. If you are unsure
+between Light and Standard, pick Standard.
+
+State the estimated line count, file count, tier, and reasoning before proceeding:
+> **Pressure: Standard** — ~45 lines across 2 files (new query builder + updated handler).
 
 ### Step 3dF: Create session log (Full track only)
 
