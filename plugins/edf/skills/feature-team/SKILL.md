@@ -277,6 +277,27 @@ SendMessage(to="teammate-<N>", message={"type": "shutdown_request", "reason": "F
 Send all shutdowns in a single message (parallel tool calls). Do not skip this step — teammates
 left running consume resources and clutter the user's pane.
 
+**After all shutdowns are acknowledged**, kill each teammate's tmux pane explicitly.
+The shutdown_request terminates the agent process but does not remove the pane — the pane
+must be killed separately or it stays open as a dead window.
+
+1. Read the team config to get pane IDs:
+   ```bash
+   cat ~/.claude/teams/<team-name>/config.json
+   ```
+   Each member entry has a `pane_id` field.
+
+2. For each teammate (non-lead member), kill the pane:
+   ```bash
+   tmux kill-pane -t <pane_id>
+   ```
+   Run all `kill-pane` commands in a single message (parallel tool calls), same as the
+   shutdown requests.
+
+**Wave note:** When shutting down a completed wave's teammates before spawning the next
+wave (Step 6), also kill their panes — the same two-step pattern: shutdown_request first,
+then `tmux kill-pane` once shutdowns are acknowledged.
+
 ## Blocker policy
 
 **Pause and relay to user** if:
