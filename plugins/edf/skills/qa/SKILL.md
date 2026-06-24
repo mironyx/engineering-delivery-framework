@@ -65,6 +65,31 @@ These override any conflicting instinct. Violations are the top cost drivers.
 2. **Use agents for all verification, never inline.** E2E scenarios run in `edf:qa-executor`, invariants run in `edf:test`, integration contracts run in `edf:qa-contracts`, coverage audit runs in `edf:qa-coverage`. Zero verification output reaches the main context.
 3. **Pass pointers to sub-agents, not content.** File paths, epic IDs, LLD paths, version slugs. Never paste diffs, file contents, or BDD spec text into agent prompts — let agents read the files they need.
 
+## Playwright MCP setup
+
+The `edf:qa-executor` and `edf:qa-explorer` agents require Playwright MCP for browser automation. EDF scaffolds a `.mcp.json` at the project root (via `edf:migrate`, or copy `starters/.mcp.json` manually). You do **not** need the separate `playwright@claude-plugins-official` plugin — uninstall it if present to avoid duplicate server registration.
+
+The default config (`npx @playwright/mcp@latest`) uses the `chrome` channel. This works out of the box on macOS and Windows where Chrome is installed. On Linux and WSL, `/opt/google/chrome/chrome` is typically absent — add `--executable-path` to the **project's** `.mcp.json` to point at the Playwright-bundled Chromium:
+
+```json
+{
+  "playwright": {
+    "command": "npx",
+    "args": ["@playwright/mcp@latest", "--executable-path", "<path from table below>"]
+  }
+}
+```
+
+| Platform | Chromium path | How to find it |
+|---|---|---|
+| **Linux / WSL** | `~/.cache/ms-playwright/chromium-<version>/chrome-linux64/chrome` | `find ~/.cache/ms-playwright -maxdepth 2 -iname chrome` |
+| **macOS** | `~/Library/Caches/ms-playwright/chromium-<version>/chrome-mac/Chromium.app/Contents/MacOS/Chromium` | `find ~/Library/Caches/ms-playwright -maxdepth 3 -iname Chromium` |
+| **Windows** | `%USERPROFILE%\.cache\ms-playwright\chromium-<version>\chrome-win64\chrome.exe` | `dir /s /b %USERPROFILE%\.cache\ms-playwright\chrome.exe` |
+
+If the Playwright Chromium is not cached, install it once: `npx playwright install chromium`.
+
+**This fix lives in the project repo — it survives EDF updates, Playwright plugin updates, and reinstalls.** Restart Claude Code after editing `.mcp.json` (MCP servers pick up config changes on session start).
+
 ## Process
 
 ### Step 0: Orient

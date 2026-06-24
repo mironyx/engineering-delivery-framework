@@ -58,6 +58,7 @@ Run ALL of the following in parallel:
    - `.env` file — does it have `EDF_SCRIPTS`, `EDF_FEATURE_PREFIX`, and
      `EDF_FEATURE_PROM_DIR`?
    - `.github/project.env` — present or not
+   - `.mcp.json` — present or not, does it have a `playwright` key?
    - `.gitignore` — does it cover `.claude/`, `.diagnostics/`?
    - `docs/adr/` directory
    - Existing skills (check `.claude/skills/` for name conflicts with EDF skills)
@@ -440,6 +441,37 @@ git add .github/workflows/
 git commit -m "ci: add EDF CI workflow"
 ```
 
+#### 3g. MCP Configuration (`.mcp.json`)
+
+EDF's QA skill requires Playwright MCP for browser automation. The plugin ships a starter `.mcp.json` that configures the Playwright MCP server.
+
+Check whether `$REPO_ROOT/.mcp.json` exists:
+
+**If it does not exist**, copy from starters:
+
+```bash
+cp ${CLAUDE_PLUGIN_ROOT}/starters/.mcp.json .mcp.json
+```
+
+**If it already exists**, read it and check for a `playwright` key. If the file has no `playwright` entry, merge one in — add the `playwright` key alongside any existing server entries. If a `playwright` key already exists, leave the file untouched.
+
+After scaffolding, tell the user:
+
+> `.mcp.json` configures the Playwright MCP server used by the QA skill and agents.
+> On macOS and Windows this works out of the box (Chrome is already installed).
+> On Linux/WSL you may need to add `--executable-path` to point at the
+> Playwright-bundled Chromium. See the QA skill docs (`/edf:qa` help) for the
+> one-line fix.
+
+Commit:
+
+```bash
+git add .mcp.json
+git commit -m "chore: add Playwright MCP server config for QA"
+```
+
+Skip the commit if `.mcp.json` was already present and unchanged.
+
 ---
 
 ### Phase 4: Verify
@@ -484,6 +516,15 @@ Run verification checks. Each check passes or fails — report all results.
    grep -q ".diagnostics" .gitignore && echo "  OK .diagnostics/" || echo "  MISSING .diagnostics/"
    ```
 
+6. **`.mcp.json` present with Playwright server:**
+   ```bash
+   if [ -f ".mcp.json" ]; then
+     grep -q '"playwright"' .mcp.json && echo "  OK .mcp.json (playwright server configured)" || echo "  MISSING playwright server in .mcp.json"
+   else
+     echo "  MISSING .mcp.json"
+   fi
+   ```
+
 Report as a checklist. If any checks fail, tell the user what to fix.
 
 ---
@@ -507,6 +548,7 @@ Summarise everything that was done:
 - kb/anti-patterns.md — template (needs project-specific patterns)
 - $EDF_SCRIPTS_DIR/ — 7 universal verification scripts (pointed at plugin)
 - .env — added EDF_SCRIPTS, EDF_FEATURE_PREFIX, EDF_FEATURE_PROM_DIR
+- .mcp.json — Playwright MCP server config for QA
 - .gitignore — added .diagnostics/, .claude/
 - docs/adr/ — created directory
 
@@ -516,6 +558,7 @@ Summarise everything that was done:
 - 6/6 CLAUDE.md sections present
 - 3/3 .env variables set
 - 2/2 .gitignore patterns present
+- .mcp.json present with playwright server
 
 ### What the team should know
 1. **New workflow:** EDF skills are available as `/edf:<name>`. The core
