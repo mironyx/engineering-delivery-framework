@@ -53,12 +53,7 @@ flowchart TD
     WAVE_ENTRY --> S4_PRE
 
     subgraph WAVE["Wave Orchestration (Steps 4-6)"]
-        S4_PRE["ToolSearch: TeamCreate"] --> S4A
-        S4A(("S4a: TeamCreate<br/>team_name, description")) --> S4A_CHK{"Already<br/>exists?"}
-        S4A_CHK -->|"Yes, has teammates"| S4B
-        S4A_CHK -->|"Yes, lead only"| S4B
-        S4A_CHK -->|"No"| S4B
-        S4B(("S4b: Agent calls<br/>One per teammate<br/>Same message, background")) --> S4B_NOTE["Each teammate: worktree →<br/>tag session → edf:feature-core →<br/>report PR, wait for edf:feature-end"]
+        S4B(("S4: Agent calls<br/>One per teammate<br/>Same message, background<br/>Team forms automatically")) --> S4B_NOTE["Each teammate: worktree →<br/>tag session → edf:feature-core →<br/>report PR, wait for edf:feature-end"]
         S4B_NOTE --> S5["S5: Monitor<br/>Teammates notify lead<br/>when idle or blocked"]
         S5 --> S6["S6: Report PRs to user"]
         S6 --> S6_GATE["Human review gate<br/>Lead MUST NOT send edf:feature-end<br/>autonomously"]
@@ -66,7 +61,7 @@ flowchart TD
         S6_WAIT --> S6_FWD["Lead forwards edf:feature-end<br/>to teammate via SendMessage"]
         S6_FWD --> S6_TEAM_DONE["Teammate runs edf:feature-end<br/>reports complete"]
         S6_TEAM_DONE --> S6_WAVES{"More waves?"}
-        S6_WAVES -->|"Yes"| S6_SHUTDOWN["SendMessage shutdown_request<br/>then tmux kill-pane each"]
+        S6_WAVES -->|"Yes"| S6_SHUTDOWN["SendMessage shutdown_request<br/>then pane cleanup if split-pane mode"]
         S6_SHUTDOWN --> WAVE_ENTRY
     end
 
@@ -80,7 +75,7 @@ flowchart TD
         S7_EPIC -->|"No"| S8
         S7_CLOSE --> S8["S8: Team session log<br/>docs/sessions/YYYY-MM/YYYY-MM-DD-team-...md"]
         S8 --> S9(("S9: SendMessage shutdown_request<br/>to ALL remaining teammates<br/>Parallel, same message"))
-        S9 --> S9B["S9b: Kill tmux panes<br/>Read config.json for pane_ids<br/>tmux kill-pane -t each"]
+        S9 --> S9B["S9b: If split-pane mode,<br/>glob session-*/config.json<br/>for pane_ids, tmux kill-pane each.<br/>In-process mode: nothing to clean up."]
     end
 
     S9B --> DONE(["fa:fa-check Team complete"])
@@ -93,8 +88,8 @@ flowchart TD
     classDef stop fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S0,S1_N,S1_DIRECT,S1_EPIC,S1_EPIC_TASKS,S1_WAVES_TABLE,S1_WAVES_DAG,S1_WAVES_NONE,S1_EPIC_BOARD,S1_READ,S2,S3,WAVE_ENTRY,S4_PRE,S4B_NOTE,S5,S6,S6_GATE,S6_WAIT,S6_FWD,S6_TEAM_DONE,S6_SHUTDOWN,S7,S7_CLOSE,S8,S9B process
-    class S4A,S4B,S9 agent
-    class S0_CHK,S1,S1_EPIC_LABEL,S1_EPIC_EMPTY,S1_WAVES,S1_GUARD,S2_CHK,S4A_CHK,S6_WAVES,S7_EPIC decision
+    class S0,S1_N,S1_DIRECT,S1_EPIC,S1_EPIC_TASKS,S1_WAVES_TABLE,S1_WAVES_DAG,S1_WAVES_NONE,S1_EPIC_BOARD,S1_READ,S2,S3,WAVE_ENTRY,S4B_NOTE,S5,S6,S6_GATE,S6_WAIT,S6_FWD,S6_TEAM_DONE,S6_SHUTDOWN,S7,S7_CLOSE,S8,S9B process
+    class S4B,S9 agent
+    class S0_CHK,S1,S1_EPIC_LABEL,S1_EPIC_EMPTY,S1_WAVES,S1_GUARD,S2_CHK,S6_WAVES,S7_EPIC decision
     class STOP_PREFLIGHT,STOP_NOT_EPIC,STOP_NO_TASKS,STOP_EPIC_TASK,STOP_VALIDATE stop
 ```

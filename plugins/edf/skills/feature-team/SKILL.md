@@ -11,7 +11,8 @@ each teammate is a fully autonomous Claude Code session responsible for its own 
 TDD implementation, and PR creation.
 
 **Requires:** Claude Code CLI with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` enabled.
-Not supported in VS Code.
+Split-pane display mode is not supported in VS Code's integrated terminal (or Windows
+Terminal, Ghostty) — the default in-process mode works fine there.
 
 **Usage:**
 - `/feature-team 101 102 103` — implement three specific task issues in parallel
@@ -94,33 +95,25 @@ Create one task per issue:
 
 ### Step 4: Spawn teammates
 
-**Pre-flight:** `TeamCreate` is a deferred tool — its schema is not loaded at session start.
-Fetch it before proceeding or the call will fail with `InputValidationError`:
-`ToolSearch(query="select:TeamCreate")`
+**Team formation is automatic — do not call `TeamCreate`.** As of Claude Code v2.1.178,
+`TeamCreate` and `TeamDelete` no longer exist; calling either fails. The team forms
+implicitly on the first teammate spawn and is scoped to the lead's session under a
+session-derived name (`session-<first 8 chars of session ID>`) — you never need to invent
+or pass a team name.
 
-**Two-step pattern — always follow this exact sequence:**
+Call `Agent` once per teammate, **all in the same message**, with `name` and **`model` set
+to the same model the lead is running on** (inherit — do not let the agent definition
+override to a more expensive model):
 
-1. Call `TeamCreate` to create the team record:
    ```
-   TeamCreate(team_name="feature-team-<issues>", description="...")
-   ```
-   If `TeamCreate` returns "already leading team", read
-   `~/.claude/teams/<name>/config.json`. If `members` contains only the lead (no
-   teammates), the team was created but teammates were never spawned — proceed directly
-   to step 2. If teammates are already present, do not recreate.
-
-2. Call `Agent` once per teammate, **all in the same message**, with `team_name`,
-   `name`, and **`model` set to the same model the lead is running on** (inherit — do
-   not let the agent definition override to a more expensive model):
-
-   
-   ```
-   Agent(description="Implement issue #<N> — <short_title>", team_name="feature-team-<issues>", name="teammate-<N>", model="sonnet", run_in_background=true, prompt="...")
-   Agent(description="Implement issue #<M> — <short_title>", team_name="feature-team-<issues>", name="teammate-<M>", model="sonnet", run_in_background=true, prompt="...")
+   Agent(description="Implement issue #<N> — <short_title>", name="teammate-<N>", model="sonnet", run_in_background=true, prompt="...")
+   Agent(description="Implement issue #<M> — <short_title>", name="teammate-<M>", model="sonnet", run_in_background=true, prompt="...")
    ```
    Replace `"sonnet"` with whatever model the lead session is actually using (check
    `/model` output). The `model` field overrides the agent definition's default and
    ensures teammates run on the same model as the lead — not a more expensive one.
+   (A `team_name` field is still accepted for backward compatibility but is ignored —
+   omit it.)
 
 Do **not** pass "Create a team with N teammates" as prose to the `Agent` tool — that
 syntax is not supported and will be echoed back as text rather than spawning teammates.
@@ -220,9 +213,10 @@ the trigger, stop.
 
 **Wave progression after merge:** Once all PRs in a wave have been merged via `edf:feature-end`,
 the lead **immediately shuts down that wave's teammates** (parallel `SendMessage` with
-`shutdown_request`) and then auto-spawns the next wave's teammates — no further user input
-needed. The human gate is per-PR (review before merge), not per-wave (no extra approval to
-start the next wave). Do not leave completed-wave teammates running while later waves execute.
+`shutdown_request`, then pane cleanup per Step 9's pane-cleanup procedure if applicable) and
+then auto-spawns the next wave's teammates — no further user input needed. The human gate is
+per-PR (review before merge), not per-wave (no extra approval to start the next wave). Do not
+leave completed-wave teammates running while later waves execute.
 
 ### Step 7: Final summary
 
@@ -277,26 +271,28 @@ SendMessage(to="teammate-<N>", message={"type": "shutdown_request", "reason": "F
 Send all shutdowns in a single message (parallel tool calls). Do not skip this step — teammates
 left running consume resources and clutter the user's pane.
 
-**After all shutdowns are acknowledged**, kill each teammate's tmux pane explicitly.
-The shutdown_request terminates the agent process but does not remove the pane — the pane
-must be killed separately or it stays open as a dead window.
+The team config directory is removed automatically when the lead's session ends, so no
+directory cleanup step is needed. **Pane cleanup only applies in split-pane mode** (tmux or
+iTerm2) — the default display mode is `in-process`, where teammates run inside the lead's
+terminal with no panes to kill. Check which mode is active before attempting cleanup:
 
-1. Read the team config to get pane IDs:
+1. Find the team config — there is exactly one team directory per session, and its name is
+   session-derived, so glob it rather than guessing:
    ```bash
-   cat ~/.claude/teams/<team-name>/config.json
+   cat ~/.claude/teams/session-*/config.json
    ```
-   Each member entry has a `pane_id` field.
-
-2. For each teammate (non-lead member), kill the pane:
+2. If member entries have a `pane_id` field (split-pane mode), kill each teammate's pane
+   explicitly — shutdown_request terminates the agent process but does not remove the pane:
    ```bash
    tmux kill-pane -t <pane_id>
    ```
    Run all `kill-pane` commands in a single message (parallel tool calls), same as the
    shutdown requests.
+3. If there is no `pane_id` field (in-process mode), there is nothing further to clean up.
 
 **Wave note:** When shutting down a completed wave's teammates before spawning the next
-wave (Step 6), also kill their panes — the same two-step pattern: shutdown_request first,
-then `tmux kill-pane` once shutdowns are acknowledged.
+wave (Step 6), follow the same procedure: shutdown_request first, then pane cleanup (if
+in split-pane mode) once shutdowns are acknowledged.
 
 ## Blocker policy
 
