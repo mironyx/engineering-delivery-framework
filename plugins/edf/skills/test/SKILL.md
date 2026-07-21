@@ -10,6 +10,9 @@ Runs verification commands through the project's wrapper scripts, delegating exe
 to `edf:test-runner` for token-efficient output. Owns the resolution logic (language
 inference, script selection, file paths) so callers don't duplicate it.
 
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when
+changing mode parsing, command resolution, or agent delegation.
+
 ## Arguments
 
 `$ARGUMENTS` determines the mode:
