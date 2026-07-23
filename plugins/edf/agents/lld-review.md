@@ -6,7 +6,7 @@ description: >
   and trade-offs? (2) mechanical completeness — are contracts, specs, and references
   complete enough for a /feature agent to implement against?
   Spawned by /lld after Step 2.5, before Step 3.
-tools: Read, Glob, Grep
+tools: Read, Glob, Grep, WebFetch, WebSearch
 model: sonnet
 ---
 
@@ -108,6 +108,20 @@ brief).
   create/modify" lists, import examples, code samples) must either exist in the repo
   or be explicitly noted as to-be-created. Grep for each path. Broken paths are
   blockers.
+
+- **External contract verification** — for every concrete claim about a third-party
+  surface the LLD did not read from this repo (SDK/library config shapes, function or
+  hook signatures, cloud-provider resource arguments, query-language or IaC semantics),
+  confirm the author either cited a doc URL + library version or marked it
+  `Unverified — recall-based`. An uncited external surface claim presented as fact is a
+  **warn**. Then spot-check the highest-risk cited claims against the doc with
+  `WebFetch`/`WebSearch` — auth flows, data/response shapes, anything that would look
+  internally consistent while being wrong. A claim that contradicts the cited doc is a
+  **block**. Do not fetch docs for every dependency: cap this at the few surfaces the
+  `/feature` agent codes directly against, and skip surfaces already grounded in repo
+  code (those are covered by file-path resolution and contract completeness). The value
+  here is ground-truth the author and this review would both otherwise recall from
+  training memory — reason about it, but do not treat recall as verification.
 
 - **Task sizing** — no task should exceed an estimated ~200 lines of diff. Flag tasks
   whose scope suggests a larger PR. Check the LLD's Tasks section.
