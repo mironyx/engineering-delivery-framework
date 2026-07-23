@@ -1,7 +1,7 @@
 ---
 name: lld
 description: Generate Low-Level Design documents for implementation plan sections. Produces LLDs with implementation-level detail, file paths, internal types, and task breakdowns. Use for preparing a phase or section before implementation.
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, WebFetch, WebSearch
 ---
 
 # Low-Level Design — Generation Skill
@@ -148,6 +148,7 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 - **Acceptance ↔ BDD ↔ Invariant coverage.** Does every Acceptance Criterion map to at least one BDD spec? Does every Invariant have a `Verification` method that is *executable* (test, type check, grep, lint) — not "code review" or "manual check"?
 - **Internal decomposition is concrete.** For every non-trivial route or component, is every function/class/helper named with a signature? "Service does X" is a failure — name `serviceFn(ctx, params): Promise<T>` and its private helpers.
 - **Type contracts match the DB.** For any type referencing a DB column or enum, did I confirm the LLD type matches the canonical DB-types source in this project (e.g. generated types from the DB schema, ORM-generated types, or hand-authored DB type modules)? Mismatches cause casts and workarounds downstream.
+- **External API surfaces verified against docs.** For every concrete claim about a *third-party* surface the LLD did not read from this repo — SDK/library config shapes, function or hook signatures, cloud-provider resource arguments, query-language or IaC semantics — did I verify it against the official documentation with `WebFetch`/`WebSearch` rather than recalling it from memory? Author and reviewer both reason from training knowledge, which can be confidently wrong in a way that stays internally consistent, so a second read does not catch it. For each verified surface, cite the doc URL and the library version next to the claim. If a surface genuinely cannot be verified (no accessible docs, or ambiguous), mark it inline as `> **Unverified — recall-based:**` so the risk is visible at review and implementation rather than hidden. Scope this to surfaces the implementing `/feature` agent will code directly against — do not chase every transitive dependency.
 - **DB privilege level annotated.** For every DB function, is the privilege level explicitly stated (e.g. `SECURITY DEFINER` vs `SECURITY INVOKER` in PostgreSQL, or the project's equivalent)? The project's DB function conventions — including privilege, volatility, and search-path — should be recorded in `kb/architecture.md`. Missing privilege on functions that read restricted tables causes runtime permission errors (#792).
 - **Test seams.** Do not introduce HTTP-injection seams (e.g. `fetchImpl?: typeof fetch`) in `*Deps` interfaces — use the project's HTTP-mocking convention as declared in CLAUDE.md (e.g. MSW for TypeScript, `respx` for Python). Only inject genuine behavioural dependencies (auth-token providers, clocks, ID generators).
 - **Task sizing.** Does each task plausibly fit in < 200 lines of diff? If unsure, split. Tasks > 200 lines are the single biggest cause of bad `/feature` runs.

@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Read a plan document and produce all design artefacts in one pass (ADRs, LLDs, design doc updates, enriched issue bodies), so edf:feature agents can implement against approved designs.
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill, TodoWrite
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill, TodoWrite, WebFetch, WebSearch
 ---
 
 # Architect — Batch Design Artefact Generator
