@@ -20,10 +20,10 @@ claude --plugin-dir ./engineering-delivery-framework
 
 ## What's included
 
-- **22 skills** — `/edf:feature`, `/edf:feature-core`, `/edf:diag`, `/edf:architect`, `/edf:kickoff`, `/edf:create-adr`, `/edf:create-plan`, `/edf:lld`, `/edf:pr-review`, `/edf:retro`, `/edf:baseline`, `/edf:drift-scan`, `/edf:backlog`, `/edf:discovery`, `/edf:requirements`, `/edf:feature-end`, `/edf:feature-team`, `/edf:lld-sync`, `/edf:bug`, `/edf:create-mermaid-diagram`, `/edf:frontend-architect`
-- **7 agents** — ci-probe, diagnostics-checker, feature-evaluator, gh-issue-manager, requirements-design-drift, test-author, test-runner
+- **25 skills** — `/edf:feature`, `/edf:feature-core`, `/edf:feature-end`, `/edf:feature-team`, `/edf:test`, `/edf:diag`, `/edf:qa`, `/edf:pr-review`, `/edf:architect`, `/edf:refactor-architect`, `/edf:frontend-architect`, `/edf:kickoff`, `/edf:discovery`, `/edf:requirements`, `/edf:create-plan`, `/edf:lld`, `/edf:lld-sync`, `/edf:create-adr`, `/edf:create-mermaid-diagram`, `/edf:bug`, `/edf:backlog`, `/edf:baseline`, `/edf:drift-scan`, `/edf:retro`, `/edf:migrate`
+- **14 agents** — ci-probe, diagnostics-checker, feature-evaluator, gh-issue-manager, hld-review, lld-review, qa-contracts, qa-coverage, qa-executor, qa-explorer, requirements-design-drift, requirements-review, test-author, test-runner
 - **3 hooks** — PostToolUse diagnostics + editor open, PreCompact session log
-- **9 utility scripts** — GitHub project management, session tagging, cost tracking, PR creation, test output summarizers (vitest, pytest)
+- **13 utility scripts** — GitHub project management, session tagging, cost tracking, PR creation, coverage manifest, test output summarizers (vitest, pytest)
 
 ## Project configuration
 

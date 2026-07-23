@@ -85,7 +85,7 @@ With the branch checked out and the board item In Progress, hand off to the core
 edf:feature-core <issue-number>
 ```
 
-This covers: read design → TDD → full verification → silent-swallow check → diagnostics → commit → PR + CI probe → review → report.
+This covers: read design → TDD → full verification → diagnostics → commit → PR + CI probe → review → report.
 
 ## Blocker policy
 
