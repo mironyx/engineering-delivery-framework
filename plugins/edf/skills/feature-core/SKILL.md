@@ -238,6 +238,14 @@ requirements files the issue or LLD references.
 spec gaps, **stop and escalate to the user** — the spec is too vague to implement against.
 Do not write the tests yourself.
 
+**Full track:** after the test-author returns, append a cost checkpoint row to the session log:
+```bash
+cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
+| 4bF  | $(date -u +%Y-%m-%dT%H:%M:%SZ) | <cost-or-unavailable> | <tokens-or-unavailable> | test-author complete |
+EOF
+```
+Use the same Prometheus query as Step 3dF (cost unavailable is fine — record what you can).
+
 ### Step 4cF: Implement against the tests
 
 Main agent reads the test file written by the sub-agent and implements the stub bodies
@@ -261,6 +269,14 @@ Before running the full suite, re-read the sub-agent's report and confirm every 
 property maps to a passing test. If the sub-agent missed a property you can see in the
 spec, add the test yourself and note this in the Step 10 report (so we can feed it back
 into the sub-agent's prompt).
+
+**Full track:** after self-check passes, append a cost checkpoint row to the session log:
+```bash
+cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
+| 4dF  | $(date -u +%Y-%m-%dT%H:%M:%SZ) | <cost-or-unavailable> | <tokens-or-unavailable> | implementation complete |
+EOF
+```
+Use the same Prometheus query as Step 3dF.
 
 ---
 
@@ -322,6 +338,14 @@ Then:
 4. Repeat until `edf:diag` reports zero findings on non-generated files.
 5. Re-run Step 5 (full verification) after any fixes.
 
+**Both tracks:** after diagnostics pass clean, append a cost checkpoint row to the session log:
+```bash
+cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
+| 6    | $(date -u +%Y-%m-%dT%H:%M:%SZ) | <cost-or-unavailable> | <tokens-or-unavailable> | diag pass |
+EOF
+```
+Use the same Prometheus query as Step 3dF. Light track: skip if no session log exists.
+
 ### Step 6b: Evaluate (Full track only)
 
 **Light track: skip this step.** Proceed to Step 7.
@@ -351,6 +375,14 @@ Input: requirements_paths=<absolute list> lld_path=<absolute path> issue_number=
 If evaluator writes > 3 adversarial tests, note count in Step 10 report and PR body — but do not block.
 
 Evaluator tests follow the project's test file convention, committed in Step 7.
+
+**Full track:** after the evaluator verdict, append a cost checkpoint row to the session log:
+```bash
+cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
+| 6b   | $(date -u +%Y-%m-%dT%H:%M:%SZ) | <cost-or-unavailable> | <tokens-or-unavailable> | evaluator: <verdict> |
+EOF
+```
+Use the same Prometheus query as Step 3dF.
 
 ---
 
@@ -481,6 +513,14 @@ Then summarise what was done:
 - CI outcome: pass / fail (always known by this point — no "pending" in the report)
 - Any warnings or notes (PR size, diagnostics findings, design drift)
 - Suggested next item from the board
+
+**Full track:** after the report is delivered, append a final cost checkpoint row:
+```bash
+cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
+| 10   | $(date -u +%Y-%m-%dT%H:%M:%SZ) | <cost-or-unavailable> | <tokens-or-unavailable> | report done |
+EOF
+```
+Use the same Prometheus query as Step 3dF.
 
 ## Blocker policy
 

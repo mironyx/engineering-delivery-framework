@@ -33,11 +33,13 @@ flowchart TD
         F1["4aF: Write public interface<br/>types, signatures, stubs"] --> F2
         F2(("4bF: edf:test-author agent")) --> F2_CHK{"3+ observable<br/>properties?"}
         F2_CHK -->|"No"| STOP_SPEC(["fa:fa-ban Escalate to user"])
-        F2_CHK -->|"Yes"| F3["4cF: Implement against tests"]
+        F2_CHK -->|"Yes"| F2_CP["Append cost checkpoint<br/>step 4bF: test-author"]
+        F2_CP --> F3["4cF: Implement against tests"]
         F3 --> F3_CHK{"Tests pass?"}
         F3_CHK -->|"No"| F3_FIX["Fix implementation"]
         F3_FIX --> F3
         F3_CHK -->|"Yes"| F4["4dF: Self-check coverage"]
+        F4 --> F4_CP["Append cost checkpoint<br/>step 4dF: implementation"]
     end
 
     S3C_TIER -->|"Light"| L1
@@ -45,7 +47,7 @@ flowchart TD
     F3DF --> F1
 
     L3 --> S5
-    F4 --> S5
+    F4_CP --> S5
 
     %% ── Verification & diagnostics ──
     subgraph VERIFY["Verification & Diagnostics"]
@@ -60,12 +62,14 @@ flowchart TD
         S6["S6: edf:diag<br/>Light: src/ only<br/>Full: all files"] --> S6_CHK{"Zero findings?"}
         S6_CHK -->|"No"| S6_FIX["Fix -> re-run edf:diag -> re-run S5"]
         S6_FIX --> S6
-        S6_CHK -->|"Yes"| S6B_GATE{"Track?"}
+        S6_CHK -->|"Yes"| S6_CP["Append cost checkpoint<br/>step 6: diag pass"]
+        S6_CP --> S6B_GATE{"Track?"}
     end
 
     S6B_GATE -->|"Light"| S7
     S6B_GATE -->|"Full"| S6B(("S6b: edf:feature-evaluator"))
-    S6B --> S6B_V{"Verdict?"}
+    S6B --> S6B_CP["Append cost checkpoint<br/>step 6b: evaluator"]
+    S6B_CP --> S6B_V{"Verdict?"}
     S6B_V -->|"PASS"| S7
     S6B_V -->|"WARNINGS"| S6B_W["Fix quick wins,<br/>note rest in PR"]
     S6B_W --> S7
@@ -96,7 +100,8 @@ flowchart TD
         S10_W --> S10_CI
     end
 
-    S10_OK --> DONE(["fa:fa-check Complete"])
+    S10_OK --> S10_CP["Append cost checkpoint<br/>step 10: report done"]
+    S10_CP --> DONE(["fa:fa-check Complete"])
 
     %% ── Styles ──
     classDef startend fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
@@ -106,7 +111,7 @@ flowchart TD
     classDef stop fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S3,S3_READ,S3B,S3B_DEV,S3C,F3DF,L1,L2,L3,F1,F3,F3_FIX,F4,S5_CP,S6,S6_FIX,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S10,S10_F,S10_OK,S10_W process
+    class S3,S3_READ,S3B,S3B_DEV,S3C,F3DF,L1,L2,L3,F1,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S10,S10_F,S10_OK,S10_CP,S10_W process
     class F2,S5,S5_E2E_RUN,S6B,S8B agent
     class S3_EPIC,S3B_LLD,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6B_GATE,S6B_V,S8_DEV,S9_B,S10_CI decision
     class STOP_EPIC,STOP_SPEC stop
