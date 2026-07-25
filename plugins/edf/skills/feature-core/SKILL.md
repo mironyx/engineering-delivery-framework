@@ -106,10 +106,14 @@ every source file counts, including scripts, tooling, utilities, and migration h
 The only exclusions are test files, docs, and config. Use your approach from Step 3b
 as the basis — you know the fix by now.
 
-| Tier | Estimated src lines | Files touched | Track |
-|------|-------------------|---------------|-------|
+**Critical — "Files touched" means source files only.** Test files are excluded from
+the file count. A change touching 1 source file and 5 test files counts as 1 file,
+not 6. State both numbers explicitly: src lines, src files, and test files separately.
+
+| Tier | Estimated src lines | Source files touched | Track |
+|------|-------------------|---------------------|-------|
 | **Light** | < 30 lines | <= 3 files | Inline tests, no sub-agents, `edf:diag` on `src/` only, skip evaluator |
-| **Standard** | 30-150 lines | any | Interface -> test-author -> implement, full `edf:diag`, evaluator |
+| **Standard** | 30-150 lines | any | test-agent -> implement, full `edf:diag`, evaluator |
 | **Heavy** | 150+ lines | any | Same as Standard; consider splitting into sub-issues |
 
 **Do not default on instinct.** The table is the decision, not a suggestion. "It's just
@@ -123,7 +127,7 @@ and cost checkpoint data cannot be backfilled — it is lost for good. If you ar
 between Light and Standard, pick Standard.
 
 State the estimated line count, file count, tier, and reasoning before proceeding:
-> **Pressure: Standard** — ~45 lines across 2 files (new query builder + updated handler).
+> **Pressure: Standard** — ~45 lines across 2 source files (3 test files).
 
 ### Step 3dF: Create session log (Full track only)
 
@@ -198,26 +202,20 @@ Proceed to Step 5.
 
 Tests must be written by a separate agent against the spec only, before implementation.
 
-Flow: interface -> independent tests -> implementation -> green.
+Flow: test-agent writes tests against spec -> implement against tests.
 
-### Step 4aF: Write the interface, not the behaviour
+### Step 4bF: Write stubs and hand off tests
 
-Main agent writes only the *public surface* of the unit under change: exported types,
-schemas, function signatures, and stub bodies that throw `not implemented`. No
-behaviour logic, no happy-path code, no error handling. The surface is derived from the
+**Write the public interface first.** Create the *public surface* of the unit under change:
+exported types, schemas, function signatures, and stub bodies that throw `not implemented`.
+No behaviour logic, no happy-path code, no error handling. The surface is derived from the
 LLD or issue contract, not from any implementation choice.
 
-For bug fixes the interface usually already exists — skip to Step 4bF. If the bug fix
-requires a new signature (e.g. adding a parameter), commit the signature change first.
+For bug fixes the interface usually already exists — skip the stub step and go straight to
+launching test-author. If the fix requires a new signature (e.g. adding a parameter), commit
+the signature change first.
 
-The PostToolUse hook opens edited files in the editor automatically for diagnostics analysis.
-If the hook fires with inline findings, address them before moving on.
-
-### Step 4bF: Hand off to the `edf:test-author` sub-agent
-
-**HTTP mocking constraint:** instruct the sub-agent to use the project's HTTP mocking convention as declared in CLAUDE.md (e.g. MSW for TypeScript, `respx` or `pytest-httpx` for Python) — not manual stubs, spies, or monkeypatching. The CLAUDE.md convention is authoritative; do not override it in the agent prompt.
-
-Launch the `edf:test-author` agent with:
+Then launch the `edf:test-author` agent with:
 
 ```
 Launch Agent: edf:test-author

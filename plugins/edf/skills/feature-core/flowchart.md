@@ -30,8 +30,7 @@ flowchart TD
 
     %% ── Full track ──
     subgraph FULL["Full Track (>=30 lines)"]
-        F1["4aF: Write public interface<br/>types, signatures, stubs"] --> F2
-        F2(("4bF: edf:test-author agent")) --> F2_CHK{"3+ observable<br/>properties?"}
+        F2(("4bF: Write stubs + test-author agent")) --> F2_CHK{"3+ observable<br/>properties?"}
         F2_CHK -->|"No"| STOP_SPEC(["fa:fa-ban Escalate to user"])
         F2_CHK -->|"Yes"| F2_CP["Append cost checkpoint<br/>step 4bF: test-author"]
         F2_CP --> F3["4cF: Implement against tests"]
@@ -44,7 +43,7 @@ flowchart TD
 
     S3C_TIER -->|"Light"| L1
     S3C_TIER -->|"Standard / Heavy"| F3DF["3dF: Create session log<br/>Approach rationale +<br/>cost checkpoint table"]
-    F3DF --> F1
+    F3DF --> F2
 
     L3 --> S5
     F4_CP --> S5
@@ -111,7 +110,7 @@ flowchart TD
     classDef stop fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S3,S3_READ,S3B,S3B_DEV,S3C,F3DF,L1,L2,L3,F1,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S10,S10_F,S10_OK,S10_CP,S10_W process
+    class S3,S3_READ,S3B,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S10,S10_F,S10_OK,S10_CP,S10_W process
     class F2,S5,S5_E2E_RUN,S6B,S8B agent
     class S3_EPIC,S3B_LLD,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6B_GATE,S6B_V,S8_DEV,S9_B,S10_CI decision
     class STOP_EPIC,STOP_SPEC stop
