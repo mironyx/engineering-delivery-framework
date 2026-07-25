@@ -1,6 +1,6 @@
 {
   "name": "edf",
-  "version": "0.10.13",
+  "version": "0.10.14",
   "description": "Engineering Delivery Framework — structured software delivery harness for Claude Code",
   "author": { "name": "mironyx" },
   "license": "MIT",
