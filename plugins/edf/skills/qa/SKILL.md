@@ -67,7 +67,7 @@ These override any conflicting instinct. Violations are the top cost drivers.
 
 ## Playwright MCP setup
 
-The `edf:qa-executor` and `edf:qa-explorer` agents require Playwright MCP for browser automation. EDF scaffolds a `.mcp.json` at the project root (via `edf:migrate`, or copy `starters/.mcp.json` manually). You do **not** need the separate `playwright@claude-plugins-official` plugin — uninstall it if present to avoid duplicate server registration.
+The `edf:qa-executor` and `edf:qa-explorer` agents require Playwright MCP for browser automation. EDF scaffolds a `.mcp.json` at the project root (via `edf:setup`, or copy `starters/.mcp.json` manually). You do **not** need the separate `playwright@claude-plugins-official` plugin — uninstall it if present to avoid duplicate server registration.
 
 The default config (`npx @playwright/mcp@latest`) uses the `chrome` channel. This works out of the box on macOS and Windows where Chrome is installed. On Linux and WSL, `/opt/google/chrome/chrome` is typically absent — add `--executable-path` to the **project's** `.mcp.json` to point at the Playwright-bundled Chromium:
 

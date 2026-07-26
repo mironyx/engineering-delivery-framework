@@ -18,9 +18,24 @@ git clone git@github.com:mironyx/engineering-delivery-framework.git
 claude --plugin-dir ./engineering-delivery-framework
 ```
 
+## Quick start
+
+After installing the plugin, run `/edf:setup` in your project to configure
+project-level conventions:
+
+- **CLAUDE.md** — engineering process, verification commands, coding principles
+- **kb/** — file map, conventions, architecture rules, anti-patterns
+- **.env** — script paths, feature prefix, Prometheus monitoring directory
+- **.gitignore**, **.mcp.json**, **docs/adr/** directory
+
+For cost tracking (session logs show cumulative usage per feature), set up
+a [Prometheus](https://prometheus.io/) instance with the
+[textfile collector](https://github.com/prometheus/node_exporter?tab=readme-ov-file#textfile-collector)
+pointing at the directory configured in `EDF_FEATURE_PROM_DIR`.
+
 ## What's included
 
-- **25 skills** — `/edf:feature`, `/edf:feature-core`, `/edf:feature-end`, `/edf:feature-team`, `/edf:test`, `/edf:diag`, `/edf:qa`, `/edf:pr-review`, `/edf:architect`, `/edf:refactor-architect`, `/edf:frontend-architect`, `/edf:kickoff`, `/edf:discovery`, `/edf:requirements`, `/edf:create-plan`, `/edf:lld`, `/edf:lld-sync`, `/edf:create-adr`, `/edf:create-mermaid-diagram`, `/edf:bug`, `/edf:backlog`, `/edf:baseline`, `/edf:drift-scan`, `/edf:retro`, `/edf:migrate`
+- **25 skills** — `/edf:feature`, `/edf:feature-core`, `/edf:feature-end`, `/edf:feature-team`, `/edf:test`, `/edf:diag`, `/edf:qa`, `/edf:pr-review`, `/edf:architect`, `/edf:refactor-architect`, `/edf:frontend-architect`, `/edf:kickoff`, `/edf:discovery`, `/edf:requirements`, `/edf:create-plan`, `/edf:lld`, `/edf:lld-sync`, `/edf:create-adr`, `/edf:create-mermaid-diagram`, `/edf:bug`, `/edf:backlog`, `/edf:baseline`, `/edf:drift-scan`, `/edf:retro`, `/edf:setup`
 - **14 agents** — ci-probe, diagnostics-checker, feature-evaluator, gh-issue-manager, hld-review, lld-review, qa-contracts, qa-coverage, qa-executor, qa-explorer, requirements-design-drift, requirements-review, test-author, test-runner
 - **3 hooks** — PostToolUse diagnostics + editor open, PreCompact session log
 - **13 utility scripts** — GitHub project management, session tagging, cost tracking, PR creation, coverage manifest, test output summarizers (vitest, pytest)

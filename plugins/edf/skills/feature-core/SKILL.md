@@ -22,8 +22,9 @@ These override any conflicting instinct. Violations are the top cost drivers.
 2. **Never run tests without a file filter in Step 4.** Use `edf:test <test-file>`. The full suite runs once in Step 5 — nowhere else. The skill auto-infers language from file extensions.
 3. **Step 5 uses `edf:test` skill.** All verification runs through the skill — zero test output reaches the main context. This applies to single-file runs during the fix loop too.
 4. **Pass pointers to sub-agents, not content.** File paths, issue numbers, LLD paths. Never paste diffs or file contents into agent prompts.
-5. **Never invoke `/simplify`.** Only if the user explicitly asks.
-6. **Do not move the board item to Done.** `/feature-end` handles that.
+5. **Review agents run in-process, not out-of-process.** All review agents (`edf:feature-evaluator`, `edf:pr-review`, `edf:ci-probe`, `edf:lld-review`, `edf:hld-review`, `edf:requirements-review`) are spawned via `Agent({subagent_type: "edf:xxx"})` — they run inside the calling session, share the CWD, and return findings directly to the caller. Only `edf:feature-team` teammates should be out-of-process (separate git worktree, separate session). Do not launch review agents with worktree isolation or as external processes.
+6. **Never invoke `/simplify`.** Only if the user explicitly asks.
+7. **Do not move the board item to Done.** `/feature-end` handles that.
 
 A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing step order, adding/removing agent spawns, or modifying branching logic.
 
@@ -142,7 +143,7 @@ later.
    ```bash
    FEATURE_ID="${EDF_FEATURE_PREFIX}-<issue-number>"
    ```
-   Read `${EDF_FEATURE_PREFIX}` from the project `.env`; it was set during `/migrate`.
+   Read `${EDF_FEATURE_PREFIX}` from the project `.env`; it was set during `/setup`.
 2. Derive the slug from the issue title (kebab-case, 2-4 words).
 3. Determine N: count existing session logs for today in `docs/sessions/YYYY-MM/` and increment.
 4. Create the file at `docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md`:
@@ -164,6 +165,11 @@ later.
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/query-feature-cost.py --issue <N> 2>/dev/null || echo "Cost: unavailable | Tokens: unavailable"
    ```
+   **If cost is unavailable:** Prometheus is not configured or unreachable.
+   Cost tracking is optional — all checkpoint rows gracefully show
+   "unavailable" and feature-core continues normally. To enable it, set up
+   a Prometheus instance scraping the node_exporter textfile collector from
+   the directory in `EDF_FEATURE_PROM_DIR` (see `.env`).
 5. Stage the file immediately so it survives:
    ```bash
    git add docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md
