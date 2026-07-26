@@ -197,6 +197,8 @@ src/lib/module/
 > **Constraint:** For any type referencing a DB column, grep the project's canonical DB-types file (generated or hand-authored) to confirm the type matches the actual column/enum definition. Mismatches cause casts and workarounds at the call site — fix the type here in the LLD, not downstream in the implementation.
 
 > **Constraint:** For any third-party surface used here that was not read from this repo — SDK/library config shape, function or hook signature, cloud-provider argument, query-language or IaC semantic — verify it against the official docs with `WebFetch`/`WebSearch` and cite the doc URL + library version. If it cannot be verified, mark the claim `> **Unverified — recall-based:**` so the risk is explicit. Recall of an exact API surface can be wrong while reading internally consistent, so neither authoring nor review catches it without a doc check.
+>
+> **Pin the version in the LLD.** Every third-party tool, SDK, cloud provider, Terraform provider, or external API used in this design must state its exact version or version constraint (e.g. `hashicorp/azurerm ~> 3.108`, `@azure/storage-blob@12.18.0`, `OpenAI API 2024-11`). This makes drift trackable: when a version changes, the LLD's pinned version is the anchor for impact analysis. If the design is version-agnostic (e.g. a generic HTTP client), state that explicitly rather than omitting the version.
 
 #### Function signatures
 [Key internal functions with their signatures and behaviour]

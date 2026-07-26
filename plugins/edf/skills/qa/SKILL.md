@@ -39,7 +39,7 @@ The file at `kb/qa-config.json` (or `--qa-config <path>`) supplies defaults so y
 {
   "app_url": "http://localhost:3000",
   "default_role": "admin",
-  "exploratory_budget_minutes": 5,
+  "exploratory_budget_minutes": 8,
   "roles": {
     "admin": "leonid-mironyx",
     "admin_repo": "leonid-mironyx",
@@ -48,7 +48,7 @@ The file at `kb/qa-config.json` (or `--qa-config <path>`) supplies defaults so y
 }
 ```
 
-`app_url` and `default_role` are optional in the config — if absent, the skill asks when needed. `exploratory_budget_minutes` controls the self-managed time budget per epic in exploratory mode (default 5). `roles` is required only if you use `--auth-role`; the keys are role names meaningful to your app, and the values are GitHub usernames available in the machine's GitHub session.
+`app_url` and `default_role` are optional in the config — if absent, the skill asks when needed. `exploratory_budget_minutes` controls the self-managed time budget per epic in exploratory mode (default 8; bumped from 5 because the explorer now reads requirements, design, source, and test files for richer context). `roles` is required only if you use `--auth-role`; the keys are role names meaningful to your app, and the values are GitHub usernames available in the machine's GitHub session.
 
 **Human prerequisites** (not automated by this skill):
 - The GitHub accounts must be logged in on the machine where the agent runs
@@ -113,6 +113,14 @@ glob: docs/design/coverage-*.yaml
 ```
 
 If both new and old paths exist for the same version, prefer the new structure and warn about the stale flat copies.
+
+**Resolve source context (post-implementation only).** When running in `post` or `exploratory` mode against an implemented feature, discover what source files changed for this epic:
+
+```bash
+git diff origin/main...HEAD --name-only -- 'src/' 'app/' 2>/dev/null | head -40
+```
+
+This gives the explorer implementation-level context beyond what the browser reveals. In `pre` mode, skip this step.
 
 **Version mode vs. epic mode:** If the scope is a version (multiple epics), do NOT read all LLDs in-memory here — Step 1 will spawn sub-agents per epic to extract BDD specs and invariants, avoiding context exhaustion. For a single epic, read the LLD now:
 4. The LLD file — resolved path from the Glob above. **Resolve to absolute** (`REPO_ROOT=$(git rev-parse --show-toplevel)`) before passing to sub-agents — sub-agent CWD may differ from yours.
@@ -297,9 +305,13 @@ For each epic:
 Agent({subagent_type: "edf:qa-explorer", description: "Exploratory QA for epic <id>", prompt: "app_url: <app-url>
 epic_id: <epic-id>
 lld_path: <resolved LLD path from Step 0>
+requirements_path: docs/requirements/v<N>-requirements.md
+design_path: <resolved design doc path from Step 0>
 auth_established: true
 budget_minutes: <exploratory_budget_minutes from config>"})
 ```
+
+The explorer receives pointers to the requirements doc (for validating against original intent) and the design doc (for trust boundaries). It self-discovers changed source files and existing test files via its own Bash/Grep tools — no need to pass them explicitly.
 
 Run one explorer per epic. If version mode has multiple epics, run explorers sequentially (shared browser state). The explorer walks the happy path once for orientation, then attacks edges: input boundaries, interaction abuse (double-submit, back button, refresh mid-flow), state manipulation (URL hacking, stale state), error handling, and visual stress (viewport resize, long text overflow).
 

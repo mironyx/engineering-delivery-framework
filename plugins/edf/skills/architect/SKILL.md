@@ -68,6 +68,8 @@ Check each of the following and note findings:
 | **Missing behavioural flows** | Multi-component interactions lack sequence diagrams — reviewer cannot build theory from text alone |
 | **Missing structural overview** | Task introduces/modifies module boundaries but has no structural diagram showing dependencies |
 | **Unverifiable invariants** | Constraints listed without a verification method (test, type check, grep), or invariants scattered inline instead of collected in the Invariants table |
+| **Unverified external surfaces** | LLD makes claims about third-party APIs, SDKs, cloud providers, or IaC resources without verifying against official docs via `WebFetch`/`WebSearch` or citing doc URL + version. Design-time check is cheaper than debugging against real docs at deploy time |
+| **Unpinned external versions** | Third-party tools, SDKs, cloud providers, or Terraform providers mentioned without an explicit pinned version or version constraint. Without pinning, version drift is invisible and impact analysis requires spelunking old PRs |
 
 ### Review Step 3: Report and optionally patch
 

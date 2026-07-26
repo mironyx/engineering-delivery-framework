@@ -20,6 +20,8 @@ are trying to break the application. The LLD is your map, not your script.
 - `app_url` — base URL of the running application
 - `epic_id` — the epic identifier
 - `lld_path` — path to the LLD file (read it for feature context: what screens exist, what flows are described, what the BDD specs cover)
+- `requirements_path` — optional path to the requirements doc (for validating against original intent)
+- `design_path` — optional path to the HLD/design doc (for trust boundaries and component interactions)
 - `auth_established` — `true` if the /qa skill already authenticated
 - `budget_minutes` — self-managed time budget for this epic (e.g. 5). Prioritise high-severity edges first. If running short, wrap up and report findings so far rather than getting cut off.
 
@@ -33,8 +35,33 @@ Read the LLD at `lld_path`. Extract:
 - What API endpoints the feature touches
 - What the BDD specs cover (these are the known paths — you go beyond them)
 
-You now know what the feature is supposed to do and where its boundaries are.
-Spend at most 20% of your budget reading the LLD.
+If `requirements_path` is provided, read the requirements doc. Cross-reference:
+- Do the LLD's BDD specs cover every user story and AC? If not, note the gap — there may be untested behaviour paths.
+- Are there requirements the LLD doesn't address at all? Flag as a findings target.
+
+If `design_path` is provided, skim the HLD for:
+- Trust boundaries and security domains (attack targets)
+- Component decomposition (cross-boundary data flow to probe)
+- Architecture constraints (e.g. "this component must be stateless" — can you prove otherwise?)
+
+Discover changed source files for this epic:
+```bash
+git diff origin/main...HEAD --name-only -- 'src/' 'app/' 2>/dev/null | head -20
+```
+
+If no changed files found (pre-implementation or no branch), skip source reading. Otherwise read the top 3-5 source files by complexity (or however many your budget allows). Look for:
+- Authorization guards — are they present on every endpoint?
+- State machines — explicit transitions you can try to violate
+- Input sanitisation — raw user input in SQL, shell, or template contexts
+
+Then find any existing test files related to this feature:
+```bash
+glob: **/*.test.* **/*.spec.* **/*.e2e.*
+```
+
+Skim existing test files to see what's already covered. You are looking for **untested** paths — if the test file already tests "empty submission → validation error", skip that edge and hunt deeper.
+
+Spend at most 30% of your budget reading. Prioritise: LLD first, then requirements/design (if available), then source files, then test file skim.
 
 ### Step 1: Walk the happy path
 
@@ -74,6 +101,13 @@ Work through the edge categories below. Prioritise by potential impact:
 - Trigger validation errors on every form — check error messages are clear (not stack traces or raw DB errors)
 - Cause server errors — try to trigger 500s by sending bad data, oversized payloads, or manipulated IDs
 - Network failures — if the app has a way to simulate offline (dev tools), test recovery behavior
+
+#### Implementation edges
+- **Authorization** — for each API endpoint the feature touches, check source for guards. Can you forge a request to access another user's data or escalate privileges?
+- **Input sanitisation** — grep source for raw user input in SQL queries (`$query`, `execute`), shell commands (`exec`, `shell`), or unescaped HTML template output. Target the specific files you read in Step 0.
+- **State machines** — if the source has explicit state transitions (e.g. `status: draft → published`), try to trigger an illegal transition via the UI or direct calls.
+- **Idempotency** — do mutations use idempotency keys? Replay the same request and check for duplicates.
+- **Error leakage** — trigger server errors and check whether responses expose stack traces, DB connection strings, or internal paths.
 
 #### Visual edges
 - Resize viewport to 320px (phone) and 2560px (wide desktop) — check for broken layouts, hidden CTAs, overflow
@@ -117,6 +151,7 @@ Report format:
 | Interaction edges | Yes | Double-submit, back button |
 | State edges | Yes | URL hacking, stale state |
 | Error handling | Partial | Validation tested, 500 path not reachable |
+| Implementation edges | Yes | Auth guards, input sanitisation, idempotency |
 | Visual edges | Yes | 320px layout broken on /settings |
 ```
 
