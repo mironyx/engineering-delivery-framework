@@ -430,9 +430,11 @@ Summarise everything that was done:
    architecture rules as soon as possible — `/pr-review` reads them on every
    review. Add entries to `kb/anti-patterns.md` as the team discovers
    recurring issues.
-2. **Scripts at `EDF_SCRIPTS`.** The universal wrapper scripts accept
-   a language parameter: `ts` (TypeScript), `p` (Python), or `all` (both).
-   Example: `${EDF_SCRIPTS}/run-tests.sh ts tests/foo.test.ts`.
+2. **Scripts referenced via `${CLAUDE_PLUGIN_ROOT}`.** The CLAUDE.md
+   template uses `${CLAUDE_PLUGIN_ROOT}/starters/scripts/` directly
+   (Claude Code resolves this in markdown). The `.env` also sets
+   `EDF_SCRIPTS` for scripts that prefer the shorter alias.
+   Example: `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh ts tests/foo.test.ts`.
 3. **`.github/project.env` is not yet configured.** Board-aware skills will
    fail until it's set up.
 
