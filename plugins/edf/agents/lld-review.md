@@ -114,14 +114,17 @@ brief).
   hook signatures, cloud-provider resource arguments, query-language or IaC semantics),
   confirm the author either cited a doc URL + library version or marked it
   `Unverified — recall-based`. An uncited external surface claim presented as fact is a
-  **warn**. Then spot-check the highest-risk cited claims against the doc with
-  `WebFetch`/`WebSearch` — auth flows, data/response shapes, anything that would look
-  internally consistent while being wrong. A claim that contradicts the cited doc is a
-  **block**. Do not fetch docs for every dependency: cap this at the few surfaces the
-  `/feature` agent codes directly against, and skip surfaces already grounded in repo
-  code (those are covered by file-path resolution and contract completeness). The value
-  here is ground-truth the author and this review would both otherwise recall from
-  training memory — reason about it, but do not treat recall as verification.
+  **warn**. Also confirm every third-party surface has an explicit version or version
+  constraint pinned (e.g. `hashicorp/azurerm ~> 3.108`, `@azure/storage-blob@12.18.0`).
+  A missing version pin on a load-bearing dependency is a **warn**. Then spot-check the
+  highest-risk cited claims against the doc with `WebFetch`/`WebSearch` — auth flows,
+  data/response shapes, anything that would look internally consistent while being wrong.
+  A claim that contradicts the cited doc is a **block**. Do not fetch docs for every
+  dependency: cap this at the few surfaces the `/feature` agent codes directly against,
+  and skip surfaces already grounded in repo code (those are covered by file-path
+  resolution and contract completeness). The value here is ground-truth the author and
+  this review would both otherwise recall from training memory — reason about it, but
+  do not treat recall as verification.
 
 - **Task sizing** — no task should exceed an estimated ~200 lines of diff. Flag tasks
   whose scope suggests a larger PR. Check the LLD's Tasks section.
