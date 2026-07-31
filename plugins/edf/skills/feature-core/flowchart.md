@@ -18,9 +18,10 @@ flowchart TD
         S3B_LLD -->|"No — deviate"| S3B_DEV["Note deviation for<br/>PR Design deviations"]
         S3B_DEV --> S3C
         S3B_LLD -->|"Yes"| S3C["S3c: Classify pressure<br/>Estimate src lines"]
+        S3C --> F3DF["3dF: Create session log<br/>Approach rationale +<br/>cost checkpoint table"]
     end
 
-    S3C --> S3C_TIER{"Tier?"}
+    F3DF --> S3C_TIER{"Tier?"}
 
     %% ── Light track ──
     subgraph LIGHT["Light Track (<30 lines)"]
@@ -42,8 +43,7 @@ flowchart TD
     end
 
     S3C_TIER -->|"Light"| L1
-    S3C_TIER -->|"Standard / Heavy"| F3DF["3dF: Create session log<br/>Approach rationale +<br/>cost checkpoint table"]
-    F3DF --> F2
+    S3C_TIER -->|"Standard / Heavy"| F2
 
     L3 --> S5
     F4_CP --> S5

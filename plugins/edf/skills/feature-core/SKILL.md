@@ -123,18 +123,15 @@ Estimate both explicitly before picking a tier. If you find yourself reasoning b
 from a desired tier, stop and count.
 
 **When in doubt, round up.** The cost of over-classification is a few extra steps. The
-cost of under-classification is permanent: Light track skips the session log (Step 3dF),
-and cost checkpoint data cannot be backfilled — it is lost for good. If you are unsure
-between Light and Standard, pick Standard.
+cost of under-classification means missing the test-author and evaluator sub-agents and
+their coverage validation. If you are unsure between Light and Standard, pick Standard.
 
 State the estimated line count, file count, tier, and reasoning before proceeding:
 > **Pressure: Standard** — ~45 lines across 2 source files (3 test files).
 
-### Step 3dF: Create session log (Full track only)
+### Step 3dF: Create session log
 
-**Light track: skip this step.** Proceed to the [Light track](#light-track---bug-fixes-30-src-lines-3-files) section.
-
-Full track: create the session log **now**, before writing any code. This captures
+Create the session log **now**, before writing any code. This captures
 design rationale before context compacts, and the cost checkpoint table is appended
 incrementally through the pipeline. `/feature-end` will add the narrative sections
 later.
@@ -317,7 +314,7 @@ keeps that detail inside the project, not in the skill.
 All must pass — zero failures, including integration tests — before proceeding.
 If any fail, fix and re-run via `edf:test`. If stuck after 3 attempts on the same failure, pause and report.
 
-**Full track:** after Step 5 passes, append a cost checkpoint row to the session log created in Step 3dF:
+After Step 5 passes, append a cost checkpoint row to the session log created in Step 3dF:
 ```bash
 cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
 | 5    | <timestamp> | <cost>  | <tokens>  | green on attempt <N> |
@@ -348,7 +345,7 @@ cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF
 | 6    | $(date -u +%Y-%m-%dT%H:%M:%SZ) | <cost-or-unavailable> | <tokens-or-unavailable> | diag pass |
 EOF
 ```
-Use the same Prometheus query as Step 3dF. Light track: skip if no session log exists.
+Use the same Prometheus query as Step 3dF.
 
 ### Step 6b: Evaluate (Full track only)
 
@@ -448,7 +445,7 @@ gh pr view <pr-number> --json body -q '.body' | grep -c 'Closes #<N>'
 ```
 Must return `>= 1`. If not, fix immediately.
 
-**Full track:** append a cost checkpoint row to the session log:
+Append a cost checkpoint row to the session log:
 ```bash
 cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
 | 8    | <timestamp> | <cost>  | <tokens>  | [PR #<pr-number>](<pr-url>) |
@@ -486,7 +483,7 @@ returns findings. Triage each finding:
 
 After any fixes, re-run `edf:pr-review <pr-number>` to confirm no new issues were introduced.
 
-**Full track:** once review is resolved (no blockers remain), append a final cost checkpoint row:
+Once review is resolved (no blockers remain), append a cost checkpoint row to the session log:
 ```bash
 cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
 | 9    | <timestamp> | <cost>  | <tokens>  | review clean |
@@ -518,7 +515,7 @@ Then summarise what was done:
 - Any warnings or notes (PR size, diagnostics findings, design drift)
 - Suggested next item from the board
 
-**Full track:** after the report is delivered, append a final cost checkpoint row:
+After the report is delivered, append a cost checkpoint row to the session log:
 ```bash
 cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
 | 10   | $(date -u +%Y-%m-%dT%H:%M:%SZ) | <cost-or-unavailable> | <tokens-or-unavailable> | report done |
