@@ -99,7 +99,10 @@ CLAUDE.md compliance, framework anti-patterns, and design conformance.
 - Dead code introduced (unused imports, vars, functions)
 - Duplication created instead of reusing an existing helper
 - Touched functions left harder to understand than they were (naming, structure) — a broken window opened, not left
-Judges the diff; edf:diag (CodeScene/SonarQube) judges whole files at thresholds — don't duplicate it.
+- **Metric-driven rewrites:** when a change is motivated by a complexity/score gate, verify
+  the rewrite didn't hide explicit intent (e.g. an explicit override branch flattened into
+  a helper's null-guard). Flag as **warn**.
+Scope: diff only — edf:diag owns whole-file metrics.
 
 ## Part 3: Design principles (block if severe)
 The project's architecture rules are in `{{ARCHITECTURE_RULES}}` (from `kb/architecture.md`).
@@ -130,6 +133,10 @@ If found:
    - No justification comment → **block** (add a `Justification:` comment or update the LLD)
    - Justification comment exists → **warn**
 4. Exported/public unspecified functions are always **block** regardless of justification.
+5. **Deviation review:** When the PR body documents a deviation, diff the LLD's prescribed
+   form at each call site against the implemented form. Flag form divergence as **warn**
+   (`"type": "deviation-form"`) unless the deviation note explains why the form changed.
+   "Semantics identical" is not a justification — the note must state the concrete reason.
 
 ## Part 6: Helper reuse (block if a reusable helper is re-implemented)
 
@@ -222,7 +229,7 @@ Issue body:
 
 JSON array. Each element:
 {
-  "type": "bug" | "security" | "justification" | "maintainability" | "design-principle" | "compliance" | "unspecified-function" | "silent-swallow" | "anti-pattern" | "kernel-reuse" | "db-efficiency",
+  "type": "bug" | "security" | "justification" | "maintainability" | "design-principle" | "compliance" | "unspecified-function" | "silent-swallow" | "deviation-form" | "anti-pattern" | "kernel-reuse" | "db-efficiency",
   "severity": "block" | "warn",
   "file": "relative/path.ts",
   "line": 42,
@@ -270,7 +277,10 @@ framework anti-patterns. Design conformance (LLD matching) is handled by a separ
 - Dead code introduced (unused imports, vars, functions)
 - Duplication created instead of reusing an existing helper
 - Touched functions left harder to understand than they were (naming, structure) — a broken window opened, not left
-Judges the diff; edf:diag (CodeScene/SonarQube) judges whole files at thresholds — don't duplicate it.
+- **Metric-driven rewrites:** when a change is motivated by a complexity/score gate, verify
+  the rewrite didn't hide explicit intent (e.g. an explicit override branch flattened into
+  a helper's null-guard). Flag as **warn**.
+Scope: diff only — edf:diag owns whole-file metrics.
 
 ## Design principles (block if severe)
 The project's architecture rules are in `{{ARCHITECTURE_RULES}}` (from `kb/architecture.md`).
@@ -383,9 +393,14 @@ For each design reference found:
 - Unspecified private helpers → **warn** ("LLD gap — update internal decomposition")
 - Unspecified exported/public functions → **block** regardless
 
-Note: the LLD is not infallible. Surface the gap — the resolution is a human decision.
-
 Exported/public functions are higher risk than private helpers — note this in findings.
+
+**Deviation review:** When the PR body or commits document a deviation from the LLD,
+diff the LLD's prescribed form at each named call site against the implemented form.
+Flag any form divergence as **warn** (`"type": "deviation-form"`) unless the deviation
+note explicitly addresses why the form changed. "Semantics identical" (or equivalent)
+is not a justification — the note must state the concrete reason (e.g. "extracted to
+helper to reuse null-guard", "flattened for complexity gate").
 
 ## Step 3: Silent catch/swallow check
 
@@ -463,7 +478,7 @@ Changed files:
 
 JSON array. Each element:
 {
-  "type": "unspecified-function" | "silent-swallow" | "diagnostic" | "kernel-reuse" | "db-efficiency",
+  "type": "unspecified-function" | "silent-swallow" | "deviation-form" | "diagnostic" | "kernel-reuse" | "db-efficiency",
   "severity": "block" | "warn",
   "file": "relative/path.ts",
   "line": 42,
@@ -596,7 +611,7 @@ principles, CLAUDE.md compliance, kb reuse, DB efficiency, framework anti-patter
 
 Types: `[bug]`, `[security]`, `[justification]`, `[maintainability]`, `[design-principle]`,
 `[compliance]`, `[kernel-reuse]`, `[db-efficiency]`, `[design-contract]`, `[anti-pattern]`,
-`[unspecified-function]`, `[silent-swallow]`, `[diagnostic]`.
+`[unspecified-function]`, `[silent-swallow]`, `[deviation-form]`, `[diagnostic]`.
 
 **PR mode:** post as a PR comment:
 ```bash
