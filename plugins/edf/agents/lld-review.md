@@ -88,6 +88,14 @@ brief).
 
 ### Step 3: Tier 2 — Mechanical completeness
 
+- **Part A / Part B separation** — the document must have exactly one `# Part A …`
+  H1 and one `# Part B …` H1, and every section number (N.1, N.2, …) must appear
+  exactly twice: a `## N.k` block under Part A and a `## N.k … — Implementation`
+  block under Part B. Grep the heading levels to confirm no section's Part B content
+  (file paths, function signatures, internal decomposition) appears above the
+  `# Part B` heading, and no Part A content below it. Interleaving is a blocker — it
+  corrupts the reading order for both the human reviewer and the `/feature` agent.
+
 - **Contract completeness** — every non-trivial function or component must have a
   named signature with types. "Service does X" prose without a concrete function
   name is a blocker. Grep for patterns like "Service", "Handler", "Manager" used

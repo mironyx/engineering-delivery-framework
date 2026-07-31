@@ -327,6 +327,7 @@ The full template — Document Control, Part A (Purpose / Behavioural Flows / St
 Key points the template encodes (do not violate):
 
 - **Two parts.** Part A is reviewer-readable and self-contained; Part B is for the `/feature` agent and adds file paths, types, function signatures, and internal decomposition.
+- **Contiguous parts — never interleave.** All Part A blocks (`## N.k [Section Name]`) are emitted together under the `# Part A` heading; all Part B blocks (`## N.k [Section Name] — Implementation`) follow under the `# Part B` heading. Each section number appears exactly twice — a Part A block and a Part B block. Do not emit a section's Part A + Part B content in one place; finish all Part A blocks before starting Part B.
 - **Diagrams are required**, not decorative — sequence diagram per non-trivial flow, classDiagram per new module boundary.
 - **Invariants** must each have an executable verification method.
 - **Internal decomposition** names every function ≥ a few lines with its signature, before implementation begins.

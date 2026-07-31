@@ -23,6 +23,13 @@ section becomes a top-level heading.
 
 ---
 
+**Layout rule — two contiguous passes, never interleaved.** Every section number N.k in
+this document appears exactly twice: a Part A block (`## N.k [Section Name]`, under the
+`# Part A` heading) and a Part B block (`## N.k [Section Name] — Implementation`, under the
+`# Part B` heading). Emit **all** Part A blocks for every section first, then **all** Part B
+blocks. Do not emit a section's Part A + Part B content in one place, and do not move a
+Part B block above the `# Part B` heading.
+
 # Part A — Human-Reviewable Design
 
 > Both the human reviewer and the implementing agent read this part.
@@ -163,6 +170,14 @@ describe('[context]', () => {
 - [Section X.Y] — sufficient, referenced only
 - [Section X.Z] — needs extension, detailed below
 
+## N.2 [Next Section Name]
+
+[Repeat the Part A subsections from N.1: Purpose, Behavioural Flows, Structural Overview,
+Visual Specifications, Invariants, Acceptance Criteria, BDD Specs, HLD coverage assessment.
+Emit a `## N.k` block for every remaining section here — these all belong under the
+`# Part A` heading. Do NOT include any Part B content (file paths, function signatures,
+internal decomposition) in this part.]
+
 ---
 
 # Part B — Agent Implementation Detail
@@ -261,11 +276,12 @@ PageComponent
 #### Client state
 [What state lives on the client, how it's managed]
 
----
+## N.2 [Next Section Name] — Implementation
 
-## N.2 [Next Section Name]
-
-[Same Part A + Part B structure as above]
+[Repeat the Part B subsections from N.1: Database, Backend, and Frontend layers with their
+File structure / Internal types / Function signatures / Internal decomposition / Error
+handling subsections. Emit a `## N.k — Implementation` block for every remaining section
+here — these all belong under the `# Part B` heading. Do NOT include Part A content here.]
 
 ---
 
