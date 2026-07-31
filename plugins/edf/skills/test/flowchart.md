@@ -9,7 +9,7 @@ flowchart TD
     S1["S1: Parse $ARGUMENTS<br/>Split on whitespace,<br/>read first token"] --> S1_CHK{"First token is<br/>a file path?"}
 
     S1_CHK -->|"Yes (.ts/.tsx/.py or a path separator)"| S1_FILE["Mode: file<br/>Language inferred<br/>from extension"]
-    S1_CHK -->|"No (keyword)"| S1_KW["Mode: all / full / typecheck /<br/>lint / build / e2e<br/>Language: 2nd token, else all"]
+    S1_CHK -->|"No (keyword)"| S1_KW["Mode: all / full / typecheck /<br/>lint / build / e2e / audit<br/>Language: 2nd token, else all"]
 
     S1_FILE --> S2
     S1_KW --> S2

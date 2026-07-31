@@ -44,8 +44,17 @@ Skills infer `<ts|p>` from the file extensions they're working with: `.ts/.tsx` 
 | `run-lint.sh` | Lint | `<ts\|p\|all>` | 0 = pass |
 | `run-build.sh` | Build (exec `true` if N/A) | `<ts\|p\|all>` | 0 = pass |
 | `run-e2e.sh` | E2E (optional, skill skips if absent) | `<ts\|p\|all>` | 0 = pass |
+| `run-audit.sh` | Dependency security audit (skill-invoked by `feature-core` Step 5; graceful-skip) | `<ts\|p\|all>` | 0 = pass or skipped |
 
 `run-markdown-lint.sh` and `run-format-check.sh` are optional CI-only scripts — not invoked by any skill. Starters include them in CI workflow templates (`starters/.github/workflows/`); projects that want them in CI can keep them.
+
+`run-audit.sh` is the dependency-security gate. It fails only on high/critical
+vulnerabilities in production dependencies — `npm audit --audit-level=high --omit=dev`
+(TypeScript), `uv audit` / `pip-audit` (Python; pip-audit has no severity-threshold flag, so
+any finding blocks). Findings are always printed. It self-skips with exit 0 when the project
+has no lockfile/manifest, the audit tool is not installed, or the registry is unreachable.
+`EDF_AUDIT_WARN_ONLY=1` downgrades findings to a warning (exit 0) — the project's escape
+hatch for legacy trees that want the signal without blocking.
 
 Convention: stdout/stderr captured by the skill; non-zero exit always means fail.
 

@@ -95,7 +95,7 @@ EDF skills assume certain docs live in standard locations. Configure these in yo
 
 ## Script contract
 
-EDF skills invoke project-specific scripts instead of hardcoded commands. Each project using EDF must provide these 5 scripts in `scripts/`:
+EDF skills invoke project-specific scripts instead of hardcoded commands. Each project using EDF must provide these 6 scripts in `scripts/`:
 
 | Script | Purpose | Exit |
 |---|---|---|
@@ -104,6 +104,7 @@ EDF skills invoke project-specific scripts instead of hardcoded commands. Each p
 | `run-lint.sh` | Lint | 0 = pass |
 | `run-build.sh` | Build (`exec true` if N/A) | 0 = pass |
 | `run-e2e.sh` | E2E (optional) | 0 = pass |
+| `run-audit.sh` | Dependency security audit (skips gracefully with no lockfile/registry) | 0 = pass or skipped |
 
 Optional CI-only scripts (`run-markdown-lint.sh`, `run-format-check.sh`) are included in CI workflow starters — no skill invokes them.
 

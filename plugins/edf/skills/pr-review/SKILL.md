@@ -74,21 +74,32 @@ Then fetch in parallel:
 
 ```
 You are a senior engineer doing a focused code review on a small diff. Cover all areas
-in one pass: bugs, code justification, design principles, CLAUDE.md compliance, framework
-anti-patterns, and design conformance.
+in one pass: bugs, security, code justification, maintainability, design principles,
+CLAUDE.md compliance, framework anti-patterns, and design conformance.
 
 ## Part 1: Bugs (block if found)
 - Logic errors, off-by-one, null dereferences, incorrect error handling
 - Missing awaits on async calls
 - Race conditions or incorrect state transitions
-- Security issues (injection, credential exposure, missing auth checks)
 - Silent catch blocks that discard errors without at least a console.error — always a bug
 
+## Part 1b: Security (block if found)
+- Injection (SQL/NoSQL/command/template)
+- AuthZ bypass — missing ownership/RLS on reads or writes
+- Secrets in code, logs, URLs, or comments
+- SSRF on server-side fetch of client-supplied URLs
+- Insecure defaults or missing security headers
+- Error leakage — stack traces, schema, or tokens in responses
+
 ## Part 2: Code justification (block if severe)
-- Does this code solve the stated problem without over-engineering?
-- YAGNI: is anything added not required by the current task?
-- Helpers or abstractions introduced for a single use?
-- Complexity that could be replaced by simpler alternatives?
+- Solves the stated problem without over-engineering — nothing beyond the current task?
+- Single-use helpers or abstractions? Complexity replaceable by simpler alternatives?
+
+## Part 2b: Maintainability / Boy Scout (block if severe, warn for nits)
+- Dead code introduced (unused imports, vars, functions)
+- Duplication created instead of reusing an existing helper
+- Touched functions left harder to understand than they were (naming, structure) — a broken window opened, not left
+Judges the diff; edf:diag (CodeScene/SonarQube) judges whole files at thresholds — don't duplicate it.
 
 ## Part 3: Design principles (block if severe)
 The project's architecture rules are in `{{ARCHITECTURE_RULES}}` (from `kb/architecture.md`).
@@ -119,8 +130,6 @@ If found:
    - No justification comment → **block** (add a `Justification:` comment or update the LLD)
    - Justification comment exists → **warn**
 4. Exported/public unspecified functions are always **block** regardless of justification.
-
-Also scan for silent catch blocks (error not passed to any logger) → **block**.
 
 ## Part 6: Helper reuse (block if a reusable helper is re-implemented)
 
@@ -213,7 +222,7 @@ Issue body:
 
 JSON array. Each element:
 {
-  "type": "bug" | "justification" | "design-principle" | "compliance" | "unspecified-function" | "silent-swallow" | "anti-pattern" | "kernel-reuse" | "db-efficiency",
+  "type": "bug" | "security" | "justification" | "maintainability" | "design-principle" | "compliance" | "unspecified-function" | "silent-swallow" | "anti-pattern" | "kernel-reuse" | "db-efficiency",
   "severity": "block" | "warn",
   "file": "relative/path.ts",
   "line": 42,
@@ -235,22 +244,33 @@ Skip to **Step 4** with the single agent's output. Do not launch Agent A or Agen
 **Tools:** Read, Bash, Glob, Grep
 
 ```
-You are a senior engineer doing a code review. Your job: bugs, code justification,
-design principles, CLAUDE.md compliance, and known framework anti-patterns.
-Design conformance (LLD matching) is handled by a separate agent.
+You are a senior engineer doing a code review. Your job: bugs, security, code
+justification, maintainability, design principles, CLAUDE.md compliance, and known
+framework anti-patterns. Design conformance (LLD matching) is handled by a separate agent.
 
 ## Bugs (block)
 - Logic errors, off-by-one, null dereferences, incorrect error handling
 - Missing awaits on async calls
 - Race conditions or incorrect state transitions
-- Security issues (injection, credential exposure, missing auth checks)
 - Silent catch blocks that discard errors without at least a console.error — always a bug
 
+## Security (block if found)
+- Injection (SQL/NoSQL/command/template)
+- AuthZ bypass — missing ownership/RLS on reads or writes
+- Secrets in code, logs, URLs, or comments
+- SSRF on server-side fetch of client-supplied URLs
+- Insecure defaults or missing security headers
+- Error leakage — stack traces, schema, or tokens in responses
+
 ## Code justification (block if severe)
-- Does this code solve the stated problem without over-engineering?
-- YAGNI: is anything added not required by the current task?
-- Helpers or abstractions introduced for a single use?
-- Complexity replaceable by simpler alternatives?
+- Solves the stated problem without over-engineering — nothing beyond the current task?
+- Single-use helpers or abstractions? Complexity replaceable by simpler alternatives?
+
+## Maintainability / Boy Scout (block if severe, warn for nits)
+- Dead code introduced (unused imports, vars, functions)
+- Duplication created instead of reusing an existing helper
+- Touched functions left harder to understand than they were (naming, structure) — a broken window opened, not left
+Judges the diff; edf:diag (CodeScene/SonarQube) judges whole files at thresholds — don't duplicate it.
 
 ## Design principles (block if severe)
 The project's architecture rules are in `{{ARCHITECTURE_RULES}}` (from `kb/architecture.md`).
@@ -316,7 +336,7 @@ Issue body:
 
 JSON array. Each element:
 {
-  "type": "bug" | "justification" | "design-principle" | "compliance" | "anti-pattern",
+  "type": "bug" | "security" | "justification" | "maintainability" | "design-principle" | "compliance" | "anti-pattern",
   "severity": "block" | "warn",
   "file": "relative/path.ts",
   "line": 42,
@@ -551,8 +571,8 @@ finding). Sort by severity: `block` items first, then `warn`.
 ```
 ### PR Review
 
-No issues found. Checked: bugs, code justification, design principles, CLAUDE.md compliance,
-kb reuse, DB efficiency, framework anti-patterns, design conformance.
+No issues found. Checked: bugs, security, code justification, maintainability, design
+principles, CLAUDE.md compliance, kb reuse, DB efficiency, framework anti-patterns, design conformance.
 [Framework best practices: skipped — no framework files changed.]
 ```
 
@@ -574,9 +594,9 @@ kb reuse, DB efficiency, framework anti-patterns, design conformance.
 > <evidence>
 ```
 
-Types: `[bug]`, `[justification]`, `[design-principle]`, `[compliance]`, `[kernel-reuse]`,
-`[db-efficiency]`, `[design-contract]`, `[anti-pattern]`, `[unspecified-function]`,
-`[silent-swallow]`, `[diagnostic]`.
+Types: `[bug]`, `[security]`, `[justification]`, `[maintainability]`, `[design-principle]`,
+`[compliance]`, `[kernel-reuse]`, `[db-efficiency]`, `[design-contract]`, `[anti-pattern]`,
+`[unspecified-function]`, `[silent-swallow]`, `[diagnostic]`.
 
 **PR mode:** post as a PR comment:
 ```bash

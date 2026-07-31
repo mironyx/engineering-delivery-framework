@@ -290,6 +290,11 @@ A section for requirements that span multiple epics (security, performance,
 observability, accessibility). These become constraints or non-functional
 requirements rather than user stories.
 
+Security and Performance must not ship empty. **Security** names the threats handled
+(authN/Z, injection, secrets, error leakage, data protection). **Performance** states
+quantified targets (latency, throughput, batch size) where load is implied, or
+explicitly defers with a reason.
+
 ```markdown
 ## Cross-Cutting Concerns
 

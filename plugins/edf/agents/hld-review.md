@@ -80,14 +80,27 @@ cross-cutting concern.
   noise. Good: "DataStore does not perform authorisation — callers must enforce
   access control before calling write methods."
 
+- **Performance expectations** — where requirements imply scale, do load-bearing
+  components state quantified targets (throughput, latency, concurrency) or an
+  explicit deferral? Missing on a load-bearing component is a warning.
+
+- **Security design coverage** — beyond declaring boundaries, are the *decisions*
+  stated: the authN/Z model (who can do what, where enforced), data protection at rest
+  and in transit for sensitive data, secrets management, external-integration security
+  (OAuth/webhooks/keys)? A missing authZ model on a component owning sensitive data is
+  a blocker; a missing data-protection statement is a warning.
+
 ### Step 3: Produce findings
 
 Classify severity:
 
 - **block** — uncovered capability with no owner, component with no
-  non-responsibilities, broken delta reference, missing trust boundary declaration
+  non-responsibilities, broken delta reference, missing trust boundary declaration,
+  missing authZ model on a component owning sensitive data
 - **warn** — missing interaction diagram for non-critical flow, unclear component
-  responsibility, load-bearing decision without ADR, technology in component name
+  responsibility, load-bearing decision without ADR, technology in component name,
+  missing performance expectations where requirements imply scale, missing
+  data-protection statement for sensitive data
 
 ## Output
 

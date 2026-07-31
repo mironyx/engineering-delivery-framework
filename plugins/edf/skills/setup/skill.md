@@ -350,7 +350,7 @@ Run verification checks. Each check passes or fails — report all results.
 
 1. **Scripts reachable:**
    ```bash
-   for script in run-tests.sh run-typecheck.sh run-lint.sh run-build.sh run-e2e.sh run-format-check.sh run-markdown-lint.sh; do
+   for script in run-tests.sh run-typecheck.sh run-lint.sh run-build.sh run-e2e.sh run-audit.sh run-format-check.sh run-markdown-lint.sh; do
      if [ -f "${CLAUDE_PLUGIN_ROOT}/starters/scripts/$script" ]; then
        echo "  OK ${CLAUDE_PLUGIN_ROOT}/starters/scripts/$script"
      else

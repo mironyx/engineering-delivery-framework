@@ -46,23 +46,20 @@ those constraints.
 
 - **Simplicity** — is there a demonstrably simpler approach that achieves the same
   goals? Could a direct implementation replace an abstraction? Could an existing
-  component be extended rather than a new one introduced? Flag over-engineered designs.
-  The burden of proof is on complexity — a design that introduces new abstractions,
-  new layers, or new patterns must state what concrete problem each addition solves.
+  component be extended rather than a new one introduced? The burden of proof is on
+  complexity — a design that introduces new abstractions, new layers, or new patterns
+  must state what concrete problem each addition solves.
 
 - **Constraint awareness** — does the design acknowledge and work within the project's
   stated constraints? Read `CLAUDE.md`, the `kb/` directory (`kb/architecture.md`,
   `kb/conventions.md`, `kb/anti-patterns.md`), and relevant ADRs for the constraint
-  baseline. The kb captures project-specific conventions, reusable helpers, and
-  anti-patterns — designs must work within these, not around them. Flag designs that
-  violate a stated constraint without explicit justification, or that ignore a
-  constraint entirely.
+  baseline. Flag designs that violate a stated constraint without explicit
+  justification, or that ignore a constraint entirely.
 
 - **Trade-off explicitness** — where the design makes a trade-off (performance vs
   simplicity, flexibility vs delivery speed, generality vs fit), is the trade-off
   stated and the reasoning sound? A design that picks a side without acknowledging
-  the cost is flagged. A design that claims to have no trade-offs is flagged — every
-  non-trivial design trades something off.
+  the cost is flagged.
 
 - **Best practice alignment** — does the design follow established principles (single
   responsibility, separation of concerns, dependency inversion, functions over classes
@@ -81,6 +78,18 @@ those constraints.
   input to output visible and auditable? Flag designs where data disappears into an
   abstraction and re-emerges transformed without the transformation being named or
   specified.
+
+- **Performance** — is every non-trivial data path's round-trip / network-call count
+  bounded (no N+1, no unbounded loop baked into the design)? Where the requirements
+  imply latency, throughput, or a bulk path, does the design state a budget or batch
+  size and follow the project's efficiency convention? A chatty, quadratic, or
+  bulk-unsized path is a blocker; a missing efficiency convention is a warning.
+
+- **Security / attack surface** — for each flow crossing a trust boundary or handling
+  untrusted input, does the design state an enforcement point for injection
+  (SQL/NoSQL/command/HTML), authZ (ownership/RLS on reads and writes), secrets, error
+  leakage, and SSRF? A threat the feature obviously invites with no stated enforcement
+  point is a blocker; a threat left unconsidered is a warning.
 
 Tier 1 findings are inherently judgment-based. Each finding must state: what the
 design does, what the concern is, and what a better alternative looks like (even if
@@ -163,7 +172,8 @@ Classify severity:
 
 - **block** — unjustified deviation from best practices, violated constraint with no
   justification, broken file path, unverifiable invariant, missing visual state, missing
-  Boundary Contract Audit, contract gap a /feature agent would fall into
+  Boundary Contract Audit, contract gap a /feature agent would fall into, security or
+  performance gap a /feature agent would bake into implementation
 - **warn** — over-engineering concern, unstated trade-off, missing helper reuse table,
   happy-path-only section, oversized task, ambiguous layer ownership
 

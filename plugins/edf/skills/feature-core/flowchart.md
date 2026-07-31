@@ -18,7 +18,9 @@ flowchart TD
         S3B_LLD -->|"No — deviate"| S3B_DEV["Note deviation for<br/>PR Design deviations"]
         S3B_DEV --> S3C
         S3B_LLD -->|"Yes"| S3C["S3c: Classify pressure<br/>Estimate src lines"]
-        S3C --> F3DF["3dF: Create session log<br/>Approach rationale +<br/>cost checkpoint table"]
+        S3C --> S3C_SEC{"Security-sensitive?<br/>auth / payments / PII /<br/>secrets / external input"}
+        S3C_SEC -->|"No"| F3DF
+        S3C_SEC -->|"Yes — verification = Standard"| F3DF["3dF: Create session log<br/>Approach rationale +<br/>cost checkpoint table"]
     end
 
     F3DF --> S3C_TIER{"Tier?"}
@@ -55,25 +57,29 @@ flowchart TD
         S5_FIX --> S5
         S5_CHK -->|"Yes"| S5_E2E{"E2E tests?"}
         S5_E2E -->|"Yes"| S5_E2E_RUN(("edf:test e2e<br/>build + e2e"))
-        S5_E2E -->|"No"| S5_CP["Append cost checkpoint<br/>step 5: green on attempt N"]
-        S5_E2E_RUN --> S5_CP
+        S5_E2E -->|"No"| S5_AUDIT(("S5: edf:test audit<br/>dependency security"))
+        S5_E2E_RUN --> S5_AUDIT
+        S5_AUDIT --> S5_CP["Append cost checkpoint<br/>step 5: green on attempt N"]
         S5_CP --> S6
-        S6["S6: edf:diag<br/>Light: src/ only<br/>Full: all files"] --> S6_CHK{"Zero findings?"}
+        S6["S6: edf:diag<br/>Light: src/ only<br/>Standard: all files"] --> S6_CHK{"Zero findings?"}
         S6_CHK -->|"No"| S6_FIX["Fix -> re-run edf:diag -> re-run S5"]
         S6_FIX --> S6
         S6_CHK -->|"Yes"| S6_CP["Append cost checkpoint<br/>step 6: diag pass"]
-        S6_CP --> S6B_GATE{"Track?"}
+        S6_CP --> S6B_GATE
     end
 
-    S6B_GATE -->|"Light"| S7
-    S6B_GATE -->|"Full"| S6B(("S6b: edf:feature-evaluator"))
+    S6B_GATE{"Verification level?<br/>(Standard — Full track<br/>or security escalation)"} -->|"Light"| S7
+    S6B_GATE -->|"Standard"| S6B(("S6b: edf:feature-evaluator"))
     S6B --> S6B_CP["Append cost checkpoint<br/>step 6b: evaluator"]
     S6B_CP --> S6B_V{"Verdict?"}
     S6B_V -->|"PASS"| S7
     S6B_V -->|"WARNINGS"| S6B_W["Fix quick wins,<br/>note rest in PR"]
     S6B_W --> S7
     S6B_V -->|"FAIL"| S6B_F["Fix -> re-run S5 + S6"]
-    S6B_F --> S7
+    S6B_F --> S6B_REV(("Re-run evaluator<br/>once"))
+    S6B_REV --> S6B_V2{"Verdict?"}
+    S6B_V2 -->|"PASS / WARNINGS"| S7
+    S6B_V2 -->|"FAIL again"| S6B_STOP(["fa:fa-ban Pause and report"])
 
     %% ── Shared delivery ──
     subgraph DELIVER["Shared Delivery"]
@@ -111,7 +117,7 @@ flowchart TD
 
     class START,DONE startend
     class S3,S3_READ,S3B,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S10,S10_F,S10_OK,S10_CP,S10_W process
-    class F2,S5,S5_E2E_RUN,S6B,S8B agent
-    class S3_EPIC,S3B_LLD,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6B_GATE,S6B_V,S8_DEV,S9_B,S10_CI decision
-    class STOP_EPIC,STOP_SPEC stop
+    class F2,S5,S5_E2E_RUN,S5_AUDIT,S6B,S6B_REV,S8B agent
+    class S3_EPIC,S3B_LLD,S3C_SEC,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6B_GATE,S6B_V,S6B_V2,S8_DEV,S9_B,S10_CI decision
+    class STOP_EPIC,STOP_SPEC,S6B_STOP stop
 ```

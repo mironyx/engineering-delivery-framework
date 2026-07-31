@@ -24,6 +24,7 @@ changing mode parsing, command resolution, or agent delegation.
 - **`lint [ts|p|all]`** — lint only.
 - **`build [ts|p|all]`** — build only.
 - **`e2e [ts|p|all]`** — build + E2E tests.
+- **`audit [ts|p|all]`** — dependency security scan (npm/pnpm/yarn audit; uv audit/pip-audit). Used by `feature-core` Step 5.
 
 ## Instructions
 
@@ -36,7 +37,7 @@ Split `$ARGUMENTS` on whitespace. The first token is the mode or file path.
 - Target: the file path
 - Language: infer from extension — `.ts` / `.tsx` → `ts`, `.py` → `p`
 
-**Keyword** — if the first token is `all`, `full`, `typecheck`, `lint`, `build`, or `e2e`:
+**Keyword** — if the first token is `all`, `full`, `typecheck`, `lint`, `build`, `e2e`, or `audit`:
 - Mode: the keyword
 - Language: second token if present, otherwise `all`
 
@@ -53,6 +54,7 @@ Construct the fully-resolved command using `${CLAUDE_PLUGIN_ROOT}`:
 | `lint` | `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh <ts\|p>` |
 | `build` | `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-build.sh <ts\|p>` |
 | `e2e` | `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-build.sh <ts\|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-e2e.sh <ts\|p>` |
+| `audit` | `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-audit.sh <ts\|p>` |
 
 `${CLAUDE_PLUGIN_ROOT}` is resolved by Claude Code in skill markdown — do not read it from `.env`.
 

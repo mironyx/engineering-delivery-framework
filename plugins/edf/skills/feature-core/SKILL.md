@@ -126,6 +126,12 @@ from a desired tier, stop and count.
 cost of under-classification means missing the test-author and evaluator sub-agents and
 their coverage validation. If you are unsure between Light and Standard, pick Standard.
 
+**Security-sensitive changes escalate verification.** If the change touches authN/Z,
+payments, PII, secrets, or parsing untrusted external input, raise the *verification tier*
+to Standard even if under 30 lines: Step 6 `edf:diag` runs on all changed files (not just
+`src/`), and Step 6b `edf:feature-evaluator` runs its security-boundary adversarial pass.
+Implementation stays inline (Step 4L) — this is verification depth, not process weight.
+
 State the estimated line count, file count, tier, and reasoning before proceeding:
 > **Pressure: Standard** — ~45 lines across 2 source files (3 test files).
 
@@ -196,6 +202,9 @@ No sub-agents. Write the fix and regression tests in one pass.
    bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test-file>
    ```
    Runs only the affected test file (the script takes an optional path argument). Do not launch a sub-agent for this — the output is compact and belongs in the main context.
+4. **Boy Scout rule** — when you edit a file, leave it cleaner than you found it: fix dead
+   code, duplication, or obvious naming problems on the lines you touch; never leave the
+   touched code worse than it was. Scoped to touched lines only — never refactor unrelated code.
 
 Proceed to Step 5.
 
@@ -257,6 +266,9 @@ to make the tests pass.
   without changing its assertion.
 - If a test looks semantically wrong (sub-agent misread the spec), stop and report to the user.
 - If a test is uncompilable because a type is wrong, fix the type annotation but keep the assertion.
+- **Boy Scout rule** — when you edit a file, leave it cleaner than you found it: fix dead
+  code, duplication, or obvious naming problems on the lines you touch; never leave the
+  touched code worse than it was. Scoped to touched lines — no unrelated refactoring.
 
 Run only the target test file after each increment:
 
@@ -310,6 +322,19 @@ Skill: edf:test e2e <ts|p>
 The project's `run-e2e.sh` is responsible for setting any environment variables the build or
 `edf:test` needs (e.g. placeholder service URLs, test API keys, etc.). The script-contract
 keeps that detail inside the project, not in the skill.
+
+Then run the dependency security audit:
+
+```
+Skill: edf:test audit <ts|p>
+```
+
+`run-audit.sh` fails only on high/critical vulnerabilities in production dependencies, and
+self-skips (exit 0) when there is no lockfile/manifest, the tool is missing, or the registry
+is unreachable — it cannot spuriously block. On audit failure: if the vulnerable dependency
+is related to this change, fix it (bump/update); if the finding is pre-existing in the
+dependency tree and unrelated, surface it to the user and record a documented deferral in
+the PR body — never silently ignore it.
 
 All must pass — zero failures, including integration tests — before proceeding.
 If any fail, fix and re-run via `edf:test`. If stuck after 3 attempts on the same failure, pause and report.
@@ -371,7 +396,7 @@ Input: requirements_paths=<absolute list> lld_path=<absolute path> issue_number=
 
 - **PASS** — every acceptance criterion maps to at least one passing test, no gaps. Proceed to Step 7.
 - **PASS WITH WARNINGS** — minor gaps found, evaluator added a small number of adversarial tests. Review warnings, fix quick wins, note the rest in the PR body. Proceed to Step 7.
-- **FAIL** — a criterion is uncovered or an adversarial test exposed a real defect. Fix the implementation, re-run Step 5 (verification) and Step 6 (`edf:diag`). Do NOT re-run the evaluator — proceed to Step 7 after verification passes.
+- **FAIL** — a criterion is uncovered or an adversarial test exposed a real defect. Fix the implementation, re-run Step 5 (verification) and Step 6 (`edf:diag`), then re-run the evaluator once to confirm the previously-uncovered criteria now pass. PASS or PASS WITH WARNINGS → proceed to Step 7. FAIL again → pause and report. One re-run only — if it still fails, stop.
 
 If evaluator writes > 3 adversarial tests, note count in Step 10 report and PR body — but do not block.
 

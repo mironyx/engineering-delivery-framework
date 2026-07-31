@@ -157,11 +157,12 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 - **No HLD duplication.** Is anything in Part B copy-pasted from the HLD? Replace with a link.
 - **Open decisions surfaced.** Are there design questions still unresolved that the LLD silently picks a side on? List them at the top of the LLD as "Open questions" and flag to the user — do not decide in the LLD.
 - **Layer placement.** For each behaviour, is it in the right layer (DB constraint vs API guard vs UI guard)? Defence-in-depth is fine but the *primary* enforcement layer must be explicit.
+- **Attack surface / STRIDE-lite.** For each flow crossing a trust boundary or handling untrusted input, state the enforcement point for: injection (SQL/NoSQL/command/HTML), authZ (ownership/RLS on reads and writes), secrets (never in code/logs/URLs), error leakage, SSRF (server-side fetch of client-supplied URLs). No threat without a stated enforcement point.
 - **Error paths.** Is there at least one BDD spec per non-trivial error case, or did I only spec the happy path?
-- **Reused helpers table is mandatory.** Read kb/architecture.md and list every catalogued helper whose layer matches the section: backend (auth, context, validation, DB clients), frontend (shared UI components, design tokens, client-side hooks), database (migration helpers, RLS patterns). Add the "Reused helpers — DO NOT re-implement" table to Part B.0 listing each helper, its import path, and what re-implementing pattern it replaces. Code samples must call helpers by name — not inline the equivalent logic. The table at B.0 is the agent's first stop before any implementation code. If no helper covers the exact shape needed, note it and propose extending an existing helper or adding a new one in the `## kb/ additions` block.
-- **No raw queries against access-controlled tables in code samples.** LLD code samples must use the helper from the Reused helpers table, not an inline query. The only exception is when no helper covers the exact shape needed — propose extending one in the `## kb/ additions` block.
+- **Reused helpers table is mandatory.** Read kb/architecture.md and list every catalogued helper whose layer matches the section: backend (auth, context, validation, DB clients), frontend (shared UI components, design tokens, client-side hooks), database (migration helpers, RLS patterns). Add the "Reused helpers — DO NOT re-implement" table to Part B.0 listing each helper, its import path, and what re-implementing pattern it replaces. Code samples must call helpers by name — not inline the equivalent logic (no raw queries against access-controlled tables). The table at B.0 is the agent's first stop before any implementation code. If no helper covers the exact shape needed, note it and propose extending an existing helper or adding a new one in the `## kb/ additions` block.
 - **Single RPC write per response.** For any endpoint that persists data, does the flow use exactly one RPC call to write all related rows? Multiple sequential writes to the same table within one request are a race-condition risk and waste DB round-trips (#788).
-- **Visual specs populated (FE sections).** For every section with a Frontend layer, does Part A have a Visual Specifications subsection with a populated table and screenshots? Flag sections where FE work is described but no visual reference exists. The self-critique catches the mechanical omission; the lld-review agent catches whether the visual spec is correct and complete (state coverage, REQ- traceability).
+- **Performance at design time.** Is every non-trivial data path's round-trip / network-call count bounded — no N+1, no unbounded loop baked into the design? If the requirement implies latency, throughput, or a bulk path, does the design state a budget or batch size? Apply the project's efficiency convention.
+- **Visual specs populated (FE sections).** For every section with a Frontend layer, does Part A have a Visual Specifications subsection with a populated table and screenshots? Flag sections where FE work is described but no visual reference exists.
 
 ### Step 2.6: Automated LLD review
 
@@ -175,7 +176,8 @@ Agent({subagent_type: "edf:lld-review", description: "Review LLD design", prompt
 Triage findings by tier:
 
 **Tier 1 (design quality):**
-- **block** — unjustified deviation from best practices, violated constraint.
+- **block** — unjustified deviation from best practices, violated constraint,
+  security or performance gap a /feature agent would bake into implementation.
   Fix before Step 3.
 - **warn** — over-engineering concern, unstated trade-off. Present to human;
   authoring agent applies judgment.

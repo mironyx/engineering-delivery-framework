@@ -130,7 +130,10 @@ If you do identify a gap, also consider these categories when framing the test:
 - **Error paths** — what happens when dependencies fail, inputs are invalid, state is unexpected?
 - **Type edges** — undefined vs null, empty string vs missing, empty array vs undefined
 - **Concurrency** — if the feature involves async operations, what about race conditions?
-- **Security boundaries** — if the feature involves auth or permissions, can they be bypassed?
+- **Security boundaries** — can authZ be bypassed? Is external input (imports, uploads,
+  URLs, webhooks) validated? Any secrets or stack traces leaking into responses or logs?
+- **Performance** — only if the LLD promises a bound (single RPC write, batch size,
+  latency): does the implementation enforce it? No perf tests without an LLD-stated bound.
 
 Write the test(s) in a new file under `tests/evaluation/` (use the project's test file
 naming convention — e.g. `<feature-slug>.eval.test.ts` in TypeScript, `<feature_slug>_test.py`

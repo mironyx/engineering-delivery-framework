@@ -110,6 +110,13 @@ Run all Gate 1 checks, plus:
   reference (wireframe or mockup link) or an explicit deferral note. Flag UI stories
   whose ACs describe visual surfaces but lack a linked visual spec.
 
+- **Security & performance elicitation** — stories touching auth, PII, payments,
+  external input, or implied scale must carry security/performance acceptance criteria
+  (or an explicit deferral in Cross-Cutting Concerns). A story touching these with zero
+  security or performance AC is a **warn**; a story whose primary function is
+  security-relevant (auth flow, permissions, token handling) with no security AC is a
+  **block**.
+
 ### Step 4: Produce findings
 
 Each finding: state the story reference (epic + story number + REQ- anchor), what the
@@ -117,9 +124,11 @@ issue is, and a suggested fix. Classify severity:
 
 - **block** — INVEST violation that would prevent implementation (untestable,
   dependent on another unbuilt story), missing REQ- anchor, uncovered discovery
-  feature with no deferral, undefined role
+  feature with no deferral, undefined role, security-relevant story with no
+  security AC
 - **warn** — missing negative case, vague qualifier, missing visual reference,
-  priority ordering concern, story likely oversized
+  priority ordering concern, story likely oversized, security/perf-sensitive
+  story with zero security or performance AC
 
 ## Output
 
