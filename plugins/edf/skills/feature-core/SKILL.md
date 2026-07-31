@@ -162,17 +162,21 @@ later.
    ## Cost checkpoints
    | Step | Timestamp | Cost (cumulative) | Tokens (cumulative) | Note |
    |------|-----------|--------------------|----------------------|------|
-   | 3c   | <timestamp>        | <cost-or-unavailable>       | <tokens-or-unavailable>        | pressure: <tier> |
    ````
-   Query the cumulative session cost from Prometheus via the feature ID:
+   Then immediately append the Step 3c checkpoint row with a live timestamp and cost query:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/query-feature-cost.py --issue <N> 2>/dev/null || echo "Cost: unavailable | Tokens: unavailable"
+   bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
+     --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
+     --step "3c" \
+     --note "pressure: <tier> — <reasoning>" \
+     --issue <N>
    ```
+   The script captures `date -u` and queries Prometheus at the moment it runs.
+   Cost/token values are materialised immediately — no placeholders to fill later.
    **If cost is unavailable:** Prometheus is not configured or unreachable.
-   Cost tracking is optional — all checkpoint rows gracefully show
-   "unavailable" and feature-core continues normally. To enable it, set up
-   a Prometheus instance scraping the node_exporter textfile collector from
-   the directory in `EDF_FEATURE_PROM_DIR` (see `.env`).
+   The script writes "unavailable" for cost/tokens and continues. To enable cost
+   tracking, set up a Prometheus instance scraping the node_exporter textfile
+   collector from the directory in `EDF_FEATURE_PROM_DIR` (see `.env`).
 5. Stage the file immediately so it survives:
    ```bash
    git add docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md
@@ -248,13 +252,14 @@ requirements files the issue or LLD references.
 spec gaps, **stop and escalate to the user** — the spec is too vague to implement against.
 Do not write the tests yourself.
 
-**Full track:** after the test-author returns, append a cost checkpoint row to the session log:
+**Full track:** after the test-author returns, append a cost checkpoint row:
 ```bash
-cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
-| 4bF  | $(date -u +%Y-%m-%dT%H:%M:%SZ) | <cost-or-unavailable> | <tokens-or-unavailable> | test-author complete |
-EOF
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
+  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
+  --step "4bF" \
+  --note "test-author complete — <N> BDD properties, <all covered | N gaps>" \
+  --issue <N>
 ```
-Use the same Prometheus query as Step 3dF (cost unavailable is fine — record what you can).
 
 ### Step 4cF: Implement against the tests
 
@@ -283,13 +288,14 @@ property maps to a passing test. If the sub-agent missed a property you can see 
 spec, add the test yourself and note this in the Step 10 report (so we can feed it back
 into the sub-agent's prompt).
 
-**Full track:** after self-check passes, append a cost checkpoint row to the session log:
+**Full track:** after self-check passes, append a cost checkpoint row:
 ```bash
-cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
-| 4dF  | $(date -u +%Y-%m-%dT%H:%M:%SZ) | <cost-or-unavailable> | <tokens-or-unavailable> | implementation complete |
-EOF
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
+  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
+  --step "4dF" \
+  --note "implementation complete" \
+  --issue <N>
 ```
-Use the same Prometheus query as Step 3dF.
 
 ---
 
@@ -339,13 +345,15 @@ the PR body — never silently ignore it.
 All must pass — zero failures, including integration tests — before proceeding.
 If any fail, fix and re-run via `edf:test`. If stuck after 3 attempts on the same failure, pause and report.
 
-After Step 5 passes, append a cost checkpoint row to the session log created in Step 3dF:
+After Step 5 passes, append a cost checkpoint row:
 ```bash
-cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
-| 5    | <timestamp> | <cost>  | <tokens>  | green on attempt <N> |
-EOF
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
+  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
+  --step "5" \
+  --note "green on attempt <N>$(<any extra context like audit deferrals>)" \
+  --issue <N>
 ```
-Count the verification attempts since Step 4cF. Use the same Prometheus query as Step 3dF.
+Count the verification attempts since Step 4cF.
 
 ### Step 6: Diagnostics (blocking gate)
 
@@ -364,13 +372,14 @@ Then:
 4. Repeat until `edf:diag` reports zero findings on non-generated files.
 5. Re-run Step 5 (full verification) after any fixes.
 
-**Both tracks:** after diagnostics pass clean, append a cost checkpoint row to the session log:
+**Both tracks:** after diagnostics pass clean, append a cost checkpoint row:
 ```bash
-cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
-| 6    | $(date -u +%Y-%m-%dT%H:%M:%SZ) | <cost-or-unavailable> | <tokens-or-unavailable> | diag pass |
-EOF
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
+  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
+  --step "6" \
+  --note "diag pass$(<concise findings summary if notable>)" \
+  --issue <N>
 ```
-Use the same Prometheus query as Step 3dF.
 
 ### Step 6b: Evaluate (Full track only)
 
@@ -402,13 +411,14 @@ If evaluator writes > 3 adversarial tests, note count in Step 10 report and PR b
 
 Evaluator tests follow the project's test file convention, committed in Step 7.
 
-**Full track:** after the evaluator verdict, append a cost checkpoint row to the session log:
+**Full track:** after the evaluator verdict, append a cost checkpoint row:
 ```bash
-cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
-| 6b   | $(date -u +%Y-%m-%dT%H:%M:%SZ) | <cost-or-unavailable> | <tokens-or-unavailable> | evaluator: <verdict> |
-EOF
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
+  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
+  --step "6b" \
+  --note "evaluator: <verdict>$(<concise blocker summary if any>)" \
+  --issue <N>
 ```
-Use the same Prometheus query as Step 3dF.
 
 ---
 
@@ -470,13 +480,15 @@ gh pr view <pr-number> --json body -q '.body' | grep -c 'Closes #<N>'
 ```
 Must return `>= 1`. If not, fix immediately.
 
-Append a cost checkpoint row to the session log:
+Append a cost checkpoint row:
 ```bash
-cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
-| 8    | <timestamp> | <cost>  | <tokens>  | [PR #<pr-number>](<pr-url>) |
-EOF
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
+  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
+  --step "8" \
+  --note "[PR #<pr-number>](<pr-url>)" \
+  --issue <N>
 ```
-Use the same Prometheus query as Step 3dF. The PR number and URL are available from the `create-feature-pr.sh` output above.
+The PR number and URL are available from the `create-feature-pr.sh` output above.
 
 ### Step 8b: CI probe (background)
 
@@ -508,13 +520,14 @@ returns findings. Triage each finding:
 
 After any fixes, re-run `edf:pr-review <pr-number>` to confirm no new issues were introduced.
 
-Once review is resolved (no blockers remain), append a cost checkpoint row to the session log:
+Once review is resolved (no blockers remain), append a cost checkpoint row:
 ```bash
-cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
-| 9    | <timestamp> | <cost>  | <tokens>  | review clean |
-EOF
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
+  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
+  --step "9" \
+  --note "review clean$(<concise findings summary>)" \
+  --issue <N>
 ```
-Use the same Prometheus query as Step 3dF.
 
 ### Step 10: Report
 
@@ -540,13 +553,14 @@ Then summarise what was done:
 - Any warnings or notes (PR size, diagnostics findings, design drift)
 - Suggested next item from the board
 
-After the report is delivered, append a cost checkpoint row to the session log:
+After the report is delivered, append a cost checkpoint row:
 ```bash
-cat >> docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md << 'EOF'
-| 10   | $(date -u +%Y-%m-%dT%H:%M:%SZ) | <cost-or-unavailable> | <tokens-or-unavailable> | report done |
-EOF
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
+  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
+  --step "10" \
+  --note "report done$(<concise CI/review outcome>)" \
+  --issue <N>
 ```
-Use the same Prometheus query as Step 3dF.
 
 ## Blocker policy
 
