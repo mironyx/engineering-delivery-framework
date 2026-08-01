@@ -63,6 +63,8 @@ add functions not in the spec? Are the enforcement points actually enforced?
 - Security and validation stories are buried in Part B prose — invisible in the diagrams that are the primary review surface
 - Feedback requires switching to a different tool (GitHub comments, Slack) and manually referencing LLD section numbers
 - New components (not yet implemented) have no spec to check against — Part B is a separate scroll target, often far from Part A
+- Preview-to-source switching for comments — diagrams render beautifully in the preview, but adding a `[Review]` comment requires switching back to the source editor, finding the right line, and breaking the visual flow
+- Tests are hard to reach — the PR branch is checked out locally, but running the tests to verify the implementation works requires knowing the project's test commands and conventions
 
 **Context:** Opens the LLD in VSCode's native markdown preview (Ctrl+Shift+V). Switches
 between the preview and the source editor. May be looking at a PR in the browser on a
@@ -202,6 +204,39 @@ and incorporated — no separate issue tracker, no copy-paste between tools.
 in `/requirements` and `/discovery`). No new tooling is needed — just extending
 the convention to LLDs and documenting it.
 
+### Journey: LLD Reviewer — Run tests from the PR branch
+
+**Trigger:** After verifying the design against the implementation, the reviewer
+wants to confirm the code actually works.
+
+**Prerequisites:** PR branch checked out locally via GitHub Pull Requests extension.
+Project has EDF test scripts configured (via `/edf:setup`).
+
+**Steps:**
+
+1. **Identify test files** — The LLD's Tasks section lists "Files to create/modify"
+   including test files. The PR diff shows which tests were added or changed.
+2. **Run the tests** — From the terminal or via `/edf:test`, run the test suite
+   for the changed files. The EDF test runner scripts provide token-efficient output.
+3. **Verify coverage** — Check that the tests cover the acceptance criteria and
+   BDD specs listed in the LLD. If the LLD says "webhook replay is idempotent" and
+   there's no test for it, that's a review finding.
+4. **Add findings** — If tests fail or coverage gaps exist, add `[Review]` markers
+   in the LLD and/or inline comments in the PR diff.
+
+**Outcome:** The reviewer has confidence that the implementation not only matches
+the design but also passes its tests — without leaving VSCode.
+
+**Pain points addressed:**
+- Test commands are discoverable via EDF conventions (the CLAUDE.md Verification
+  Commands table already documents the exact commands)
+
+**Note:** This journey relies on project setup already done (`/edf:setup` configures
+test scripts in CLAUDE.md). The discovery does not propose building a test runner —
+the EDF test skill and scripts already exist. The improvement is making the connection
+between LLD → test files → run command visible and low-friction. A future enhancement
+could add a "Run tests for this section" command to the LLD preview extension.
+
 ---
 
 ## Activity 5 — Feature catalogue
@@ -220,6 +255,8 @@ the convention to LLDs and documenting it.
 | F10 | `[Review]` convention documented for LLDs | J3 | Reviewer | S | M | Same convention as requirements/discovery. No code — documentation + template mention. |
 | F11 | Graceful degradation: `edf://` links harmless in GitHub | J2 | Maintainer | S | H | `_self` target + unrecognised URL scheme → cursor changes, no navigation, no error. |
 | F12 | Upstream/downstream skill impact assessment | J2 | Maintainer | S | M | Check `lld-sync`, `pr-review`, `architect`, `feature-core` for compatibility with new conventions. |
+| F13 | Preview-to-source comment insertion | J3 | Reviewer | M | L | Command to jump from preview location to source editor and insert `[Review]` template. VSCode preview↔source mapping is fragile — assess feasibility before committing. |
+| F14 | "Run tests for this section" in LLD preview | J4 | Reviewer | L | M | Contextual test execution from the LLD. Requires test file path extraction from LLD Tasks section + project test command discovery. |
 
 ---
 
@@ -250,11 +287,14 @@ on knowing the final shape of the conventions.
 
 ### Wave 3+ — Future
 
-**Features:** Bidirectional navigation (code → diagram highlighting), live drift
-detection between code and LLD diagrams, CodeBoarding-style auto-generated diagrams
-post-implementation, inline code snippet rendering below diagrams in the preview.
+**Features:** F13, F14 — bidirectional navigation (code → diagram highlighting),
+live drift detection between code and LLD diagrams, CodeBoarding-style auto-generated
+diagrams post-implementation, inline code snippet rendering below diagrams in the
+preview.
 
-**Rationale:** These are higher effort or depend on external APIs. Bidirectional
-nav requires Tree-sitter or equivalent code parsing. Drift detection needs
-diffing engine. Auto-generated diagrams depend on Gemini API (external cost).
-Defer until Wave 1 proves the navigation pattern is valuable.
+**Rationale:** F13 (preview-to-source comment insertion) depends on VSCode's
+markdown source mapping, which may not be precise enough for diagram-heavy documents.
+F14 (contextual test execution) requires extracting test file paths from LLD sections
+and discovering project test commands — useful but needs the Wave 1 navigation
+patterns to prove themselves first. The other future items are higher effort or
+depend on external APIs (Gemini for auto-generated diagrams).
