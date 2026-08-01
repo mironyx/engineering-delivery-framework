@@ -2,7 +2,7 @@
 
 Date: 2026-08-01
 Source: Freeform brief (review-experience improvements)
-Status: Draft — Complete
+Status: Final
 
 ---
 
@@ -298,3 +298,14 @@ navigation patterns to prove themselves first. Bidirectional nav requires Tree-s
 or equivalent code parsing. Drift detection needs a diffing engine. Auto-generated
 diagrams depend on Gemini API (external cost). Defer until Wave 1 proves the core
 navigation + comment patterns are valuable.
+
+---
+
+## Next steps
+
+1. Run `edf:requirements` with this discovery doc to produce
+   `docs/requirements/v1-requirements.md`
+2. Run `edf:kickoff docs/requirements/v1-requirements.md` to produce HLD,
+   ADRs, and implementation plan
+3. Run `edf:architect` + `edf:lld` to produce implementation-ready design
+4. Run `edf:feature` to implement against the LLD
