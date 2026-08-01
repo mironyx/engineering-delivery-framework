@@ -2,7 +2,7 @@
 
 Date: 2026-08-01
 Source: Freeform brief (review-experience improvements)
-Status: Draft — Problem Space
+Status: Draft — Complete
 
 ---
 
@@ -94,3 +94,167 @@ and verifies the output. Runs the extension in VSCode's Extension Development Ho
 **Quote:** "Does the `click` directive work in GitHub's Mermaid renderer? It needs to degrade gracefully or we'll get bug reports from users who don't have the extension."
 
 ---
+
+## Activity 4 — User journeys
+
+### Journey: LLD Reviewer — Review a PR with the LLD as navigation surface
+
+**Trigger:** A PR is assigned for review. The reviewer opens it in VSCode using the
+GitHub Pull Requests extension.
+
+**Prerequisites:** GitHub Pull Requests extension installed and authenticated.
+EDF Review extension installed (provides `edf://` link handling in markdown preview).
+
+**Steps:**
+
+1. **Open the PR** — In the GitHub Pull Requests sidebar, select the PR and click
+   "Checkout". The branch is pulled locally and the diff opens. The reviewer now
+   has full codebase context, not just the web diff.
+2. **Open the LLD** — Navigate to the LLD referenced in the PR description or
+   issue body. Open markdown preview (Ctrl+Shift+V). Part A renders with Mermaid
+   diagrams showing the feature's component interactions.
+3. **Build theory from Part A** — Read the behavioural flows (sequence diagrams
+   showing component interactions with enforcement points annotated). Scan the
+   structural overview (class diagram or ER diagram showing module/data structure).
+   Review the invariants table.
+4. **Peek at referenced code** — Hover over a diagram participant marked as
+   existing code. A tooltip shows the first ~40 lines of the source file.
+   Verify: does the real function signature match the design's assumptions?
+5. **Deep-dive into a file** — Click a diagram participant. The source file opens
+   in the adjacent VSCode column. The preview stays open — no context switch.
+   Read the implementation, then click another participant to jump to the next file.
+6. **Check new code against specs** — Click a diagram participant marked as new
+   (teal outline). The preview scrolls to the Part B section with the component's
+   internal decomposition and function signatures. Verify the implementation
+   against the spec.
+7. **Review the diff** — Use the GitHub extension's diff editor to see what
+   actually changed. Cross-reference: does every new function in the diff appear
+   in the LLD's internal decomposition? Did the implementer add unspecified
+   functions?
+8. **Add comments** — Find an issue? Add a `[Review]` marker inline in the LLD
+   source markdown (e.g. `> **[Review]:** signature mismatch — LLD says `fn(ctx,
+   params)` but impl uses `fn(params)`). Switch to the diff editor and add inline
+   comments via the GitHub extension for code-specific feedback.
+9. **Complete the review** — In the GitHub extension, select Comment, Approve, or
+   Request Changes. The review is submitted to GitHub.
+
+**Outcome:** The reviewer has verified the implementation against the design,
+checked enforcement points, and provided feedback — all within VSCode without
+tab-switching between browser, editor, and design doc.
+
+**Pain points addressed:**
+- Diagram participants now resolve to real code (hover to peek, click to open)
+- Enforcement points are visible in diagrams via `Note` annotations — no need to
+  grep Part B prose
+- New components link to their Part B spec — single click, no scroll-hunting
+- Feedback stays in the LLD via `[Review]` markers alongside GitHub PR comments
+
+### Journey: Plugin Maintainer — Verify generated LLDs follow conventions
+
+**Trigger:** After making changes to the LLD template or skill instructions, the
+maintainer needs to verify that `/lld` still produces correct output.
+
+**Steps:**
+
+1. **Generate a test LLD** — Run `/lld epic <number>` against a known epic in a
+   test project. The skill follows the new template and generation rules.
+2. **Open the preview** — Open the generated LLD in markdown preview. Verify:
+   - `classDef` palette block is present at the start of Part A
+   - Diagrams use the correct types (stateDiagram for FE states, erDiagram for DB,
+     flowchart for branching logic)
+   - Every diagram participant has a `click` directive — no dead labels
+   - Enforcement points are annotated with `Note` blocks
+3. **Test the extension** — In the Extension Development Host, open the LLD preview.
+   Hover over an `edf://` participant — verify the tooltip shows code. Click —
+   verify the file opens in the adjacent column. Click a `#LLD-` link — verify
+   the preview scrolls to the Part B spec.
+4. **Test graceful degradation** — Open the LLD on GitHub. Verify `edf://` links
+   render as harmless dead links (cursor changes, nothing breaks). Verify `#LLD-`
+   anchors work as standard page-internal links.
+
+**Outcome:** The maintainer confirms that the conventions are self-documenting,
+the extension works, and the output degrades gracefully outside VSCode.
+
+### Journey: LLD Reviewer — Submit review comments via LLM
+
+**Trigger:** After reviewing an LLD and adding `[Review]` markers, the reviewer
+wants an LLM to process their feedback and update the document.
+
+**Steps:**
+
+1. **Add `[Review]` markers** — While reviewing the LLD in the markdown source,
+   add blockquote comments at relevant locations:
+   ```markdown
+   > **[Review]:** Sequence diagram missing error path — the webhook failure case
+   > isn't shown. Add a detail diagram for the error flow.
+   ```
+2. **Collect comments** — Before submitting, grep the document for all `[Review]`
+   markers to see the full list of issues.
+3. **Send to LLM** — Prompt: "Review the LLD at `docs/design/v{N}/lld-<epic>.md`,
+   comments are marked with `[Review]` tags. Address each comment and update the doc."
+4. **Verify updates** — The LLM processes each marker, applies changes, removes
+   resolved markers. Reviewer checks the diff and approves.
+
+**Outcome:** Feedback is collected inline with the design doc, processed by the LLM,
+and incorporated — no separate issue tracker, no copy-paste between tools.
+
+**Note:** This journey relies on the existing `[Review]` convention (already used
+in `/requirements` and `/discovery`). No new tooling is needed — just extending
+the convention to LLDs and documenting it.
+
+---
+
+## Activity 5 — Feature catalogue
+
+| # | Feature | Journey | Personas | Effort | Value | Notes |
+|---|---------|---------|----------|--------|-------|-------|
+| F1 | New diagram types in LLD template (state, ER, flowchart) | J1, J2 | Reviewer, Maintainer | S | H | Conditional on "When required" gates. Template changes only. |
+| F2 | Standard `classDef` palette (error/auth/external/new) | J1, J2 | Reviewer, Maintainer | S | M | Colours match EDF pipeline flowcharts. Defined once, applied everywhere. |
+| F3 | `Note` annotations on sequence diagrams for enforcement points | J1, J2 | Reviewer | S | H | AuthZ, validation, SSRF boundaries, error propagation. |
+| F4 | `click` directives on every diagram participant | J1, J2 | Reviewer, Maintainer | M | H | `edf://` for existing code, `#LLD-` for new. Template + generation rules. |
+| F5 | VSCode extension: hover tooltip showing ~40 lines of source | J1 | Reviewer | M | H | `markdown.previewScripts` + `onDidReceivePreviewMessage` with panel reference for reply. |
+| F6 | VSCode extension: click opens file in adjacent column | J1 | Reviewer | S | H | `showTextDocument(ViewColumn.Beside)`. Preview stays open. |
+| F7 | `#LLD-` anchor navigation (click new component → scroll to Part B spec) | J1 | Reviewer | S | M | Leverages existing stable LLD anchors (ADR-0026). Works in any markdown renderer. |
+| F8 | Diagram generation rules in `/lld` SKILL.md | J2 | Maintainer | S | M | Step 2 rules for type selection, click generation, annotation placement. |
+| F9 | Self-critique checklist: diagram navigability | J2 | Maintainer | S | M | Step 2.5 item: every participant has a `click`, enforcement points annotated. |
+| F10 | `[Review]` convention documented for LLDs | J3 | Reviewer | S | M | Same convention as requirements/discovery. No code — documentation + template mention. |
+| F11 | Graceful degradation: `edf://` links harmless in GitHub | J2 | Maintainer | S | H | `_self` target + unrecognised URL scheme → cursor changes, no navigation, no error. |
+| F12 | Upstream/downstream skill impact assessment | J2 | Maintainer | S | M | Check `lld-sync`, `pr-review`, `architect`, `feature-core` for compatibility with new conventions. |
+
+---
+
+## Activity 6 — MVP sequencer
+
+### Wave 1 — Core (minimum viable)
+
+**Features:** F1, F2, F3, F4, F5, F6, F7, F8, F9, F11
+
+**Rationale:** This is the complete diagram improvement surface. F1–F4 are the
+template/convention changes — they define what gets generated. F5–F7 are the VSCode
+extension — they make the generated output interactive. F8–F9 are the skill
+instructions — they ensure `/lld` follows the new conventions. F11 is non-negotiable:
+the `edf://` protocol must degrade gracefully or it breaks LLDs viewed outside VSCode.
+
+All Wave 1 features together deliver the vision: a reviewer opens an LLD in VSCode
+preview, hovers over diagram participants to see code, clicks to open files, and
+stays oriented in the design document throughout.
+
+### Wave 2 — Review workflow
+
+**Features:** F10, F12
+
+**Rationale:** F10 (review convention) adds no new code — it's documentation.
+F12 (impact assessment) is a discovery task that may produce additional work items
+if other skills need updating. These naturally follow Wave 1 because they depend
+on knowing the final shape of the conventions.
+
+### Wave 3+ — Future
+
+**Features:** Bidirectional navigation (code → diagram highlighting), live drift
+detection between code and LLD diagrams, CodeBoarding-style auto-generated diagrams
+post-implementation, inline code snippet rendering below diagrams in the preview.
+
+**Rationale:** These are higher effort or depend on external APIs. Bidirectional
+nav requires Tree-sitter or equivalent code parsing. Drift detection needs
+diffing engine. Auto-generated diagrams depend on Gemini API (external cost).
+Defer until Wave 1 proves the navigation pattern is valuable.

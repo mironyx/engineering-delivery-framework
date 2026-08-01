@@ -2,5 +2,8 @@
 .claude-plugin/cache/
 __pycache__/
 
-.dagnostics
+.diagnostics
 .vs
+
+# Repo-root docs/ — plugin docs live under plugins/edf/docs/
+/docs/
