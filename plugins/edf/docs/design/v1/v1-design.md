@@ -4,10 +4,11 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.1 |
-| Status | Draft |
+| Version | 0.2 |
+| Status | Reviewed |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
+| Reviewed | 2026-08-01 — edf:hld-review (0 blockers, 5 warnings resolved) |
 | Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) |
 | Mode | Initial bootstrap |
 
@@ -17,13 +18,16 @@
 
 ### C1: Enriched Diagram Vocabulary
 
-LLD Part A currently supports only sequence diagrams. When a feature involves UI state
-machines, new data entities, or branching decision logic, the author must describe these
-in prose — burying structure that a diagram would surface instantly. This capability
-extends the LLD template with three conditional diagram types (`stateDiagram-v2`,
-`erDiagram`, `flowchart TD`), each gated by a deterministic "When required" condition
-evaluated during LLD generation. A feature with none of the triggering characteristics
-produces the standard sequence diagram only — no diagram bloat.
+The LLD template already defines four conditional diagram types beyond the standard
+sequence diagram — `stateDiagram-v2`, `erDiagram`, `flowchart TD`, and `classDiagram` —
+each with a "When required" gate and example syntax. These are work-in-progress additions
+that exist in the template but are not yet fully covered by the skill's generation rules,
+the self-critique checklist, or the `click`/palette conventions that apply to sequence
+diagrams. This capability completes the vocabulary by ensuring all diagram types receive
+consistent `classDef` palette application, `click` directives on every participant (no
+dead labels), `Note` annotations at trust boundaries, and deterministic generation rules
+in the skill instructions. A feature with none of the triggering characteristics produces
+the standard sequence diagram only — no diagram bloat.
 
 ### C2: Standard Visual Palette
 
@@ -102,11 +106,7 @@ graph TD
     end
 
     subgraph "VSCode Extension"
-        ExtHost[Extension Host]
-        PreviewScript[Preview Script<br/>media/preview.js]
-        ProtoHandler[Protocol Handler]
-        SrcNav[Source Navigator]
-        ReviewCmd[Review Feedback Command]
+        Extension[EDF Review Extension<br/>preview script, protocol handler,<br/>source navigator, review command]
     end
 
     subgraph "External"
@@ -119,18 +119,14 @@ graph TD
     Skill -->|produces diagrams consumed by| Mermaid
     Mermaid -->|renders in| VSCodePreview
     Mermaid -->|renders in| GitHubRenderer
-    PreviewScript -->|injected into| VSCodePreview
-    PreviewScript -->|sends hover/click events to| ProtoHandler
-    ProtoHandler -->|validates paths, reads files via| ExtHost
-    ProtoHandler -->|delegates file-open to| SrcNav
-    SrcNav -->|opens files in| VSCodePreview
-    ReviewCmd -->|inserts markers via| ExtHost
+    Extension -->|injects preview script into| VSCodePreview
+    Extension -->|reads files, opens editors via| VSCodePreview
     Critique -->|checks output of| Skill
 
     classDef new fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
     classDef external fill:#d6e8f7,stroke:#2d5f8a,color:#1a2f44
 
-    class Template,Skill,Critique,ExtHost,PreviewScript,ProtoHandler,SrcNav,ReviewCmd new
+    class Template,Skill,Critique,Extension new
     class Mermaid,VSCodePreview,GitHubRenderer external
 ```
 
@@ -174,8 +170,9 @@ characteristics. Reads the template as its spec and applies its conventions.
   `#LLD-` anchors for new components
 - Place `Note` annotations at every trust-boundary-crossing interaction stating the
   enforcement mechanism and rejection behaviour
-- Produce `stateDiagram-v2`, `erDiagram`, and `flowchart TD` syntax when their gates
-  trigger, using the template's palette
+- Produce `stateDiagram-v2`, `erDiagram`, `flowchart TD`, and `classDiagram` syntax when
+  their gates trigger, using the template's palette and applying `click` directives to
+  every participant
 - Co-version with the template — every template feature has a corresponding generation
   rule
 
@@ -239,6 +236,13 @@ feedback insertion. The bridge between the static diagram surface and the live e
   selected heading, focus the editor with cursor positioned for typing
 - Handle missing files gracefully: tooltip shows "File not found: \<path\>", click shows a
   VSCode information message, no editor tab opens
+- Handle malformed or empty paths: tooltip shows "Invalid path: \<raw-value\>", no file
+  read attempted
+- Catch JavaScript errors in the preview script and relay them to the extension host via
+  `postMessage({ command: 'logError', ... })` for logging to the `EDF Review` output
+  channel; unhandled errors must not crash the preview webview
+- Keep the injected preview script under 5 KB minified; MutationObserver callback must
+  complete in under 1ms per invocation so preview render time is not measurably increased
 - Use VSCode theme variables for tooltip styling so it matches the user's colour theme
 - Declare minimum extension permissions: `workspace.fs` read, `window.showTextDocument`;
   no network access, no filesystem write, no process execution
@@ -246,8 +250,11 @@ feedback insertion. The bridge between the static diagram surface and the live e
 **Non-responsibilities:**
 - Does not generate diagrams — the LLD Generation Skill does that
 - Does not modify the markdown source (except the `[Review]` insertion command)
-- Does not handle `#LLD-` anchor navigation — that is native browser scrolling, no
-  extension code needed
+- Does not handle `#LLD-` anchor navigation — the `click` directive's `#LLD-` fragment
+  targets standard page-internal anchors. In VSCode's markdown preview webview, anchor
+  clicks inside Mermaid SVGs should trigger native scroll-to-fragment behaviour.
+  **Assumption requires validation** — if the preview webview does not handle SVG anchor
+  clicks natively, a preview-script listener for `#LLD-` clicks may be needed
 - Does not analyse code, parse ASTs, or verify implementation against design
 - Does not run in non-VSCode renderers — graceful degradation is a property of the link
   format, not the extension
@@ -301,7 +308,7 @@ sequenceDiagram
     Skill->>Template: Read diagram syntax, palette, gates
     Template-->>Skill: classDef block, gate conditions, annotation format
     Skill->>Skill: Evaluate feature characteristics against gates
-    Note over Skill: "FE state management → stateDiagram-v2<br/>New entities → erDiagram<br/>Branching logic → flowchart TD"
+    Note over Skill: "FE state management → stateDiagram-v2<br/>New entities → erDiagram<br/>Branching logic → flowchart TD<br/>New modules/deps → classDiagram"
     Skill->>Skill: Assign classDef roles to participants
     Skill->>Skill: Generate click directives (edf:// or #LLD-)
     Skill->>Skill: Place Note annotations at trust boundaries
@@ -491,3 +498,46 @@ human-readable in the markdown source (`edf://src/lib/auth/middleware.ts`), so a
 reading raw markdown can still identify the referenced file. Graceful degradation is a
 property of the link format and Mermaid's `_self` target — zero extension code is involved
 in this flow.
+
+---
+
+### Flow 6: `#LLD-` Anchor Navigation to Part B Specs
+
+A reviewer clicks a new-component participant (teal outline) and the preview scrolls to its
+Part B internal decomposition section.
+
+```mermaid
+sequenceDiagram
+    actor Reviewer as LLD Reviewer
+    participant Preview as VSCode Markdown Preview
+    participant Script as Preview Script
+    participant Mermaid as Mermaid Renderer
+
+    Reviewer->>Preview: Open LLD markdown preview
+    Preview->>Mermaid: Render diagram blocks
+    Note over Mermaid: click DeliveryService "#LLD-v1-e1-4-delivery-service" _self
+    Mermaid-->>Preview: SVG with <a href="#LLD-v1-e1-4-delivery-service">
+    Script->>Script: MutationObserver detects SVG rendered
+    Note over Script: Assumption: native anchor scroll works in preview webview.
+    Note over Script: If not, script listens for #LLD- clicks and calls
+    Note over Script: window.location.hash = fragment manually.
+
+    Reviewer->>Preview: Click teal participant (new component)
+    Preview->>Preview: Navigate to #LLD-v1-e1-4-delivery-service
+    Note over Preview: Scroll to Part B <a id="LLD-v1-e1-4-delivery-service"> element
+    Note over Reviewer,Preview: Broken anchor (target missing) → silent no-op, no error
+```
+
+**Walkthrough:** A reviewer clicks a diagram participant styled with the `new` class (teal
+outline) — indicating a component to be built. The `click` directive carries a `#LLD-`
+fragment target matching the Part B section's stable anchor ID (ADR-0026 format:
+`LLD-<epic-id>-<section-slug>`). In VSCode's markdown preview, the click should trigger
+native scroll-to-fragment behaviour, moving the preview to the Part B section where the
+component's internal decomposition, function signatures, and task breakdown are specified.
+In GitHub and other browser-based renderers, standard page-internal anchor navigation
+handles this natively. If the anchor target does not exist in the document (broken
+reference), the preview silently does nothing — no error, no scroll. **The native-scroll
+assumption for SVG anchor clicks in VSCode's preview webview must be validated during
+implementation** (mirrors requirements Open Question 2). If native scroll does not work,
+the preview script will need a click listener that sets `window.location.hash` to the
+fragment.
