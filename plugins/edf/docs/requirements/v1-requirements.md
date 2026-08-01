@@ -174,6 +174,10 @@ without opening the file or losing my place in the diagram.
 
 *(Acceptance criteria in next pass)*
 
+### Visual Reference
+
+- [Markdown Preview Navigation wireframe](../../design/v1/vis-markdown-preview-navigation.html) — hover state (tooltip over WebhookController)
+
 ---
 
 <a id="REQ-vscode-extension-diagram-navigation-click-opens-source-adjacent-column"></a>
@@ -188,6 +192,10 @@ orientation in the design document.
 
 *(Acceptance criteria in next pass)*
 
+### Visual Reference
+
+- [Markdown Preview Navigation wireframe](../../design/v1/vis-markdown-preview-navigation.html) — click state (source file in adjacent column, preview stays)
+
 ---
 
 <a id="REQ-vscode-extension-diagram-navigation-lld-anchor-navigation-part-b"></a>
@@ -201,6 +209,10 @@ have the preview scroll to its Part B internal decomposition section,
 breakdown — in a single click instead of scroll-hunting through the document.
 
 *(Acceptance criteria in next pass)*
+
+### Visual Reference
+
+- [Markdown Preview Navigation wireframe](../../design/v1/vis-markdown-preview-navigation.html) — anchor state (Part B section scrolled into view)
 
 ---
 
@@ -238,6 +250,10 @@ that heading in the source editor with focus switched for typing,
 the source markdown or breaking my review flow.
 
 *(Acceptance criteria in next pass)*
+
+### Visual Reference
+
+- [Review Comment Insertion wireframe](../../design/v1/vis-review-comment-insertion.html) — quick-pick open and inserted states
 
 ---
 

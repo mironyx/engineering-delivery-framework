@@ -1,0 +1,201 @@
+<!-- vis-markdown-preview-navigation — structural wireframe for Stories 2.1, 2.2, 2.3 -->
+<style>
+  .vscode-window { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; font-family: -apple-system, sans-serif; }
+  .pane { border-right: 1px solid #ccc; display: flex; flex-direction: column; }
+  .pane-header { padding: 8px 12px; background: #e8e8e8; border-bottom: 1px solid #ccc; font-size: 12px; color: #555; }
+  .pane-content { padding: 16px; overflow-y: auto; flex: 1; }
+  .pane:last-child { border-right: none; }
+
+  /* Markdown preview content */
+  .mermaid-diagram { border: 1px solid #ddd; padding: 16px; margin: 12px 0; background: #fafafa; border-radius: 4px; }
+  .participant { display: inline-block; padding: 4px 8px; margin: 2px; border: 2px solid; border-radius: 3px; font-size: 13px; cursor: pointer; }
+  .participant.existing { border-color: #888; background: #fff; }
+  .participant.new { border-color: teal; background: #e0f7f7; }
+  .participant.auth { border-color: #d4a017; background: #fff8e7; }
+  .participant.error { border-color: #cc0000; background: #ffe8e8; }
+  .participant.external { border-color: #999; background: #f0f0f0; }
+  .note-annotation { background: #fffde7; border-left: 3px solid #d4a017; padding: 6px 10px; margin: 8px 0; font-size: 12px; }
+
+  /* Hover tooltip state */
+  .tooltip { position: absolute; background: #2d2d2d; color: #e0e0e0; padding: 10px 14px; border-radius: 4px; font-family: monospace; font-size: 11px; max-width: 420px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10; line-height: 1.5; }
+  .tooltip .file-path { color: #89b4fa; margin-bottom: 4px; font-size: 10px; }
+  .tooltip .line-num { color: #666; user-select: none; margin-right: 8px; }
+
+  /* Source editor content (adjacent pane) */
+  .source-code { font-family: monospace; font-size: 12px; line-height: 1.6; }
+  .source-code .line { display: block; }
+  .source-code .line.highlight { background: #e8f0ff; }
+
+  /* Part B spec target */
+  .part-b-anchor { background: #e0f7f7; border: 2px solid teal; padding: 12px; margin: 8px 0; border-radius: 4px; scroll-margin-top: 20px; }
+
+  /* State management */
+  [data-state] { display: none; }
+  [data-state="idle"] { display: block; }
+  .state-hover [data-state="idle"] { display: none; }
+  .state-hover [data-state="hover"] { display: block; }
+  .state-click [data-state="idle"] { display: none; }
+  .state-click [data-state="click"] { display: block; }
+  .state-anchor [data-state="idle"] { display: none; }
+  .state-anchor [data-state="anchor"] { display: block; }
+</style>
+
+<div class="vscode-window">
+
+  <!-- Left: Markdown Preview -->
+  <div class="pane">
+    <div class="pane-header">🔍 LLD Part A — Preview</div>
+    <div class="pane-content">
+
+      <!-- State: Idle (diagram visible, no interaction) -->
+      <div data-state="idle">
+        <p style="font-size:13px; color:#555;">Sequence Diagram: Webhook Delivery Flow</p>
+        <div class="mermaid-diagram">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <span class="participant existing">Client</span>
+            <span style="color:#888;">→</span>
+            <span class="participant auth">AuthMiddleware</span>
+            <span style="color:#888;">→</span>
+            <span class="participant existing">WebhookController</span>
+            <span style="color:#888;">→</span>
+            <span class="participant new">DeliveryService</span>
+            <span style="color:#888;">→</span>
+            <span class="participant external">ExternalWebhook</span>
+          </div>
+          <div class="note-annotation">
+            🔒 <strong>AuthZ:</strong> Token validated via AuthMiddleware — 401 on invalid token
+          </div>
+          <div class="note-annotation">
+            ⚠️ <strong>Error:</strong> Webhook timeout → 504, queued for retry
+          </div>
+          <p style="font-size:10px; color:#999; margin-top:8px;">Legend: ▸ grey = existing code | ▸ teal = new component | ▸ amber = auth boundary | ▸ grey-bg = external service</p>
+        </div>
+        <p style="font-size:11px; color:#888;">Hover over a participant to preview its source. Click to open in the right pane.</p>
+      </div>
+
+      <!-- State: Hover (tooltip visible over a participant) -->
+      <div data-state="hover">
+        <p style="font-size:13px; color:#555;">Sequence Diagram: Webhook Delivery Flow</p>
+        <div class="mermaid-diagram" style="position:relative;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <span class="participant existing">Client</span>
+            <span style="color:#888;">→</span>
+            <span class="participant auth">AuthMiddleware</span>
+            <span style="color:#888;">→</span>
+            <span class="participant existing" style="background:#e8f0ff; box-shadow:0 0 0 3px rgba(0,100,200,0.3);">WebhookController</span>
+            <span style="color:#888;">→</span>
+            <span class="participant new">DeliveryService</span>
+            <span style="color:#888;">→</span>
+            <span class="participant external">ExternalWebhook</span>
+          </div>
+          <div class="tooltip" style="top:40px; left:180px;">
+            <div class="file-path">📄 src/controllers/webhook.controller.ts</div>
+            <div><span class="line-num">22</span>export class WebhookController {</div>
+            <div><span class="line-num">23</span>  constructor(</div>
+            <div><span class="line-num">24</span>    private deliveryService: DeliveryService,</div>
+            <div><span class="line-num">25</span>    private auditLog: AuditLogger,</div>
+            <div><span class="line-num">26</span>  ) {}</div>
+            <div><span class="line-num">27</span></div>
+            <div><span class="line-num">28</span>  @Post('webhook')</div>
+            <div><span class="line-num">29</span>  async receiveWebhook(</div>
+            <div><span class="line-num">30</span>    @Body() payload: WebhookPayload,</div>
+            <div style="color:#888;">... 28 more lines ...</div>
+          </div>
+          <div class="note-annotation">🔒 <strong>AuthZ:</strong> Token validated via AuthMiddleware — 401 on invalid token</div>
+        </div>
+        <p style="font-size:11px; color:#888;">Click to open full file in adjacent column. Dismiss tooltip on mouse-out.</p>
+      </div>
+
+      <!-- State: Click (file opened in adjacent pane) -->
+      <div data-state="click">
+        <p style="font-size:13px; color:#555;">Sequence Diagram: Webhook Delivery Flow</p>
+        <div class="mermaid-diagram">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <span class="participant existing">Client</span>
+            <span style="color:#888;">→</span>
+            <span class="participant auth">AuthMiddleware</span>
+            <span style="color:#888;">→</span>
+            <span class="participant existing" style="background:#e8f0ff;">WebhookController</span>
+            <span style="color:#888;">→</span>
+            <span class="participant new">DeliveryService</span>
+            <span style="color:#888;">→</span>
+            <span class="participant external">ExternalWebhook</span>
+          </div>
+          <p style="font-size:10px; color:#999; margin-top:4px;">Selected: WebhookController — opened in right pane</p>
+        </div>
+        <p style="font-size:11px; color:#888;">Preview stays open. Click another participant to navigate. Right pane shows source.</p>
+      </div>
+
+      <!-- State: Anchor (scrolled to Part B) -->
+      <div data-state="anchor">
+        <p style="font-size:13px; color:#555;">LLD Part A (scrolled to Part B reference)</p>
+        <div class="mermaid-diagram">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <span class="participant existing">Client</span>
+            <span style="color:#888;">→</span>
+            <span class="participant auth">AuthMiddleware</span>
+            <span style="color:#888;">→</span>
+            <span class="participant existing">WebhookController</span>
+            <span style="color:#888;">→</span>
+            <span class="participant new" style="background:#e0f7f7; box-shadow:0 0 0 3px rgba(0,128,128,0.3);">DeliveryService</span>
+            <span style="color:#888;">→</span>
+            <span class="participant external">ExternalWebhook</span>
+          </div>
+        </div>
+        <div class="part-b-anchor" id="LLD-delivery-service">
+          <strong>📋 Part B: DeliveryService</strong>
+          <p style="font-size:12px; margin:4px 0;">Internal decomposition, function signatures, and task breakdown for the new DeliveryService component.</p>
+          <code style="font-size:11px;">deliver(payload: WebhookPayload): Promise<DeliveryResult></code>
+        </div>
+        <p style="font-size:11px; color:#888;">#LLD- anchor scrolled preview to Part B section. Works in any markdown renderer.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Right: Source Editor (for click state) -->
+  <div class="pane">
+    <div class="pane-header">📝 src/controllers/webhook.controller.ts</div>
+    <div class="pane-content">
+      <div class="source-code">
+        <span class="line"><span style="color:#999;"> 1</span> import { Controller, Post, Body } from '@nestjs/common';</span>
+        <span class="line"><span style="color:#999;"> 2</span> import { DeliveryService } from '../services/delivery.service';</span>
+        <span class="line"><span style="color:#999;"> 3</span> import { AuditLogger } from '../lib/audit-logger';</span>
+        <span class="line"><span style="color:#999;"> 4</span> import { WebhookPayload } from './types';</span>
+        <span class="line"><span style="color:#999;"> 5</span> </span>
+        <span class="line"><span style="color:#999;"> 6</span> /**</span>
+        <span class="line"><span style="color:#999;"> 7</span>  * Handles incoming webhook delivery requests.</span>
+        <span class="line"><span style="color:#999;"> 8</span>  * AuthZ enforced by AuthMiddleware before reaching this controller.</span>
+        <span class="line"><span style="color:#999;"> 9</span>  */</span>
+        <span class="line"><span style="color:#999;">10</span> @Controller('webhook')</span>
+        <span class="line highlight"><span style="color:#999;">11</span> export class WebhookController {</span>
+        <span class="line highlight"><span style="color:#999;">12</span>   constructor(</span>
+        <span class="line highlight"><span style="color:#999;">13</span>     private deliveryService: DeliveryService,</span>
+        <span class="line highlight"><span style="color:#999;">14</span>     private auditLog: AuditLogger,</span>
+        <span class="line highlight"><span style="color:#999;">15</span>   ) {}</span>
+        <span class="line"><span style="color:#999;">16</span> </span>
+        <span class="line"><span style="color:#999;">17</span>   @Post('webhook')</span>
+        <span class="line"><span style="color:#999;">18</span>   async receiveWebhook(</span>
+        <span class="line"><span style="color:#999;">19</span>     @Body() payload: WebhookPayload,</span>
+        <span class="line"><span style="color:#999;">20</span>   ): Promise<{ status: string }> {</span>
+        <span class="line"><span style="color:#999;">21</span>     this.auditLog.record('webhook.received', { id: payload.id });</span>
+        <span class="line"><span style="color:#999;">22</span>     const result = await this.deliveryService.deliver(payload);</span>
+        <span class="line"><span style="color:#999;">23</span>     return { status: result.success ? 'delivered' : 'queued' };</span>
+        <span class="line"><span style="color:#999;">24</span>   }</span>
+        <span class="line"><span style="color:#999;">25</span> }</span>
+      </div>
+      <p style="font-size:11px; color:#888; margin-top:12px;">Opened via showTextDocument(ViewColumn.Beside). Preview in left column stays visible.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- State toggle legend -->
+<div style="padding:12px; background:#f5f5f5; font-size:11px; color:#666; border-top:1px solid #ccc;">
+  <strong>States shown:</strong>
+  <code>idle</code> — diagram rendered, no interaction ·
+  <code>hover</code> — tooltip visible on hover over participant ·
+  <code>click</code> — source file opened in adjacent column, preview stays ·
+  <code>anchor</code> — new-component click scrolled preview to Part B section ·
+  <strong>Error states (not shown):</strong> file-not-found tooltip, path-outside-workspace tooltip, malformed-edf-URI tooltip
+</div>

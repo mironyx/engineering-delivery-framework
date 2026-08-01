@@ -1,0 +1,134 @@
+<!-- vis-review-comment-insertion — structural wireframe for Story 3.1 -->
+<style>
+  .vscode-window { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; font-family: -apple-system, sans-serif; }
+  .pane { border-right: 1px solid #ccc; display: flex; flex-direction: column; }
+  .pane-header { padding: 8px 12px; background: #e8e8e8; border-bottom: 1px solid #ccc; font-size: 12px; color: #555; }
+  .pane-content { padding: 16px; overflow-y: auto; flex: 1; }
+  .pane:last-child { border-right: none; }
+
+  /* Quick-pick overlay */
+  .quick-pick-overlay { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); background: #2d2d2d; color: #e0e0e0; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); width: 480px; z-index: 20; }
+  .quick-pick-input { padding: 8px 12px; border-bottom: 1px solid #444; font-size: 13px; }
+  .quick-pick-input input { background: transparent; border: none; color: #e0e0e0; width: 100%; font-size: 13px; outline: none; }
+  .quick-pick-list { max-height: 240px; overflow-y: auto; }
+  .quick-pick-item { padding: 6px 12px; font-size: 12px; cursor: pointer; border-left: 3px solid transparent; }
+  .quick-pick-item.selected { background: #094771; border-left-color: #007acc; }
+  .quick-pick-item .detail { color: #888; font-size: 10px; }
+
+  /* Source editor states */
+  .source-editor { font-family: monospace; font-size: 12px; line-height: 1.6; position: relative; }
+  .source-editor .line { display: block; white-space: pre; }
+  .source-editor .line .md-heading { color: #569cd6; }
+  .review-insert { border-left: 3px solid #d4a017; background: #fffde7; padding: 4px 8px; animation: flash 1s; }
+  @keyframes flash { 0% { background: #fff9c4; } 100% { background: #fffde7; } }
+  .cursor { animation: blink 1s infinite; color: #fff; background: #ccc; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+  [data-state] { display: none; }
+  [data-state="trigger"] { display: block; }
+  .state-pick [data-state="trigger"] { display: none; }
+  .state-pick [data-state="quick-pick-open"] { display: block; }
+  .state-insert [data-state="trigger"] { display: none; }
+  .state-insert [data-state="inserted"] { display: block; }
+</style>
+
+<div class="vscode-window">
+
+  <!-- Left: Markdown Preview (context) -->
+  <div class="pane">
+    <div class="pane-header">🔍 LLD Part A — Preview</div>
+    <div class="pane-content">
+      <p style="font-size:13px; color:#555;">Reviewing: docs/design/v2/lld-webhook-delivery.md</p>
+      <div style="border:1px solid #ddd; padding:12px; margin:8px 0; background:#fafafa;">
+        <p style="font-size:12px; margin:0;">## Sequence Diagram: Webhook Delivery</p>
+        <p style="font-size:12px; margin:4px 0; color:#888;">[Mermaid diagram rendered above]</p>
+        <p style="font-size:12px; margin:0;">The diagram shows the happy path but doesn't cover the webhook timeout → retry flow.</p>
+      </div>
+      <div style="border:1px solid #ddd; padding:12px; margin:8px 0; background:#fafafa;">
+        <p style="font-size:12px; margin:0;">## Part B: DeliveryService</p>
+        <p style="font-size:12px; margin:4px 0; color:#888;">Internal decomposition for new DeliveryService component.</p>
+      </div>
+      <p style="font-size:11px; color:#888; margin-top:16px;">Cmd+Shift+P → "EDF: Insert Review Comment" to add feedback without leaving preview.</p>
+    </div>
+  </div>
+
+  <!-- Right: Source Editor -->
+  <div class="pane" style="position:relative;">
+    <div class="pane-header">📝 docs/design/v2/lld-webhook-delivery.md</div>
+    <div class="pane-content">
+
+      <!-- State: Trigger (before command) -->
+      <div data-state="trigger">
+        <div class="source-editor">
+          <span class="line"><span style="color:#999;">42</span> </span>
+          <span class="line"><span style="color:#999;">43</span> <span class="md-heading">## Sequence Diagram: Webhook Delivery</span></span>
+          <span class="line"><span style="color:#999;">44</span> </span>
+          <span class="line"><span style="color:#999;">45</span> ```mermaid</span>
+          <span class="line"><span style="color:#999;">46</span> sequenceDiagram</span>
+          <span class="line"><span style="color:#999;">47</span>   participant C as Client</span>
+          <span class="line"><span style="color:#999;">48</span>   participant AM as AuthMiddleware</span>
+          <span class="line"><span style="color:#999;">49</span>   participant WC as WebhookController</span>
+          <span class="line"><span style="color:#999;">50</span> ```</span>
+          <span class="line"><span style="color:#999;">51</span> </span>
+        </div>
+        <p style="font-size:11px; color:#888; margin-top:12px;">Source editor showing the markdown behind the preview. Cursor at line 51.</p>
+      </div>
+
+      <!-- State: Quick-pick open -->
+      <div data-state="quick-pick-open">
+        <div class="source-editor" style="opacity:0.6;">
+          <span class="line"><span style="color:#999;">42</span> </span>
+          <span class="line"><span style="color:#999;">43</span> <span class="md-heading">## Sequence Diagram: Webhook Delivery</span></span>
+          <span class="line"><span style="color:#999;">44</span> </span>
+          <span class="line"><span style="color:#999;">45</span> ```mermaid</span>
+          <span class="line"><span style="color:#999;">46</span> sequenceDiagram</span>
+          <span class="line"><span style="color:#999;">47</span>   participant C as Client</span>
+          <span class="line"><span style="color:#999;">48</span>   participant AM as AuthMiddleware</span>
+          <span class="line"><span style="color:#999;">49</span>   participant WC as WebhookController</span>
+          <span class="line"><span style="color:#999;">50</span> ```</span>
+          <span class="line"><span style="color:#999;">51</span> </span>
+        </div>
+        <div class="quick-pick-overlay">
+          <div class="quick-pick-input"><input value="Sequence" placeholder="Select section to insert review comment under..."></div>
+          <div class="quick-pick-list">
+            <div class="quick-pick-item">## Behavioural Design (Part A) <span class="detail">— LLD header</span></div>
+            <div class="quick-pick-item selected">## Sequence Diagram: Webhook Delivery <span class="detail">— line 43</span></div>
+            <div class="quick-pick-item">### Invariants Table <span class="detail">— line 68</span></div>
+            <div class="quick-pick-item">## Internal Decomposition (Part B) <span class="detail">— LLD header</span></div>
+            <div class="quick-pick-item">### Component: DeliveryService <span class="detail">— line 120</span></div>
+            <div class="quick-pick-item">### Component: RetryQueue <span class="detail">— line 180</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- State: Inserted (after selection) -->
+      <div data-state="inserted">
+        <div class="source-editor">
+          <span class="line"><span style="color:#999;">42</span> </span>
+          <span class="line"><span style="color:#999;">43</span> <span class="md-heading">## Sequence Diagram: Webhook Delivery</span></span>
+          <span class="line"><span style="color:#999;">44</span> </span>
+          <span class="line review-insert"><span style="color:#999;">45</span> > **[Review]:** <span class="cursor">|</span></span>
+          <span class="line"><span style="color:#999;">46</span> </span>
+          <span class="line"><span style="color:#999;">47</span> ```mermaid</span>
+          <span class="line"><span style="color:#999;">48</span> sequenceDiagram</span>
+          <span class="line"><span style="color:#999;">49</span>   participant C as Client</span>
+          <span class="line"><span style="color:#999;">50</span>   participant AM as AuthMiddleware</span>
+          <span class="line"><span style="color:#999;">51</span>   participant WC as WebhookController</span>
+          <span class="line"><span style="color:#999;">52</span> ```</span>
+        </div>
+        <p style="font-size:11px; color:#666; margin-top:12px;">✓ <strong>Inserted</strong>: Review template inserted after heading "Sequence Diagram: Webhook Delivery" (line 45). Cursor positioned for typing. Source editor focused.</p>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- State toggle legend -->
+<div style="padding:12px; background:#f5f5f5; font-size:11px; color:#666; border-top:1px solid #ccc;">
+  <strong>States shown:</strong>
+  <code>trigger</code> — reviewer invokes "EDF: Insert Review Comment" from command palette (Cmd+Shift+P) ·
+  <code>quick-pick-open</code> — quick-pick lists LLD section headings, filtered by typed text ·
+  <code>inserted</code> — <code>&gt; **[Review]:** </code> template inserted under selected heading, cursor positioned, source editor focused ·
+  <strong>Edge cases (not shown):</strong> no headings found in document, document is not an LLD, quick-pick dismissed (Esc), selection under a heading that already has review markers
+</div>
