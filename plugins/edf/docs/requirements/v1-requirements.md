@@ -4,8 +4,8 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.4 |
-| Status | Draft — Complete |
+| Version | 1.0 |
+| Status | Final |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
 | Last updated | 2026-08-01 |
@@ -18,6 +18,7 @@
 | 0.2 | 2026-08-01 | LS / Claude | Acceptance criteria for all 11 stories; closed stale open questions; added security ACs to Stories 2.1/2.2; added extension packaging deferral |
 | 0.3 | 2026-08-01 | LS / Claude | Testability fixes: tightened 3 vague ACs (Story 1.3 AC5, Story 2.4 AC5, Story 4.1 AC6) |
 | 0.4 | 2026-08-01 | LS / Claude | Review fixes: corrected visual reference paths; aligned #LLD- anchor format with ADR-0026; resolved AC1/AC4 contradiction in Story 1.2; removed cross-epic AC dependency on Story 4.2 |
+| 1.0 | 2026-08-01 | LS / Claude | Finalised — Gate 2 approved |
 
 ---
 
@@ -664,6 +665,16 @@ for future discovery and requirements cycles.
 | Bidirectional navigation | Click a function in source code → highlight the corresponding diagram participant. Requires Tree-sitter or equivalent parsing. |
 | Auto-generated diagrams post-implementation | Use Gemini API to generate diagrams from completed code. External cost, unproven value. |
 | Live drift detection | Detect when code has diverged from the LLD diagram and flag in the preview. Requires a diffing engine. |
+
+---
+
+## Next steps
+
+1. Run `edf:kickoff docs/requirements/v1-requirements.md` to produce HLD, ADRs,
+   and implementation plan.
+2. The V2 / Future section above is input for the next discovery cycle — Wave 2
+   features (F10, F12) and Wave 3+ enhancements should be reconsidered after V1
+   ships.
 
 ---
 
