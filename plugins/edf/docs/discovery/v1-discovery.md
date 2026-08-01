@@ -36,7 +36,7 @@ leaving the design surface.
 | | Hover tooltip showing ~40 lines of referenced source file | Full file inline rendering or deep code analysis |
 | | Click opens source file in adjacent VSCode column | Code-aware zoom or drill-down navigation |
 | | `[Review]` markers supported in LLD documents | New tooling for comment collection or batching |
-| | Changes to `lld/template.md`, `lld/SKILL.md`, and new `extensions/edf-review/` | Changes to other skills, agents, or the PR review flow |
+| | Changes to `lld/template.md`, `lld/SKILL.md`, and new `extensions/edf-review/` | Changes to other skills or agents — TBD: the solution space may reveal upstream/downstream impacts on `lld-sync`, `pr-review`, `architect`, or `feature-core` |
 
 ---
 
