@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.3 |
+| Version | 0.4 |
 | Status | Draft — Complete |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
@@ -17,6 +17,7 @@
 | 0.1 | 2026-08-01 | LS / Claude | Initial draft — epics, stories, roles |
 | 0.2 | 2026-08-01 | LS / Claude | Acceptance criteria for all 11 stories; closed stale open questions; added security ACs to Stories 2.1/2.2; added extension packaging deferral |
 | 0.3 | 2026-08-01 | LS / Claude | Testability fixes: tightened 3 vague ACs (Story 1.3 AC5, Story 2.4 AC5, Story 4.1 AC6) |
+| 0.4 | 2026-08-01 | LS / Claude | Review fixes: corrected visual reference paths; aligned #LLD- anchor format with ADR-0026; resolved AC1/AC4 contradiction in Story 1.2; removed cross-epic AC dependency on Story 4.2 |
 
 ---
 
@@ -160,9 +161,10 @@ without reading prose.
 
 **Acceptance Criteria:**
 
-- Given any LLD Part A diagram, when rendered, then all diagram participants use one
-  of four defined colour classes: error (red, `#f7d6d6`), auth (amber, `#f7eed6`),
-  external (grey-blue, `#d6e8f7`), new (teal, `#d4f0d4`).
+- Given any LLD Part A diagram, when rendered, then every participant matching one of
+  the four defined roles is assigned its colour class: error (`#f7d6d6`), auth
+  (`#f7eed6`), external (`#d6e8f7`), new (`#d4f0d4`). Participants not matching any
+  role use Mermaid default styling.
 - Given a `classDef` block is present at the top of Part A, when a new diagram type
   is added to the document, then the existing palette classes are applied to
   participants matching those roles — no duplicate or divergent colour definitions.
@@ -211,7 +213,9 @@ into the interaction flow, not buried in Part B prose.
   without Mermaid syntax errors and the note text is visible (not truncated,
   not hidden by `display: none`, not positioned outside the diagram bounds).
 - Given a flow crosses a trust boundary without a stated enforcement point, when the
-  self-critique checklist runs (Story 4.2), then the omission is flagged.
+  diagram is reviewed against the template's enforcement annotation rules, then the
+  omission is detectable by inspection (every trust-boundary-crossing interaction
+  must have a visible `Note` annotation).
 
 **Notes:** Enforcement annotations must be placed adjacent to the interaction they
 describe, not in a legend block. An interaction that crosses multiple enforcement
@@ -236,11 +240,12 @@ preview or manually grepping the codebase.
   generated, then it carries a `click` directive with an `edf://` URL resolving to
   the workspace-relative source file path (e.g., `click AuthMiddleware "edf://src/lib/auth/middleware.ts"`).
 - Given a diagram participant representing a new component, when the diagram is
-  generated, then it carries a `click` directive with a `#LLD-` anchor matching the
-  Part B section's stable anchor ID (e.g., `click DeliveryService "#LLD-delivery-service"`).
-- Given a diagram is fully generated, when the self-critique checklist runs (Story
-  4.2), then no participant is a "dead label" — every participant has a `click`
-  directive resolving to either an `edf://` path or a `#LLD-` anchor.
+  generated, then it carries a `click` directive with a `#LLD-` anchor referencing the
+  Part B section's stable anchor ID as defined by ADR-0026 (e.g.,
+  `click DeliveryService "#LLD-v11-e11-1-delivery-service"`).
+- Given a diagram is fully generated, when the diagram source is inspected, then no
+  participant is a "dead label" — every participant has a `click` directive resolving
+  to either an `edf://` path or a `#LLD-` anchor.
 - Given an `edf://` link is rendered in a Mermaid diagram, when viewed in a renderer
   without the EDF extension (GitHub, GitLab), then the link renders as an inert `<a>`
   element with `target="_self"` — cursor changes on hover but no navigation or error
@@ -249,8 +254,8 @@ preview or manually grepping the codebase.
   uses a workspace-relative path (no leading slash, no `..` segments) suitable for
   resolution by `vscode.Uri.joinPath`.
 - Given a Part B section exists with a stable anchor ID, when a `#LLD-` link targets
-  it, then the anchor ID follows the ADR-0026 convention and matches exactly the `id`
-  attribute on the Part B `<a>` tag.
+  it, then the anchor ID follows the ADR-0026 format (`LLD-<epic-id>-<section-slug>`)
+  and the `click` directive uses the full anchor ID as its fragment target.
 
 **Notes:** The `click` directive is the bridge between Epic 1 (template) and Epic 2
 (extension). The extension intercepts `edf://` links in the preview; `#LLD-` anchors
@@ -303,7 +308,7 @@ without opening the file or losing my place in the diagram.
 
 ### Visual Reference
 
-- [Markdown Preview Navigation wireframe](../../design/v1/vis-markdown-preview-navigation.html) — hover state (tooltip over WebhookController)
+- [Markdown Preview Navigation wireframe](../design/v1/vis-markdown-preview-navigation.html) — hover state (tooltip over WebhookController)
 
 ---
 
@@ -338,7 +343,7 @@ orientation in the design document.
 
 ### Visual Reference
 
-- [Markdown Preview Navigation wireframe](../../design/v1/vis-markdown-preview-navigation.html) — click state (source file in adjacent column, preview stays)
+- [Markdown Preview Navigation wireframe](../design/v1/vis-markdown-preview-navigation.html) — click state (source file in adjacent column, preview stays)
 
 ---
 
@@ -365,12 +370,12 @@ breakdown — in a single click instead of scroll-hunting through the document.
   clicked, then the preview does not scroll and no error is displayed (silent no-op
   in the preview).
 - Given a Part B section has a stable anchor ID, when the LLD is generated, then the
-  anchor ID follows the format `LLD-<component-slug>` where `<component-slug>` is the
-  lower-kebab-case of the component name (per ADR-0026).
+  anchor ID follows the ADR-0026 format (`LLD-<epic-id>-<section-slug>`) and the
+  `click` directive's `#LLD-` fragment target matches that anchor ID exactly.
 
 ### Visual Reference
 
-- [Markdown Preview Navigation wireframe](../../design/v1/vis-markdown-preview-navigation.html) — anchor state (Part B section scrolled into view)
+- [Markdown Preview Navigation wireframe](../design/v1/vis-markdown-preview-navigation.html) — anchor state (Part B section scrolled into view)
 
 ---
 
@@ -460,7 +465,7 @@ the source markdown or breaking my review flow.
 
 ### Visual Reference
 
-- [Review Comment Insertion wireframe](../../design/v1/vis-review-comment-insertion.html) — quick-pick open and inserted states
+- [Review Comment Insertion wireframe](../design/v1/vis-review-comment-insertion.html) — quick-pick open and inserted states
 
 ---
 
