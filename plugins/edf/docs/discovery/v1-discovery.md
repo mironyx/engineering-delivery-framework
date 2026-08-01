@@ -255,7 +255,7 @@ could add a "Run tests for this section" command to the LLD preview extension.
 | F10 | `[Review]` convention documented for LLDs | J3 | Reviewer | S | M | Same convention as requirements/discovery. No code — documentation + template mention. |
 | F11 | Graceful degradation: `edf://` links harmless in GitHub | J2 | Maintainer | S | H | `_self` target + unrecognised URL scheme → cursor changes, no navigation, no error. |
 | F12 | Upstream/downstream skill impact assessment | J2 | Maintainer | S | M | Check `lld-sync`, `pr-review`, `architect`, `feature-core` for compatibility with new conventions. |
-| F13 | Preview-to-source comment insertion | J3 | Reviewer | M | L | Command to jump from preview location to source editor and insert `[Review]` template. VSCode preview↔source mapping is fragile — assess feasibility before committing. |
+| F13 | Quick-pick section → insert `[Review]` comment | J3 | Reviewer | S | H | Command in the extension: shows a quick pick of LLD Part A section headings, inserts `> **[Review]:** ` under the selected heading in the source editor, switches focus for typing. Avoids fragile preview↔source mapping by using section headings as anchors. |
 | F14 | "Run tests for this section" in LLD preview | J4 | Reviewer | L | M | Contextual test execution from the LLD. Requires test file path extraction from LLD Tasks section + project test command discovery. |
 
 ---
@@ -264,17 +264,17 @@ could add a "Run tests for this section" command to the LLD preview extension.
 
 ### Wave 1 — Core (minimum viable)
 
-**Features:** F1, F2, F3, F4, F5, F6, F7, F8, F9, F11
+**Features:** F1, F2, F3, F4, F5, F6, F7, F8, F9, F11, F13
 
-**Rationale:** This is the complete diagram improvement surface. F1–F4 are the
-template/convention changes — they define what gets generated. F5–F7 are the VSCode
-extension — they make the generated output interactive. F8–F9 are the skill
-instructions — they ensure `/lld` follows the new conventions. F11 is non-negotiable:
-the `edf://` protocol must degrade gracefully or it breaks LLDs viewed outside VSCode.
+**Rationale:** This is the complete review-enabling surface. F1–F4 are the
+template/convention changes. F5–F7 and F13 are the VSCode extension — navigable
+diagrams plus comment insertion without leaving the review flow. F8–F9 are the
+skill instructions. F11 is non-negotiable: `edf://` must degrade gracefully.
 
-All Wave 1 features together deliver the vision: a reviewer opens an LLD in VSCode
-preview, hovers over diagram participants to see code, clicks to open files, and
-stays oriented in the design document throughout.
+F13 is included in Wave 1 because the preview→source round-trip for comments is
+a core friction point. The approach (quick-pick section → insert template under
+heading) avoids fragile source mapping by using the LLD's own section structure
+as the navigation anchor.
 
 ### Wave 2 — Review workflow
 
@@ -287,14 +287,14 @@ on knowing the final shape of the conventions.
 
 ### Wave 3+ — Future
 
-**Features:** F13, F14 — bidirectional navigation (code → diagram highlighting),
+**Features:** F14 — bidirectional navigation (code → diagram highlighting),
 live drift detection between code and LLD diagrams, CodeBoarding-style auto-generated
 diagrams post-implementation, inline code snippet rendering below diagrams in the
 preview.
 
-**Rationale:** F13 (preview-to-source comment insertion) depends on VSCode's
-markdown source mapping, which may not be precise enough for diagram-heavy documents.
-F14 (contextual test execution) requires extracting test file paths from LLD sections
-and discovering project test commands — useful but needs the Wave 1 navigation
-patterns to prove themselves first. The other future items are higher effort or
-depend on external APIs (Gemini for auto-generated diagrams).
+**Rationale:** F14 (contextual test execution) requires extracting test file paths
+from LLD sections and discovering project test commands — useful but needs the Wave 1
+navigation patterns to prove themselves first. Bidirectional nav requires Tree-sitter
+or equivalent code parsing. Drift detection needs a diffing engine. Auto-generated
+diagrams depend on Gemini API (external cost). Defer until Wave 1 proves the core
+navigation + comment patterns are valuable.
