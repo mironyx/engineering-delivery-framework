@@ -153,7 +153,13 @@ this is the *generation logic* the LLD agent applies:
    at the start of Part A. Assign `class` on nodes to apply the error/auth/external/new
    styles. The palette colours match the EDF pipeline flowcharts.
 
-3. **Every diagram participant gets a `click`.** No dead labels:
+3. **Add a `click` to every participant in a diagram type that supports it.** No dead
+   labels — but check the support matrix in `template.md` first. Emitting `click` where
+   it is unsupported is a **fatal parse error** and the diagram will not render:
+   - **Never emit `click` in a `sequenceDiagram`** — no form of it parses
+   - `erDiagram` accepts it but generates no link; omit it
+   - `stateDiagram-v2` supports it only **without** a `_self` target
+   - `classDiagram` class names must not contain `/` — use `class Ident["display/name"]`
    - Existing source file → `edf://<repo-relative-path>` — use paths from the
      code-explorer brief in Step 0c, or grep to confirm the file exists
    - New-to-be-created code → `#LLD-<epic-id>-<section-slug>` — this must resolve
@@ -174,6 +180,8 @@ this is the *generation logic* the LLD agent applies:
 6. **Mermaid syntax validation.** Wrap labels containing punctuation or special
    characters in quotes. `edf://` links must be bare paths without trailing
    punctuation. `#LLD-` anchors must match the `<a id>` exactly (case-sensitive).
+   Every diagram must parse — a `click` in the wrong diagram type, or a `/` in a
+   `classDiagram` class name, takes the whole diagram down.
 
 **Section mode** (`/lld 2.3`): Update the relevant section within the existing phase LLD file rather than creating a new file.
 
@@ -203,7 +211,8 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 - **Single RPC write per response.** For any endpoint that persists data, does the flow use exactly one RPC call to write all related rows? Multiple sequential writes to the same table within one request are a race-condition risk and waste DB round-trips (#788).
 - **Performance at design time.** Is every non-trivial data path's round-trip / network-call count bounded — no N+1, no unbounded loop baked into the design? If the requirement implies latency, throughput, or a bulk path, does the design state a budget or batch size? Apply the project's efficiency convention.
 - **Visual specs populated (FE sections).** For every section with a Frontend layer, does Part A have a Visual Specifications subsection with a populated table and screenshots? Flag sections where FE work is described but no visual reference exists.
-- **Diagram navigability.** Does every diagram participant have a `click` directive? Existing code → `edf://` path that resolves to a real file; new code → `#LLD-` anchor that matches a Part B `<a id>`. Are enforcement points (authZ, validation, external boundaries, error propagation) annotated with `Note` blocks on sequence diagrams? A participant without a `click` is a fix — no dead labels. Missing enforcement annotations on a flow crossing a trust boundary is a fix.
+- **Every diagram parses.** Check first, because these take the whole diagram down, not just a link: no `click` in a `sequenceDiagram` (any form is a parse error), no `_self` target on a `stateDiagram-v2` `click`, no `/` in a `classDiagram` class name. See the support matrix in `template.md`.
+- **Diagram navigability.** In diagram types that support `click` (`flowchart`, `classDiagram`, `stateDiagram-v2`), does every participant have one? Existing code → `edf://` path that resolves to a real file; new code → `#LLD-` anchor that matches a Part B `<a id>`. Are enforcement points (authZ, validation, external boundaries, error propagation) annotated with `Note` blocks on sequence diagrams? A participant without a `click` in a supporting diagram type is a fix — no dead labels. Missing enforcement annotations on a flow crossing a trust boundary is a fix.
 
 ### Step 2.6: Automated LLD review
 

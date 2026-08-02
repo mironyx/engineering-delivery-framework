@@ -45,7 +45,11 @@ All diagrams in this document use a standard set of styles. Define them once via
 subsequent diagrams. The palette matches the EDF pipeline flowcharts for visual
 consistency.
 
-```mermaid
+These are declaration lines to paste *inside* a diagram — they are not a diagram on
+their own. Keep them in a `text` fence; a bare `classDef` block in a `mermaid` fence
+renders as "No diagram type detected".
+
+```text
 classDef error fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 classDef auth fill:#f7eed6,stroke:#8a6d2d,color:#443a1a
 classDef external fill:#d6e8f7,stroke:#2d5f8a,color:#1a2f44
@@ -82,6 +86,18 @@ without leaving the preview.
 The `_self` target keeps navigation within the same browser context so it degrades
 gracefully in GitHub and other renderers.
 
+**`click` support is not uniform across diagram types.** Verified against Mermaid 11.12.2
+(the version VS Code bundles). Emitting `click` where it is unsupported produces a **fatal
+parse error** — the whole diagram fails to render, not just the link:
+
+| Diagram type | `click` | Notes |
+|---|---|---|
+| `flowchart` | Supported | `_self` target is fine |
+| `classDiagram` | Supported | Class names must not contain `/` — use `class Ident["display/name"]` |
+| `stateDiagram-v2` | Supported | **Omit the `_self` target** — supplying one is a parse error |
+| `erDiagram` | Ignored | Parses, but no link is generated |
+| `sequenceDiagram` | **Parse error** | No form of `click` is accepted. Do not emit it. |
+
 ## N.1 [Section Name]
 
 **Stories:** [story numbers]
@@ -100,19 +116,15 @@ use it when the condition matches, skip it when optional.
 For every interaction involving >2 components: API routes, service calls, webhook
 chains, multi-step UI interactions with server round-trips.
 
-Every diagram participant must have a `click` directive. Existing code links to the
-source file via `edf://`; new code links to its Part B spec via `#LLD-`. Enforcement
-points (authZ, validation, external boundaries) are annotated with `Note` blocks so
-the security and validation story is visible in the diagram itself.
+**Do not emit `click` directives in a sequence diagram** — Mermaid rejects them and the
+diagram will not render at all (see the support table above). Sequence-diagram
+participants are not navigable; reach the same components through the `classDiagram` or
+`flowchart` in the Structural Overview. Enforcement points (authZ, validation, external
+boundaries) are annotated with `Note` blocks so the security and validation story is
+visible in the diagram itself.
 
 `` ```mermaid
 sequenceDiagram
-    click API href "edf://src/app/api/example/route.ts" _self
-    click Service href "edf://src/lib/example/service.ts" _self
-    click DB href "edf://src/lib/db/client.ts" _self
-    %% New-to-be-created — scrolls to Part B spec:
-    click NewService href "#LLD-<epic-id>-<section-slug>" _self
-
     Client->>API: POST /api/example
     Note over API: AuthZ check (RLS policy)
     API->>Service: processRequest(ctx, params)
@@ -197,27 +209,30 @@ Works for both class-based and module-based codebases:
 - **Interfaces/Ports** — use `<<interface>>`, show who implements them
 - **Direction** — arrows show dependency direction (who depends on whom)
 
+A class name containing `/` is a parse error. Use an identifier-safe name with a display
+label — `class EngineScoring["engine/scoring"]` — to keep the module path visible.
+
 `` ```mermaid
 classDiagram
-    click engine/scoring href "edf://src/lib/engine/scoring.ts" _self
-    click ports/github href "edf://src/lib/ports/github.ts" _self
-    click adapters/github href "edf://src/lib/adapters/github.ts" _self
-
-    class engine/scoring {
+    class EngineScoring["engine/scoring"] {
         <<module>>
         +calculateScore(responses) Score
         +buildDimensions(config) Dimension[]
     }
-    class ports/github {
+    class PortsGithub["ports/github"] {
         <<interface>>
         +fetchPRs(org, repo) PR[]
     }
-    class adapters/github {
+    class AdaptersGithub["adapters/github"] {
         <<module>>
         +createGitHubClient(token) GitHubPort
     }
-    engine/scoring --> ports/github : depends on
-    adapters/github ..|> ports/github : implements
+    EngineScoring --> PortsGithub : depends on
+    AdaptersGithub ..|> PortsGithub : implements
+
+    click EngineScoring href "edf://src/lib/engine/scoring.ts" _self
+    click PortsGithub href "edf://src/lib/ports/github.ts" _self
+    click AdaptersGithub href "edf://src/lib/adapters/github.ts" _self
 `` ```
 
 **When required:** Any task that introduces new modules/classes, modifies module boundaries,
