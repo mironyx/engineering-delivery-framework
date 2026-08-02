@@ -10,7 +10,9 @@ V1 introduces a VSCode extension (EDF Review) that makes `edf://` links function
 markdown preview. When a reviewer hovers over a diagram participant in an LLD, the
 extension shows the first ~40 lines of the referenced source file in a tooltip. When they
 click, the file opens in the adjacent VSCode column while the preview stays visible. A
-command-palette action inserts `[Review]` markers at selected section headings.
+command-palette action presents a filterable quick-pick of document headings and inserts a
+review-feedback marker into the source editor (exact marker format and insertion-point
+rules are owned by [Story 3.1](../../requirements/v1-requirements.md#story-31-quick-pick-section--insert-review-comment), not this ADR).
 
 This ADR records the extension's architecture — the communication channel between the
 preview webview and the extension host, the security boundary for path resolution, the
