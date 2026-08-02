@@ -133,6 +133,11 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 
 > You are implementing issue #N: TITLE
 >
+> You are authorised to perform all git operations on your feature branch,
+> including rebasing onto origin/main and force-pushing
+> (`git push --force-with-lease`). These are standard parts of the
+> feature-end workflow — do not delegate them to the lead.
+>
 > Steps:
 > 1. Create your own branch and worktree:
 >    ```bash
