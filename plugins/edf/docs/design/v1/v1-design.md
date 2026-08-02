@@ -149,6 +149,11 @@ Part A looks like.
 - Define conditional diagram type gates as concrete, checkable rules
 - Define the `## Diagram styling palette` and `## Diagram navigability convention`
   sections that appear in every generated LLD
+- Define the hidden participant→path mapping block format for sequence diagrams
+  (`<!-- edf-map {"ParticipantName": "edf://path", ...} -->`). Mermaid's `click`
+  directive is silently ignored in `sequenceDiagram` (no `<a>` element is created);
+  the mapping block is the bridge that lets the preview script inject handlers onto
+  the corresponding SVG `<rect>` elements by matching participant names
 
 **Non-responsibilities:**
 - Does not evaluate which diagram types a feature needs — the skill does that
@@ -228,6 +233,12 @@ feedback insertion. The bridge between the static diagram surface and the live e
 **Responsibilities:**
 - Inject a preview script (`media/preview.js`) into the VSCode markdown preview via
   `markdown.previewScripts`
+- **Two-path link discovery.** For non-sequence diagrams (flowchart, state, ER, class),
+  find native `<a>` elements via `querySelectorAll('a[xlink\\:href]')` from Mermaid's
+  `click` directive output. For sequence diagrams (`click` is silently ignored by
+  Mermaid), parse the hidden `<!-- edf-map {...} -->` mapping block from the markdown
+  DOM, walk the SVG for `<rect>` elements whose text content matches participant names,
+  and inject mouseenter/click handlers onto those elements
 - Intercept hover events on `edf://` links: resolve the path, read the first 40 lines via
   `vscode.workspace.fs.readFile`, display a themed tooltip within 200ms (excluding 150ms
   debounce)
@@ -347,6 +358,17 @@ the document proceeds to human review.
 A reviewer hovers over a diagram participant to peek at source, then clicks to open the
 file — all while the markdown preview stays visible.
 
+**Two-path approach.** Mermaid's `click` directive only generates `<a>` elements in
+`flowchart`, `stateDiagram`, `erDiagram`, and `classDiagram`. In `sequenceDiagram`,
+`click` is silently ignored. The preview script handles both paths:
+
+- **Non-sequence diagrams:** `querySelectorAll('a[xlink\\:href]')` finds native `<a>`
+  elements. Mouseenter → postMessage, click → open file. No mapping block needed.
+- **Sequence diagrams:** the LLD template emits a hidden participant→path mapping block
+  (`<!-- edf-map {"ParticipantName": "edf://path", ...} -->`). The preview script parses
+  this block, walks the SVG DOM for `<rect>` elements whose text content matches a
+  participant name, and injects hover/click handlers onto those `<rect>` elements.
+
 ```mermaid
 sequenceDiagram
     actor Reviewer as LLD Reviewer
@@ -360,7 +382,10 @@ sequenceDiagram
     Reviewer->>Preview: Open LLD markdown preview
     Preview->>Script: Inject media/preview.js
     Script->>Script: MutationObserver detects Mermaid SVG rendered
-    Script->>Script: Attach hover/click listeners to edf:// links
+    Script->>Script: Read hidden edf-map block from markdown DOM
+    Note over Script: Parse JSON: {"AuthMiddleware":"edf://path",...}
+    Script->>Script: Walk SVG <rect> elements, match by text
+    Script->>Script: Inject mouseenter/click handlers onto matched <rect>s
 
     Reviewer->>Script: Hover over edf:// link (150ms)
     Script->>Handler: postMessage({ command: 'hover', path: 'src/lib/auth/middleware.ts' })
