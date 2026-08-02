@@ -29,6 +29,11 @@ dead labels), `Note` annotations at trust boundaries, and deterministic generati
 in the skill instructions. A feature with none of the triggering characteristics produces
 the standard sequence diagram only — no diagram bloat.
 
+> **Scope note:** `classDiagram` was already present in the working-tree template alongside
+> the three types named in Story 1.1. It is included in V1 scope as a fourth conditional
+> diagram type with the same palette, `click`, and annotation conventions as the other
+> three. The requirements doc's omission is acknowledged; the template is the ground truth.
+
 ### C2: Standard Visual Palette
 
 Reviewers currently have no visual cue to distinguish error paths from auth boundaries
@@ -246,15 +251,14 @@ feedback insertion. The bridge between the static diagram surface and the live e
 - Use VSCode theme variables for tooltip styling so it matches the user's colour theme
 - Declare minimum extension permissions: `workspace.fs` read, `window.showTextDocument`;
   no network access, no filesystem write, no process execution
+- Handle `#LLD-` anchor navigation: if native scroll-to-fragment for SVG anchor clicks
+  does not work in VSCode's preview webview, the preview script provides a fallback click
+  listener that sets `window.location.hash` to the fragment; if the anchor target does
+  not exist (broken reference), silently do nothing
 
 **Non-responsibilities:**
 - Does not generate diagrams — the LLD Generation Skill does that
 - Does not modify the markdown source (except the `[Review]` insertion command)
-- Does not handle `#LLD-` anchor navigation — the `click` directive's `#LLD-` fragment
-  targets standard page-internal anchors. In VSCode's markdown preview webview, anchor
-  clicks inside Mermaid SVGs should trigger native scroll-to-fragment behaviour.
-  **Assumption requires validation** — if the preview webview does not handle SVG anchor
-  clicks natively, a preview-script listener for `#LLD-` clicks may be needed
 - Does not analyse code, parse ASTs, or verify implementation against design
 - Does not run in non-VSCode renderers — graceful degradation is a property of the link
   format, not the extension
