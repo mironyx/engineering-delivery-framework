@@ -135,6 +135,46 @@ If no wireframe exists for an FE section, flag it as a gap — the requirements
 review gate should have caught this, but if it didn't, surface it to the human
 rather than proceeding without a visual reference.
 
+**Diagram generation rules** — when producing diagrams for Part A, follow these rules.
+The template at [`template.md`](template.md) defines the diagram vocabulary and formatting;
+this is the *generation logic* the LLD agent applies:
+
+1. **Select diagram types by content, not by habit.** Scan each section for the content
+   signals listed in the template's "When required" gates:
+   - `sequenceDiagram` — any flow >2 components (API + service + DB, webhook chains,
+     multi-step UI interactions)
+   - `stateDiagram-v2` — FE sections with a UI states table where transitions between
+     states are non-trivial (retry, optimistic update, polling)
+   - `erDiagram` — DB sections introducing new tables or FK relationships
+   - `flowchart TD` — decision-heavy branching (auth rules, feature flags, routing)
+   - `classDiagram` — new modules/classes or changed module boundaries
+
+2. **Apply the standard palette.** Define `classDef` blocks in the first diagram or
+   at the start of Part A. Assign `class` on nodes to apply the error/auth/external/new
+   styles. The palette colours match the EDF pipeline flowcharts.
+
+3. **Every diagram participant gets a `click`.** No dead labels:
+   - Existing source file → `edf://<repo-relative-path>` — use paths from the
+     code-explorer brief in Step 0c, or grep to confirm the file exists
+   - New-to-be-created code → `#LLD-<epic-id>-<section-slug>` — this must resolve
+     to an `<a id="LLD-...">` anchor on the corresponding Part B section heading
+   - If a participant wraps both existing and new behaviour, link to the existing
+     file (the reviewer wants to see the current state first)
+
+4. **Annotate enforcement points on sequence diagrams.** Use `Note over` blocks to
+   mark: authZ checks, input validation boundaries, external service calls (SSRF
+   risk), error propagation points. The goal: a reviewer reading the diagram
+   should see the security and validation story without cross-referencing prose.
+
+5. **Decompose long sequence diagrams.** If a diagram exceeds ~12 interactions,
+   split into: a top-level flow (showing the main path), plus separate detail
+   diagrams for the error path and any async/webhook side paths. Link between
+   them with prose: "See error-path detail below."
+
+6. **Mermaid syntax validation.** Wrap labels containing punctuation or special
+   characters in quotes. `edf://` links must be bare paths without trailing
+   punctuation. `#LLD-` anchors must match the `<a id>` exactly (case-sensitive).
+
 **Section mode** (`/lld 2.3`): Update the relevant section within the existing phase LLD file rather than creating a new file.
 
 **Cross-cutting LLDs** (e.g., `lld-artefact-pipeline.md`) remain as standalone files when they span multiple phases or cover a topic orthogonal to the phase structure.
@@ -163,6 +203,7 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 - **Single RPC write per response.** For any endpoint that persists data, does the flow use exactly one RPC call to write all related rows? Multiple sequential writes to the same table within one request are a race-condition risk and waste DB round-trips (#788).
 - **Performance at design time.** Is every non-trivial data path's round-trip / network-call count bounded — no N+1, no unbounded loop baked into the design? If the requirement implies latency, throughput, or a bulk path, does the design state a budget or batch size? Apply the project's efficiency convention.
 - **Visual specs populated (FE sections).** For every section with a Frontend layer, does Part A have a Visual Specifications subsection with a populated table and screenshots? Flag sections where FE work is described but no visual reference exists.
+- **Diagram navigability.** Does every diagram participant have a `click` directive? Existing code → `edf://` path that resolves to a real file; new code → `#LLD-` anchor that matches a Part B `<a id>`. Are enforcement points (authZ, validation, external boundaries, error propagation) annotated with `Note` blocks on sequence diagrams? A participant without a `click` is a fix — no dead labels. Missing enforcement annotations on a flow crossing a trust boundary is a fix.
 
 ### Step 2.6: Automated LLD review
 

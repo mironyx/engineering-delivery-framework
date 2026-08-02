@@ -38,6 +38,50 @@ Part B block above the `# Part B` heading.
 > It answers: what does the feature do, how do the parts interact,
 > what must always be true, and how do we know it works.
 
+### Diagram styling palette
+
+All diagrams in this document use a standard set of styles. Define them once via a
+`classDef` block in the first diagram of each type, then reference by class name in
+subsequent diagrams. The palette matches the EDF pipeline flowcharts for visual
+consistency.
+
+```mermaid
+classDef error fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
+classDef auth fill:#f7eed6,stroke:#8a6d2d,color:#443a1a
+classDef external fill:#d6e8f7,stroke:#2d5f8a,color:#1a2f44
+classDef new fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
+```
+
+| Class | Use for |
+|-------|---------|
+| `error` | Error paths, failure states, exception flows |
+| `auth` | AuthZ enforcement points, trust boundaries, permission checks |
+| `external` | External service calls, third-party APIs, webhooks |
+| `new` | New code introduced by this LLD (modules, services, components created from scratch) |
+
+Apply with `class` assignments on nodes, or `Note` blocks on sequence diagrams for
+enforcement-point annotations (see Behavioural Flows below).
+
+### Diagram navigability convention — `click` directives
+
+Every diagram participant must be navigable. Use Mermaid's `click` directive on each
+actor, module, or component so the reviewer can reach the relevant code or spec
+without leaving the preview.
+
+- **Existing source file** → `edf://` protocol with the repo-relative path:
+  `click AuthHelper href "edf://src/lib/auth/helper.ts" _self`
+  The `edf-review` VSCode extension intercepts these: hover shows code, click opens
+  the file in the next column. Without the extension, the link is harmless (cursor
+  changes but no navigation — the same as any unrecognised URL scheme in an SVG).
+- **New-to-be-created code** → `#LLD-` anchor to the Part B section where its
+  internal decomposition and signatures are specified:
+  `click NewService href "#LLD-v12-e3-new-service" _self`
+  Click scrolls the preview to the implementation spec. These anchors work in any
+  markdown renderer including GitHub — they are standard page-internal links.
+
+The `_self` target keeps navigation within the same browser context so it degrades
+gracefully in GitHub and other renderers.
+
 ## N.1 [Section Name]
 
 **Stories:** [story numbers]
@@ -48,42 +92,117 @@ Part B block above the `# Part B` heading.
 
 ### Behavioural Flows
 
-Sequence diagrams for every non-trivial interaction (>2 components communicating).
-Use mermaid `sequenceDiagram` syntax. One diagram per key flow (happy path, error path,
-async/webhook flows as needed).
+Pick the right diagram type for the flow. Each type has a "When required" gate —
+use it when the condition matches, skip it when optional.
 
-` ` `mermaid
+#### Sequence diagram (primary)
+
+For every interaction involving >2 components: API routes, service calls, webhook
+chains, multi-step UI interactions with server round-trips.
+
+Every diagram participant must have a `click` directive. Existing code links to the
+source file via `edf://`; new code links to its Part B spec via `#LLD-`. Enforcement
+points (authZ, validation, external boundaries) are annotated with `Note` blocks so
+the security and validation story is visible in the diagram itself.
+
+`` ```mermaid
 sequenceDiagram
-    participant Client
-    participant API as API Route
-    participant Service
-    participant DB as Database
+    click API href "edf://src/app/api/example/route.ts" _self
+    click Service href "edf://src/lib/example/service.ts" _self
+    click DB href "edf://src/lib/db/client.ts" _self
+    %% New-to-be-created — scrolls to Part B spec:
+    click NewService href "#LLD-<epic-id>-<section-slug>" _self
 
     Client->>API: POST /api/example
+    Note over API: AuthZ check (RLS policy)
     API->>Service: processRequest(ctx, params)
+    Note over Service: Input validation + rate limit
     Service->>DB: query(...)
     DB-->>Service: rows
+    Service->>NewService: delegateSideEffect(data)
+    Note over NewService: External API call — SSRF risk,<br/>timeout + retry budget
+    NewService-->>Service: result
     Service-->>API: Result
     API-->>Client: 200 OK
-` ` `
+`` ```
 
 **When required:** Any flow involving >2 components or services. API routes with
-auth + service + DB. Webhook handling chains. Multi-step UI interactions with server calls.
+auth + service + DB. Webhook handling chains. Multi-step UI interactions with server
+calls.
 
 **When optional:** Single-component CRUD. Pure utility functions. Schema-only changes.
+
+**Enforcement point annotations.** Annotate these crossing points with `Note` blocks:
+- AuthZ enforcement (RLS, ownership checks, permission gates)
+- Input validation boundaries (where untrusted data enters the system)
+- External service calls (SSRF risk, timeout budgets)
+- Error propagation points (where errors cross component boundaries)
+
+**Decomposition heuristic.** If a sequence diagram exceeds ~12 interactions, split it:
+a top-level flow showing the main path, plus separate detail diagrams for the error
+path and any async/webhook side paths. Link between them with prose references.
+
+#### State diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> Loading
+    Loading --> Empty : no data
+    Loading --> Success : data loaded
+    Loading --> Error : fetch failed
+    Error --> Loading : retry
+    Success --> Loading : refresh
+```
+
+**When required:** Any FE section with a UI states table (Loading, Error, Empty,
+Success) where the transitions between states are non-trivial — e.g. retry from
+error, optimistic updates from success, polling loops. A state machine makes the
+transition rules explicit where a table only lists the states.
+
+**When optional:** Simple read-only pages with only two states (Loading → Content).
+Pure backend sections with no UI surface.
+
+#### Decision flowchart
+
+```mermaid
+flowchart TD
+    A[Incoming request] --> B{AuthZ check}
+    B -->|allowed| C[Process request]
+    B -->|denied| D[403 Forbidden]
+    C --> E{Rate limit}
+    E -->|within limit| F[Execute]
+    E -->|exceeded| G[429 Too Many Requests]
+```
+
+**When required:** Decision-heavy logic where the flow branches on multiple
+conditions — auth rules, feature flags, routing decisions, business rule evaluation.
+A flowchart shows the branching structure at a glance where nested prose or bullet
+lists would be hard to audit.
+
+**When optional:** Linear flows with a single branch point. Simple guard clauses.
 
 ### Structural Overview
 
 Module/class dependency diagram showing how the pieces fit together. Use mermaid
-`classDiagram` syntax. Works for both class-based and module-based codebases:
+`classDiagram` syntax for code structure, or `erDiagram` for data structure. Every
+module, class, interface, and entity must have a `click` directive — existing code
+links to source, new code links to its Part B spec.
+
+#### Code structure (`classDiagram`)
+
+Works for both class-based and module-based codebases:
 
 - **Classes** — show with methods and relationships (inheritance, composition)
 - **Modules** — use `<<module>>` stereotype, show exported functions
 - **Interfaces/Ports** — use `<<interface>>`, show who implements them
 - **Direction** — arrows show dependency direction (who depends on whom)
 
-` ` `mermaid
+`` ```mermaid
 classDiagram
+    click engine/scoring href "edf://src/lib/engine/scoring.ts" _self
+    click ports/github href "edf://src/lib/ports/github.ts" _self
+    click adapters/github href "edf://src/lib/adapters/github.ts" _self
+
     class engine/scoring {
         <<module>>
         +calculateScore(responses) Score
@@ -99,13 +218,42 @@ classDiagram
     }
     engine/scoring --> ports/github : depends on
     adapters/github ..|> ports/github : implements
-` ` `
+`` ```
 
 **When required:** Any task that introduces new modules/classes, modifies module boundaries,
 or adds new dependencies between existing modules. Changes touching the ports/adapters layer.
 
 **When optional:** Changes within a single existing module that do not alter its public
 surface or dependencies.
+
+#### Data structure (`erDiagram`)
+
+`` ```mermaid
+erDiagram
+    click users href "edf://src/lib/db/schema/users.ts" _self
+    click sessions href "#LLD-<epic-id>-<section-slug>" _self
+
+    users {
+        uuid id PK
+        string email
+        timestamp created_at
+    }
+    sessions {
+        uuid id PK
+        uuid user_id FK
+        string token
+        timestamp expires_at
+    }
+    users ||--o{ sessions : "has many"
+`` ```
+
+**When required:** Any DB section that introduces new tables, adds FK relationships
+between existing tables, or modifies the schema in a way that changes the
+entity-relationship graph. The diagram is the schema — prose descriptions are
+supplementary, not primary.
+
+**When optional:** Sections that only modify column types, add indexes, or change
+constraints without altering the entity graph. Sections with no DB layer.
 
 ### Visual Specifications
 
@@ -186,6 +334,13 @@ internal decomposition) in this part.]
 > model, Part B for precise file paths, types, function signatures, and decomposition
 > rules. A human reviewer may scan Part B for completeness but does not need to
 > review it line-by-line.
+
+**Stable anchors (ADR-0026).** Every Part B section heading must be preceded by an HTML
+anchor so that Part A diagrams can link directly to the implementation spec. Format:
+`LLD-<epic-id>-<section-slug>` where `<section-slug>` is a lower-kebab-case phrase
+matching the section's domain (e.g. `token-validation`, `schema`, `access-resolver`).
+
+<a id="LLD-<epic-id>-<section-slug>"></a>
 
 ## N.1 [Section Name] — Implementation
 
@@ -275,6 +430,8 @@ PageComponent
 
 #### Client state
 [What state lives on the client, how it's managed]
+
+<a id="LLD-<epic-id>-<section-slug>"></a>
 
 ## N.2 [Next Section Name] — Implementation
 

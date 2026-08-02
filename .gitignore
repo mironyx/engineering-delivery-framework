@@ -7,3 +7,10 @@ __pycache__/
 
 # Repo-root docs/ — plugin docs live under plugins/edf/docs/
 /docs/
+
+# Environment
+.env
+
+# Dependencies & build output
+node_modules/
+out/

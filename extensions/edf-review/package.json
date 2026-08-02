@@ -1,0 +1,28 @@
+{
+  "name": "edf-review",
+  "displayName": "EDF Review — Navigable LLD Diagrams",
+  "description": "Makes edf:// links in LLD diagrams interactive: hover shows code, click opens source files side-by-side without leaving the preview.",
+  "version": "0.1.0",
+  "publisher": "mironyx",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.88.0"
+  },
+  "activationEvents": [
+    "onMarkdownPreview"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "markdown.previewScripts": [
+      "./media/preview.js"
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.88.0",
+    "typescript": "^5.3.0"
+  }
+}

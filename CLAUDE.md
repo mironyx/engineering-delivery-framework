@@ -56,3 +56,45 @@ Agent .md files under `plugins/edf/agents/` use frontmatter with `model` pins:
 
 Tests for the plugin itself live under `tests/`. These are integration tests for the
 scripts and hooks.
+
+<!-- The following sections were added by /edf:setup -->
+
+## Engineering Process
+
+Pipeline: `idea → /discovery → /requirements → /kickoff → /architect → /feature → /feature-end → /retro`.
+
+This repo is a plugin monorepo — the same process applies to plugin features and the VS Code extension.
+
+## Coding Principles
+
+- HTTP mocking: respx (HTTPX) for any HTTP interactions. Do not use manual stubs or monkey-patching.
+- Test runner: pytest. Typecheck: pyright (via VS Code).
+
+## Verification Commands
+
+| Command | Purpose |
+| --- | --- |
+| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh p tests/test_<name>.py` | Unit tests |
+| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh p` | Lint (shellcheck + Python) |
+| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-markdown-lint.sh p` | Markdown lint |
+
+E2E tests run via Playwright MCP in `/qa`. Typecheck is handled by pyright in the IDE.
+
+## Key Directories
+
+| Directory | Purpose |
+|-----------|---------|
+| `plugins/edf/` | EDF plugin — skills, agents, hooks, bin, starters |
+| `extensions/` | VS Code extension sources |
+| `tests/` | Plugin integration tests (pytest) |
+| `plugins/edf/docs/adr/` | Architecture Decision Records |
+| `kb/` | Project conventions for EDF skills |
+
+## Knowledge Base (kb/)
+
+| File | Purpose | Read by |
+|------|---------|---------|
+| `kb/architecture.md` | Architecture rules, API composition patterns | `/lld`, `/pr-review`, `/lld-sync` |
+| `kb/anti-patterns.md` | Plugin-specific anti-patterns | `/pr-review`, `/lld-sync` |
+| `kb/conventions.md` | Test naming, path conventions | `/pr-review` |
+| `kb/file-map.md` | Logical concept → path mappings | `/pr-review`, `/lld-sync` |
