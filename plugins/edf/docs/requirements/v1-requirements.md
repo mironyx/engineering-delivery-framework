@@ -55,6 +55,19 @@ is to complete, verify, and harden that work against the acceptance criteria bel
 
 ## Glossary
 
+> **[Review]:** The `edf://` protocol entry must be removed. Verified against Mermaid
+> 11.12.2 (the version VS Code 1.121 bundles): the built-in renderer never sets
+> `securityLevel`, so Mermaid defaults to `strict`, whose sanitizer strips the `href`
+> for any unrecognised scheme — `edf://` included, in every diagram type. Workspace-relative
+> paths, `#fragment`, and `https:` survive. Replace the entry with a **workspace-relative
+> path** convention (`click AuthHelper href "src/lib/auth/helper.ts" _self`). See the
+> rejection note on ADR-0038 for the full evidence.
+
+> **[Review]:** The `click` directive entry needs a caveat: Mermaid supports `click`
+> only in `flowchart` and `classDiagram`. In `sequenceDiagram` it is a **fatal parse
+> error** (the diagram does not render at all); `erDiagram` ignores it silently; and
+> `stateDiagram-v2` parse-errors when a `_self` target is supplied.
+
 | Term | Definition |
 |------|-----------|
 | **LLD Part A** | The first half of an LLD document — behavioural diagrams (sequence, state, ER, flowchart) and an invariants table. The primary review surface. |
@@ -68,6 +81,18 @@ is to complete, verify, and harden that work against the acceptance criteria bel
 | **Graceful degradation** | The principle that `edf://` links must render as inert, harmless links in renderers that lack the extension (GitHub, other editors). No errors, no broken UX. |
 
 ## Design Principles / Constraints
+
+> **[Review]:** Principle 3 ("Graceful degradation by default") needs reframing. With
+> workspace-relative paths instead of `edf://`, links are no longer inert in GitHub —
+> they resolve to the actual file in the repository. The principle should be restated as
+> *renderer-native navigation*: links must work without any extension, and work better
+> where one exists. This is a stronger outcome than the original principle asked for.
+
+> **[Review]:** Principle 7 ("Extension distribution — Dev Host only") is in tension with
+> the value proposition: a tool whose premise is "don't break your review flow" would
+> require launching a second VS Code in debug mode to use. With Stories 2.1/2.2 moving to
+> V2, this principle now applies only to Story 3.1. Either commit to `.vsix` packaging or
+> reconsider whether the story ships in V1.
 
 1. **Diagram-first review surface** — Diagrams are the primary navigation surface for
    reviewers. Every diagram participant must resolve to something actionable (source file
@@ -116,6 +141,12 @@ depends on diagrams having the right structure, palette, and link surface.
 <a id="REQ-lld-template-diagram-vocabulary-conditional-diagram-types"></a>
 
 ### Story 1.1: Conditional diagram types (state, ER, flowchart)
+
+> **[Review]:** `classDiagram` is already present in the working-tree template and the
+> HLD (C1) treats it as in-scope, but this story names only three types and the
+> "What We Are NOT Building" section explicitly excludes other types. Resolve the
+> contradiction — either add `classDiagram` as a fourth type here (with a "When required"
+> gate and an AC) and amend the exclusion, or remove it from the template.
 
 **As a** Plugin Maintainer,
 **I want to** extend the LLD template with conditional support for `stateDiagram-v2`,
@@ -229,6 +260,16 @@ multiple annotations — one per concern.
 
 ### Story 1.4: `click` directives on every diagram participant
 
+> **[Review]:** This story needs the largest rework. (a) Replace `edf://` with
+> workspace-relative paths throughout — the custom scheme is stripped by Mermaid's strict
+> sanitizer. (b) AC4's premise is false: no `<a>` element is generated for sequence-diagram
+> participants, so it cannot render "as an inert `<a>` with `target=_self`". (c) `click`
+> cannot be applied to sequence diagrams at all — it is a fatal parse error — so this
+> story must specify a different mechanism for the primary diagram type (e.g. a
+> participant→path mapping block the preview can read), or explicitly scope sequence-diagram
+> participants out of the navigability requirement. (d) AC2's example uses a `v11` epic id
+> borrowed from another project.
+
 **As an** LLD Reviewer,
 **I want to** click on any diagram participant and navigate to its source file (for
 existing code via `edf://`) or its Part B spec (for new components via `#LLD-` anchors),
@@ -267,6 +308,12 @@ examples.
 
 ## Epic 2: VSCode Extension — Diagram Navigation [Priority: High]
 
+> **[Review]:** This epic dissolves. Stories 2.1 and 2.2 move to V2/Future (see their
+> individual markers). Stories 2.3 and 2.4 are no longer extension work — both are
+> properties of the template's link format — and should fold into Epic 1. If nothing
+> remains, delete the epic and renumber; if 2.3/2.4 stay grouped, retitle it to something
+> like "Link Behaviour & Verification" and drop the extension framing.
+
 The extension that makes `edf://` links functional in VSCode's markdown preview. Hover
 to peek at source, click to open in an adjacent column, and navigate to Part B specs via
 `#LLD-` anchors. Depends on Epic 1 for diagrams to carry `click` directives. Includes
@@ -275,6 +322,14 @@ graceful degradation so links are harmless when the extension is absent.
 <a id="REQ-vscode-extension-diagram-navigation-hover-tooltip-source-preview"></a>
 
 ### Story 2.1: Hover tooltip showing source file preview
+
+> **[Review]:** Move to V2/Future. Two reasons. (a) It depends on
+> `vscode.window.onDidReceivePreviewMessage`, which could not be found in the public VS
+> Code API — the claim traces to one unverified line in the discovery doc and remains
+> unvalidated. (b) The feature as specified does not solve its own pain point: the
+> persona needs *a named function's signature*, but "first 40 lines of the file" yields
+> imports and headers. Solving it properly needs symbol resolution, which the discovery
+> doc's Is-Not column rules out. Revisit after a spike answers (a).
 
 **As an** LLD Reviewer,
 **I want to** hover over an `edf://` link in the markdown preview and see the first ~40
@@ -317,6 +372,11 @@ without opening the file or losing my place in the diagram.
 
 ### Story 2.2: Click opens source file in adjacent column
 
+> **[Review]:** Move to V2/Future alongside Story 2.1. Before rebuilding it there, spike
+> whether VS Code's markdown preview already opens workspace-relative links clicked inside
+> a Mermaid SVG — its preview handles relative file links natively. If it does, this story
+> is delivered for free by Epic 1 and never needs an extension.
+
 **As an** LLD Reviewer,
 **I want to** click an `edf://` link and have the source file open in the adjacent VSCode
 column while the markdown preview stays visible,
@@ -352,6 +412,15 @@ orientation in the design document.
 
 ### Story 2.3: `#LLD-` anchor navigation to Part B specs
 
+> **[Review]:** Fold into Epic 1 — this is no longer extension work. Verified: `#LLD-`
+> fragments survive Mermaid's strict sanitizer and work natively in `flowchart` and
+> `classDiagram`, no extension required. Drop the extension-fallback framing. Two fixes
+> needed: AC1's example (`#LLD-delivery-service`) omits the epic-id that AC4 requires —
+> align both on the ADR-0026 format. And because `click` is a parse error in
+> `sequenceDiagram`, new components shown only in a sequence diagram have no working
+> anchor path at all; state how they are reached, or require them to appear in a
+> `flowchart`/`classDiagram`.
+
 **As an** LLD Reviewer,
 **I want to** click on a diagram participant marked as a new component (teal outline) and
 have the preview scroll to its Part B internal decomposition section,
@@ -383,6 +452,14 @@ breakdown — in a single click instead of scroll-hunting through the document.
 <a id="REQ-vscode-extension-diagram-navigation-graceful-degradation-edf-links"></a>
 
 ### Story 2.4: Graceful degradation of `edf://` links in external renderers
+
+> **[Review]:** Fold into Epic 1 as its verification story, and rewrite — the outcome has
+> changed qualitatively. With workspace-relative paths, GitHub resolves the link to the
+> real file in the repo, so this is no longer "degradation" but working navigation in a
+> second renderer. Retitle accordingly. ACs 1 and 4 rest on `<a>` elements that are never
+> generated for sequence diagrams; replace them with verification that each diagram type
+> renders and its links resolve, in GitHub and VS Code. This story is what makes Epic 1
+> trustworthy — do not defer it.
 
 **As a** Plugin Maintainer,
 **I want to** ensure that `edf://` links render as inert, harmless links when the
@@ -429,6 +506,16 @@ integration).
 <a id="REQ-vscode-extension-review-feedback-quick-pick-insert-review-comment"></a>
 
 ### Story 3.1: Quick-pick section → insert `[Review]` comment
+
+> **[Review]:** Functional gap: AC1 assumes the command is invoked while the markdown
+> preview is focused, but in that state `vscode.window.activeTextEditor` is `undefined` —
+> the webview holds focus. No AC specifies how the preview is resolved back to its source
+> document. Add one. This is now the only story in V1 requiring extension code, so the
+> gap is blocking.
+
+> **[Review]:** No story covers how the extension is tested or delivered. Add ACs (or a
+> sibling story) for the TypeScript test framework and for `.vsix` packaging — per the
+> Principle 7 marker, an unpackaged extension cannot deliver this story's value.
 
 **As an** LLD Reviewer,
 **I want to** invoke a command from the markdown preview that shows a quick-pick list of
@@ -481,6 +568,14 @@ Ensures the Plugin Maintainer can verify that generated LLDs follow conventions.
 
 ### Story 4.1: Diagram generation rules in `/lld` SKILL.md
 
+> **[Review]:** Three fixes. (a) AC4 says the `#LLD-` anchor is "derived from the
+> component name, lower-kebab-case", dropping the `<epic-id>` that ADR-0026 and Story 1.4
+> AC6 both require — AC4 is the wrong one. (b) AC1/AC3 need updating for
+> workspace-relative paths and for the per-diagram-type `click` support matrix (fatal
+> parse error in `sequenceDiagram`; ignored in `erDiagram`; no `_self` target in
+> `stateDiagram-v2`). (c) Add `classDiagram` if Story 1.1's scope contradiction resolves
+> in its favour.
+
 **As a** Plugin Maintainer,
 **I want to** update the `/lld` SKILL.md Step 2 with concrete generation rules for
 diagram type selection, `click` directive generation, `classDef` application, and
@@ -526,6 +621,13 @@ must not duplicate template content — it references it.
 
 ### Story 4.2: Self-critique checklist item for diagram navigability
 
+> **[Review]:** AC1 ("every diagram participant has a `click` directive") is now unsafe —
+> on a sequence diagram, a `click` directive is a fatal parse error, so an LLD that
+> satisfies this check would fail to render entirely. Rewrite the check per diagram type,
+> and make it verify whatever mechanism Story 1.4 settles on for sequence participants.
+> AC4 must also change: it checks that `edf://` paths resolve, which no longer applies.
+> Add a check that every diagram actually parses.
+
 **As a** Plugin Maintainer,
 **I want to** add a diagram navigability check to the `/lld` Step 2.5 self-critique
 checklist (every participant has a `click`, enforcement points are annotated, palette
@@ -566,6 +668,18 @@ match the template conventions defined in Epic 1.
 
 ### Security
 
+> **[Review]:** The "Extension permissions" bullet rests on a false model of VS Code's
+> security architecture and must be rewritten. `extensionKind: "workspace"` controls
+> *where* an extension runs in remote scenarios — it does not deny network access.
+> `activationEvents` control *when* activation happens, not what is accessible. `"scripts"`
+> is npm tooling, unrelated to runtime process execution. VS Code extensions run with full
+> Node privileges and there is no manifest-level permission system. State the real
+> guarantee: the extension performs only these operations, enforced by code review.
+
+> **[Review]:** The path-traversal and no-code-execution bullets are owned by Stories 2.1
+> and 2.2, both moving to V2. Move them with those stories, and keep only what Story 3.1
+> actually needs.
+
 - **Path traversal prevention (owned by Stories 2.1, 2.2):** The `edf://` protocol
   handler must validate that resolved file paths are within the workspace root. An
   `edf://../../../etc/passwd` link must not resolve to a file outside the workspace.
@@ -583,6 +697,12 @@ match the template conventions defined in Epic 1.
 
 ### Performance
 
+> **[Review]:** All three bullets are owned by Stories 2.1/2.2/2.3/3.1 — the first three
+> move to V2 or fold into Epic 1, leaving nothing to measure in V1. Move them with their
+> stories. If the MutationObserver budget returns in V2, note that "under 1ms per
+> invocation" is already violated by the scaffold's unthrottled full-document
+> `querySelectorAll` on every mutation.
+
 - **Hover tooltip latency (owned by Story 2.1):** The first 40 lines of a source
   file must appear in the hover tooltip within 200ms of the hover event (excluding
   the 150ms debounce). File reading is via `vscode.workspace.fs.readFile` — a local
@@ -598,6 +718,9 @@ match the template conventions defined in Epic 1.
 
 ### Observability
 
+> **[Review]:** Both bullets are scoped to the preview script and `edf://` resolution,
+> which leave V1 with Stories 2.1/2.2. Reduce to whatever Story 3.1 needs — if anything.
+
 - **Extension errors (owned by Stories 2.1, 2.2, 3.1):** Every failed `edf://`
   resolution (file not found, path outside workspace, malformed URI) produces a log
   entry in the VSCode output channel `EDF Review` with the raw URI and the failure
@@ -610,6 +733,14 @@ match the template conventions defined in Epic 1.
 ---
 
 ## What We Are NOT Building
+
+> **[Review]:** The first bullet excludes diagram types beyond the three named in Story
+> 1.1, which contradicts `classDiagram` being present in the template and in-scope in the
+> HLD. Resolve together with the Story 1.1 marker.
+
+> **[Review]:** Add hover-to-peek and click-to-open as explicit V1 exclusions, pointing at
+> their V2/Future entries, so the deferral is visible here and not only in the story
+> bodies.
 
 - **Additional diagram types (C4Context, gantt, pie, etc.)** — V1 is scoped to
   `stateDiagram-v2`, `erDiagram`, and `flowchart TD` as conditional additions to the
@@ -650,6 +781,10 @@ match the template conventions defined in Epic 1.
 These Wave 2 and Wave 3+ features are out of scope for V1 but captured here as input
 for future discovery and requirements cycles.
 
+> **[Review]:** Add Stories 2.1 (hover tooltip) and 2.2 (click-to-open) here, each with
+> the spike question that would reopen it: does `onDidReceivePreviewMessage` exist, and
+> does VS Code's preview already open relative links from inside a Mermaid SVG?
+
 ### Wave 2 — Review Workflow
 
 | Feature | Description |
@@ -679,6 +814,13 @@ for future discovery and requirements cycles.
 ---
 
 ## Open Questions
+
+> **[Review]:** Three of the four are stale and should be closed using the strikethrough
+> convention already applied to OQ3. **OQ1** — answered: with relative paths, links
+> resolve in GitHub rather than degrading; verification folds into the rewritten Story 2.4.
+> **OQ2** — the postMessage mechanism was never validated and the API appears not to
+> exist; the question moves to V2 with Stories 2.1/2.2 rather than staying open here.
+> **OQ4** — regex extraction was already chosen and is reflected in Story 3.1's ACs.
 
 | # | Question | Context | Options | Impact |
 |---|----------|---------|---------|--------|

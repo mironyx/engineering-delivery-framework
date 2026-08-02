@@ -1,8 +1,47 @@
 # 0038. VSCode Extension Architecture & Security Model for `edf://` Protocol
 
 **Date:** 2026-08-02
-**Status:** Accepted
+**Status:** Rejected (2026-08-02, at the `/kickoff` Step 5 ADR gate)
 **Deciders:** LS / Claude
+
+> ## Rejection note
+>
+> This ADR was rejected at its review gate before any downstream artefact depended on
+> it. No plan, epic issues, LLDs, or coverage manifests reference it. Retained for the
+> record; the number is not reused.
+>
+> **Why.** The decision rests on a falsified premise. Empirical verification against
+> Mermaid 11.12.2 — the version pinned by `mjbvz/vscode-markdown-mermaid`, merged into
+> VS Code 1.121 as the built-in *Mermaid Markdown Features* extension — established:
+>
+> 1. **The `edf://` scheme cannot survive the renderer.** That extension never sets
+>    `securityLevel` (verified across `src/markdownPreview/index.ts` and
+>    `src/notebook/index.ts`), so Mermaid defaults to `strict`, whose URL sanitizer
+>    strips the `href` attribute for any unrecognised scheme. Confirmed stripped:
+>    `edf://`, `vscode://`, `file://`, and arbitrary custom schemes. Confirmed
+>    surviving: workspace-relative paths, absolute paths, `#fragment`, `https:`,
+>    `mailto:`. This applies to **every** diagram type — so the "native `<a>` element"
+>    path this ADR relies on for non-sequence diagrams is also dead.
+> 2. **`click` in `sequenceDiagram` is a fatal parse error, not a silent no-op.** The
+>    Consequences section below claims the directive is "silently ignored". In fact the
+>    whole diagram fails to render. All three syntaxes fail
+>    (`click X href "u" _self`, `click X href "u"`, `click X "u"`). The verbatim
+>    snippet in `plugins/edf/skills/lld/template.md` does not render — a live defect
+>    tracked separately from this design pipeline.
+> 3. **The supported-diagram list below is wrong on two of four.** `erDiagram` ignores
+>    `click` entirely (renders, zero anchors); `stateDiagram-v2` parse-errors on the
+>    `_self` target the template mandates.
+>
+> Additionally, `vscode.window.onDidReceivePreviewMessage` — the API the entire
+> `postMessage` architecture depends on — could not be found in the public VS Code API.
+> The claim traces to a single unverified line in the discovery document. This was never
+> validated; the spike recorded on 2026-08-02 answered a different question.
+>
+> **What replaces it.** The load-bearing decision that survives is *workspace-relative
+> paths over a custom URL scheme*. Per `/kickoff` Step 5 that ADR is proposed and
+> approved through the gate, not pre-written here. The `postMessage` channel and
+> extension security model are moot for now: the stories that needed them
+> (hover-to-peek, click-to-open) moved to V2/Future.
 
 ## Context
 
