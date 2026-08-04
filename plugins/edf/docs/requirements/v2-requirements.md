@@ -92,6 +92,10 @@ a worktree,
 **so that** parallel teammates never edit the same LLD and rebases stop conflicting on additive Document
 Control changes.
 
+**Worktree detection:** `lld-sync` and `feature-end` detect a worktree via the existing method from
+feature-team Step 1b — `git rev-parse --git-common-dir` differs from `git rev-parse --show-toplevel`.
+When that check fails (running in the main repo), the in-place path is used instead.
+
 *(Acceptance criteria in next pass)*
 
 ---
@@ -104,6 +108,12 @@ Control changes.
 **I want to** reconcile every teammate's per-task sync file into the canonical LLD(s) after all PRs are
 merged,
 **so that** the design documents reflect everything that shipped and the per-task files do not accumulate.
+
+**Scope:** the reconcile runs once per team run on `main`. It collates the run's per-task sync files (glob
+`docs/design/lld-sync/<FEATURE_ID>-*.md`), applies each delta to its target LLD(s) reusing the existing
+in-place apply logic from `lld-sync` Steps 3/3a/3b/3c, bumps each touched LLD's Document Control, and deletes
+the applied files. A run may touch multiple LLDs; each file's target list comes from its `## Design
+references`.
 
 *(Acceptance criteria in next pass)*
 
@@ -118,9 +128,14 @@ tracked issues.
 
 ### Story 2.1: Feature-end post-condition gates before merge
 
-**As the** Feature-team Lead,
+**As the** Plugin Maintainer,
 **I want to** prevent `feature-end` from merging when the session log or lld-sync evidence is missing,
 **so that** "mandatory" steps are enforced by verification, not by the agent's willingness.
+
+**Scope:** applies to all `feature-end` runs — solo Standard/Heavy runs and team-run worktree sessions alike.
+The session-log gate is a file existence check (ADR-0037 find-by-feature-ID); the lld-sync gate checks for
+the evidence appropriate to the run mode (per-task sync file in a worktree, Document Control `Revised` row in
+the main repo). See Open Question 2 for the block-vs-auto-write behaviour.
 
 *(Acceptance criteria in next pass)*
 
@@ -148,6 +163,9 @@ defect outside the current issue is found,
 end of a run,
 **so that** the team's orchestration context and its problems survive the session.
 
+**Depends on:** Story 2.2 — the team log's Problems & follow-ups section (fed by each per-issue log's
+Problems & follow-ups) is the source of the issues this story files.
+
 *(Acceptance criteria in next pass)*
 
 ---
@@ -165,6 +183,9 @@ Breaks the deadlock where actions are re-flagged "Not started" retro after retro
 retro session,
 **so that** stalled actions become tracked work with owners instead of looping through carry cycles.
 
+**Trigger default:** assumes Open Question 1 option (a) — two consecutive carries (the observed deadlock). If
+the decision changes to total appearances, the trigger condition adjusts.
+
 *(Acceptance criteria in next pass)*
 
 ---
@@ -181,6 +202,12 @@ Fixes agents stopping after a sub-step skill finishes, treating a report as a te
 **I want to** give every sub-step skill an explicit closing instruction telling the agent what to do next
 (continue the caller's pipeline or state the next step),
 **so that** agents follow through to the end of the pipeline instead of idling after producing a report.
+
+**Skills in scope (inventory of sub-step skills that end on a report):** `lld-sync` (by feature-end),
+`diag` (by feature-core Step 6), `feature-evaluator` (by feature-core Step 6b), `drift-scan` (by retro Step 4),
+`lld-review` (by /lld Step 2.5), `requirements-review` (by /requirements gates), `qa-contracts`,
+`qa-coverage`, `qa-executor`, `qa-explorer` (by /qa). The `ci-probe` background agent already carries a
+"continue with Step 9" tail (feature-core Step 9) — used as the model phrasing.
 
 *(Acceptance criteria in next pass)*
 
