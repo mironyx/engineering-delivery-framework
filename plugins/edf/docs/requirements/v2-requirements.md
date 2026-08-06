@@ -5,7 +5,7 @@
 | Field | Value |
 |-------|-------|
 | Version | 0.1 |
-| Status | Draft — Structure |
+| Status | Draft — Complete |
 | Author | LS / Claude |
 | Created | 2026-08-05 |
 | Last updated | 2026-08-05 |
@@ -16,6 +16,7 @@
 |---------|------|--------|---------|
 | 0.1 | 2026-08-05 | LS / Claude | Initial draft — epics, stories, roles |
 | 0.2 | 2026-08-05 | LS / Claude | Structure review fixes; added Implementation grouping note (ship as one item) |
+| 0.3 | 2026-08-05 | LS / Claude | Acceptance criteria for all 7 stories; clarified solo-run in-place path in Story 1.1 |
 
 ---
 
@@ -111,7 +112,28 @@ Control changes.
 feature-team Step 1b — `git rev-parse --git-common-dir` differs from `git rev-parse --show-toplevel`.
 When that check fails (running in the main repo), the in-place path is used instead.
 
-*(Acceptance criteria in next pass)*
+**Solo runs are unaffected:** a solo `/feature` + `/feature-end` run stays in the main repo working copy, so
+the check fails and the existing in-place apply is used — identical to today. Only worktrees (teammates in a
+`/feature-team` run) take the deferral path. The agent needs no "am I a teammate" context — the worktree
+state IS the signal.
+
+**Acceptance Criteria:**
+
+- Given `lld-sync` runs in a worktree (where `git rev-parse --git-common-dir` differs from
+  `--show-toplevel`), when it completes, then no canonical LLD file under `docs/design/v*/lld-*.md` is
+  modified, and a per-task file exists at `docs/design/lld-sync/<FEATURE_ID>-<slug>.md`.
+- Given a per-task file is written, then it records the issue number and slug, the **Target LLD(s)** from
+  the issue body's `## Design references`, the four-category delta (Corrections / Additions / Omissions /
+  Confirmations), and any deferred kb / coverage-manifest / Rev-N cleanup notes.
+- Given `lld-sync` runs in a worktree, when Step 4 produces the sync report, then the `### LLD updated` block
+  states "Target LLD(s) + Pending lead reconcile — version bump deferred" and does not claim a version bump.
+- Given `lld-sync` runs in the main repo (detection fails), when it completes, then the existing in-place
+  path applies — the canonical LLD is edited and its Document Control bumped, unchanged from current behaviour.
+- Given two teammates run `lld-sync` in their own worktrees for different issues in the same run, when both
+  feature-ends finish, then neither touched the canonical LLD — no Document Control conflict on either rebase.
+
+**Notes:** filenames use FEATURE_ID per ADR-0037; the slug is cosmetic since FEATURE_ID is unique per issue
+(Open Question 3).
 
 ---
 
@@ -130,7 +152,21 @@ in-place apply logic from `lld-sync` Steps 3/3a/3b/3c, bumps each touched LLD's 
 the applied files. A run may touch multiple LLDs; each file's target list comes from its `## Design
 references`.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given a team run has completed with per-task sync files at `docs/design/lld-sync/<FEATURE_ID>-*.md`, when
+  the lead runs the reconcile (feature-team Step 7.5), then every Correction and Addition is applied to its
+  target LLD with a `> **Implementation note (issue #N):**` callout, preserving stable `<a id="LLD-...">`
+  anchors per ADR-0026.
+- Given a target LLD is touched, then its Document Control is bumped — Version/Status updated and a
+  `| Revised | [date] | Issue #N |` row added — per `lld-sync` Step 3b.
+- Given a sync file records deferred kb or coverage-manifest deltas, when reconciled, then they are applied
+  to `kb/architecture.md`, `kb/anti-patterns.md`, and the coverage manifest.
+- Given a sync file's delta is applied, when processed, then the file is deleted from `docs/design/lld-sync/`.
+- Given the reconcile completes, then the LLD/kb/manifest edits and file deletions are committed on `main`,
+  and no `docs/design/lld-sync/<FEATURE_ID>-*.md` files remain for the run.
+- Given a run touched multiple LLDs, when reconciled, then every LLD named in the sync files' Target LLD(s)
+  is updated — none left pending.
 
 ---
 
@@ -152,7 +188,23 @@ The session-log gate is a file existence check (ADR-0037 find-by-feature-ID); th
 the evidence appropriate to the run mode (per-task sync file in a worktree, Document Control `Revised` row in
 the main repo). See Open Question 2 for the block-vs-auto-write behaviour.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given `feature-end` is invoked, when it reaches the pre-commit gate (Step 2.7), then a session log matching
+  `docs/sessions/YYYY-MM/*-<FEATURE_ID>.md` exists, found by feature ID per ADR-0037; if absent, the gate
+  reports the missing artefact by feature ID and feature-end writes it before proceeding — the skip is
+  visible, not masked.
+- Given the issue has an LLD reference, when the gate runs, then lld-sync evidence is present: a per-task
+  sync file in a worktree, or a Document Control `Revised` row in the main repo; if absent, feature-end
+  re-runs `lld-sync` before proceeding.
+- Given the issue has no LLD reference, when the gate runs, then feature-end records that fact and passes the
+  lld-sync check.
+- Given either gate check fails, when feature-end continues, then the merge (Step 4) does not proceed until
+  the check passes.
+- Given a gate check passes, when feature-end proceeds, then no additional prompts are introduced — the check
+  is a verification step, not a new approval point.
+
+**Notes:** block-vs-auto-write behaviour defaults to block-with-visible-write (Open Question 2).
 
 ---
 
@@ -165,7 +217,19 @@ the main repo). See Open Question 2 for the block-vs-auto-write behaviour.
 defect outside the current issue is found,
 **so that** problems are recorded at the moment they are discovered and are not lost when context compacts.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given feature-core Step 3dF creates a session log, then the template includes a `## Problems & follow-ups`
+  section with a note to record out-of-scope defects instead of silently fixing them.
+- Given a real defect or gap outside the current issue is found during implementation, then the agent records
+  it in Problems & follow-ups as a title plus one-line description before proceeding — not silently
+  fixed-and-forgotten.
+- Given feature-end Step 2 appends the narrative sections, when it finalises the log, then it also summarises
+  the final Problems & follow-ups state into the log.
+- Given an issue had no out-of-scope problems, when the log is finalised, then the section states `none`
+  rather than being absent.
+- Given a recorded problem later becomes a tracked issue (feature-team Step 7.5b), then the session-log entry
+  is cross-referenceable to that issue number.
 
 ---
 
@@ -181,7 +245,19 @@ end of a run,
 **Depends on:** Story 2.2 — the team log's Problems & follow-ups section (fed by each per-issue log's
 Problems & follow-ups) is the source of the issues this story files.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given all waves complete, when the lead writes the team session log (Step 8), then it includes a
+  **Follow-ups filed** section mapping each problem to its issue number and board status.
+- Given the team log is written, then it is `git add`-ed, committed, and pushed immediately — it is not left
+  uncommitted.
+- Given a recorded follow-up has no tracking issue, when the run ends, then a GitHub issue
+  `[Follow-up] <problem>` is created on the board Todo (via `gh-issue-manager`) and its number is cited in the
+  team log.
+- Given a follow-up already has a tracking issue, when the run ends, then no duplicate is created — the
+  existing issue number is cited.
+- Given no problems were recorded, when the run ends, then the Follow-ups filed section states `none` and no
+  issues are created.
 
 ---
 
@@ -201,7 +277,20 @@ retro session,
 **Trigger default:** assumes Open Question 1 option (a) — two consecutive carries (the observed deadlock). If
 the decision changes to total appearances, the trigger condition adjusts.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given a retro runs, when the "Actions from previous retro" table is built, then every action carries a
+  **Carry** count equal to the consecutive retros it has sat "Not started".
+- Given an action is "Not started" with Carry ≥ 2 (consecutive), when Step 5 executes, then during the retro
+  session it is filed as a GitHub issue `[Retro carry] <action>` on the board Todo (via `gh-issue-manager`)
+  and the table row is replaced with `→ filed as #N`.
+- Given an action is "Not started" with Carry = 1, when Step 5 executes, then it remains in the table as a
+  carry (not filed yet).
+- Given an action is Done or Partial, when the table is built, then it does not trigger the filing rule.
+- Given a filed action appears in the following retro, when the previous-actions table is built, then it shows
+  as filed with its issue reference, not re-flagged "Not started".
+
+**Notes:** trigger assumes Open Question 1 option (a) — consecutive carries.
 
 ---
 
@@ -224,7 +313,23 @@ Fixes agents stopping after a sub-step skill finishes, treating a report as a te
 `qa-coverage`, `qa-executor`, `qa-explorer` (by /qa). The `ci-probe` background agent already carries a
 "continue with Step 9" tail (feature-core Step 9) — used as the model phrasing.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given a skill in the inventory (`lld-sync`, `diag`, `feature-evaluator`, `drift-scan`, `lld-review`,
+  `requirements-review`, `qa-contracts`, `qa-coverage`, `qa-executor`, `qa-explorer`), when its SKILL.md ends,
+  then it carries a closing block stating what to do next — continue the caller's next step or the next
+  `/command`.
+- Given `lld-sync` is invoked from `feature-end`, then its tail instructs continuing with feature-end Step 2 —
+  the agent does not stop after printing the sync report.
+- Given `lld-sync` runs standalone, then its tail states that `/feature-end <N>` is the next step.
+- Given every skill in the inventory is edited, then a grep for the return-to-caller tail matches each
+  SKILL.md (mechanical, testable check).
+- Given the tails are in place, when an agent runs a pipeline (e.g. feature-core → feature-end), then the
+  session log records the steps completed in order with no user nudge between steps (observational proxy).
+
+**Notes:** the behavioural outcome (agent follows through) is not deterministically testable; the ACs bound
+the deliverable to the presence of the instruction text. If stalls persist after this change, a
+PostToolUse-hook fallback is a documented future option.
 
 ---
 
