@@ -18,10 +18,34 @@ clean = ansi.sub('', raw)
 lines = clean.splitlines()
 
 # --- Locate summary lines ---
-tests_line = next((l for l in lines if re.search(r'^\s+Tests\s+\d+\s+(passed|failed)', l)), None)
+tests_line = next((l for l in lines if re.search(r'^\s+Tests\s+\d+\s+(passed|failed|skipped)', l)), None)
 duration_line = next((l for l in lines if re.search(r'Duration\s+[\d.]+', l)), None)
 
-is_fail = tests_line is not None and 'failed' in tests_line
+# --- No summary line: never report PASS blindly ---
+if tests_line is None:
+    if 'no test files found' in clean.lower():
+        print('FAIL 0/0 -- no test files found (path/filter matched nothing)')
+        sys.exit(1)
+    # vitest table format: "Test Files  (0)" / "Tests  (0)" plus a Duration line
+    # means the runner completed with an empty suite -- a genuine pass.
+    if re.search(r'^\s*Tests\s+\(0\)', clean, re.MULTILINE) and duration_line is not None:
+        print(f'PASS 0/0 -- {duration_line.strip()}')
+        sys.exit(0)
+    failure_signals = [
+        'failed', 'error', 'traceback', 'exception', 'unhandled',
+        'command not found', 'enoent', 'cannot find', 'assertion',
+        '✗', '×',
+    ]
+    hits = [l.strip() for l in lines if any(s in l.lower() for s in failure_signals)][:3]
+    if hits:
+        print('INCONCLUSIVE -- no test summary; runner may have crashed mid-run')
+        for h in hits:
+            print(f'  {h[:120]}')
+    else:
+        print('INCONCLUSIVE -- no test summary found in output (empty or truncated?)')
+    sys.exit(2)
+
+is_fail = 'failed' in tests_line
 
 # --- Extract counts ---
 passed = 0
