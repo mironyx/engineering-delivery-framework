@@ -17,6 +17,7 @@
 | 0.1 | 2026-08-05 | LS / Claude | Initial draft — epics, stories, roles |
 | 0.2 | 2026-08-05 | LS / Claude | Structure review fixes; added Implementation grouping note (ship as one item) |
 | 0.3 | 2026-08-05 | LS / Claude | Acceptance criteria for all 7 stories; clarified solo-run in-place path in Story 1.1 |
+| 0.4 | 2026-08-05 | LS / Claude | Gate 2 review fixes: split skills/agents inventory in Story 4.1; disambiguated block-vs-auto-write; added negative ACs (2.2, 2.3, 3.1); added lead-discovery AC (2.3) |
 
 ---
 
@@ -192,8 +193,8 @@ the main repo). See Open Question 2 for the block-vs-auto-write behaviour.
 
 - Given `feature-end` is invoked, when it reaches the pre-commit gate (Step 2.7), then a session log matching
   `docs/sessions/YYYY-MM/*-<FEATURE_ID>.md` exists, found by feature ID per ADR-0037; if absent, the gate
-  reports the missing artefact by feature ID and feature-end writes it before proceeding — the skip is
-  visible, not masked.
+  blocks progression and requires the agent to write the log with a stated reason for the earlier skip — the
+  gate does not auto-write silently.
 - Given the issue has an LLD reference, when the gate runs, then lld-sync evidence is present: a per-task
   sync file in a worktree, or a Document Control `Revised` row in the main repo; if absent, feature-end
   re-runs `lld-sync` before proceeding.
@@ -204,7 +205,8 @@ the main repo). See Open Question 2 for the block-vs-auto-write behaviour.
 - Given a gate check passes, when feature-end proceeds, then no additional prompts are introduced — the check
   is a verification step, not a new approval point.
 
-**Notes:** block-vs-auto-write behaviour defaults to block-with-visible-write (Open Question 2).
+**Notes:** per Open Question 2, block-with-visible-write means feature-end blocks and requires an explicit
+agent write with a reason for the skip — it does not auto-write silently.
 
 ---
 
@@ -229,7 +231,9 @@ defect outside the current issue is found,
 - Given an issue had no out-of-scope problems, when the log is finalised, then the section states `none`
   rather than being absent.
 - Given a recorded problem later becomes a tracked issue (feature-team Step 7.5b), then the session-log entry
-  is cross-referenceable to that issue number.
+  cites the issue number in the form `→ tracked as #N`.
+- Given an attempt to write or append the session log fails (unwritable path, read-only checkout), when the
+  feature-end gate runs, then the gate reports the write failure and does not silently proceed.
 
 ---
 
@@ -258,6 +262,12 @@ Problems & follow-ups) is the source of the issues this story files.
   existing issue number is cited.
 - Given no problems were recorded, when the run ends, then the Follow-ups filed section states `none` and no
   issues are created.
+- Given the team log is being written (Step 8), then the lead discovers problems by grepping the run's
+  per-issue session logs for the `## Problems & follow-ups` section, in addition to the lead's own
+  observations.
+- Given `gh-issue-manager` fails to create a follow-up issue (API or auth error), when the run ends, then the
+  lead surfaces the failure to the user and the follow-up stays in the team log marked `⚠ not filed` — it is
+  not silently dropped.
 
 ---
 
@@ -289,6 +299,9 @@ the decision changes to total appearances, the trigger condition adjusts.
 - Given an action is Done or Partial, when the table is built, then it does not trigger the filing rule.
 - Given a filed action appears in the following retro, when the previous-actions table is built, then it shows
   as filed with its issue reference, not re-flagged "Not started".
+- Given `gh-issue-manager` fails to file a carried action (API or auth error), when Step 5 runs, then the
+  action remains in the table marked `⚠ file failed — retry` and the failure is surfaced to the user, not
+  silently dropped.
 
 **Notes:** trigger assumes Open Question 1 option (a) — consecutive carries.
 
@@ -307,29 +320,34 @@ Fixes agents stopping after a sub-step skill finishes, treating a report as a te
 (continue the caller's pipeline or state the next step),
 **so that** agents follow through to the end of the pipeline instead of idling after producing a report.
 
-**Skills in scope (inventory of sub-step skills that end on a report):** `lld-sync` (by feature-end),
-`diag` (by feature-core Step 6), `feature-evaluator` (by feature-core Step 6b), `drift-scan` (by retro Step 4),
+**Skills in scope (sub-step skills that end on a report):** `lld-sync` (by feature-end), `diag` (by
+feature-core Step 6), `drift-scan` (by retro Step 4) — edited in their `SKILL.md`.
+
+**Agents in scope (sub-step agents that end on a report):** `feature-evaluator` (by feature-core Step 6b),
 `lld-review` (by /lld Step 2.5), `requirements-review` (by /requirements gates), `qa-contracts`,
-`qa-coverage`, `qa-executor`, `qa-explorer` (by /qa). The `ci-probe` background agent already carries a
-"continue with Step 9" tail (feature-core Step 9) — used as the model phrasing.
+`qa-coverage`, `qa-executor`, `qa-explorer` (by /qa) — edited in `plugins/edf/agents/<name>.md`.
+
+The `ci-probe` background agent already carries a "continue with Step 9" tail (feature-core Step 9) — used as
+the model phrasing.
 
 **Acceptance Criteria:**
 
-- Given a skill in the inventory (`lld-sync`, `diag`, `feature-evaluator`, `drift-scan`, `lld-review`,
-  `requirements-review`, `qa-contracts`, `qa-coverage`, `qa-executor`, `qa-explorer`), when its SKILL.md ends,
-  then it carries a closing block stating what to do next — continue the caller's next step or the next
-  `/command`.
+- Given a skill in scope (`lld-sync`, `diag`, `drift-scan`) or an agent in scope (`feature-evaluator`,
+  `lld-review`, `requirements-review`, `qa-contracts`, `qa-coverage`, `qa-executor`, `qa-explorer`), when its
+  file ends, then it carries a closing block stating what to do next — continue the caller's next step or the
+  next `/command`.
 - Given `lld-sync` is invoked from `feature-end`, then its tail instructs continuing with feature-end Step 2 —
   the agent does not stop after printing the sync report.
 - Given `lld-sync` runs standalone, then its tail states that `/feature-end <N>` is the next step.
-- Given every skill in the inventory is edited, then a grep for the return-to-caller tail matches each
-  SKILL.md (mechanical, testable check).
+- Given every inventory file is edited, then a grep for the return-to-caller tail matches each `SKILL.md`
+  (skills) and `plugins/edf/agents/<name>.md` (agents) — a mechanical, testable check.
 - Given the tails are in place, when an agent runs a pipeline (e.g. feature-core → feature-end), then the
   session log records the steps completed in order with no user nudge between steps (observational proxy).
 
 **Notes:** the behavioural outcome (agent follows through) is not deterministically testable; the ACs bound
 the deliverable to the presence of the instruction text. If stalls persist after this change, a
-PostToolUse-hook fallback is a documented future option.
+PostToolUse-hook fallback is a documented future option. This story touches 10 files (3 skills, 7 agents) —
+acknowledged as a single larger change, kept as one item per the Implementation grouping note.
 
 ---
 
