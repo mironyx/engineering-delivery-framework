@@ -15,6 +15,7 @@
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 0.1 | 2026-08-05 | LS / Claude | Initial draft — epics, stories, roles |
+| 0.2 | 2026-08-05 | LS / Claude | Structure review fixes; added Implementation grouping note (ship as one item) |
 
 ---
 
@@ -74,6 +75,20 @@ scope; nothing carries forward.
 **Role relationships:** The Feature-team Lead and Teammates are the roles whose failures created the
 observed problems; the Plugin Maintainer fixes the skills those roles follow. There are no permission
 boundaries — every role is a developer running Claude Code.
+
+---
+
+## Implementation grouping
+
+**Ship as one item.** Despite the four-epic structure below, all stories in this document are
+implemented as **one cohesive change** — a single feature branch, a single PR, and a single plugin
+version bump (0.10.26 → 0.10.27). Every story edits overlapping skill files (`lld-sync`,
+`feature-end`, `feature-team`, `feature-core`, `retro`); splitting delivery would fragment the diff,
+re-touch the same files, and re-do the version bump.
+
+The epic/story decomposition exists so each behavioural change has **testable acceptance criteria** and
+can be verified independently — it is not a delivery plan. Downstream stages (`/kickoff`, `/architect`,
+`/feature`) treat this document as a single implementation item, not as separate epics to schedule.
 
 ---
 
