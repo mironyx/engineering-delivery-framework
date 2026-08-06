@@ -147,7 +147,14 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 >    git worktree add "../${REPO}-feat-<N>-$SLUG" -b feat/$SLUG origin/main
 >    cd "../${REPO}-feat-<N>-$SLUG"
 >    ```
-> 1a. Copy gitignored local files and provision dependencies from the main repo:
+> 1a. Verify you are now in the worktree, not the main repo — subagent sessions can inherit
+>    the lead's CWD, and a wrong directory silently corrupts verification/build output:
+>    ```bash
+>    git rev-parse --show-toplevel | xargs basename
+>    # must print "<REPO>-feat-<N>-<slug>"; if it prints the plain repo name, re-run
+>    # `cd` into the worktree and re-verify before proceeding
+>    ```
+> 1b. Copy gitignored local files and provision dependencies from the main repo:
 >    ```bash
 >    MAIN_REPO=$(git rev-parse --git-common-dir | python3 -c "import sys,os; print(os.path.dirname(sys.stdin.read().strip()))")
 >    for f in .env .env.test.local; do

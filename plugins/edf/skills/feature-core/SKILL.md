@@ -303,6 +303,14 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-
 
 ### Step 5: Full verification
 
+**CWD guard:** Confirm the shell is in the correct working directory *before* any
+verification run. Subagent sessions can inherit the caller's CWD; running tests/typecheck
+from the wrong directory silently corrupts results. Verify with:
+```bash
+git rev-parse --show-toplevel
+# must be the repo (or the worktree, for team mode) you intend to verify
+```
+
 Delegate all checks to the `edf:test` skill — **do not run these as Bash directly**.
 This keeps verbose output out of the main context.
 
