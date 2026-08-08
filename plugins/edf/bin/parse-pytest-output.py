@@ -24,6 +24,22 @@ for line in reversed(lines):
         summary_line = line
         break
 
+# --- No summary line: never report PASS blindly ---
+if summary_line is None:
+    failure_signals = [
+        "error", "traceback", "exception", "module not found",
+        "no module named", "command not found", "no such file",
+        "crash", "failed to", "cannot import",
+    ]
+    hits = [l.strip() for l in lines if any(s in l.lower() for s in failure_signals)][:3]
+    if hits:
+        print("INCONCLUSIVE -- no test summary; runner may have crashed before pytest ran")
+        for h in hits:
+            print(f"  {h[:120]}")
+    else:
+        print("INCONCLUSIVE -- no test summary found in output (empty or truncated?)")
+    sys.exit(2)
+
 is_fail = summary_line is not None and re.search(r"\d+ (failed|error)", summary_line) is not None
 
 # --- Extract counts ---

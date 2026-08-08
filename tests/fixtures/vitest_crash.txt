@@ -1,0 +1,5 @@
+
+ RUN  v1.5.0 C:/projects/myapp
+
+Some plugin threw an unhandled error during test execution
+Error: ENOENT: no such file or directory

@@ -28,10 +28,21 @@ project-level conventions:
 - **.env** — script paths, feature prefix, Prometheus monitoring directory
 - **.gitignore**, **.mcp.json**, **docs/adr/** directory
 
-For cost tracking (session logs show cumulative usage per feature), set up
-a [Prometheus](https://prometheus.io/) instance with the
-[textfile collector](https://github.com/prometheus/node_exporter?tab=readme-ov-file#textfile-collector)
-pointing at the directory configured in `EDF_FEATURE_PROM_DIR`.
+For cost tracking (session logs show cumulative usage per feature), EDF
+writes Prometheus textfiles into the directory configured in
+`EDF_FEATURE_PROM_DIR` (default `<repo-root>/monitoring/textfile_collector`).
+For those metrics to reach Prometheus, node_exporter must read that same
+directory: run it with `--collector.textfile.directory=<EDF_FEATURE_PROM_DIR>`
+(see the
+[textfile collector docs](https://github.com/prometheus/node_exporter?tab=readme-ov-file#textfile-collector))
+and point a [Prometheus](https://prometheus.io/) instance at node_exporter's
+`/metrics` endpoint.
+
+The node_exporter flag is normally configured in a separate monitoring/infra
+repo or on the host that runs node_exporter — not in this repo. The textfile
+directory can live anywhere, including outside this repo, so `EDF_FEATURE_PROM_DIR`
+must match your node_exporter config rather than assuming the repo-local default.
+Use an absolute path in `.env` when the directory is outside this repo.
 
 ## What's included
 
@@ -49,7 +60,7 @@ Project-specific settings shared by the team. Commit this file.
 | Variable | Script(s) | Purpose |
 |---|---|---|
 | `EDF_FEATURE_PREFIX` | `tag-session.py`, `query-feature-cost.py` | Override the auto-derived feature-id prefix (default: initials from repo name — `engineering-delivery-framework` → `EDF`). Set when the team uses a different prefix in their tracker. |
-| `EDF_FEATURE_PROM_DIR` | `tag-session.py`, `query-feature-cost.py`, `extract-session-id.py` | Override the Prometheus textfile collector directory (default: `<repo-root>/monitoring/textfile_collector`). Set when node_exporter reads from a non-standard location, or point at a gitignored path (e.g. `.claude/textfile_collector`) to keep the working tree clean. |
+| `EDF_FEATURE_PROM_DIR` | `tag-session.py`, `query-feature-cost.py`, `extract-session-id.py` | Directory where EDF writes Prometheus textfiles and node_exporter reads them via `--collector.textfile.directory`. Default: `<repo-root>/monitoring/textfile_collector`. Set to wherever node_exporter actually reads textfiles — often an absolute path or a separate monitoring repo — so it matches your node_exporter config. Use an absolute path when the directory is outside this repo. |
 
 Overrides are read in this order: OS environment → `.env` → derivation.
 
