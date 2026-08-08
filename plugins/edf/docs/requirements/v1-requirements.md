@@ -4,11 +4,11 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.0 |
+| Version | 1.1 |
 | Status | Final |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
-| Last updated | 2026-08-01 |
+| Last updated | 2026-08-08 |
 
 ## Change Log
 
@@ -19,6 +19,7 @@
 | 0.3 | 2026-08-01 | LS / Claude | Testability fixes: tightened 3 vague ACs (Story 1.3 AC5, Story 2.4 AC5, Story 4.1 AC6) |
 | 0.4 | 2026-08-01 | LS / Claude | Review fixes: corrected visual reference paths; aligned #LLD- anchor format with ADR-0026; resolved AC1/AC4 contradiction in Story 1.2; removed cross-epic AC dependency on Story 4.2 |
 | 1.0 | 2026-08-01 | LS / Claude | Finalised — Gate 2 approved |
+| 1.1 | 2026-08-08 | LS / Claude | Aligned with verified Mermaid syntax: type-aware navigability (sequence `link`, class/flow/state `click`+tooltip, erDiagram none), removed `_self` claims, classDef-inside-diagram rule, palette hex restored to template |
 
 ---
 
@@ -48,10 +49,13 @@ and Wave 3+ (contextual test execution, bidirectional navigation) are deferred.
 
 **Implementation note:** Template and skill changes are being developed alongside this
 requirements process as part of the standard EDF pipeline (discovery → requirements →
-kickoff → feature). Uncommitted changes to `lld/template.md`, `lld/SKILL.md`, and the
-`extensions/edf-review/` scaffold exist as work-in-progress artefacts. These stories
-define the complete, verified deliverable — where work already exists, the story scope
-is to complete, verify, and harden that work against the acceptance criteria below.
+kickoff → feature). The Mermaid syntax fixes to `lld/template.md` and `lld/SKILL.md`
+(sequence `link` directive, `click`+tooltip for class/flow/state, erDiagram without
+links, classDef-inside-diagram rule) are already committed and validated with
+mermaid-cli; the `extensions/edf-review/` scaffold exists as a working base with the
+`peek`/`open` message handling in place. These stories define the complete, verified
+deliverable — where work already exists, the story scope is to complete, verify, and
+harden that work against the acceptance criteria below.
 
 ## Glossary
 
@@ -59,7 +63,7 @@ is to complete, verify, and harden that work against the acceptance criteria bel
 |------|-----------|
 | **LLD Part A** | The first half of an LLD document — behavioural diagrams (sequence, state, ER, flowchart) and an invariants table. The primary review surface. |
 | **LLD Part B** | The second half of an LLD document — internal decomposition, function signatures, data shapes, and task breakdown for each component. |
-| **`click` directive** | A Mermaid syntax element (`click ParticipantId "url"`) that makes a diagram node clickable. Used to link participants to source files or Part B anchors. |
+| **Navigability link** | A Mermaid syntax element that makes a diagram node clickable so it can link to a source file or Part B anchor. The syntax depends on the diagram type: sequenceDiagram uses the `link <actor>: <label> @ <url>` directive; flowchart / classDiagram / stateDiagram use `click <node> href "<url>" "<tooltip>"`; erDiagram supports no interaction and participants are linked via prose. |
 | **`edf://` protocol** | A custom URL scheme (`edf://path/to/file.ts`) recognised by the EDF Review VSCode extension. Resolves to a workspace-relative file path. |
 | **`classDef` palette** | A set of Mermaid `classDef` declarations defining colour-coded styles for diagram participants. The canonical palette is defined in `lld/template.md`: error (`#f7d6d6`), auth (`#f7eed6`), external (`#d6e8f7`), new (`#d4f0d4`). |
 | **Enforcement point** | A location in a sequence diagram where a cross-cutting concern (authZ, validation, SSRF boundary, error propagation) is enforced. Marked with a `Note` annotation. |
@@ -166,16 +170,18 @@ without reading prose.
   the four defined roles is assigned its colour class: error (`#f7d6d6`), auth
   (`#f7eed6`), external (`#d6e8f7`), new (`#d4f0d4`). Participants not matching any
   role use Mermaid default styling.
-- Given a `classDef` block is present at the top of Part A, when a new diagram type
-  is added to the document, then the existing palette classes are applied to
-  participants matching those roles — no duplicate or divergent colour definitions.
+- Given `classDef` blocks are defined inside the first diagram of each type that uses
+  them (a standalone `classDef` block with no diagram-type keyword is invalid Mermaid),
+  when a new diagram type is added to the document, then the existing palette classes
+  are applied to participants matching those roles — no duplicate or divergent colour
+  definitions.
 - Given the palette is applied, when the document is viewed in GitHub's Mermaid
   renderer, then all four colours render distinctly and are distinguishable from each
   other.
 - Given a diagram participant does not match any of the four defined roles, when
   rendered, then it uses the Mermaid default styling (no palette class applied).
-- Given the `classDef` block exists, when a maintainer updates a colour value, then
-  the change is made in exactly one place (the template's palette block) and
+- Given the palette table exists, when a maintainer updates a colour value, then
+  the change is made in exactly one place (the template's palette table) and
   propagates to all diagrams.
 
 **Notes:** The canonical hex values are defined in `lld/template.md` and are the
@@ -227,7 +233,7 @@ multiple annotations — one per concern.
 
 <a id="REQ-lld-template-diagram-vocabulary-click-directives-diagram-participants"></a>
 
-### Story 1.4: `click` directives on every diagram participant
+### Story 1.4: Navigability links on every diagram participant
 
 **As an** LLD Reviewer,
 **I want to** click on any diagram participant and navigate to its source file (for
@@ -237,31 +243,43 @@ preview or manually grepping the codebase.
 
 **Acceptance Criteria:**
 
-- Given a diagram participant representing existing code, when the diagram is
-  generated, then it carries a `click` directive with an `edf://` URL resolving to
-  the workspace-relative source file path (e.g., `click AuthMiddleware "edf://src/lib/auth/middleware.ts"`).
-- Given a diagram participant representing a new component, when the diagram is
-  generated, then it carries a `click` directive with a `#LLD-` anchor referencing the
-  Part B section's stable anchor ID as defined by ADR-0026 (e.g.,
-  `click DeliveryService "#LLD-v11-e11-1-delivery-service"`).
+- Given a sequence diagram participant representing existing code, when the diagram
+  is generated, then it carries a `link` directive with an `edf://` URL resolving to
+  the workspace-relative source file path (e.g.,
+  `link AuthMiddleware: source @ edf://src/lib/auth/middleware.ts`).
+- Given a flowchart, classDiagram, or stateDiagram participant representing existing
+  code, when the diagram is generated, then it carries a `click` directive with an
+  `edf://` URL and tooltip (e.g.,
+  `click AuthMiddleware href "edf://src/lib/auth/middleware.ts" "source"`).
+- Given a sequence diagram participant representing a new component, when the diagram
+  is generated, then it carries a `link` directive with a `#LLD-` anchor referencing
+  the Part B section's stable anchor ID as defined by ADR-0026 (e.g.,
+  `link DeliveryService: spec @ #LLD-v11-e11-1-delivery-service`).
+- Given a flowchart, classDiagram, or stateDiagram participant representing a new
+  component, when the diagram is generated, then it carries a `click` directive with
+  a `#LLD-` anchor and tooltip (e.g.,
+  `click DeliveryService href "#LLD-v11-e11-1-delivery-service" "spec"`).
 - Given a diagram is fully generated, when the diagram source is inspected, then no
-  participant is a "dead label" — every participant has a `click` directive resolving
-  to either an `edf://` path or a `#LLD-` anchor.
+  participant is a "dead label" — every participant carries a navigability link
+  appropriate to its diagram type (`link` on sequence diagrams, `click` on flowchart /
+  classDiagram / stateDiagram) resolving to either an `edf://` path or a `#LLD-`
+  anchor. erDiagram participants are exempt (the type supports no interaction; refer
+  to them in prose instead).
 - Given an `edf://` link is rendered in a Mermaid diagram, when viewed in a renderer
-  without the EDF extension (GitHub, GitLab), then the link renders as an inert `<a>`
-  element with `target="_self"` — cursor changes on hover but no navigation or error
-  occurs on click.
+  without the EDF extension (GitHub, GitLab), then the link renders as a standard
+  `<a>` element with an unrecognised URL scheme — the cursor changes on hover but the
+  browser performs no navigation and raises no error on click.
 - Given an `edf://` path references a file, when the path is constructed, then it
   uses a workspace-relative path (no leading slash, no `..` segments) suitable for
   resolution by `vscode.Uri.joinPath`.
 - Given a Part B section exists with a stable anchor ID, when a `#LLD-` link targets
   it, then the anchor ID follows the ADR-0026 format (`LLD-<epic-id>-<section-slug>`)
-  and the `click` directive uses the full anchor ID as its fragment target.
+  and the link uses the full anchor ID as its fragment target.
 
-**Notes:** The `click` directive is the bridge between Epic 1 (template) and Epic 2
+**Notes:** The navigability link is the bridge between Epic 1 (template) and Epic 2
 (extension). The extension intercepts `edf://` links in the preview; `#LLD-` anchors
-work via native browser scrolling. The template must document both link types with
-examples.
+work via native browser scrolling. The template must document the per-type mechanism
+(`link` vs `click`) and both link types with examples.
 
 ---
 
@@ -269,8 +287,11 @@ examples.
 
 The extension that makes `edf://` links functional in VSCode's markdown preview. Hover
 to peek at source, click to open in an adjacent column, and navigate to Part B specs via
-`#LLD-` anchors. Depends on Epic 1 for diagrams to carry `click` directives. Includes
-graceful degradation so links are harmless when the extension is absent.
+`#LLD-` anchors. Depends on Epic 1 for diagrams to carry navigability links (`link` on
+sequence diagrams, `click` on flowchart / classDiagram / stateDiagram). The extension
+intercepts the `<a>` elements Mermaid renders for those directives — no DOM-injection
+onto SVG nodes is required. Includes graceful degradation so links are harmless when the
+extension is absent.
 
 <a id="REQ-vscode-extension-diagram-navigation-hover-tooltip-source-preview"></a>
 
@@ -360,7 +381,7 @@ breakdown — in a single click instead of scroll-hunting through the document.
 
 **Acceptance Criteria:**
 
-- Given a diagram participant has a `click` directive with a `#LLD-` anchor (e.g.,
+- Given a diagram participant has a navigability link with a `#LLD-` anchor (e.g.,
   `#LLD-delivery-service`), when the reviewer clicks it in the markdown preview, then
   the preview scrolls to the corresponding Part B `<a id="LLD-delivery-service">`
   element.
@@ -403,18 +424,19 @@ states, or confusing UI when reading LLDs outside VSCode.
   markdown source is read, then `edf://` URLs are clearly identifiable as
   workspace-relative file references (human-readable paths like
   `edf://src/lib/auth/middleware.ts`).
-- Given the Mermaid `click` directive uses `target="_self"`, when the `<a>` element
-  is generated by Mermaid, then clicking the link in any browser attempts navigation
-  in the same frame (where the unknown scheme produces no effect).
+- Given Mermaid renders an `edf://` href as a standard `<a>` element, when the
+  `<a>` element is generated, then clicking the link in any browser produces no
+  navigation and no error (the unrecognised URL scheme is silently ignored).
 - Given the extension is not installed, when `edf://` links are tested in a
   fresh browser profile against the current versions of GitHub and GitLab, then
   no navigation, error, or console warning occurs on click — the link is inert.
 
 **Notes:** This is primarily a verification and documentation story. The template
-already specifies `_self` targets and the "harmless dead link" convention. The
-extension does not need to handle the degradation case — it is only active in VSCode.
-The story deliverable is a verification report confirming degradation across GitHub,
-GitLab, and at least one other renderer, plus any template adjustments needed.
+specifies `edf://` links; the "harmless dead link" behaviour is inherent to the
+unrecognised URL scheme — it does not depend on `_self` targets. The extension does
+not need to handle the degradation case — it is only active in VSCode. The story
+deliverable is a verification report confirming degradation across GitHub, GitLab, and
+at least one other renderer, plus any template adjustments needed.
 
 ---
 
@@ -498,20 +520,25 @@ without the author needing to remember them.
   `classDef` palette (error, auth, external, new) from `lld/template.md` to all
   participants matching those roles.
 - Given a diagram participant is identified as existing code, when Step 2 executes,
-  then the skill generates a `click` directive with an `edf://` URL resolving to the
-  workspace-relative source path.
+  then the skill generates a navigability link appropriate to the diagram type — a
+  `link` directive on sequence diagrams, a `click` directive on flowchart /
+  classDiagram / stateDiagram — with an `edf://` URL resolving to the workspace-relative
+  source path.
 - Given a diagram participant is identified as a new component, when Step 2 executes,
-  then the skill generates a `click` directive with a `#LLD-` anchor matching the
-  Part B anchor ID (derived from the component name, lower-kebab-case).
+  then the skill generates a navigability link appropriate to the diagram type — a
+  `link` directive on sequence diagrams, a `click` directive on flowchart /
+  classDiagram / stateDiagram — with a `#LLD-` anchor matching the Part B anchor ID
+  (derived from the component name, lower-kebab-case).
 - Given enforcement boundaries are identified (authZ, validation, external calls,
   error propagation), when Step 2 executes, then the skill places `Note` annotations
   at the corresponding interaction points with the enforcement mechanism stated.
 - Given the generation rules exist in SKILL.md, when the rules are reviewed against
   the template (`lld/template.md`), then every concern has at least one worked example
   in the skill: diagram type selection (example with gate condition), `classDef`
-  application (example with colour assignment), `click` generation (example with
-  `edf://` and `#LLD-` paths), and `Note` annotation placement (example with
-  enforcement mechanism text).
+  application (example with colour assignment), navigability-link generation (example
+  with `edf://` and `#LLD-` paths, using `link` on sequence diagrams and `click` on
+  flowchart / classDiagram / stateDiagram), and `Note` annotation placement (example
+  with enforcement mechanism text).
 - Given the template (`lld/template.md`) is updated, when the SKILL.md generation
   rules are reviewed, then every template feature has a corresponding generation rule
   in the skill (co-versioning per Design Principle 6).
@@ -528,23 +555,28 @@ must not duplicate template content — it references it.
 
 **As a** Plugin Maintainer,
 **I want to** add a diagram navigability check to the `/lld` Step 2.5 self-critique
-checklist (every participant has a `click`, enforcement points are annotated, palette
-is applied, `edf://` links use valid paths),
+checklist (every participant has a navigability link — `link` on sequence diagrams,
+`click` on flowchart / classDiagram / stateDiagram, none on erDiagram; enforcement
+points are annotated; the palette is applied; `edf://` links use valid paths),
 **so that** every LLD author catches navigability gaps during self-review, before the
 document reaches a human reviewer.
 
 **Acceptance Criteria:**
 
 - Given an LLD is generated by `/lld`, when Step 2.5 (self-critique) executes, then
-  a "Diagram navigability" check verifies: every diagram participant has a `click`
-  directive — no dead labels.
+  a "Diagram navigability" check verifies: every diagram participant has a
+  navigability link appropriate to its diagram type (`link` on sequence diagrams,
+  `click` on flowchart / classDiagram / stateDiagram; erDiagram participants are
+  exempt) — no dead labels.
 - Given the self-critique runs, when enforcement points are evaluated, then the check
   verifies: every interaction crossing a trust boundary (authZ, validation, external
   service, error propagation) has a `Note` annotation stating the enforcement
   mechanism.
 - Given the self-critique runs, when the `classDef` palette is evaluated, then the
-  check verifies: the palette block is present at the top of Part A and is applied
-  consistently — no participant that matches a defined role uses default styling.
+  check verifies: `classDef` blocks are defined inside the first diagram of each type
+  that uses them (never as a standalone block, which is invalid Mermaid) and are
+  applied consistently — no participant that matches a defined role uses default
+  styling.
 - Given the self-critique runs, when `edf://` paths are evaluated, then the check
   verifies: each `edf://` path references a file that exists in the workspace
   (resolvable relative to the workspace root).
@@ -682,7 +714,7 @@ for future discovery and requirements cycles.
 
 | # | Question | Context | Options | Impact |
 |---|----------|---------|---------|--------|
-| 1 | Should F11 (graceful degradation) be verified against specific GitHub markdown renderer versions, or is "harmless dead link" behaviour sufficient as a general requirement? | The discovery doc states `_self` target + unrecognised URL scheme → cursor changes, no navigation, no error. GitHub's Mermaid renderer may evolve independently. | (a) General requirement: link must not cause errors or navigation in any renderer; (b) Specific: test against GitHub, GitLab, and Bitbucket renderers | If GitHub changes its Mermaid link handling, Story 2.4's ACs may need updating. Currently, all major renderers treat unknown URL schemes as inert in `<a>` tags. Story 2.4 ACs default to option (a) with verification against GitHub and GitLab. |
+| 1 | Should F11 (graceful degradation) be verified against specific GitHub markdown renderer versions, or is "harmless dead link" behaviour sufficient as a general requirement? | The discovery doc states unrecognised URL scheme → cursor changes, no navigation, no error. GitHub's Mermaid renderer may evolve independently. | (a) General requirement: link must not cause errors or navigation in any renderer; (b) Specific: test against GitHub, GitLab, and Bitbucket renderers | If GitHub changes its Mermaid link handling, Story 2.4's ACs may need updating. Currently, all major renderers treat unknown URL schemes as inert in `<a>` tags. Story 2.4 ACs default to option (a) with verification against GitHub and GitLab. |
 | 2 | What is the exact mechanism for the preview→extension communication channel for hover tooltips? | Discovery references `markdown.previewScripts` + `onDidReceivePreviewMessage` with "panel reference for reply." The exact API surface should be validated during implementation. | (a) Use `postMessage` from preview script → extension `onDidReceivePreviewMessage`; (b) Use a custom `vscode-resource` URI scheme | The `postMessage` approach is the standard VSCode extension pattern and is the assumed mechanism in Stories 2.1/2.2. An implementation spike should confirm the API works for hover events specifically. |
 | 3 | ~~Should the `classDef` palette colours be chosen now or deferred to implementation?~~ **Resolved.** The palette hex values are already defined in `lld/template.md`: error `#f7d6d6`, auth `#f7eed6`, external `#d6e8f7`, new `#d4f0d4`. The glossary and Story 1.2 reference these as the canonical source of truth. |
 | 4 | Does F13 (quick-pick → insert `[Review]`) need the section headings parsed from the markdown AST, or is a regex-based extraction of `##`/`###` headings sufficient? | The discovery says "using the LLD's own section structure as the navigation anchor." Parsing accuracy affects robustness. | (a) Use a simple regex for `##`/`###` headings; (b) Parse the markdown AST with a library | Regex is simpler and sufficient for the LLD's predictable heading structure. Story 3.1 defaults to regex extraction. An AST parser adds dependency weight for marginal gain given the LLD's constrained heading format. |

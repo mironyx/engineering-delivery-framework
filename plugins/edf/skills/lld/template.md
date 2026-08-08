@@ -46,15 +46,16 @@ name in subsequent diagrams — a standalone `classDef` block (no diagram-type k
 is invalid Mermaid. The palette matches the EDF pipeline flowcharts for visual
 consistency.
 
-| Class | Use for |
-|-------|---------|
-| `error` | Error paths, failure states, exception flows |
-| `auth` | AuthZ enforcement points, trust boundaries, permission checks |
-| `external` | External service calls, third-party APIs, webhooks |
-| `new` | New code introduced by this LLD (modules, services, components created from scratch) |
+| Class | Colour | Use for |
+|-------|--------|---------|
+| `error` | `#f7d6d6` | Error paths, failure states, exception flows |
+| `auth` | `#f7eed6` | AuthZ enforcement points, trust boundaries, permission checks |
+| `external` | `#d6e8f7` | External service calls, third-party APIs, webhooks |
+| `new` | `#d4f0d4` | New code introduced by this LLD (modules, services, components created from scratch) |
 
-Apply with `class` assignments on nodes, or `Note` blocks on sequence diagrams for
-enforcement-point annotations (see Behavioural Flows below).
+Apply with `class` assignments on nodes (the `classDef` + `class` example lives inside
+the classDiagram block below), or `Note` blocks on sequence diagrams for enforcement-point
+annotations (see Behavioural Flows below).
 
 ### Diagram navigability convention — links
 
@@ -200,9 +201,11 @@ Works for both class-based and module-based codebases:
 
 `` ```mermaid
 classDiagram
+    classDef external fill:#d6e8f7,stroke:#4a5568,color:#1a202c
     click EngineScoring href "edf://src/lib/engine/scoring.ts" "source"
     click PortsGitHub href "edf://src/lib/ports/github.ts" "source"
     click AdaptersGitHub href "edf://src/lib/adapters/github.ts" "source"
+    class AdaptersGitHub external
 
     class EngineScoring {
         <<module>>

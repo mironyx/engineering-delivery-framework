@@ -93,8 +93,8 @@ human reviewer.
 `edf://` links are functional only when the EDF Review extension is present. In GitHub PR
 reviews, GitLab, and other renderers, they must be harmless — no broken links, no error
 states, no console warnings. This capability ensures that `edf://` links render as inert
-`<a>` elements using the standard Mermaid `_self` target. Browsers treat unrecognised URL
-schemes as no-ops, so the link is a dead end rather than a broken one.
+`<a>` elements — Mermaid emits a standard href and browsers treat the unrecognised URL
+scheme as a no-op, so the link is a dead end rather than a broken one.
 
 ---
 
@@ -141,19 +141,22 @@ graph TD
 Part A looks like.
 
 **Responsibilities:**
-- Define the `classDef` palette block (four roles, hex values, stroke/text colours)
-- Define the diagram navigability convention (`click` directive syntax, `edf://` vs
-  `#LLD-` link types, `_self` target)
+- Define the `classDef` palette table (four roles, hex values, stroke/text colours)
+- Define the diagram navigability convention — the per-type mechanism (`link` on
+  sequence diagrams, `click <node> href "<url>" "<tooltip>"` on flowchart /
+  classDiagram / stateDiagram, none on erDiagram) and the `edf://` vs `#LLD-` link
+  types
 - Define enforcement-point annotation format (`Note over` / `Note right of` placement,
   required content per boundary type)
 - Define conditional diagram type gates as concrete, checkable rules
-- Define the `## Diagram styling palette` and `## Diagram navigability convention`
+- Define the `### Diagram styling palette` and `### Diagram navigability convention — links`
   sections that appear in every generated LLD
-- Define the hidden participant→path mapping block format for sequence diagrams
-  (`<!-- edf-map {"ParticipantName": "edf://path", ...} -->`). Mermaid's `click`
-  directive is silently ignored in `sequenceDiagram` (no `<a>` element is created);
-  the mapping block is the bridge that lets the preview script inject handlers onto
-  the corresponding SVG `<rect>` elements by matching participant names
+- Define the navigability-link format for each diagram type. On `sequenceDiagram`, the
+  `link <actor>: <label> @ <url>` directive produces `<a>` elements (the `click`
+  directive is silently ignored there); on flowchart / classDiagram / stateDiagram,
+  `click <node> href "<url>" "<tooltip>"` produces `<a>` elements; `erDiagram` supports
+  no interaction. The preview script intercepts these `<a>` elements directly — no
+  hidden `<!-- edf-map -->` mapping block or SVG DOM injection is needed
 
 **Non-responsibilities:**
 - Does not evaluate which diagram types a feature needs — the skill does that
@@ -176,13 +179,14 @@ characteristics. Reads the template as its spec and applies its conventions.
   the appropriate diagram types
 - Assign `classDef` roles to every diagram participant based on its nature (existing code,
   new component, external service, error path, auth boundary)
-- Generate `click` directives on every participant: `edf://` paths for existing code,
-  `#LLD-` anchors for new components
+- Generate navigability links on every participant — `link` on sequence diagrams,
+  `click` on flowchart / classDiagram / stateDiagram — with `edf://` paths for existing
+  code and `#LLD-` anchors for new components
 - Place `Note` annotations at every trust-boundary-crossing interaction stating the
   enforcement mechanism and rejection behaviour
 - Produce `stateDiagram-v2`, `erDiagram`, `flowchart TD`, and `classDiagram` syntax when
-  their gates trigger, using the template's palette and applying `click` directives to
-  every participant
+  their gates trigger, using the template's palette and applying navigability links
+  appropriate to each diagram type
 - Co-version with the template — every template feature has a corresponding generation
   rule
 
@@ -233,12 +237,11 @@ feedback insertion. The bridge between the static diagram surface and the live e
 **Responsibilities:**
 - Inject a preview script (`media/preview.js`) into the VSCode markdown preview via
   `markdown.previewScripts`
-- **Two-path link discovery.** For non-sequence diagrams (flowchart, state, ER, class),
-  find native `<a>` elements via `querySelectorAll('a[xlink\\:href]')` from Mermaid's
-  `click` directive output. For sequence diagrams (`click` is silently ignored by
-  Mermaid), parse the hidden `<!-- edf-map {...} -->` mapping block from the markdown
-  DOM, walk the SVG for `<rect>` elements whose text content matches participant names,
-  and inject mouseenter/click handlers onto those elements
+- **Single-path link discovery.** Intercept the `<a>` elements Mermaid renders for
+  navigability directives: `querySelectorAll('a[xlink\\:href], a[href]')` matches the
+  output of the sequence-diagram `link` directive and the `click` directive on flowchart /
+  classDiagram / stateDiagram alike — no hidden `<!-- edf-map -->` mapping block or SVG
+  DOM injection is required
 - Intercept hover events on `edf://` links: resolve the path, read the first 40 lines via
   `vscode.workspace.fs.readFile`, display a themed tooltip within 200ms (excluding 150ms
   debounce)
@@ -358,16 +361,14 @@ the document proceeds to human review.
 A reviewer hovers over a diagram participant to peek at source, then clicks to open the
 file — all while the markdown preview stays visible.
 
-**Two-path approach.** Mermaid's `click` directive only generates `<a>` elements in
-`flowchart`, `stateDiagram`, `erDiagram`, and `classDiagram`. In `sequenceDiagram`,
-`click` is silently ignored. The preview script handles both paths:
+**Single-path approach.** Mermaid generates `<a>` elements for the `link` directive on
+`sequenceDiagram` participants and for the `click` directive on `flowchart`,
+`stateDiagram`, and `classDiagram` nodes; `erDiagram` supports no interaction. The preview
+script intercepts the resulting `<a>` elements in one path:
 
-- **Non-sequence diagrams:** `querySelectorAll('a[xlink\\:href]')` finds native `<a>`
-  elements. Mouseenter → postMessage, click → open file. No mapping block needed.
-- **Sequence diagrams:** the LLD template emits a hidden participant→path mapping block
-  (`<!-- edf-map {"ParticipantName": "edf://path", ...} -->`). The preview script parses
-  this block, walks the SVG DOM for `<rect>` elements whose text content matches a
-  participant name, and injects hover/click handlers onto those `<rect>` elements.
+- `querySelectorAll('a[xlink\\:href], a[href]')` finds the native `<a>` elements from
+  both directive types. Mouseenter → postMessage (peek), click → open file. No hidden
+  mapping block and no SVG DOM injection needed.
 
 ```mermaid
 sequenceDiagram
@@ -382,13 +383,11 @@ sequenceDiagram
     Reviewer->>Preview: Open LLD markdown preview
     Preview->>Script: Inject media/preview.js
     Script->>Script: MutationObserver detects Mermaid SVG rendered
-    Script->>Script: Read hidden edf-map block from markdown DOM
-    Note over Script: Parse JSON: {"AuthMiddleware":"edf://path",...}
-    Script->>Script: Walk SVG <rect> elements, match by text
-    Script->>Script: Inject mouseenter/click handlers onto matched <rect>s
+    Script->>Script: findLinks: querySelectorAll('a[xlink\:href], a[href]')
+    Script->>Script: Attach mouseenter/click handlers onto edf:// and #LLD- links
 
     Reviewer->>Script: Hover over edf:// link (150ms)
-    Script->>Handler: postMessage({ command: 'hover', path: 'src/lib/auth/middleware.ts' })
+    Script->>Handler: postMessage({ command: 'peek', path: 'src/lib/auth/middleware.ts' })
     Handler->>Handler: Validate path within workspace root
     Handler->>FS: readFile(workspaceUri + path)
     FS-->>Handler: First 40 lines of file
@@ -397,7 +396,7 @@ sequenceDiagram
     Note over Reviewer,Preview: Reviewer reads function signature, stays oriented in diagram
 
     Reviewer->>Script: Click edf:// link
-    Script->>Handler: postMessage({ command: 'click', path: 'src/lib/auth/middleware.ts' })
+    Script->>Handler: postMessage({ command: 'open', path: 'src/lib/auth/middleware.ts' })
     Handler->>Handler: Validate path within workspace root
     Handler->>Nav: showTextDocument(uri, { viewColumn: Beside })
     Nav->>Editor: Open file in adjacent column
@@ -506,9 +505,9 @@ sequenceDiagram
 
     ExtReviewer->>Browser: Open LLD markdown in GitHub PR
     Browser->>Mermaid: Render Mermaid diagram blocks
-    Mermaid->>Mermaid: Process click directives
-    Note over Mermaid: click Handler "edf://src/lib/auth/middleware.ts" _self
-    Mermaid-->>Browser: SVG with <a href="edf://src/lib/auth/middleware.ts" target="_self">
+    Mermaid->>Mermaid: Process link directives
+    Note over Mermaid: link Handler: source @ edf://src/lib/auth/middleware.ts
+    Mermaid-->>Browser: SVG with <a href="edf://src/lib/auth/middleware.ts">
     Browser->>Browser: Render SVG in page
     ExtReviewer->>Browser: Click edf:// link
     Browser->>Browser: Attempt navigation to "edf://..." in same frame
@@ -517,16 +516,14 @@ sequenceDiagram
 ```
 
 **Walkthrough:** An external reviewer opens the LLD in a GitHub PR. GitHub's Mermaid
-renderer processes the diagram blocks, including `click` directives. Because the template
-specifies `_self` as the link target, Mermaid generates `<a>` elements with
-`href="edf://path/to/file.ts"` and `target="_self"`. The browser renders the SVG. When the
-reviewer clicks an `edf://` link, the browser attempts navigation in the same frame — but
-`edf://` is an unrecognised URL scheme. The browser treats it as a no-op: no navigation,
-no error page, no console warning. The link is harmless. The path remains
+renderer processes the diagram blocks, including `link` directives on sequence diagrams.
+Mermaid generates `<a>` elements with `href="edf://path/to/file.ts"`. The browser renders
+the SVG. When the reviewer clicks an `edf://` link, the browser attempts navigation in the
+same frame — but `edf://` is an unrecognised URL scheme. The browser treats it as a no-op:
+no navigation, no error page, no console warning. The link is harmless. The path remains
 human-readable in the markdown source (`edf://src/lib/auth/middleware.ts`), so a reviewer
 reading raw markdown can still identify the referenced file. Graceful degradation is a
-property of the link format and Mermaid's `_self` target — zero extension code is involved
-in this flow.
+property of the link format — zero extension code is involved in this flow.
 
 ---
 
@@ -544,7 +541,7 @@ sequenceDiagram
 
     Reviewer->>Preview: Open LLD markdown preview
     Preview->>Mermaid: Render diagram blocks
-    Note over Mermaid: click DeliveryService "#LLD-v1-e1-4-delivery-service" _self
+    Note over Mermaid: link DeliveryService: spec @ #LLD-v1-e1-4-delivery-service
     Mermaid-->>Preview: SVG with <a href="#LLD-v1-e1-4-delivery-service">
     Script->>Script: MutationObserver detects SVG rendered
     Note over Script: Assumption: native anchor scroll works in preview webview.
@@ -558,8 +555,9 @@ sequenceDiagram
 ```
 
 **Walkthrough:** A reviewer clicks a diagram participant styled with the `new` class (teal
-outline) — indicating a component to be built. The `click` directive carries a `#LLD-`
-fragment target matching the Part B section's stable anchor ID (ADR-0026 format:
+outline) — indicating a component to be built. The navigability link (`link` on sequence
+diagrams, `click` on flowchart / classDiagram / stateDiagram) carries a `#LLD-` fragment
+target matching the Part B section's stable anchor ID (ADR-0026 format:
 `LLD-<epic-id>-<section-slug>`). In VSCode's markdown preview, the click should trigger
 native scroll-to-fragment behaviour, moving the preview to the Part B section where the
 component's internal decomposition, function signatures, and task breakdown are specified.
