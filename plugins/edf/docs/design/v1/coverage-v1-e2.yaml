@@ -1,0 +1,28 @@
+epic: v1-e2
+entries:
+  - req: REQ-vscode-extension-diagram-navigation-hover-tooltip-source-preview
+    lld: lld-v1-e2-extension-navigation.md#LLD-v1-e2-preview-script
+    issue: 41
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 2.1 security ACs (workspace containment) also satisfied by LLD-v1-e2-path-validation
+  - req: REQ-vscode-extension-diagram-navigation-click-opens-source-adjacent-column
+    lld: lld-v1-e2-extension-navigation.md#LLD-v1-e2-extension-host
+    issue: 37
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 2.2 security ACs (workspace containment) also satisfied by LLD-v1-e2-path-validation
+  - req: REQ-vscode-extension-diagram-navigation-lld-anchor-navigation-part-b
+    lld: lld-v1-e2-extension-navigation.md#LLD-v1-e2-preview-script
+    issue: 41
+    files: []
+    status: Approved
+    lld_revision: r1
+  - req: REQ-vscode-extension-diagram-navigation-graceful-degradation-navigability-links
+    lld: lld-v1-e2-extension-navigation.md#LLD-v1-e2-graceful-degradation
+    issue: 42
+    files: []
+    status: Approved
+    lld_revision: r1

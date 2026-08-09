@@ -1,7 +1,7 @@
 {
   "name": "edf-review",
   "displayName": "EDF Review — Navigable LLD Diagrams",
-  "description": "Makes edf:// links in LLD diagrams interactive: hover shows code, click opens source files side-by-side without leaving the preview.",
+  "description": "Makes navigability links in LLD diagrams interactive: hover shows code, click opens source files side-by-side without leaving the preview.",
   "version": "0.1.0",
   "publisher": "mironyx",
   "license": "MIT",

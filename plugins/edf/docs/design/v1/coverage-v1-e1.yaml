@@ -1,0 +1,27 @@
+epic: v1-e1
+entries:
+  - req: REQ-lld-template-diagram-vocabulary-conditional-diagram-types
+    lld: lld-v1-e1-template-vocabulary.md#LLD-v1-e1-diagram-type-gates
+    issue: 32
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.1 AC5 (syntax validation) also satisfied by LLD-v1-e1-enforcement-annotations-validation
+  - req: REQ-lld-template-diagram-vocabulary-standard-classdef-palette
+    lld: lld-v1-e1-template-vocabulary.md#LLD-v1-e1-palette-navigability
+    issue: 35
+    files: []
+    status: Approved
+    lld_revision: r1
+  - req: REQ-lld-template-diagram-vocabulary-note-annotations-enforcement-points
+    lld: lld-v1-e1-template-vocabulary.md#LLD-v1-e1-enforcement-annotations-validation
+    issue: 38
+    files: []
+    status: Approved
+    lld_revision: r1
+  - req: REQ-lld-template-diagram-vocabulary-click-directives-diagram-participants
+    lld: lld-v1-e1-template-vocabulary.md#LLD-v1-e1-palette-navigability
+    issue: 35
+    files: []
+    status: Approved
+    lld_revision: r1

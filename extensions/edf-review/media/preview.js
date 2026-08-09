@@ -2,8 +2,9 @@
  * EDF Review — Markdown Preview Script
  *
  * Injected into every VSCode markdown preview webview via the
- * `markdown.previewScripts` contribution. Intercepts `edf://` links
- * in rendered Mermaid SVG diagrams for hover-and-click navigation.
+ * `markdown.previewScripts` contribution. Intercepts navigability links
+ * (workspace-relative paths / `#LLD-` anchors) in rendered Mermaid SVG
+ * diagrams for hover-and-click navigation.
  *
  * Two interactions:
  *   Hover → tooltip with first ~40 lines of the source file
@@ -78,17 +79,26 @@
   // ── Link discovery ─────────────────────────────────────────────────
 
   /**
-   * Walk the DOM for <a> elements with edf:// or #LLD- hrefs.
-   * Mermaid `click` directives generate <a xlink:href="..."> inside SVG.
+   * Walk the DOM for navigability anchors — <a> elements with a
+   * workspace-relative path or #LLD- href, scoped to SVG diagrams so ordinary
+   * markdown links in the preview are never intercepted. Mermaid `link`/`click`
+   * directives generate these <a> elements inside the rendered SVG.
    */
+  function isNavigabilityHref(href) {
+    if (href.startsWith('#LLD-')) return true;
+    // Absolute URLs (http:, mailto:, vscode-resource:, …) are never navigability links
+    if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return false;
+    return href.length > 0; // bare workspace-relative path
+  }
+
   function findLinks() {
     const links = [];
 
     // SVG <a> elements (Mermaid output)
-    document.querySelectorAll('a[xlink\\:href], a[href]').forEach(a => {
+    document.querySelectorAll('svg a[xlink\\:href], svg a[href]').forEach(a => {
       const href = a.getAttribute('xlink:href') || a.getAttribute('href');
       if (!href) return;
-      if (href.startsWith('edf://') || href.startsWith('#LLD-')) {
+      if (isNavigabilityHref(href)) {
         links.push(a);
       }
     });
@@ -103,18 +113,15 @@
     const href = link.getAttribute('xlink:href') || link.getAttribute('href');
 
     link.addEventListener('mouseenter', (e) => {
-      if (href.startsWith('edf://')) {
-        const path = href.replace('edf://', '');
-        // Clear any pending timeout
-        if (hoverTimeout) clearTimeout(hoverTimeout);
-        // Small debounce to avoid flicker
-        hoverTimeout = setTimeout(() => {
-          vscode.postMessage({ command: 'peek', path });
-        }, 150);
-      } else if (href.startsWith('#LLD-')) {
-        if (hoverTimeout) clearTimeout(hoverTimeout);
+      if (hoverTimeout) clearTimeout(hoverTimeout);
+      // Small debounce to avoid flicker
+      if (href.startsWith('#LLD-')) {
         hoverTimeout = setTimeout(() => {
           showTooltip(e, '→ Part B implementation spec\n(click to scroll)');
+        }, 150);
+      } else {
+        hoverTimeout = setTimeout(() => {
+          vscode.postMessage({ command: 'peek', path: href });
         }, 150);
       }
     });
@@ -125,12 +132,11 @@
     });
 
     link.addEventListener('click', (e) => {
-      if (href.startsWith('edf://')) {
+      if (!href.startsWith('#LLD-')) {
         e.preventDefault();
         e.stopPropagation();
         hideTooltip();
-        const path = href.replace('edf://', '');
-        vscode.postMessage({ command: 'open', path });
+        vscode.postMessage({ command: 'open', path: href });
       }
       // #LLD- links: let the browser handle anchor navigation naturally
     });

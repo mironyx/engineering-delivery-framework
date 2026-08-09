@@ -56,9 +56,9 @@ boundary is explicitly designed into the flow without cross-referencing Part B.
 
 Today, diagram participants are dead labels. A reviewer seeing `AuthHelper` in a sequence
 diagram must grep the codebase to find the source file, losing their place in the design
-document. This capability ensures every diagram participant carries a `click` directive:
-`edf://` URLs for existing code, `#LLD-` anchors for new components. No participant is a
-dead label — every node resolves to something actionable.
+document. This capability ensures every diagram participant carries a navigability link:
+workspace-relative source paths for existing code, `#LLD-` anchors for new components.
+No participant is a dead label — every node resolves to something actionable.
 
 ### C5: Preview-Integrated Source Navigation
 
@@ -90,11 +90,12 @@ human reviewer.
 
 ### C8: Graceful Degradation
 
-`edf://` links are functional only when the EDF Review extension is present. In GitHub PR
-reviews, GitLab, and other renderers, they must be harmless — no broken links, no error
-states, no console warnings. This capability ensures that `edf://` links render as inert
-`<a>` elements — Mermaid emits a standard href and browsers treat the unrecognised URL
-scheme as a no-op, so the link is a dead end rather than a broken one.
+Navigability links are functional only when the EDF Review extension is present. In GitHub
+PR reviews, GitLab, and other renderers, they must be harmless — no broken links, no error
+states, no console warnings. This capability ensures navigability links render as inert
+`<a>` elements — Mermaid preserves the relative href, and outside VSCode it resolves
+against the page URL to a non-existent repo path (a 404 page) or is stripped by the
+renderer, so the link is a dead end rather than a broken one.
 
 ---
 
@@ -144,8 +145,8 @@ Part A looks like.
 - Define the `classDef` palette table (four roles, hex values, stroke/text colours)
 - Define the diagram navigability convention — the per-type mechanism (`link` on
   sequence diagrams, `click <node> href "<url>" "<tooltip>"` on flowchart /
-  classDiagram / stateDiagram, none on erDiagram) and the `edf://` vs `#LLD-` link
-  types
+  classDiagram / stateDiagram, none on erDiagram) and the workspace-relative vs `#LLD-`
+  link target types
 - Define enforcement-point annotation format (`Note over` / `Note right of` placement,
   required content per boundary type)
 - Define conditional diagram type gates as concrete, checkable rules
@@ -160,7 +161,7 @@ Part A looks like.
 
 **Non-responsibilities:**
 - Does not evaluate which diagram types a feature needs — the skill does that
-- Does not resolve `edf://` paths to actual files — the extension does that
+- Does not resolve navigability paths to actual files — the extension does that
 - Does not enforce palette application — the self-critique module does that
 - Does not define Part B structure or task breakdown conventions
 - Does not contain per-feature content — it is a template, not an instance
@@ -180,8 +181,8 @@ characteristics. Reads the template as its spec and applies its conventions.
 - Assign `classDef` roles to every diagram participant based on its nature (existing code,
   new component, external service, error path, auth boundary)
 - Generate navigability links on every participant — `link` on sequence diagrams,
-  `click` on flowchart / classDiagram / stateDiagram — with `edf://` paths for existing
-  code and `#LLD-` anchors for new components
+  `click` on flowchart / classDiagram / stateDiagram — with workspace-relative paths for
+  existing code and `#LLD-` anchors for new components
 - Place `Note` annotations at every trust-boundary-crossing interaction stating the
   enforcement mechanism and rejection behaviour
 - Produce `stateDiagram-v2`, `erDiagram`, `flowchart TD`, and `classDiagram` syntax when
@@ -195,7 +196,7 @@ characteristics. Reads the template as its spec and applies its conventions.
 - Does not resolve file paths to verify they exist — the self-critique module checks that
 - Does not generate Part B content (internal decomposition, function signatures, task
   breakdown)
-- Does not handle `edf://` link interactivity — the extension does that
+- Does not handle navigability-link interactivity — the extension does that
 - Does not decide diagram aesthetics beyond the palette — Mermaid handles layout
 
 **Depends on:** LLD Template (reads it as its source of truth for syntax and conventions)
@@ -214,7 +215,8 @@ generation step might miss.
   enforcement mechanism
 - Verify the `classDef` palette block is present and consistently applied — no participant
   matching a defined role uses default styling
-- Verify every `edf://` path references a file that exists in the workspace
+- Verify every workspace-relative navigability path references a file that exists in the
+  workspace
 - Report specific failures with the participant, interaction, or path that needs fixing
 
 **Non-responsibilities:**
@@ -230,22 +232,25 @@ generation step might miss.
 
 ### C2.4: EDF Review Extension
 
-**Purpose:** The VSCode extension that makes `edf://` links functional in the markdown
-preview. Intercepts clicks and hovers, resolves paths, reads files, and provides review
-feedback insertion. The bridge between the static diagram surface and the live editor.
+**Purpose:** The VSCode extension that makes diagram navigability links functional in the
+markdown preview. Intercepts clicks and hovers, resolves paths, reads files, and provides
+review feedback insertion. The bridge between the static diagram surface and the live
+editor.
 
 **Responsibilities:**
 - Inject a preview script (`media/preview.js`) into the VSCode markdown preview via
   `markdown.previewScripts`
-- **Single-path link discovery.** Intercept the `<a>` elements Mermaid renders for
-  navigability directives: `querySelectorAll('a[xlink\\:href], a[href]')` matches the
-  output of the sequence-diagram `link` directive and the `click` directive on flowchart /
-  classDiagram / stateDiagram alike — no hidden `<!-- edf-map -->` mapping block or SVG
-  DOM injection is required
-- Intercept hover events on `edf://` links: resolve the path, read the first 40 lines via
-  `vscode.workspace.fs.readFile`, display a themed tooltip within 200ms (excluding 150ms
-  debounce)
-- Intercept click events on `edf://` links: resolve the path, validate workspace
+- **Single-path link discovery, scoped to SVG anchors.** Intercept the `<a>` elements
+  Mermaid renders for navigability directives: `querySelectorAll('svg a[xlink\\:href], svg a[href]')`
+  matches the output of the sequence-diagram `link` directive and the `click` directive on
+  flowchart / classDiagram / stateDiagram alike, while skipping ordinary markdown links
+  (which live outside SVG and must not be hijacked) — no hidden `<!-- edf-map -->` mapping
+  block or SVG DOM injection is required. A matched anchor is intercepted only when its
+  href is a workspace-relative path or a `#LLD-` fragment; absolute URLs are ignored
+- Intercept hover events on navigability links: resolve the path, read the first 40 lines
+  via `vscode.workspace.fs.readFile`, display a themed tooltip within 200ms (excluding
+  150ms debounce)
+- Intercept click events on navigability links: resolve the path, validate workspace
   containment, open the file in the adjacent column via
   `vscode.window.showTextDocument(uri, { viewColumn: ViewColumn.Beside })` within 100ms
 - Validate all resolved paths are within the workspace root — reject paths with `..`
@@ -279,7 +284,7 @@ feedback insertion. The bridge between the static diagram surface and the live e
 - Does not package for marketplace publishing in V1 — loaded via Extension Development
   Host only
 
-**Depends on:** LLD Template (for the `edf://` link format it intercepts), VSCode
+**Depends on:** LLD Template (for the navigability link format it intercepts), VSCode
 Markdown Preview (its host surface)
 
 ---
@@ -298,7 +303,7 @@ visible, interactive SVG. Not a component we build, but a dependency we target.
 - Apply `classDef` styles to matching participants
 
 **Non-responsibilities:**
-- Does not resolve `edf://` links — the extension or browser does that
+- Does not resolve navigability links — the extension or browser does that
 - Does not validate diagram syntax beyond Mermaid's own parser
 - Does not guarantee consistent rendering across all platforms — differences in Mermaid
   versions are outside our control
@@ -328,7 +333,7 @@ sequenceDiagram
     Skill->>Skill: Evaluate feature characteristics against gates
     Note over Skill: "FE state management → stateDiagram-v2<br/>New entities → erDiagram<br/>Branching logic → flowchart TD<br/>New modules/deps → classDiagram"
     Skill->>Skill: Assign classDef roles to participants
-    Skill->>Skill: Generate click directives (edf:// or #LLD-)
+    Skill->>Skill: Generate navigability links (relative path or #LLD-)
     Skill->>Skill: Place Note annotations at trust boundaries
     Skill->>FS: Write LLD Part A (diagrams + invariants)
     Skill->>FS: Write LLD Part B (decomposition + signatures + tasks)
@@ -337,7 +342,7 @@ sequenceDiagram
     Critique->>Critique: Check: every participant has click?
     Critique->>Critique: Check: every trust boundary has Note?
     Critique->>Critique: Check: palette applied consistently?
-    Critique->>Critique: Check: edf:// paths resolve to files?
+    Critique->>Critique: Check: navigability paths resolve to files?
     Critique-->>Skill: Navigability failures (or pass)
     Note over Skill: Failures fixed, re-checked, then document ready for review
 ```
@@ -347,8 +352,9 @@ template to load the current palette, diagram type gates, and annotation format.
 evaluates the feature's characteristics against the deterministic gates — a feature with
 UI state management triggers a `stateDiagram-v2`, one with new entities triggers an
 `erDiagram`, one with branching logic triggers a `flowchart TD`. For every diagram
-participant it assigns a `classDef` role and generates a `click` directive (`edf://` for
-existing code, `#LLD-` for new components). It places `Note` annotations at every
+participant it assigns a `classDef` role and generates a navigability link (a
+workspace-relative path for existing code, `#LLD-` for new components). It places `Note`
+annotations at every
 trust-boundary-crossing interaction. After writing the document, the self-critique module
 runs mechanical checks: no dead labels, no missing enforcement annotations, palette
 consistency, path validity. Failures are reported with specific locations and fixed before
@@ -383,10 +389,10 @@ sequenceDiagram
     Reviewer->>Preview: Open LLD markdown preview
     Preview->>Script: Inject media/preview.js
     Script->>Script: MutationObserver detects Mermaid SVG rendered
-    Script->>Script: findLinks: querySelectorAll('a[xlink\:href], a[href]')
-    Script->>Script: Attach mouseenter/click handlers onto edf:// and #LLD- links
+    Script->>Script: findLinks: querySelectorAll('svg a[xlink\:href], svg a[href]')
+    Script->>Script: Attach mouseenter/click handlers onto navigability and #LLD- links
 
-    Reviewer->>Script: Hover over edf:// link (150ms)
+    Reviewer->>Script: Hover over navigability link (150ms)
     Script->>Handler: postMessage({ command: 'peek', path: 'src/lib/auth/middleware.ts' })
     Handler->>Handler: Validate path within workspace root
     Handler->>FS: readFile(workspaceUri + path)
@@ -395,7 +401,7 @@ sequenceDiagram
     Script->>Preview: Show themed tooltip with file content
     Note over Reviewer,Preview: Reviewer reads function signature, stays oriented in diagram
 
-    Reviewer->>Script: Click edf:// link
+    Reviewer->>Script: Click navigability link
     Script->>Handler: postMessage({ command: 'open', path: 'src/lib/auth/middleware.ts' })
     Handler->>Handler: Validate path within workspace root
     Handler->>Nav: showTextDocument(uri, { viewColumn: Beside })
@@ -406,7 +412,7 @@ sequenceDiagram
 **Walkthrough:** The reviewer opens the LLD in VSCode's markdown preview. The extension
 injects `media/preview.js`, which uses a `MutationObserver` to detect when Mermaid SVGs
 render (they may arrive after initial page load). It attaches hover and click listeners to
-every `edf://` link in the rendered diagrams. On hover (150ms debounce), the script sends
+every navigability link in the rendered diagrams. On hover (150ms debounce), the script sends
 a `postMessage` to the extension host with the file path. The protocol handler validates
 the path is within the workspace root, reads the first 40 lines via
 `vscode.workspace.fs.readFile`, and returns the content. The preview script renders a
@@ -419,7 +425,7 @@ never loses orientation in the design document.
 
 ### Flow 3: Path Validation — Trust Boundary (error path)
 
-An `edf://` link attempts to escape the workspace root. The extension must reject it
+A navigability link attempts to escape the workspace root. The extension must reject it
 without reading or opening the file.
 
 ```mermaid
@@ -429,7 +435,7 @@ sequenceDiagram
     participant Handler as Protocol Handler
     participant Logger as EDF Review Output Channel
 
-    Reviewer->>Script: Hover/click edf:// link with ../ segments
+    Reviewer->>Script: Hover/click navigability link with ../ segments
     Script->>Handler: postMessage({ path: '../../../etc/passwd' })
     Handler->>Handler: Resolve against workspaceFolders[0].uri
     Handler->>Handler: Check: resolved fsPath starts with workspace root?
@@ -440,7 +446,7 @@ sequenceDiagram
     Note over Reviewer,Script: No file read attempted. No editor tab opened.
 ```
 
-**Walkthrough:** A reviewer hovers or clicks an `edf://` link containing `..` segments
+**Walkthrough:** A reviewer hovers or clicks a navigability link containing `..` segments
 that would resolve outside the workspace root. The preview script sends the raw path to
 the extension host via `postMessage`. The protocol handler resolves it against
 `vscode.workspace.workspaceFolders[0].uri` and checks whether the resulting `fsPath`
@@ -495,7 +501,7 @@ markers, the new template is inserted after the existing ones.
 
 ### Flow 5: Graceful Degradation in External Renderers
 
-An external reviewer views the LLD in GitHub. `edf://` links must be harmless.
+An external reviewer views the LLD in GitHub. Navigability links must be harmless.
 
 ```mermaid
 sequenceDiagram
@@ -506,24 +512,26 @@ sequenceDiagram
     ExtReviewer->>Browser: Open LLD markdown in GitHub PR
     Browser->>Mermaid: Render Mermaid diagram blocks
     Mermaid->>Mermaid: Process link directives
-    Note over Mermaid: link Handler: source @ edf://src/lib/auth/middleware.ts
-    Mermaid-->>Browser: SVG with <a href="edf://src/lib/auth/middleware.ts">
+    Note over Mermaid: link Handler: source @ src/lib/auth/middleware.ts
+    Mermaid-->>Browser: SVG with <a href="src/lib/auth/middleware.ts">
     Browser->>Browser: Render SVG in page
-    ExtReviewer->>Browser: Click edf:// link
-    Browser->>Browser: Attempt navigation to "edf://..." in same frame
-    Note over Browser: Unrecognised URL scheme → no-op
-    Note over ExtReviewer,Browser: No navigation. No error. No console warning. Link is inert.
+    ExtReviewer->>Browser: Click navigability link
+    Browser->>Browser: Resolve relative href against page URL → repo path that 404s
+    Note over Browser: Relative href → 404 page (or stripped by renderer). No console warning.
+    Note over ExtReviewer,Browser: No navigation to real content. No error. Link is inert.
 ```
 
 **Walkthrough:** An external reviewer opens the LLD in a GitHub PR. GitHub's Mermaid
 renderer processes the diagram blocks, including `link` directives on sequence diagrams.
-Mermaid generates `<a>` elements with `href="edf://path/to/file.ts"`. The browser renders
-the SVG. When the reviewer clicks an `edf://` link, the browser attempts navigation in the
-same frame — but `edf://` is an unrecognised URL scheme. The browser treats it as a no-op:
-no navigation, no error page, no console warning. The link is harmless. The path remains
-human-readable in the markdown source (`edf://src/lib/auth/middleware.ts`), so a reviewer
-reading raw markdown can still identify the referenced file. Graceful degradation is a
-property of the link format — zero extension code is involved in this flow.
+Mermaid generates `<a>` elements with `href="src/lib/auth/middleware.ts"` — the relative
+href is preserved by Mermaid in every renderer (custom schemes are not). The browser
+renders the SVG. When the reviewer clicks a navigability link, the browser resolves the
+relative href against the page URL and navigates to a repo path that does not exist — a
+404 page, or no navigation at all if the renderer strips diagram links. No error, no
+console warning. The link is harmless. The path remains human-readable in the markdown
+source (`src/lib/auth/middleware.ts`), so a reviewer reading raw markdown can still
+identify the referenced file. Graceful degradation is a property of the link format —
+zero extension code is involved in this flow.
 
 ---
 

@@ -1,0 +1,10 @@
+epic: v1-e3
+entries:
+  - req: REQ-vscode-extension-review-feedback-quick-pick-insert-review-comment
+    lld: lld-v1-e3-review-feedback.md#LLD-v1-e3-command-wiring
+    issue: 39
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 3.1 AC1/AC6/AC7 also satisfied by LLD-v1-e3-headings-extraction;
+    # Story 3.1 AC8 also satisfied by LLD-v1-e3-review-insert-point.

@@ -7,7 +7,7 @@ agent — detailed enough for `/feature` to produce correct code autonomously.
 One file per phase (phase mode) or one file per task (epic mode). Each implementation plan
 section becomes a top-level heading.
 
-```markdown
+````markdown
 # Low-Level Design: Phase N — [Phase Name]
 
 ## Document Control
@@ -65,17 +65,21 @@ code or spec without leaving the preview. The mechanism depends on the diagram t
 
 - **sequenceDiagram** — `click` is unsupported. Link each participant with the
   sequence-diagram `link` directive:
-  `link API: source @ edf://src/app/api/example/route.ts`.
+  `link API: source @ src/app/api/example/route.ts`.
 - **flowchart / classDiagram / stateDiagram** — use Mermaid's `click` directive.
   The third argument is the tooltip string, not a target keyword:
-  `click Service href "edf://src/lib/example/service.ts" "source"`.
+  `click Service href "src/lib/example/service.ts" "source"`.
 - **erDiagram** — no interaction support documented; omit links (refer to entities
   in prose or via the classDiagram instead).
 
-- **Existing source file** → `edf://` protocol with the repo-relative path.
-  The `edf-review` VSCode extension intercepts these: hover shows code, click opens
-  the file in the next column. Without the extension, the link is harmless (cursor
-  changes but no navigation — the same as any unrecognised URL scheme in an SVG).
+- **Existing source file** → the workspace-relative path, **without** an `edf://`
+  (or any) scheme. Mermaid's default `securityLevel: strict` strips custom URL
+  schemes from rendered links, so `edf://` renders an `<a>` with no href — inert.
+  A bare relative path survives strict mode and renders as a real link. The
+  `edf-review` VSCode extension intercepts the rendered SVG anchors: hover shows
+  code, click opens the file in the next column. Without the extension the link is
+  harmless — on GitHub it resolves to a repo-relative URL that 404s (no navigation,
+  no error).
 - **New-to-be-created code** → `#LLD-` anchor to the Part B section where its
   internal decomposition and signatures are specified:
   `click NewService href "#LLD-v12-e3-new-service" "spec"`
@@ -102,15 +106,16 @@ chains, multi-step UI interactions with server round-trips.
 
 Every diagram participant must be navigable. sequenceDiagram does not support
 `click` — use its `link <actor>: <label> @ <url>` directive. Existing code links to
-the source file via `edf://`; new code links to its Part B spec via `#LLD-`.
+the source file by workspace-relative path; new code links to its Part B spec via
+`#LLD-`.
 Enforcement points (authZ, validation, external boundaries) are annotated with `Note`
 blocks so the security and validation story is visible in the diagram itself.
 
-`` ```mermaid
+```mermaid
 sequenceDiagram
-    link API: source @ edf://src/app/api/example/route.ts
-    link Service: source @ edf://src/lib/example/service.ts
-    link DB: source @ edf://src/lib/db/client.ts
+    link API: source @ src/app/api/example/route.ts
+    link Service: source @ src/lib/example/service.ts
+    link DB: source @ src/lib/db/client.ts
     %% New-to-be-created — scrolls to Part B spec:
     link NewService: spec @ #LLD-<epic-id>-<section-slug>
 
@@ -125,7 +130,7 @@ sequenceDiagram
     NewService-->>Service: result
     Service-->>API: Result
     API-->>Client: 200 OK
-`` ```
+```
 
 **When required:** Any flow involving >2 components or services. API routes with
 auth + service + DB. Webhook handling chains. Multi-step UI interactions with server
@@ -153,6 +158,9 @@ stateDiagram-v2
     Loading --> Error : fetch failed
     Error --> Loading : retry
     Success --> Loading : refresh
+    %% stateDiagram uses the bare click form (no href keyword):
+    click Loading "src/lib/example/orderStore.ts" "source"
+    click Error "#LLD-<epic-id>-<section-slug>" "spec"
 ```
 
 **When required:** Any FE section with a UI states table (Loading, Error, Empty,
@@ -173,6 +181,8 @@ flowchart TD
     C --> E{Rate limit}
     E -->|within limit| F[Execute]
     E -->|exceeded| G[429 Too Many Requests]
+    click A href "src/app/api/example/route.ts" "source"
+    click D href "#LLD-<epic-id>-<section-slug>" "spec"
 ```
 
 **When required:** Decision-heavy logic where the flow branches on multiple
@@ -199,12 +209,12 @@ Works for both class-based and module-based codebases:
 - **Interfaces/Ports** — use `<<interface>>`, show who implements them
 - **Direction** — arrows show dependency direction (who depends on whom)
 
-`` ```mermaid
+```mermaid
 classDiagram
     classDef external fill:#d6e8f7,stroke:#4a5568,color:#1a202c
-    click EngineScoring href "edf://src/lib/engine/scoring.ts" "source"
-    click PortsGitHub href "edf://src/lib/ports/github.ts" "source"
-    click AdaptersGitHub href "edf://src/lib/adapters/github.ts" "source"
+    click EngineScoring href "src/lib/engine/scoring.ts" "source"
+    click PortsGitHub href "src/lib/ports/github.ts" "source"
+    click AdaptersGitHub href "src/lib/adapters/github.ts" "source"
     class AdaptersGitHub external
 
     class EngineScoring {
@@ -222,7 +232,7 @@ classDiagram
     }
     EngineScoring --> PortsGitHub : depends on
     AdaptersGitHub ..|> PortsGitHub : implements
-`` ```
+```
 
 **When required:** Any task that introduces new modules/classes, modifies module boundaries,
 or adds new dependencies between existing modules. Changes touching the ports/adapters layer.
@@ -232,7 +242,7 @@ surface or dependencies.
 
 #### Data structure (`erDiagram`)
 
-`` ```mermaid
+```mermaid
 erDiagram
     users {
         uuid id PK
@@ -246,7 +256,7 @@ erDiagram
         timestamp expires_at
     }
     users ||--o{ sessions : "has many"
-`` ```
+```
 
 **When required:** Any DB section that introduces new tables, adds FK relationships
 between existing tables, or modifies the schema in a way that changes the
@@ -308,12 +318,12 @@ Each invariant should be testable — either by a unit test, a type check, or a 
 
 ### BDD Specs
 
-` ` `ts
+```ts
 describe('[context]', () => {
   it('[behaviour — given/when/then]');
   it('[another behaviour]');
 });
-` ` `
+```
 
 ### HLD coverage assessment
 - [Section X.Y] — sufficient, referenced only
@@ -356,11 +366,11 @@ See [v<N>-design.md §N.N](v<N>-design.md#section-anchor) for [schema/functions]
 See [v<N>-design.md §N.N](v<N>-design.md#section-anchor) for [contracts].
 
 #### File structure
-` ` `
+```
 src/lib/module/
   file.ts          — [purpose]
   file.test.ts     — [what it tests]
-` ` `
+```
 
 #### Internal types
 [Types not in the public L4 contract but needed for implementation]
@@ -408,12 +418,12 @@ implementation — these are historical records, not pre-implementation guidance
 See [v<N>-design.md §N.N](v<N>-design.md#section-anchor) for [contracts].
 
 #### Component tree
-` ` `
+```
 PageComponent
   ├── SubComponent
   │   └── ChildComponent
   └── AnotherComponent
-` ` `
+```
 
 > **Constraint (server components):** Use module-level render helper functions rather than JSX sub-components inside server component files. Sub-components defined in the same file are opaque to test traversal — `render()` returns a serialised tree, so `screen.getByRole` cannot cross a sub-component boundary. Module-level helpers keep assertions traversable without extra wrapper renders.
 
@@ -469,11 +479,11 @@ here — these all belong under the `# Part B` heading. Do NOT include Part A co
 
 ### Dependency DAG
 
-` ` `mermaid
+```mermaid
 graph LR
   T1[Task 1: ...] --> T3[Task 3: ...]
   T2[Task 2: ...] --> T3
-` ` `
+```
 
 ### Execution Waves
 
@@ -481,4 +491,4 @@ graph LR
 |------|-------|------------|-------|
 | 1 | Task 1, Task 2 | — | Parallelisable |
 | 2 | Task 3 | Wave 1 | |
-```
+````

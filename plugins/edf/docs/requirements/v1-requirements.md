@@ -4,11 +4,11 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.1 |
+| Version | 1.2 |
 | Status | Final |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
-| Last updated | 2026-08-08 |
+| Last updated | 2026-08-09 |
 
 ## Change Log
 
@@ -20,6 +20,7 @@
 | 0.4 | 2026-08-01 | LS / Claude | Review fixes: corrected visual reference paths; aligned #LLD- anchor format with ADR-0026; resolved AC1/AC4 contradiction in Story 1.2; removed cross-epic AC dependency on Story 4.2 |
 | 1.0 | 2026-08-01 | LS / Claude | Finalised — Gate 2 approved |
 | 1.1 | 2026-08-08 | LS / Claude | Aligned with verified Mermaid syntax: type-aware navigability (sequence `link`, class/flow/state `click`+tooltip, erDiagram none), removed `_self` claims, classDef-inside-diagram rule, palette hex restored to template |
+| 1.2 | 2026-08-09 | LS / Claude | Dropped `edf://` scheme (Mermaid `securityLevel: strict` strips custom schemes from rendered links): navigability links use bare workspace-relative paths; interception scoped to SVG anchors; Story 2.4 degradation reworded; glossary, principles, and ACs updated across Stories 1.4/2.1/2.2/2.4/4.1/4.2 |
 
 ---
 
@@ -64,12 +65,12 @@ harden that work against the acceptance criteria below.
 | **LLD Part A** | The first half of an LLD document — behavioural diagrams (sequence, state, ER, flowchart) and an invariants table. The primary review surface. |
 | **LLD Part B** | The second half of an LLD document — internal decomposition, function signatures, data shapes, and task breakdown for each component. |
 | **Navigability link** | A Mermaid syntax element that makes a diagram node clickable so it can link to a source file or Part B anchor. The syntax depends on the diagram type: sequenceDiagram uses the `link <actor>: <label> @ <url>` directive; flowchart / classDiagram / stateDiagram use `click <node> href "<url>" "<tooltip>"`; erDiagram supports no interaction and participants are linked via prose. |
-| **`edf://` protocol** | A custom URL scheme (`edf://path/to/file.ts`) recognised by the EDF Review VSCode extension. Resolves to a workspace-relative file path. |
+| **Workspace-relative navigability path** | A source-file link target written as a bare repo-relative path (e.g. `src/lib/auth/middleware.ts`) — no URL scheme. Mermaid's strict security mode strips custom schemes (like the abandoned `edf://`) from rendered links but preserves relative paths; the EDF Review VSCode extension resolves them against the workspace root. |
 | **`classDef` palette** | A set of Mermaid `classDef` declarations defining colour-coded styles for diagram participants. The canonical palette is defined in `lld/template.md`: error (`#f7d6d6`), auth (`#f7eed6`), external (`#d6e8f7`), new (`#d4f0d4`). |
 | **Enforcement point** | A location in a sequence diagram where a cross-cutting concern (authZ, validation, SSRF boundary, error propagation) is enforced. Marked with a `Note` annotation. |
 | **`[Review]` marker** | A blockquote convention (`> **[Review]:** <feedback>`) used to collect inline review feedback in EDF documents. Already established in `/requirements` and `/discovery`. |
-| **Markdown preview** | VSCode's built-in rendered-markdown view (Ctrl+Shift+V). The extension augments this with `edf://` link handling. |
-| **Graceful degradation** | The principle that `edf://` links must render as inert, harmless links in renderers that lack the extension (GitHub, other editors). No errors, no broken UX. |
+| **Markdown preview** | VSCode's built-in rendered-markdown view (Ctrl+Shift+V). The extension augments this with navigability-link handling. |
+| **Graceful degradation** | The principle that navigability links must render as inert, harmless links in renderers that lack the extension (GitHub, other editors). No errors, no broken UX. |
 
 ## Design Principles / Constraints
 
@@ -79,7 +80,7 @@ harden that work against the acceptance criteria below.
 2. **Preview-sticky navigation** — Opening a source file from a diagram must not close or
    obscure the markdown preview. The preview stays visible so the reviewer remains oriented
    in the design document.
-3. **Graceful degradation by default** — Every `edf://` link must be harmless when the
+3. **Graceful degradation by default** — Every navigability link must be harmless when the
    extension is absent. GitHub PR reviews, external contributors, and non-VSCode users must
    never encounter broken links or error states.
 4. **Convention over configuration** — The `classDef` palette, diagram type selection rules,
@@ -237,20 +238,20 @@ multiple annotations — one per concern.
 
 **As an** LLD Reviewer,
 **I want to** click on any diagram participant and navigate to its source file (for
-existing code via `edf://`) or its Part B spec (for new components via `#LLD-` anchors),
+existing code via a workspace-relative path) or its Part B spec (for new components via
+`#LLD-` anchors),
 **so that** I can verify implementation against design without leaving the markdown
 preview or manually grepping the codebase.
 
 **Acceptance Criteria:**
 
 - Given a sequence diagram participant representing existing code, when the diagram
-  is generated, then it carries a `link` directive with an `edf://` URL resolving to
-  the workspace-relative source file path (e.g.,
-  `link AuthMiddleware: source @ edf://src/lib/auth/middleware.ts`).
+  is generated, then it carries a `link` directive with the workspace-relative source
+  file path (e.g., `link AuthMiddleware: source @ src/lib/auth/middleware.ts`).
 - Given a flowchart, classDiagram, or stateDiagram participant representing existing
-  code, when the diagram is generated, then it carries a `click` directive with an
-  `edf://` URL and tooltip (e.g.,
-  `click AuthMiddleware href "edf://src/lib/auth/middleware.ts" "source"`).
+  code, when the diagram is generated, then it carries a `click` directive with the
+  workspace-relative path and tooltip (e.g.,
+  `click AuthMiddleware href "src/lib/auth/middleware.ts" "source"`).
 - Given a sequence diagram participant representing a new component, when the diagram
   is generated, then it carries a `link` directive with a `#LLD-` anchor referencing
   the Part B section's stable anchor ID as defined by ADR-0026 (e.g.,
@@ -262,22 +263,23 @@ preview or manually grepping the codebase.
 - Given a diagram is fully generated, when the diagram source is inspected, then no
   participant is a "dead label" — every participant carries a navigability link
   appropriate to its diagram type (`link` on sequence diagrams, `click` on flowchart /
-  classDiagram / stateDiagram) resolving to either an `edf://` path or a `#LLD-`
-  anchor. erDiagram participants are exempt (the type supports no interaction; refer
-  to them in prose instead).
-- Given an `edf://` link is rendered in a Mermaid diagram, when viewed in a renderer
-  without the EDF extension (GitHub, GitLab), then the link renders as a standard
-  `<a>` element with an unrecognised URL scheme — the cursor changes on hover but the
-  browser performs no navigation and raises no error on click.
-- Given an `edf://` path references a file, when the path is constructed, then it
-  uses a workspace-relative path (no leading slash, no `..` segments) suitable for
-  resolution by `vscode.Uri.joinPath`.
+  classDiagram / stateDiagram) resolving to either a workspace-relative path or a
+  `#LLD-` anchor. erDiagram participants are exempt (the type supports no interaction;
+  refer to them in prose instead).
+- Given a workspace-relative navigability link is rendered in a Mermaid diagram, when
+  viewed in a renderer without the EDF extension (GitHub, GitLab), then the relative
+  href is preserved and resolves against the page URL to a non-existent repo path (a
+  404 page) — or the renderer strips diagram links entirely; either way no navigation
+  to real content occurs and no error is raised on click.
+- Given a navigability path references a file, when the path is constructed, then it
+  is workspace-relative (no leading slash, no `..` segments) suitable for resolution
+  by `vscode.Uri.joinPath`.
 - Given a Part B section exists with a stable anchor ID, when a `#LLD-` link targets
   it, then the anchor ID follows the ADR-0026 format (`LLD-<epic-id>-<section-slug>`)
   and the link uses the full anchor ID as its fragment target.
 
 **Notes:** The navigability link is the bridge between Epic 1 (template) and Epic 2
-(extension). The extension intercepts `edf://` links in the preview; `#LLD-` anchors
+(extension). The extension intercepts navigability links in the preview; `#LLD-` anchors
 work via native browser scrolling. The template must document the per-type mechanism
 (`link` vs `click`) and both link types with examples.
 
@@ -285,9 +287,10 @@ work via native browser scrolling. The template must document the per-type mecha
 
 ## Epic 2: VSCode Extension — Diagram Navigation [Priority: High]
 
-The extension that makes `edf://` links functional in VSCode's markdown preview. Hover
-to peek at source, click to open in an adjacent column, and navigate to Part B specs via
-`#LLD-` anchors. Depends on Epic 1 for diagrams to carry navigability links (`link` on
+The extension that makes diagram navigability links functional in VSCode's markdown
+preview. Hover to peek at source, click to open in an adjacent column, and navigate to
+Part B specs via `#LLD-` anchors. Depends on Epic 1 for diagrams to carry navigability
+links (`link` on
 sequence diagrams, `click` on flowchart / classDiagram / stateDiagram). The extension
 intercepts the `<a>` elements Mermaid renders for those directives — no DOM-injection
 onto SVG nodes is required. Includes graceful degradation so links are harmless when the
@@ -298,7 +301,7 @@ extension is absent.
 ### Story 2.1: Hover tooltip showing source file preview
 
 **As an** LLD Reviewer,
-**I want to** hover over an `edf://` link in the markdown preview and see the first ~40
+**I want to** hover over a navigability link in the markdown preview and see the first ~40
 lines of the referenced source file in a tooltip,
 **so that** I can verify the real function signature matches the design's assumptions
 without opening the file or losing my place in the diagram.
@@ -306,17 +309,17 @@ without opening the file or losing my place in the diagram.
 **Acceptance Criteria:**
 
 - Given an LLD markdown preview is open with rendered Mermaid diagrams containing
-  `edf://` links, when the reviewer hovers over an `edf://` link for 150ms, then a
-  tooltip appears showing the first 40 lines of the referenced source file.
+  navigability links, when the reviewer hovers over a navigability link for 150ms,
+  then a tooltip appears showing the first 40 lines of the referenced source file.
 - Given a tooltip is displayed, when the reviewer moves the mouse away from the link,
   then the tooltip dismisses within 200ms.
-- Given an `edf://` link points to a file that does not exist in the workspace, when
+- Given a navigability link points to a file that does not exist in the workspace, when
   the reviewer hovers, then the tooltip shows "File not found: <path>" and no file
   read is attempted.
-- Given an `edf://` link contains a path with `..` segments that would resolve
+- Given a navigability link contains a path with `..` segments that would resolve
   outside the workspace root, when the extension resolves the path, then the tooltip
   shows "Path outside workspace: <path>" and no file content is read.
-- Given an `edf://` link contains a malformed or empty path, when the reviewer
+- Given a navigability link contains a malformed or empty path, when the reviewer
   hovers, then the tooltip shows "Invalid path: <raw-value>" and no file read is
   attempted.
 - Given the tooltip content is displayed, when measured from the hover event to the
@@ -339,26 +342,26 @@ without opening the file or losing my place in the diagram.
 ### Story 2.2: Click opens source file in adjacent column
 
 **As an** LLD Reviewer,
-**I want to** click an `edf://` link and have the source file open in the adjacent VSCode
+**I want to** click a navigability link and have the source file open in the adjacent VSCode
 column while the markdown preview stays visible,
 **so that** I can inspect the full implementation without tab-switching or losing
 orientation in the design document.
 
 **Acceptance Criteria:**
 
-- Given a reviewer hovers over an `edf://` link in the markdown preview, when they
+- Given a reviewer hovers over a navigability link in the markdown preview, when they
   click the link, then the referenced source file opens in the adjacent VSCode column
   using `vscode.window.showTextDocument(uri, { viewColumn: ViewColumn.Beside })`.
 - Given a source file opens in the adjacent column, when the operation completes,
   then the markdown preview remains visible in its original column — it is not closed
   or replaced.
-- Given an `edf://` link points to a file that does not exist, when clicked, then a
+- Given a navigability link points to a file that does not exist, when clicked, then a
   VSCode error message "File not found: <path>" is shown and no editor tab is opened.
-- Given an `edf://` link path resolves outside the workspace root (contains `..`
+- Given a navigability link path resolves outside the workspace root (contains `..`
   segments escaping the root), when clicked, then the file is not opened, an error is
   logged to the "EDF Review" output channel with the raw URI and failure reason, and
   a VSCode information message "Cannot open file outside workspace" is shown.
-- Given a click event occurs on an `edf://` link, when measured, then
+- Given a click event occurs on a navigability link, when measured, then
   `showTextDocument` is issued within 100ms of the click event.
 - Given the extension opens a file, when the file is already open in another tab,
   then the existing tab is focused (the same file is not opened twice).
@@ -401,42 +404,44 @@ breakdown — in a single click instead of scroll-hunting through the document.
 
 ---
 
-<a id="REQ-vscode-extension-diagram-navigation-graceful-degradation-edf-links"></a>
+<a id="REQ-vscode-extension-diagram-navigation-graceful-degradation-navigability-links"></a>
 
-### Story 2.4: Graceful degradation of `edf://` links in external renderers
+### Story 2.4: Graceful degradation of navigability links in external renderers
 
 **As a** Plugin Maintainer,
-**I want to** ensure that `edf://` links render as inert, harmless links when the
+**I want to** ensure that navigability links render as inert, harmless links when the
 markdown is viewed in GitHub, GitLab, or other non-VSCode renderers,
 **so that** external reviewers and contributors never encounter broken links, error
 states, or confusing UI when reading LLDs outside VSCode.
 
 **Acceptance Criteria:**
 
-- Given an LLD is viewed in GitHub's markdown renderer, when `edf://` links appear in
-  Mermaid diagrams, then they render as standard `<a>` elements with `cursor: pointer`
-  but produce no navigation, no error, and no console warning on click (unknown URL
-  scheme is silently ignored by browsers).
-- Given an LLD is viewed in GitLab's markdown renderer, when `edf://` links are
+- Given an LLD is viewed in GitHub's markdown renderer, when navigability links appear
+  in Mermaid diagrams, then they render as standard `<a>` elements carrying a relative
+  href — clicking produces no navigation to real content (a 404 page at worst, or no
+  navigation if the renderer strips diagram links), never an error or console warning.
+- Given an LLD is viewed in GitLab's markdown renderer, when navigability links are
   rendered, then the links are inert — no broken-link styling, no error page on
   click, no JavaScript exceptions in the browser console.
 - Given an LLD is viewed as raw markdown in a text editor without preview, when the
-  markdown source is read, then `edf://` URLs are clearly identifiable as
+  markdown source is read, then navigability paths are clearly identifiable as
   workspace-relative file references (human-readable paths like
-  `edf://src/lib/auth/middleware.ts`).
-- Given Mermaid renders an `edf://` href as a standard `<a>` element, when the
-  `<a>` element is generated, then clicking the link in any browser produces no
-  navigation and no error (the unrecognised URL scheme is silently ignored).
-- Given the extension is not installed, when `edf://` links are tested in a
+  `src/lib/auth/middleware.ts`).
+- Given Mermaid renders a workspace-relative href as a standard `<a>` element, when
+  the `<a>` element is generated, then clicking the link in any browser produces no
+  error and no console warning — the relative href either navigates to a 404 page or
+  is stripped by the renderer, both harmless.
+- Given the extension is not installed, when navigability links are tested in a
   fresh browser profile against the current versions of GitHub and GitLab, then
-  no navigation, error, or console warning occurs on click — the link is inert.
+  no error or console warning occurs on click — the link is inert (404 at worst).
 
 **Notes:** This is primarily a verification and documentation story. The template
-specifies `edf://` links; the "harmless dead link" behaviour is inherent to the
-unrecognised URL scheme — it does not depend on `_self` targets. The extension does
-not need to handle the degradation case — it is only active in VSCode. The story
-deliverable is a verification report confirming degradation across GitHub, GitLab, and
-at least one other renderer, plus any template adjustments needed.
+specifies workspace-relative path links; the "harmless dead link" behaviour is inherent
+to a relative href resolving against the page URL (or being stripped by the renderer) —
+it does not depend on `_self` targets. The extension does not need to handle the
+degradation case — it is only active in VSCode. The story deliverable is a verification
+report confirming degradation across GitHub, GitLab, and at least one other renderer,
+plus any template adjustments needed.
 
 ---
 
@@ -522,8 +527,7 @@ without the author needing to remember them.
 - Given a diagram participant is identified as existing code, when Step 2 executes,
   then the skill generates a navigability link appropriate to the diagram type — a
   `link` directive on sequence diagrams, a `click` directive on flowchart /
-  classDiagram / stateDiagram — with an `edf://` URL resolving to the workspace-relative
-  source path.
+  classDiagram / stateDiagram — with the workspace-relative source path.
 - Given a diagram participant is identified as a new component, when Step 2 executes,
   then the skill generates a navigability link appropriate to the diagram type — a
   `link` directive on sequence diagrams, a `click` directive on flowchart /
@@ -536,9 +540,9 @@ without the author needing to remember them.
   the template (`lld/template.md`), then every concern has at least one worked example
   in the skill: diagram type selection (example with gate condition), `classDef`
   application (example with colour assignment), navigability-link generation (example
-  with `edf://` and `#LLD-` paths, using `link` on sequence diagrams and `click` on
-  flowchart / classDiagram / stateDiagram), and `Note` annotation placement (example
-  with enforcement mechanism text).
+  with a workspace-relative path and a `#LLD-` path, using `link` on sequence diagrams
+  and `click` on flowchart / classDiagram / stateDiagram), and `Note` annotation
+  placement (example with enforcement mechanism text).
 - Given the template (`lld/template.md`) is updated, when the SKILL.md generation
   rules are reviewed, then every template feature has a corresponding generation rule
   in the skill (co-versioning per Design Principle 6).
@@ -557,7 +561,7 @@ must not duplicate template content — it references it.
 **I want to** add a diagram navigability check to the `/lld` Step 2.5 self-critique
 checklist (every participant has a navigability link — `link` on sequence diagrams,
 `click` on flowchart / classDiagram / stateDiagram, none on erDiagram; enforcement
-points are annotated; the palette is applied; `edf://` links use valid paths),
+points are annotated; the palette is applied; workspace-relative paths use valid paths),
 **so that** every LLD author catches navigability gaps during self-review, before the
 document reaches a human reviewer.
 
@@ -577,8 +581,8 @@ document reaches a human reviewer.
   that uses them (never as a standalone block, which is invalid Mermaid) and are
   applied consistently — no participant that matches a defined role uses default
   styling.
-- Given the self-critique runs, when `edf://` paths are evaluated, then the check
-  verifies: each `edf://` path references a file that exists in the workspace
+- Given the self-critique runs, when navigability paths are evaluated, then the check
+  verifies: each workspace-relative path references a file that exists in the workspace
   (resolvable relative to the workspace root).
 - Given a navigability check fails, when reported to the author, then the failure
   message identifies the specific participant, interaction, or path that needs
@@ -598,11 +602,12 @@ match the template conventions defined in Epic 1.
 
 ### Security
 
-- **Path traversal prevention (owned by Stories 2.1, 2.2):** The `edf://` protocol
-  handler must validate that resolved file paths are within the workspace root. An
-  `edf://../../../etc/passwd` link must not resolve to a file outside the workspace.
-  Implemented by resolving the `edf://` path against `vscode.workspace.workspaceFolders[0].uri`
-  and verifying the resulting URI's `fsPath` starts with the workspace root `fsPath`.
+- **Path traversal prevention (owned by Stories 2.1, 2.2):** The navigability-path
+  handler must validate that resolved file paths are within the workspace root. A
+  `../../../etc/passwd` navigability link must not resolve to a file outside the
+  workspace. Implemented by resolving the path against
+  `vscode.workspace.workspaceFolders[0].uri` and verifying the resulting URI's `fsPath`
+  starts with the workspace root `fsPath`.
 - **No arbitrary code execution (owned by Stories 2.1, 2.2):** Hover tooltip content
   is extracted from source files via `vscode.workspace.fs.readFile`, not by executing
   the file. The extension must not evaluate, `import()`, or otherwise interpret file
@@ -630,7 +635,7 @@ match the template conventions defined in Epic 1.
 
 ### Observability
 
-- **Extension errors (owned by Stories 2.1, 2.2, 3.1):** Every failed `edf://`
+- **Extension errors (owned by Stories 2.1, 2.2, 3.1):** Every failed navigability-path
   resolution (file not found, path outside workspace, malformed URI) produces a log
   entry in the VSCode output channel `EDF Review` with the raw URI and the failure
   reason.

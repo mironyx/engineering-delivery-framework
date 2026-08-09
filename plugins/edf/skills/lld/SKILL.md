@@ -164,10 +164,12 @@ this is the *generation logic* the LLD agent applies:
      in prose instead
    - **Node ids.** classDiagram/flowchart ids must not contain `/` or other reserved
      punctuation — `engine/scoring` is a parse error; use `EngineScoring` and show the
-     module path in the tooltip/`edf://` URL instead. sequenceDiagram `link` ids are
-     the actor names as declared (`API`, `Service`, …), which may be `edf://` or
-     `#LLD-` URLs
-   - Existing source file → `edf://<repo-relative-path>` — use paths from the
+     module path in the tooltip/URL instead. sequenceDiagram `link` ids are
+     the actor names as declared (`API`, `Service`, …), which may be a workspace-relative
+     path or a `#LLD-` URL
+   - Existing source file → the workspace-relative path **without** an `edf://` scheme
+     (Mermaid's default `securityLevel: strict` strips custom schemes from rendered
+     links, leaving them inert; a bare relative path survives) — use paths from the
      code-explorer brief in Step 0c, or grep to confirm the file exists
    - New-to-be-created code → `#LLD-<epic-id>-<section-slug>` — this must resolve
      to an `<a id="LLD-...">` anchor on the corresponding Part B section heading
@@ -185,8 +187,9 @@ this is the *generation logic* the LLD agent applies:
    them with prose: "See error-path detail below."
 
 6. **Mermaid syntax validation.** Wrap labels containing punctuation or special
-   characters in quotes. `edf://` links must be bare paths without trailing
-   punctuation. `#LLD-` anchors must match the `<a id>` exactly (case-sensitive).
+   characters in quotes. Workspace-relative path links must be bare paths without
+   trailing punctuation (no `edf://` scheme — it is stripped by strict security mode).
+   `#LLD-` anchors must match the `<a id>` exactly (case-sensitive).
    Verify interaction syntax per diagram type against the Mermaid docs — `click` is
    not supported on sequenceDiagram (use `link`) or erDiagram (omit), and `click`'s
    third argument is a tooltip string, not a target keyword.
@@ -222,8 +225,8 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 - **Diagram navigability.** Is every diagram participant navigable via the correct
   mechanism for its diagram type? sequenceDiagram → `link <actor>: <label> @ <url>`;
   flowchart / classDiagram / stateDiagram → `click <node> href "<url>" "<tooltip>"`;
-  erDiagram → no links (refer in prose). Existing code → `edf://` path that resolves
-  to a real file; new code → `#LLD-` anchor that matches a Part B `<a id>`. A
+  erDiagram → no links (refer in prose). Existing code → workspace-relative path that
+  resolves to a real file; new code → `#LLD-` anchor that matches a Part B `<a id>`. A
   participant with no link is a fix — no dead labels. Are enforcement points (authZ,
   validation, external boundaries, error propagation) annotated with `Note` blocks on
   sequence diagrams? Missing enforcement annotations on a flow crossing a trust

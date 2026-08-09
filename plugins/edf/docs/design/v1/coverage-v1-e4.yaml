@@ -1,0 +1,15 @@
+epic: v1-e4
+entries:
+  - req: REQ-skill-instructions-quality-gates-diagram-generation-rules-lld-skill
+    lld: lld-v1-e4-skill-quality-gates.md#LLD-v1-e4-generation-rules-navigability
+    issue: 40
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 4.1 AC7 (co-versioning) also satisfied by LLD-v1-e4-generation-rules-navigability.
+  - req: REQ-skill-instructions-quality-gates-self-critique-checklist-diagram-navigability
+    lld: lld-v1-e4-skill-quality-gates.md#LLD-v1-e4-generation-rules-navigability
+    issue: 40
+    files: []
+    status: Approved
+    lld_revision: r1

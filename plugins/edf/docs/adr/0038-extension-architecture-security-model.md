@@ -1,4 +1,4 @@
-# 0038. VSCode Extension Architecture & Security Model for `edf://` Protocol
+# 0038. VSCode Extension Architecture & Security Model for Diagram Navigability Links
 
 **Date:** 2026-08-02
 **Status:** Accepted
@@ -6,10 +6,15 @@
 
 ## Context
 
-V1 introduces a VSCode extension (EDF Review) that makes `edf://` links functional in the
-markdown preview. When a reviewer hovers over a diagram participant in an LLD, the
-extension shows the first ~40 lines of the referenced source file in a tooltip. When they
-click, the file opens in the adjacent VSCode column while the preview stays visible. A
+V1 introduces a VSCode extension (EDF Review) that makes diagram navigability links
+functional in the markdown preview. The links are **workspace-relative source paths** and
+`#LLD-` anchors that Mermaid's native `link`/`click` directives render as `<a>` elements
+inside the preview's SVG diagrams; the extension intercepts those anchors. (An earlier
+design used an `edf://` custom URL scheme — abandoned; see the 2026-08-09 amendment.)
+
+When a reviewer hovers over a diagram participant in an LLD, the extension shows the
+first ~40 lines of the referenced source file in a tooltip. When they click, the file
+opens in the adjacent VSCode column while the preview stays visible. A
 command-palette action presents a filterable quick-pick of document headings and inserts a
 review-feedback marker into the source editor (exact marker format and insertion-point
 rules are owned by [Story 3.1](../../requirements/v1-requirements.md#story-31-quick-pick-section--insert-review-comment), not this ADR).
@@ -112,11 +117,13 @@ fire-and-forget.
 
 ### Security boundary
 
-1. **Path containment (primary).** Every `edf://` path is resolved against
+1. **Path containment (primary).** Every diagram-navigability path is resolved against
    `vscode.workspace.workspaceFolders[0].uri`. The resolved `fsPath` must start with the
    workspace root `fsPath`. Paths with `..` segments that would escape the root are
    rejected before any `readFile` or `showTextDocument` call. Rejections are logged to
    the `EDF Review` output channel with the raw URI and failure reason.
+   With the scheme dropped, containment is now the *only* signal distinguishing a
+   navigability link from ordinary markdown links, so it is also the only path filter.
 
 2. **No arbitrary code execution.** File content is read via
    `vscode.workspace.fs.readFile` as UTF-8 text. The extension never evaluates,
@@ -165,10 +172,20 @@ fire-and-forget.
   `link <actor>: <label> @ <url>` on sequence diagrams, `click <node> href "<url>" "<tooltip>"`
   on flowchart / classDiagram / stateDiagram (the third argument is the tooltip string,
   not a target keyword), and no links on erDiagram. `media/preview.js` intercepts the
-  resulting `<a>` elements via `querySelectorAll('a[xlink\\:href], a[href]')` — no DOM
-  injection onto SVG nodes and no hidden `<!-- edf-map -->` mapping block is required.
-  This supersedes the spike finding (2026-08-02) that sequence diagrams needed a
-  DOM-injection fix.
+  resulting `<a>` elements — no DOM injection onto SVG nodes and no hidden
+  `<!-- edf-map -->` mapping block is required. This supersedes the spike finding
+  (2026-08-02) that sequence diagrams needed a DOM-injection fix.
+- **Interception is scoped to SVG anchors.** With the `edf://` scheme gone, diagram
+  links are indistinguishable from ordinary markdown links by href alone — both are
+  `<a href="...">`. `preview.js` must therefore scope its discovery to anchors rendered
+  *inside* the preview's SVG diagrams (`querySelectorAll('svg a[xlink\\:href], svg a[href]')`)
+  and skip all other links in the document, so hovering/clicking a reviewer's regular
+  `[text](file.md)` link is never hijacked. The anchor must also carry a workspace-relative
+  path or `#LLD-` fragment — absolute URLs (`http`, `mailto`, …) are ignored.
+- **Navigability degrades to a harmless 404 on GitHub.** A workspace-relative href is
+  preserved by Mermaid in every renderer (custom schemes are not), but outside VSCode
+  it resolves against the page URL and 404s — an inert click, never a navigation or an
+  error. `#LLD-` anchors scroll natively everywhere.
 - **No telemetry, no analytics.** The extension declares no network access. We get no
   usage data. This is intentional for V1 — the `EDF Review` output channel is the only
   observability surface.
@@ -182,3 +199,16 @@ argument, and erDiagram supports no interaction. The earlier consequence proposi
 DOM-injection onto SVG `<rect>` elements plus an `<!-- edf-map -->` mapping block is
 obsolete and removed — `preview.js` intercepts the native `<a>` elements directly.
 Message-contract command names aligned to the implementation (`peek` / `open`).
+
+**Amendment (2026-08-09).** Dropped the `edf://` custom URL scheme. Empirical verification
+with mermaid-cli 11.16.0 showed Mermaid's default `securityLevel: strict` strips custom
+URL schemes from rendered `<a href>` elements in every diagram type, so `edf://` links
+render inert in the very renderer the extension targets (VS Code's markdown-mermaid uses
+strict by default); the `%%{init: {"securityLevel":"loose"}}%%` directive cannot override
+it (securityLevel is initialize-time-only). Workspace-relative paths and `#LLD-` fragments
+survive strict and render as real links. Navigability links therefore use the bare
+workspace-relative path (`click A href "src/lib/x.ts" "source"`); interception is scoped
+to SVG-rendered anchors so ordinary markdown links are untouched, and containment is now
+the sole path filter. Title, context, security-boundary 1, and the consequences updated;
+`edf://` no longer appears in requirements, template, or skill rules. Requirement ACs
+(Stories 1.4 / 2.3 / 2.4 / 4.1 / 4.2) and the E1/E2 LLDs were updated in the same sweep.
