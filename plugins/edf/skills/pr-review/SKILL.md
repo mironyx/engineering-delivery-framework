@@ -1,7 +1,7 @@
 ---
 name: pr-review
-description: Review code changes for bugs, design principles, contract adherence, framework best practices, and design conformance. Use before committing (/pr-review) or on a PR (/pr-review 123). Adaptive: 1 agent for small diffs, 2 agents for large diffs. Agent B (framework patterns) only runs when framework files changed.
-allowed-tools: Read, Write, Bash, Glob, Grep, Agent, Skill, TodoWrite, WebSearch
+description: Review code changes for bugs, design principles, contract adherence, external surface currency, and design conformance. Use before committing (/pr-review) or on a PR (/pr-review 123). Adaptive: 1 agent for small diffs, 2 agents for large diffs. Agent B (surface currency) runs on either path, only on first use of an external surface or when dependency/config files changed.
+allowed-tools: Read, Write, Bash, Glob, Grep, Agent, Skill, TodoWrite, WebFetch, WebSearch
 ---
 
 # PR Review
@@ -14,7 +14,7 @@ Two modes:
 **Cost-adaptive architecture.** Agent count scales with diff size:
 - Diff < 150 lines → **1 agent** (Quality, covering all checks)
 - Diff ≥ 150 lines → **2 agents** (Quality + Design Conformance in parallel)
-- Agent B (framework patterns) only runs if framework or config files changed
+- Agent B (surface currency) runs on either path, but only on first use of an external surface, or when dependency/config files changed
 
 ---
 
@@ -50,35 +50,30 @@ From the gathered data, compute:
 - `DIFF_LINE_COUNT` — total lines in the diff (added + removed)
 - `CHANGED_FILES` — source files added or modified (not deleted). Treat any path under the project's source root as a source file; `kb/conventions.md` may name a `test-suffix` to recognise tests.
 - `EXTERNAL_SURFACES` — every surface the diff codes against whose contract is defined
-  outside this repo, each with its pinned version. This is broader than the dependency
-  manifest: a protocol or wire-format specification (MCP, OAuth, a webhook payload format)
-  has no manifest entry but is still an external surface, and is the case most likely to be
-  implemented from stale recall precisely because there is no version to grep for.
-  - **Preferred source:** the `## External Surfaces` table in Part B of the LLD linked from
-    the issue. It is authoritative — it carries the pinned version, the doc URL, and the
-    `New to repo` flag the design agreed on.
-  - **Fallback** (no LLD, or no table): derive it. Take direct (not dev) dependencies from
-    the manifest that the changed files import, and add any protocol/spec surface evident
-    from the diff itself — handshake or capability negotiation, a versioned wire format, a
-    dated spec revision in comments or constants. Capture exact versions from the manifest
-    read in Step 1.4; for spec surfaces with no manifest entry, capture whatever revision
+  outside this repo, each with its pinned version. Broader than the dependency manifest: a
+  protocol or wire-format spec (MCP, OAuth, a webhook payload format) has no manifest entry
+  yet is the case most likely to be written from stale recall, precisely because there is no
+  version to grep for. Cap at 5, most central to the diff first.
+  - **Source:** the `## External Surfaces` table in Part B of the LLD linked from the issue —
+    authoritative, and already carries version, doc URL, and `New to repo`.
+  - **No LLD or no table:** derive it. Direct (not dev) dependencies the changed files
+    import, plus any spec surface evident from the diff — handshake or capability
+    negotiation, a versioned wire format, a dated revision in comments or constants.
+    Versions come from the manifest read in Step 1.4; for spec surfaces, whatever revision
     the diff states, or `unpinned` if it states none.
-  - Cap at 5 surfaces, most central to the diff first.
-- `NEW_SURFACES` — the subset of `EXTERNAL_SURFACES` used here for the first time anywhere
-  in this repo. Read it from the table's `New to repo` column when present; otherwise grep
-  the repo outside the diff for prior use of each surface. First use means there was no
-  in-repo precedent for the author to imitate, so the code was written from training recall.
-- `PATTERNS_NEEDED` — true if EITHER:
-  - `NEW_SURFACES` is non-empty — **the primary trigger.** New integrations are where recall
-    is unanchored and where a spec revision the model never saw gets silently invented.
-  - The changed file list touches the dependency manifest or lockfile, an `.env` / `.env.*`
-    file, or a framework config file (`*.config.ts`, `middleware.ts`, `next.config.*`,
+- `NEW_SURFACES` — the subset used here for the first time anywhere in this repo. Read the
+  table's `New to repo` column, or grep outside the diff for prior use. First use means the
+  author had no in-repo precedent to imitate, so the code came from training recall.
+- `SURFACE_RESEARCH` — true if EITHER:
+  - `NEW_SURFACES` is non-empty — **the primary trigger.**
+  - The changed files touch the dependency manifest or lockfile, an `.env` / `.env.*` file,
+    or a framework config file (`*.config.ts`, `middleware.ts`, `next.config.*`,
     `vite.config.*`, build config) — judged against the project's stack.
 
-  Note what this deliberately does **not** trigger on: ordinary changes to code that uses a
-  surface already established in the repo. There the surrounding code is the anchor, research
-  is mostly wasted spend, and `{{ANTI_PATTERNS}}` already runs for free on every review. The
-  gate exists to spend on first contact with a surface — once per surface, not once per PR.
+  It deliberately does **not** fire on ordinary changes to code using an already-established
+  surface: there the surrounding code is the anchor, research is wasted spend, and
+  `{{ANTI_PATTERNS}}` already runs free on every review. Spend on first contact — once per
+  surface, not once per PR.
 
 Then fetch in parallel:
 - **Issue body:** extract linked issue from PR body (`Closes #N`, `Fixes #N`, `Resolves #N`).
@@ -94,10 +89,9 @@ Then fetch in parallel:
 
 **Agent Q — Quality (all checks, single agent)**
 
-If `PATTERNS_NEEDED` is true, launch **Agent B alongside Agent Q in the same message** (two
-agents). A small diff is not a safe diff: a first integration against a protocol spec can be
-eighty lines and still be written entirely from recall. Diff size decides how the *quality*
-checks are split; `PATTERNS_NEEDED` alone decides whether surface research happens.
+If `SURFACE_RESEARCH` is true, launch **Agent B alongside Agent Q in the same message**. Diff
+size decides how the *quality* checks are split; `SURFACE_RESEARCH` alone decides whether
+surface research happens — a first integration can be eighty lines and still be invented.
 
 **Tools:** Read, Bash, Glob, Grep
 
@@ -522,13 +516,13 @@ Return [] if nothing warrants reporting.
 
 ---
 
-#### Agent B — External Surface Currency (ONLY if PATTERNS_NEEDED is true)
+#### Agent B — External Surface Currency (ONLY if SURFACE_RESEARCH is true)
 
 **Tools:** Read, Bash, Glob, Grep, WebFetch, WebSearch
 
-If `PATTERNS_NEEDED` is false, **skip Agent B entirely.**
+If `SURFACE_RESEARCH` is false, **skip Agent B entirely.**
 
-If `PATTERNS_NEEDED` is true, launch Agent B on **either** size path, in the same message as
+If `SURFACE_RESEARCH` is true, launch Agent B on **either** size path, in the same message as
 the other agents — alongside Agent Q under 150 lines, or alongside Agent A and Agent C at or
 above it.
 
@@ -551,25 +545,23 @@ If the PR references a design doc:
 
 ## Part 2: External surface currency (web research per surface)
 
-Surfaces marked NEW below are used for the first time in this repo. There was no in-repo
-precedent for the author to copy, so that code was written from training recall — which for
-a spec revised after the model's training data is confidently wrong in a way that reads
-perfectly consistent. **Research every NEW surface first, and never rely on your own
-recollection of its contract to judge the diff.**
+Surfaces marked NEW below are first use in this repo: no precedent for the author to copy,
+so that code came from training recall — which for a spec revised after your training data
+is confidently wrong in a way that reads perfectly consistent. **Research every NEW surface
+before judging it, and never fall back on your own recollection of its contract.**
 
-For a NEW surface that has a doc URL, `WebFetch` that URL and compare the diff against what
-it actually says: message and field names, required and optional fields, handshake or
-negotiation order, error shapes, and any capability the pinned revision added or removed.
-For every other surface, run ONE targeted web search, framed as:
+For a NEW surface with a doc URL, `WebFetch` it and compare the diff against what it actually
+says: message and field names, required vs optional fields, handshake or negotiation order,
+error shapes, capabilities the pinned revision added or removed. For every other surface, run
+ONE targeted web search, framed as:
   "<surface> <version> best practices discouraged patterns <year>"
   or "<surface> <version> security recommendations current"
 
-**The pinned version is the contract.** Judge the diff against the version or dated revision
-stated below, not the version you remember as current. If the diff implements a different
-revision than the one pinned — an older message shape, a field the pinned revision renamed
-or dropped — report it as a block-severity finding: that is the exact failure this check
-exists to catch. If a surface is marked `unpinned`, report that too; an external surface with
-no pinned version cannot be reviewed for currency and cannot be tracked for drift.
+**The pinned version is the contract** — judge against the revision stated below, not the one
+you remember as current. A diff implementing a different revision (an older message shape, a
+field the pinned revision renamed or dropped) is a **block**: that is the exact failure this
+check exists to catch. Report `unpinned` surfaces too — they can be neither reviewed for
+currency nor tracked for drift.
 
 Do NOT frame searches as just "deprecated APIs" — you are looking for:
 - Security anti-patterns (e.g. using wrong key type server-side, insecure defaults)
@@ -580,12 +572,8 @@ Do NOT frame searches as just "deprecated APIs" — you are looking for:
 Cross-reference findings with the diff. Only report if the diff actively uses a discouraged
 or insecure pattern. Do not report theoretical risks not present in the code.
 
-The kinds of findings to look for: security anti-patterns (wrong credential type
-server-side, insecure defaults), patterns the framework has formally moved away from,
-usage that violates the framework's current recommended approach, and known footguns the
-community has documented. The project's static checklist in `{{ANTI_PATTERNS}}` covers the
-patterns the team has already learned to flag — Agent B supplements that with framework-
-specific research.
+The project's static checklist in `{{ANTI_PATTERNS}}` covers the patterns the team has
+already learned to flag — you supplement it with surface-specific research.
 
 Surfaces to check — each listed as `name | pinned version | doc URL | NEW or ESTABLISHED`:
 {{EXTERNAL_SURFACES}}
@@ -697,9 +685,9 @@ Append to terminal output (not to the PR comment):
 ## Notes
 
 - Do not run builds, type-checks, or tests — CI handles those.
-- In the ≥ 150 line path: launch Agent A and Agent C (and Agent B if PATTERNS_NEEDED)
+- In the ≥ 150 line path: launch Agent A and Agent C (and Agent B if SURFACE_RESEARCH)
   in the **same message** so they run concurrently. In the < 150 line path: launch Agent Q
-  (and Agent B if PATTERNS_NEEDED) the same way. Agent B's trigger is independent of diff
+  (and Agent B if SURFACE_RESEARCH) the same way. Agent B's trigger is independent of diff
   size — a first integration against an external spec can be small and still be invented.
 - If the diff is empty, report "Nothing to review — diff is empty." and stop.
 - The 150-line threshold is a guide. If a large diff is mostly trivial changes (whitespace,

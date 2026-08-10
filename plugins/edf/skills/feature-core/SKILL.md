@@ -80,35 +80,21 @@ Execute sequentially. Do not skip steps. Do not ask for confirmation — only pa
 4. Read any existing source files in the target directory.
 5. Understand the contract: inputs, outputs, types, error cases.
 
-### Step 3a: Verify external surfaces before coding against them
+### Step 3a: Verify external surfaces
 
-Read the `## External Surfaces` table at the top of Part B of the LLD. It pins every
-surface whose contract is defined outside this repo — packages and SDKs, but also protocol
-and wire-format specifications (MCP, OAuth, webhook formats), cloud/IaC providers, and
-third-party HTTP APIs.
-
-**The pinned version is binding.** Implement against the version or dated revision in the
-table, not against whatever version you recall. If the table pins `MCP 2025-06-18`, the
-implementation targets that revision even where your recollection of the protocol differs.
-
-For each row, act on the `New to repo` and `Verified` columns:
+Read the `## External Surfaces` table at the top of Part B of the LLD. **The pinned version
+is binding** — implement against the version or dated revision in the table, not the one you
+recall as current.
 
 | Row state | Action before writing code |
 |-----------|---------------------------|
-| `New to repo: Yes` | `WebFetch` the Doc URL and read the contract you are about to implement. Mandatory — there is no in-repo precedent to imitate, so the alternative is writing it from training recall. |
-| `Verified: Unverified` | `WebFetch` the Doc URL, or `WebSearch` for the pinned version's docs if no URL is given. Resolve the claim before coding on it. |
-| `New to repo: No` **and** `Verified: Yes` | No research. Follow the existing in-repo usage — grep for it and match the established pattern. This is the cheap path and it is the common case. |
+| `New to repo: Yes` | `WebFetch` the Doc URL. Mandatory — no in-repo precedent to imitate, so the alternative is writing it from training recall. |
+| `Verified: Unverified` | `WebFetch` the Doc URL, or `WebSearch` the pinned version's docs if no URL is given. |
+| Otherwise | No research — grep for the existing in-repo usage and match it. The common case. |
 
-Cost is bounded by design: a surface is `New to repo` once in the life of the repo, and
-routine work on established surfaces triggers no fetches at all.
-
-**If the LLD has no External Surfaces table** (written before this convention, or the issue
-has no LLD) and this change codes against an external surface: identify the surface, grep
-the repo for prior use, and if there is none, fetch its current docs before coding. Note the
-gap in the PR body under `## Design deviations` so `/lld-sync` backfills the table.
-
-State in one line which rows you fetched and which you skipped, so the choice is visible in
-the session log.
+**No table** (LLD predates the convention, or there is no LLD): identify the surfaces this
+change codes against, grep for prior use, and fetch docs for any with none. Note the gap
+under `## Design deviations` so `/lld-sync` backfills the table.
 
 ### Step 3b: Pick the simplest approach
 

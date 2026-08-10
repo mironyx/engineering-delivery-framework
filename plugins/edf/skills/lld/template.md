@@ -340,36 +340,28 @@ internal decomposition) in this part.]
 
 Every external surface this phase codes against, with its pinned version. An **external
 surface** is anything whose contract is defined outside this repo: a package or SDK, a
-protocol or wire-format specification, a cloud provider or IaC provider, or a third-party
-HTTP API. A surface with no entry in any dependency manifest — a protocol spec such as MCP,
-OAuth, or a webhook payload format — still belongs in this table. Those are the ones with no
-version to grep for, which is exactly why they must be pinned here.
+protocol or wire-format spec, a cloud/IaC provider, a third-party HTTP API. Surfaces with no
+dependency-manifest entry (MCP, OAuth, a webhook payload format) belong here too — they have
+no version to grep for, which is exactly why this table has to carry it.
 
 | Surface | Version / revision | Doc URL | Verified | New to repo |
 |---------|--------------------|---------|----------|-------------|
 | [`@azure/storage-blob`] | [`12.18.0`] | [https://…] | [Yes / Unverified] | [Yes / No] |
 | [MCP protocol] | [`2025-06-18`] | [https://…] | [Yes / Unverified] | [Yes / No] |
 
-Column rules:
+- **Version / revision** — an exact version, a constraint (`hashicorp/azurerm ~> 3.108`), or
+  a dated spec revision (`MCP 2025-06-18`). If genuinely version-agnostic (e.g. a generic
+  HTTP client), write `version-agnostic` and say why. Never blank, never just a product name.
+- **Doc URL** — the specific page this design relies on, not a docs homepage.
+- **Verified** — `Yes` only if the LLD's claims were checked against that URL with
+  `WebFetch`/`WebSearch` while authoring. Otherwise `Unverified`, and mark the dependent
+  claims inline with `> **Unverified — recall-based:**`.
+- **New to repo** — `Yes` if this phase is the first use of the surface anywhere in the repo.
+  Decide it by grep, not memory. It is the trigger for both downstream checks: `Yes` means
+  `/feature` must read the doc before coding and `/pr-review` will research the surface.
 
-- **Version / revision** — an exact version, a constraint (`hashicorp/azurerm ~> 3.108`), or a
-  dated spec revision (`MCP 2025-06-18`, `OpenAI API 2024-11`). If the surface is genuinely
-  version-agnostic (e.g. a generic HTTP client), write `version-agnostic` and say why. Never
-  leave it blank and never write just the product name.
-- **Doc URL** — the specific page whose contract this design relies on, not a docs homepage.
-- **Verified** — `Yes` only if the contract claims in this LLD were checked against that URL
-  with `WebFetch`/`WebSearch` during authoring. Otherwise `Unverified`, and mark the
-  dependent claims inline with `> **Unverified — recall-based:**`.
-- **New to repo** — `Yes` if this phase is the first use of the surface anywhere in the
-  repo. Determine it by grep, not by memory. `Yes` means there is no in-repo precedent for
-  the implementing agent to imitate, so it must read the doc before writing code and the
-  PR review will research the surface. This column is the trigger for both.
-
-**Why this table is normative.** For a surface marked `New to repo`, the implementing agent
-has nothing to copy and will otherwise write it from training recall — which for a
-fast-moving spec is confidently wrong at a revision the model never saw. A version stated
-here is a contract that survives into implementation and review. A version stated only in
-conversation does not.
+This table is normative because a version stated here survives into implementation and
+review; one stated only in conversation does not.
 
 **Stable anchors (ADR-0026).** Every Part B section heading must be preceded by an HTML
 anchor so that Part A diagrams can link directly to the implementation spec. Format:
