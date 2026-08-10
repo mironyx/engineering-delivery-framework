@@ -1,6 +1,6 @@
 # /pr-review — Process flowchart
 
-Visual overview of the adaptive code review pipeline. Cost-adaptive: 1 agent for small diffs, 2 (or 3 with framework checks) for large diffs. Agent spawns are purple, decisions are orange.
+Visual overview of the adaptive code review pipeline. Cost-adaptive: diff size sets the number of quality agents (1 for small diffs, 2 for large); `PATTERNS_NEEDED` independently adds Agent B on either path when the diff makes first contact with an external surface. Agent spawns are purple, decisions are orange.
 
 ```mermaid
 flowchart TD
@@ -10,14 +10,14 @@ flowchart TD
     S1_CHK -->|"Yes"| STOP_EMPTY(["fa:fa-ban Nothing to review"])
     S1_CHK -->|"No"| S2
 
-    S2["S2: Classify<br/>DIFF_LINE_COUNT, CHANGED_FILES,<br/>FRAMEWORK_DEPS, PATTERNS_NEEDED"] --> S2_SIZE{"Diff size?"}
+    S2["S2: Classify<br/>DIFF_LINE_COUNT, CHANGED_FILES,<br/>EXTERNAL_SURFACES, NEW_SURFACES,<br/>PATTERNS_NEEDED"] --> S2_SIZE{"Diff size?"}
 
     S2_SIZE -->|"< 150 lines"| S3_SINGLE
     S2_SIZE -->|">= 150 lines"| S3_MULTI
 
     S3_SINGLE(("Agent Q: Quality<br/>All checks in one pass<br/>Bugs, justification, design,<br/>compliance, anti-patterns,<br/>design conformance, helper reuse"))
 
-    S3_SINGLE --> S4
+    S3_SINGLE --> S3_PAT
 
     subgraph PARALLEL["Parallel Agents (>= 150 lines)"]
         S3A(("Agent A: Code Quality<br/>Bugs, justification,<br/>design principles,<br/>CLAUDE.md compliance,<br/>anti-patterns"))
@@ -27,9 +27,9 @@ flowchart TD
     S3_MULTI --> S3A
     S3_MULTI --> S3C
 
-    S3A --> S3_PAT{"PATTERNS_NEEDED?"}
+    S3A --> S3_PAT{"PATTERNS_NEEDED?<br/>New external surface, or<br/>manifest/env/config changed"}
     S3C --> S3_PAT
-    S3_PAT -->|"Yes"| S3B(("Agent B: Framework<br/>Best practices, web search<br/>per framework dep"))
+    S3_PAT -->|"Yes"| S3B(("Agent B: Surface currency<br/>WebFetch pinned spec for new<br/>surfaces, best-practice search,<br/>version-mismatch check"))
     S3_PAT -->|"No"| S4
     S3B --> S4
 

@@ -49,12 +49,36 @@ From the gathered data, compute:
 
 - `DIFF_LINE_COUNT` — total lines in the diff (added + removed)
 - `CHANGED_FILES` — source files added or modified (not deleted). Treat any path under the project's source root as a source file; `kb/conventions.md` may name a `test-suffix` to recognise tests.
-- `FRAMEWORK_DEPS` — top 5 packages/imports referenced in changed files that appear in the project's dependency manifest as direct (not dev) dependencies. Skip if no manifest.
-- `PATTERNS_NEEDED` — true if ANY of these appear in the changed file list:
-  - The project's dependency manifest or lockfile (e.g. `package.json`/`package-lock.json`, `pyproject.toml`/`uv.lock`, etc.)
-  - Any `.env` / `.env.*` file
-  - Any file importing a framework package named in `{{ANTI_PATTERNS}}`
-  - Any framework config file (e.g. `*.config.ts`, `middleware.ts`, `next.config.*`, `vite.config.*`, `pyproject.toml` build config) — judged against the project's stack
+- `EXTERNAL_SURFACES` — every surface the diff codes against whose contract is defined
+  outside this repo, each with its pinned version. This is broader than the dependency
+  manifest: a protocol or wire-format specification (MCP, OAuth, a webhook payload format)
+  has no manifest entry but is still an external surface, and is the case most likely to be
+  implemented from stale recall precisely because there is no version to grep for.
+  - **Preferred source:** the `## External Surfaces` table in Part B of the LLD linked from
+    the issue. It is authoritative — it carries the pinned version, the doc URL, and the
+    `New to repo` flag the design agreed on.
+  - **Fallback** (no LLD, or no table): derive it. Take direct (not dev) dependencies from
+    the manifest that the changed files import, and add any protocol/spec surface evident
+    from the diff itself — handshake or capability negotiation, a versioned wire format, a
+    dated spec revision in comments or constants. Capture exact versions from the manifest
+    read in Step 1.4; for spec surfaces with no manifest entry, capture whatever revision
+    the diff states, or `unpinned` if it states none.
+  - Cap at 5 surfaces, most central to the diff first.
+- `NEW_SURFACES` — the subset of `EXTERNAL_SURFACES` used here for the first time anywhere
+  in this repo. Read it from the table's `New to repo` column when present; otherwise grep
+  the repo outside the diff for prior use of each surface. First use means there was no
+  in-repo precedent for the author to imitate, so the code was written from training recall.
+- `PATTERNS_NEEDED` — true if EITHER:
+  - `NEW_SURFACES` is non-empty — **the primary trigger.** New integrations are where recall
+    is unanchored and where a spec revision the model never saw gets silently invented.
+  - The changed file list touches the dependency manifest or lockfile, an `.env` / `.env.*`
+    file, or a framework config file (`*.config.ts`, `middleware.ts`, `next.config.*`,
+    `vite.config.*`, build config) — judged against the project's stack.
+
+  Note what this deliberately does **not** trigger on: ordinary changes to code that uses a
+  surface already established in the repo. There the surrounding code is the anchor, research
+  is mostly wasted spend, and `{{ANTI_PATTERNS}}` already runs for free on every review. The
+  gate exists to spend on first contact with a surface — once per surface, not once per PR.
 
 Then fetch in parallel:
 - **Issue body:** extract linked issue from PR body (`Closes #N`, `Fixes #N`, `Resolves #N`).
@@ -69,6 +93,11 @@ Then fetch in parallel:
 #### If DIFF_LINE_COUNT < 150: launch ONE agent
 
 **Agent Q — Quality (all checks, single agent)**
+
+If `PATTERNS_NEEDED` is true, launch **Agent B alongside Agent Q in the same message** (two
+agents). A small diff is not a safe diff: a first integration against a protocol spec can be
+eighty lines and still be written entirely from recall. Diff size decides how the *quality*
+checks are split; `PATTERNS_NEEDED` alone decides whether surface research happens.
 
 **Tools:** Read, Bash, Glob, Grep
 
@@ -493,14 +522,15 @@ Return [] if nothing warrants reporting.
 
 ---
 
-#### Agent B — Framework Best Practices (ONLY if PATTERNS_NEEDED is true)
+#### Agent B — External Surface Currency (ONLY if PATTERNS_NEEDED is true)
 
-**Tools:** Read, Bash, Glob, Grep, WebSearch
+**Tools:** Read, Bash, Glob, Grep, WebFetch, WebSearch
 
 If `PATTERNS_NEEDED` is false, **skip Agent B entirely.**
 
-If `PATTERNS_NEEDED` is true, launch Agent B in the same message as Agent A and Agent C
-(three parallel agents total).
+If `PATTERNS_NEEDED` is true, launch Agent B on **either** size path, in the same message as
+the other agents — alongside Agent Q under 150 lines, or alongside Agent A and Agent C at or
+above it.
 
 ```
 You are checking two things: (1) design contract adherence, and (2) whether the diff uses
@@ -519,11 +549,27 @@ If the PR references a design doc:
 4. Verify function signatures, type shapes, API endpoint paths match the design.
 5. Check acceptance criteria from the linked issue — are all addressed?
 
-## Part 2: Framework best practices (web search per framework)
+## Part 2: External surface currency (web research per surface)
 
-For each framework package below, run ONE targeted web search. Frame each search as:
-  "<package>@<version> best practices discouraged patterns <year>"
-  or "<package>@<version> security recommendations current"
+Surfaces marked NEW below are used for the first time in this repo. There was no in-repo
+precedent for the author to copy, so that code was written from training recall — which for
+a spec revised after the model's training data is confidently wrong in a way that reads
+perfectly consistent. **Research every NEW surface first, and never rely on your own
+recollection of its contract to judge the diff.**
+
+For a NEW surface that has a doc URL, `WebFetch` that URL and compare the diff against what
+it actually says: message and field names, required and optional fields, handshake or
+negotiation order, error shapes, and any capability the pinned revision added or removed.
+For every other surface, run ONE targeted web search, framed as:
+  "<surface> <version> best practices discouraged patterns <year>"
+  or "<surface> <version> security recommendations current"
+
+**The pinned version is the contract.** Judge the diff against the version or dated revision
+stated below, not the version you remember as current. If the diff implements a different
+revision than the one pinned — an older message shape, a field the pinned revision renamed
+or dropped — report it as a block-severity finding: that is the exact failure this check
+exists to catch. If a surface is marked `unpinned`, report that too; an external surface with
+no pinned version cannot be reviewed for currency and cannot be tracked for drift.
 
 Do NOT frame searches as just "deprecated APIs" — you are looking for:
 - Security anti-patterns (e.g. using wrong key type server-side, insecure defaults)
@@ -541,10 +587,14 @@ community has documented. The project's static checklist in `{{ANTI_PATTERNS}}` 
 patterns the team has already learned to flag — Agent B supplements that with framework-
 specific research.
 
-Packages to check:
-{{FRAMEWORK_DEPS_WITH_VERSIONS}}
+Surfaces to check — each listed as `name | pinned version | doc URL | NEW or ESTABLISHED`:
+{{EXTERNAL_SURFACES}}
 
-Maximum web searches: one per package, five packages max.
+Of these, first use in this repo (research these before anything else):
+{{NEW_SURFACES}}
+
+Budget: five surfaces max. One web search per surface, plus one `WebFetch` per NEW surface
+that has a doc URL.
 
 ## Input
 
@@ -562,14 +612,17 @@ Issue body:
 
 JSON array. Each element:
 {
-  "type": "design-contract" | "anti-pattern",
+  "type": "design-contract" | "anti-pattern" | "version-mismatch" | "unpinned-surface",
   "severity": "block" | "warn",
   "file": "relative/path.ts",
   "line": 42,
   "finding": "one sentence — include WHY this pattern is discouraged",
   "evidence": "quoted code from diff",
-  "source_url": "URL of framework docs or community guidance, if found"
+  "source_url": "URL of the docs or community guidance, if found"
 }
+
+For "version-mismatch", state both revisions in "finding" — the one pinned and the one the
+diff implements — and cite the doc URL in "source_url". Severity is "block".
 
 Return [] if nothing warrants reporting.
 ```
@@ -645,13 +698,18 @@ Append to terminal output (not to the PR comment):
 
 - Do not run builds, type-checks, or tests — CI handles those.
 - In the ≥ 150 line path: launch Agent A and Agent C (and Agent B if PATTERNS_NEEDED)
-  in the **same message** so they run concurrently.
+  in the **same message** so they run concurrently. In the < 150 line path: launch Agent Q
+  (and Agent B if PATTERNS_NEEDED) the same way. Agent B's trigger is independent of diff
+  size — a first integration against an external spec can be small and still be invented.
 - If the diff is empty, report "Nothing to review — diff is empty." and stop.
 - The 150-line threshold is a guide. If a large diff is mostly trivial changes (whitespace,
   renames, generated code), use judgment and prefer the single-agent path.
 - The static anti-pattern list (`kb/anti-patterns.md`, surfaced as `{{ANTI_PATTERNS}}`)
   runs on EVERY review at no extra cost — no web search, no extra agent. Agent B
-  supplements this with framework-specific research only when framework files changed.
+  supplements it with live research only on first contact with an external surface, or when
+  dependency/config files changed. Established surfaces are covered by the static list plus
+  the in-repo precedent the author copied — that is where the cost saving comes from, and
+  why the saving does not apply to a from-scratch integration.
 - Add new patterns to the project's `kb/anti-patterns.md` as the team discovers them. That
   file is the institutional memory of "things we've learned the hard way."
 - Cost is reported in terminal only — never posted to GitHub. The label in the cost

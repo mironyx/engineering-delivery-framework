@@ -336,6 +336,41 @@ internal decomposition) in this part.]
 > rules. A human reviewer may scan Part B for completeness but does not need to
 > review it line-by-line.
 
+## External Surfaces
+
+Every external surface this phase codes against, with its pinned version. An **external
+surface** is anything whose contract is defined outside this repo: a package or SDK, a
+protocol or wire-format specification, a cloud provider or IaC provider, or a third-party
+HTTP API. A surface with no entry in any dependency manifest — a protocol spec such as MCP,
+OAuth, or a webhook payload format — still belongs in this table. Those are the ones with no
+version to grep for, which is exactly why they must be pinned here.
+
+| Surface | Version / revision | Doc URL | Verified | New to repo |
+|---------|--------------------|---------|----------|-------------|
+| [`@azure/storage-blob`] | [`12.18.0`] | [https://…] | [Yes / Unverified] | [Yes / No] |
+| [MCP protocol] | [`2025-06-18`] | [https://…] | [Yes / Unverified] | [Yes / No] |
+
+Column rules:
+
+- **Version / revision** — an exact version, a constraint (`hashicorp/azurerm ~> 3.108`), or a
+  dated spec revision (`MCP 2025-06-18`, `OpenAI API 2024-11`). If the surface is genuinely
+  version-agnostic (e.g. a generic HTTP client), write `version-agnostic` and say why. Never
+  leave it blank and never write just the product name.
+- **Doc URL** — the specific page whose contract this design relies on, not a docs homepage.
+- **Verified** — `Yes` only if the contract claims in this LLD were checked against that URL
+  with `WebFetch`/`WebSearch` during authoring. Otherwise `Unverified`, and mark the
+  dependent claims inline with `> **Unverified — recall-based:**`.
+- **New to repo** — `Yes` if this phase is the first use of the surface anywhere in the
+  repo. Determine it by grep, not by memory. `Yes` means there is no in-repo precedent for
+  the implementing agent to imitate, so it must read the doc before writing code and the
+  PR review will research the surface. This column is the trigger for both.
+
+**Why this table is normative.** For a surface marked `New to repo`, the implementing agent
+has nothing to copy and will otherwise write it from training recall — which for a
+fast-moving spec is confidently wrong at a revision the model never saw. A version stated
+here is a contract that survives into implementation and review. A version stated only in
+conversation does not.
+
 **Stable anchors (ADR-0026).** Every Part B section heading must be preceded by an HTML
 anchor so that Part A diagrams can link directly to the implementation spec. Format:
 `LLD-<epic-id>-<section-slug>` where `<section-slug>` is a lower-kebab-case phrase
@@ -369,7 +404,7 @@ src/lib/module/
 
 > **Constraint:** For any third-party surface used here that was not read from this repo — SDK/library config shape, function or hook signature, cloud-provider argument, query-language or IaC semantic — verify it against the official docs with `WebFetch`/`WebSearch` and cite the doc URL + library version. If it cannot be verified, mark the claim `> **Unverified — recall-based:**` so the risk is explicit. Recall of an exact API surface can be wrong while reading internally consistent, so neither authoring nor review catches it without a doc check.
 >
-> **Pin the version in the LLD.** Every third-party tool, SDK, cloud provider, Terraform provider, or external API used in this design must state its exact version or version constraint (e.g. `hashicorp/azurerm ~> 3.108`, `@azure/storage-blob@12.18.0`, `OpenAI API 2024-11`). This makes drift trackable: when a version changes, the LLD's pinned version is the anchor for impact analysis. If the design is version-agnostic (e.g. a generic HTTP client), state that explicitly rather than omitting the version.
+> **Pin the version in the [External Surfaces](#external-surfaces) table.** Every third-party tool, SDK, cloud provider, Terraform provider, protocol specification, or external API used in this design must appear there with an exact version, constraint, or dated spec revision. This makes drift trackable: when a version changes, the pinned version is the anchor for impact analysis. Do not re-state versions inline here — one table, one source of truth.
 
 #### Function signatures
 [Key internal functions with their signatures and behaviour]
