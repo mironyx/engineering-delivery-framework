@@ -131,9 +131,16 @@ brief).
   hook signatures, cloud-provider resource arguments, query-language or IaC semantics),
   confirm the author either cited a doc URL + library version or marked it
   `Unverified — recall-based`. An uncited external surface claim presented as fact is a
-  **warn**. Also confirm every third-party surface has an explicit version or version
-  constraint pinned (e.g. `hashicorp/azurerm ~> 3.108`, `@azure/storage-blob@12.18.0`).
-  A missing version pin on a load-bearing dependency is a **warn**. Then spot-check the
+  **warn**. Confirm Part B opens with an `## External Surfaces` table and that every row
+  carries a pinned version, constraint, or dated revision (`hashicorp/azurerm ~> 3.108`,
+  `@azure/storage-blob@12.18.0`, `MCP 2025-06-18`). A missing table, or a missing version
+  pin on a load-bearing surface, is a **warn**. Check the table for *omissions* as well as
+  blanks: surfaces with no dependency-manifest entry — protocol and wire-format specs, OAuth
+  flows, webhook payload formats — are routinely left out, and they are the rows that matter
+  most, since nothing downstream can recover a version for them. A surface the LLD codes
+  against but does not list is a **warn**. Sanity-check the `New to repo` column by grepping
+  for prior use: a row marked `No` that the repo never used before wrongly disables both the
+  implementer's doc read and the PR review's research, so that is a **block**. Then spot-check the
   highest-risk cited claims against the doc with `WebFetch`/`WebSearch` — auth flows,
   data/response shapes, anything that would look internally consistent while being wrong.
   A claim that contradicts the cited doc is a **block**. Do not fetch docs for every

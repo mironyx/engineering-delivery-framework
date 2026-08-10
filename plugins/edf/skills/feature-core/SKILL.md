@@ -1,7 +1,7 @@
 ---
 name: feature-core
 description: Core implementation cycle: read design, TDD, verify, diagnostics, commit, PR, CI probe, review, report. Called by edf:feature and edf:feature-team skills after branch setup.
-allowed-tools: Read, Write, Edit, MultiEdit, Bash, Glob, Grep, Agent, Skill, TodoWrite
+allowed-tools: Read, Write, Edit, MultiEdit, Bash, Glob, Grep, Agent, Skill, TodoWrite, WebFetch, WebSearch
 ---
 
 # Feature Core — Implementation Cycle
@@ -79,6 +79,22 @@ Execute sequentially. Do not skip steps. Do not ask for confirmation — only pa
    ```
 4. Read any existing source files in the target directory.
 5. Understand the contract: inputs, outputs, types, error cases.
+
+### Step 3a: Verify external surfaces
+
+Read the `## External Surfaces` table at the top of Part B of the LLD. **The pinned version
+is binding** — implement against the version or dated revision in the table, not the one you
+recall as current.
+
+| Row state | Action before writing code |
+|-----------|---------------------------|
+| `New to repo: Yes` | `WebFetch` the Doc URL. Mandatory — no in-repo precedent to imitate, so the alternative is writing it from training recall. |
+| `Verified: Unverified` | `WebFetch` the Doc URL, or `WebSearch` the pinned version's docs if no URL is given. |
+| Otherwise | No research — grep for the existing in-repo usage and match it. The common case. |
+
+**No table** (LLD predates the convention, or there is no LLD): identify the surfaces this
+change codes against, grep for prior use, and fetch docs for any with none. Note the gap
+under `## Design deviations` so `/lld-sync` backfills the table.
 
 ### Step 3b: Pick the simplest approach
 

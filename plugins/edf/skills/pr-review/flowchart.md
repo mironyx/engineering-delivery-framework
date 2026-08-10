@@ -1,6 +1,6 @@
 # /pr-review — Process flowchart
 
-Visual overview of the adaptive code review pipeline. Cost-adaptive: 1 agent for small diffs, 2 (or 3 with framework checks) for large diffs. Agent spawns are purple, decisions are orange.
+Visual overview of the adaptive code review pipeline. Cost-adaptive: diff size sets the number of quality agents (1 for small diffs, 2 for large); `SURFACE_RESEARCH` independently adds Agent B on either path when the diff makes first contact with an external surface. Agent spawns are purple, decisions are orange.
 
 ```mermaid
 flowchart TD
@@ -10,14 +10,14 @@ flowchart TD
     S1_CHK -->|"Yes"| STOP_EMPTY(["fa:fa-ban Nothing to review"])
     S1_CHK -->|"No"| S2
 
-    S2["S2: Classify<br/>DIFF_LINE_COUNT, CHANGED_FILES,<br/>FRAMEWORK_DEPS, PATTERNS_NEEDED"] --> S2_SIZE{"Diff size?"}
+    S2["S2: Classify<br/>DIFF_LINE_COUNT, CHANGED_FILES,<br/>EXTERNAL_SURFACES, NEW_SURFACES,<br/>SURFACE_RESEARCH"] --> S2_SIZE{"Diff size?"}
 
     S2_SIZE -->|"< 150 lines"| S3_SINGLE
     S2_SIZE -->|">= 150 lines"| S3_MULTI
 
     S3_SINGLE(("Agent Q: Quality<br/>All checks in one pass<br/>Bugs, justification, design,<br/>compliance, anti-patterns,<br/>design conformance, helper reuse"))
 
-    S3_SINGLE --> S4
+    S3_SINGLE --> S3_SURF
 
     subgraph PARALLEL["Parallel Agents (>= 150 lines)"]
         S3A(("Agent A: Code Quality<br/>Bugs, justification,<br/>design principles,<br/>CLAUDE.md compliance,<br/>anti-patterns"))
@@ -27,10 +27,10 @@ flowchart TD
     S3_MULTI --> S3A
     S3_MULTI --> S3C
 
-    S3A --> S3_PAT{"PATTERNS_NEEDED?"}
-    S3C --> S3_PAT
-    S3_PAT -->|"Yes"| S3B(("Agent B: Framework<br/>Best practices, web search<br/>per framework dep"))
-    S3_PAT -->|"No"| S4
+    S3A --> S3_SURF{"SURFACE_RESEARCH?<br/>New external surface, or<br/>manifest/env/config changed"}
+    S3C --> S3_SURF
+    S3_SURF -->|"Yes"| S3B(("Agent B: Surface currency<br/>WebFetch pinned spec for new<br/>surfaces, best-practice search,<br/>version-mismatch check"))
+    S3_SURF -->|"No"| S4
     S3B --> S4
 
     S4["S4: Consolidate and output<br/>Merge JSON arrays, deduplicate,<br/>sort by severity: blocks first"] --> S4_FIND{"Findings?"}
@@ -54,6 +54,6 @@ flowchart TD
     class START,DONE startend
     class S1,S2,S4_CLEAN,S4_REPORT,S5 process
     class S3_SINGLE,S3A,S3C,S3B agent
-    class S1_CHK,S2_SIZE,S3_PAT,S4_FIND decision
+    class S1_CHK,S2_SIZE,S3_SURF,S4_FIND decision
     class STOP_EMPTY stop
 ```

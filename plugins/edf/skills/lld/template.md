@@ -336,6 +336,33 @@ internal decomposition) in this part.]
 > rules. A human reviewer may scan Part B for completeness but does not need to
 > review it line-by-line.
 
+## External Surfaces
+
+Every external surface this phase codes against, with its pinned version. An **external
+surface** is anything whose contract is defined outside this repo: a package or SDK, a
+protocol or wire-format spec, a cloud/IaC provider, a third-party HTTP API. Surfaces with no
+dependency-manifest entry (MCP, OAuth, a webhook payload format) belong here too — they have
+no version to grep for, which is exactly why this table has to carry it.
+
+| Surface | Version / revision | Doc URL | Verified | New to repo |
+|---------|--------------------|---------|----------|-------------|
+| [`@azure/storage-blob`] | [`12.18.0`] | [https://…] | [Yes / Unverified] | [Yes / No] |
+| [MCP protocol] | [`2025-06-18`] | [https://…] | [Yes / Unverified] | [Yes / No] |
+
+- **Version / revision** — an exact version, a constraint (`hashicorp/azurerm ~> 3.108`), or
+  a dated spec revision (`MCP 2025-06-18`). If genuinely version-agnostic (e.g. a generic
+  HTTP client), write `version-agnostic` and say why. Never blank, never just a product name.
+- **Doc URL** — the specific page this design relies on, not a docs homepage.
+- **Verified** — `Yes` only if the LLD's claims were checked against that URL with
+  `WebFetch`/`WebSearch` while authoring. Otherwise `Unverified`, and mark the dependent
+  claims inline with `> **Unverified — recall-based:**`.
+- **New to repo** — `Yes` if this phase is the first use of the surface anywhere in the repo.
+  Decide it by grep, not memory. It is the trigger for both downstream checks: `Yes` means
+  `/feature` must read the doc before coding and `/pr-review` will research the surface.
+
+This table is normative because a version stated here survives into implementation and
+review; one stated only in conversation does not.
+
 **Stable anchors (ADR-0026).** Every Part B section heading must be preceded by an HTML
 anchor so that Part A diagrams can link directly to the implementation spec. Format:
 `LLD-<epic-id>-<section-slug>` where `<section-slug>` is a lower-kebab-case phrase
@@ -369,7 +396,7 @@ src/lib/module/
 
 > **Constraint:** For any third-party surface used here that was not read from this repo — SDK/library config shape, function or hook signature, cloud-provider argument, query-language or IaC semantic — verify it against the official docs with `WebFetch`/`WebSearch` and cite the doc URL + library version. If it cannot be verified, mark the claim `> **Unverified — recall-based:**` so the risk is explicit. Recall of an exact API surface can be wrong while reading internally consistent, so neither authoring nor review catches it without a doc check.
 >
-> **Pin the version in the LLD.** Every third-party tool, SDK, cloud provider, Terraform provider, or external API used in this design must state its exact version or version constraint (e.g. `hashicorp/azurerm ~> 3.108`, `@azure/storage-blob@12.18.0`, `OpenAI API 2024-11`). This makes drift trackable: when a version changes, the LLD's pinned version is the anchor for impact analysis. If the design is version-agnostic (e.g. a generic HTTP client), state that explicitly rather than omitting the version.
+> **Pin the version in the [External Surfaces](#external-surfaces) table.** Every third-party tool, SDK, cloud provider, Terraform provider, protocol specification, or external API used in this design must appear there with an exact version, constraint, or dated spec revision. This makes drift trackable: when a version changes, the pinned version is the anchor for impact analysis. Do not re-state versions inline here — one table, one source of truth.
 
 #### Function signatures
 [Key internal functions with their signatures and behaviour]
