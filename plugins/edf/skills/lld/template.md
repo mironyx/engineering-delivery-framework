@@ -40,21 +40,11 @@ Part B block above the `# Part B` heading.
 
 ### Diagram styling palette
 
-All diagrams in this document use a standard set of styles. Define them once via a
-`classDef` block in the first diagram of each type, then reference by class name in
-subsequent diagrams. The palette matches the EDF pipeline flowcharts for visual
+All diagrams in this document use a standard set of styles. Define the `classDef`
+blocks inside the first diagram of each type that uses them, then reference by class
+name in subsequent diagrams — a standalone `classDef` block (no diagram-type keyword)
+is invalid Mermaid. The palette matches the EDF pipeline flowcharts for visual
 consistency.
-
-These are declaration lines to paste *inside* a diagram — they are not a diagram on
-their own. Keep them in a `text` fence; a bare `classDef` block in a `mermaid` fence
-renders as "No diagram type detected".
-
-```text
-classDef error fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
-classDef auth fill:#f7eed6,stroke:#8a6d2d,color:#443a1a
-classDef external fill:#d6e8f7,stroke:#2d5f8a,color:#1a2f44
-classDef new fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
-```
 
 | Class | Use for |
 |-------|---------|
@@ -66,37 +56,30 @@ classDef new fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
 Apply with `class` assignments on nodes, or `Note` blocks on sequence diagrams for
 enforcement-point annotations (see Behavioural Flows below).
 
-### Diagram navigability convention — `click` directives
+### Diagram navigability convention — links
 
-Every diagram participant must be navigable. Use Mermaid's `click` directive on each
-actor, module, or component so the reviewer can reach the relevant code or spec
-without leaving the preview.
+Every diagram participant must be navigable so the reviewer can reach the relevant
+code or spec without leaving the preview. The mechanism depends on the diagram type —
+`click` is not supported on every type:
 
-- **Existing source file** → `edf://` protocol with the repo-relative path:
-  `click AuthHelper href "edf://src/lib/auth/helper.ts" _self`
+- **sequenceDiagram** — `click` is unsupported. Link each participant with the
+  sequence-diagram `link` directive:
+  `link API: source @ edf://src/app/api/example/route.ts`.
+- **flowchart / classDiagram / stateDiagram** — use Mermaid's `click` directive.
+  The third argument is the tooltip string, not a target keyword:
+  `click Service href "edf://src/lib/example/service.ts" "source"`.
+- **erDiagram** — no interaction support documented; omit links (refer to entities
+  in prose or via the classDiagram instead).
+
+- **Existing source file** → `edf://` protocol with the repo-relative path.
   The `edf-review` VSCode extension intercepts these: hover shows code, click opens
   the file in the next column. Without the extension, the link is harmless (cursor
   changes but no navigation — the same as any unrecognised URL scheme in an SVG).
 - **New-to-be-created code** → `#LLD-` anchor to the Part B section where its
   internal decomposition and signatures are specified:
-  `click NewService href "#LLD-v12-e3-new-service" _self`
+  `click NewService href "#LLD-v12-e3-new-service" "spec"`
   Click scrolls the preview to the implementation spec. These anchors work in any
   markdown renderer including GitHub — they are standard page-internal links.
-
-The `_self` target keeps navigation within the same browser context so it degrades
-gracefully in GitHub and other renderers.
-
-**`click` support is not uniform across diagram types.** Verified against Mermaid 11.12.2
-(the version VS Code bundles). Emitting `click` where it is unsupported produces a **fatal
-parse error** — the whole diagram fails to render, not just the link:
-
-| Diagram type | `click` | Notes |
-|---|---|---|
-| `flowchart` | Supported | `_self` target is fine |
-| `classDiagram` | Supported | Class names must not contain `/` — use `class Ident["display/name"]` |
-| `stateDiagram-v2` | Supported | **Omit the `_self` target** — supplying one is a parse error |
-| `erDiagram` | Ignored | Parses, but no link is generated |
-| `sequenceDiagram` | **Parse error** | No form of `click` is accepted. Do not emit it. |
 
 ## N.1 [Section Name]
 
@@ -116,15 +99,20 @@ use it when the condition matches, skip it when optional.
 For every interaction involving >2 components: API routes, service calls, webhook
 chains, multi-step UI interactions with server round-trips.
 
-**Do not emit `click` directives in a sequence diagram** — Mermaid rejects them and the
-diagram will not render at all (see the support table above). Sequence-diagram
-participants are not navigable; reach the same components through the `classDiagram` or
-`flowchart` in the Structural Overview. Enforcement points (authZ, validation, external
-boundaries) are annotated with `Note` blocks so the security and validation story is
-visible in the diagram itself.
+Every diagram participant must be navigable. sequenceDiagram does not support
+`click` — use its `link <actor>: <label> @ <url>` directive. Existing code links to
+the source file via `edf://`; new code links to its Part B spec via `#LLD-`.
+Enforcement points (authZ, validation, external boundaries) are annotated with `Note`
+blocks so the security and validation story is visible in the diagram itself.
 
 `` ```mermaid
 sequenceDiagram
+    link API: source @ edf://src/app/api/example/route.ts
+    link Service: source @ edf://src/lib/example/service.ts
+    link DB: source @ edf://src/lib/db/client.ts
+    %% New-to-be-created — scrolls to Part B spec:
+    link NewService: spec @ #LLD-<epic-id>-<section-slug>
+
     Client->>API: POST /api/example
     Note over API: AuthZ check (RLS policy)
     API->>Service: processRequest(ctx, params)
@@ -197,8 +185,9 @@ lists would be hard to audit.
 
 Module/class dependency diagram showing how the pieces fit together. Use mermaid
 `classDiagram` syntax for code structure, or `erDiagram` for data structure. Every
-module, class, interface, and entity must have a `click` directive — existing code
-links to source, new code links to its Part B spec.
+module, class, and interface must have a `click` directive — existing code links to
+source, new code links to its Part B spec. (`erDiagram` supports no interaction;
+refer to entities in prose instead.)
 
 #### Code structure (`classDiagram`)
 
@@ -214,25 +203,25 @@ label — `class EngineScoring["engine/scoring"]` — to keep the module path vi
 
 `` ```mermaid
 classDiagram
-    class EngineScoring["engine/scoring"] {
+    click EngineScoring href "edf://src/lib/engine/scoring.ts" "source"
+    click PortsGitHub href "edf://src/lib/ports/github.ts" "source"
+    click AdaptersGitHub href "edf://src/lib/adapters/github.ts" "source"
+
+    class EngineScoring {
         <<module>>
         +calculateScore(responses) Score
         +buildDimensions(config) Dimension[]
     }
-    class PortsGithub["ports/github"] {
+    class PortsGitHub {
         <<interface>>
         +fetchPRs(org, repo) PR[]
     }
-    class AdaptersGithub["adapters/github"] {
+    class AdaptersGitHub {
         <<module>>
         +createGitHubClient(token) GitHubPort
     }
-    EngineScoring --> PortsGithub : depends on
-    AdaptersGithub ..|> PortsGithub : implements
-
-    click EngineScoring href "edf://src/lib/engine/scoring.ts" _self
-    click PortsGithub href "edf://src/lib/ports/github.ts" _self
-    click AdaptersGithub href "edf://src/lib/adapters/github.ts" _self
+    EngineScoring --> PortsGitHub : depends on
+    AdaptersGitHub ..|> PortsGitHub : implements
 `` ```
 
 **When required:** Any task that introduces new modules/classes, modifies module boundaries,
@@ -245,9 +234,6 @@ surface or dependencies.
 
 `` ```mermaid
 erDiagram
-    click users href "edf://src/lib/db/schema/users.ts" _self
-    click sessions href "#LLD-<epic-id>-<section-slug>" _self
-
     users {
         uuid id PK
         string email

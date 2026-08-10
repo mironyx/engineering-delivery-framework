@@ -221,7 +221,25 @@ If `EDF_FEATURE_PREFIX` is missing, derive a default from the repo name
 EDF_FEATURE_PREFIX=<derived-prefix>
 ```
 
-If `EDF_FEATURE_PROM_DIR` is missing, append with the default path:
+If `EDF_FEATURE_PROM_DIR` is missing, ask the user where node_exporter reads
+its textfile collector directory from. Do **not** assume it is local to this
+repo — node_exporter typically reads its textfiles from a different repo or a
+host path.
+
+> Where does node_exporter read its textfile collector directory from?
+> `EDF_FEATURE_PROM_DIR` must match the directory your node_exporter runs with
+> `--collector.textfile.directory` pointing at — usually configured in a separate
+> monitoring/infra repo, not here. Paste the path, or accept the repo-local
+> default (`monitoring/textfile_collector`) if node_exporter isn't set up yet.
+
+If the user provides a path, write it verbatim (use an absolute path when the
+directory is outside this repo):
+
+```
+EDF_FEATURE_PROM_DIR=<user-provided-path>
+```
+
+Otherwise append the default:
 
 ```
 EDF_FEATURE_PROM_DIR=monitoring/textfile_collector
@@ -236,9 +254,12 @@ Explain what this is after setting it (or if it's already set, still mention it)
 > table depends on this — without it, every row shows "unavailable".
 >
 > To enable cost tracking, you need:
-> 1. A Prometheus instance scraping the node_exporter textfile collector from
->    the directory at `EDF_FEATURE_PROM_DIR`.
-> 2. The `EDF_FEATURE_PROM_DIR` directory tracked in `.gitignore` (handled below).
+> 1. node_exporter running with `--collector.textfile.directory` pointing at
+>    `EDF_FEATURE_PROM_DIR` (usually configured in a separate monitoring/infra
+>    repo or on the host that runs node_exporter — not in this repo).
+> 2. A Prometheus instance scraping node_exporter.
+> 3. If the directory is inside this repo, keep it out of version control via
+>    `.gitignore` (handled below).
 >
 > Cost is **not required** for EDF to function — all rows gracefully degrade to
 > "unavailable" when Prometheus is unreachable. But without it, you lose per-feature

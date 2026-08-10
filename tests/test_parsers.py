@@ -43,15 +43,18 @@ class TestParsePytestOutput:
         # lines, so individual test names won't be extracted.
         assert b"FAIL 2/3" in result.stdout
 
-    def test_no_summary(self):
+    def test_no_summary_crash(self):
+        # No summary line + failure signals -> must NOT be reported as a pass.
         result = _run_parser("parse-pytest-output.py", "pytest_no_summary.txt")
-        assert result.returncode == 0
-        assert b"PASS 0/0" in result.stdout
+        assert result.returncode == 2
+        assert b"INCONCLUSIVE" in result.stdout
+        assert b"crashed" in result.stdout
 
-    def test_empty_input(self):
+    def test_empty_input_inconclusive(self):
+        # Empty input -> ambiguous, never a blind PASS 0/0.
         result = _run_parser("parse-pytest-output.py", "pytest_empty.txt")
-        assert result.returncode == 0
-        assert b"PASS 0/0" in result.stdout
+        assert result.returncode == 2
+        assert b"INCONCLUSIVE" in result.stdout
 
     def test_ansi_stripping(self):
         ansi_input = b"\x1b[32mPASSED\x1b[0m tests/test_auth.py::test_login\n\x1b[31mFAILED\x1b[0m tests/test_bug.py::test_bug - AssertionError\n========================= 1 passed, 1 failed in 0.50s ========================="
@@ -83,6 +86,12 @@ class TestParseVitestOutput:
     def test_empty_output(self):
         result = _run_parser("parse-vitest-output.py", "vitest_empty.txt")
         assert result.returncode == 0
+
+    def test_no_summary_inconclusive(self):
+        # No "Tests" summary line and no crash signal -> ambiguous, not a blind PASS.
+        result = _run_parser("parse-vitest-output.py", "vitest_crash.txt")
+        assert result.returncode == 2
+        assert b"INCONCLUSIVE" in result.stdout
 
 
 # ── parse-project-item-id ────────────────────────────────────────────────────

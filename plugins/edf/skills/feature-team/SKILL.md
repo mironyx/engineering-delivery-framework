@@ -133,6 +133,11 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 
 > You are implementing issue #N: TITLE
 >
+> You are authorised to perform all git operations on your feature branch,
+> including rebasing onto origin/main and force-pushing
+> (`git push --force-with-lease`). These are standard parts of the
+> feature-end workflow — do not delegate them to the lead.
+>
 > Steps:
 > 1. Create your own branch and worktree:
 >    ```bash
@@ -142,7 +147,14 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 >    git worktree add "../${REPO}-feat-<N>-$SLUG" -b feat/$SLUG origin/main
 >    cd "../${REPO}-feat-<N>-$SLUG"
 >    ```
-> 1a. Copy gitignored local files and provision dependencies from the main repo:
+> 1a. Verify you are now in the worktree, not the main repo — subagent sessions can inherit
+>    the lead's CWD, and a wrong directory silently corrupts verification/build output:
+>    ```bash
+>    git rev-parse --show-toplevel | xargs basename
+>    # must print "<REPO>-feat-<N>-<slug>"; if it prints the plain repo name, re-run
+>    # `cd` into the worktree and re-verify before proceeding
+>    ```
+> 1b. Copy gitignored local files and provision dependencies from the main repo:
 >    ```bash
 >    MAIN_REPO=$(git rev-parse --git-common-dir | python3 -c "import sys,os; print(os.path.dirname(sys.stdin.read().strip()))")
 >    for f in .env .env.test.local; do
@@ -271,24 +283,24 @@ SendMessage(to="teammate-<N>", message={"type": "shutdown_request", "reason": "F
 Send all shutdowns in a single message (parallel tool calls). Do not skip this step — teammates
 left running consume resources and clutter the user's pane.
 
-The team config directory is removed automatically when the lead's session ends, so no
-directory cleanup step is needed. **Pane cleanup only applies in split-pane mode** (tmux or
-iTerm2) — the default display mode is `in-process`, where teammates run inside the lead's
-terminal with no panes to kill. Check which mode is active before attempting cleanup:
+Wait for all teammates to acknowledge shutdown (`shutdown_response` with `approve: true`).
+If a teammate doesn't respond within 30 seconds, proceed with cleanup anyway.
 
-1. Find the team config — there is exactly one team directory per session, and its name is
-   session-derived, so glob it rather than guessing:
-   ```bash
-   cat ~/.claude/teams/session-*/config.json
-   ```
-2. If member entries have a `pane_id` field (split-pane mode), kill each teammate's pane
-   explicitly — shutdown_request terminates the agent process but does not remove the pane:
-   ```bash
-   tmux kill-pane -t <pane_id>
-   ```
-   Run all `kill-pane` commands in a single message (parallel tool calls), same as the
-   shutdown requests.
-3. If there is no `pane_id` field (in-process mode), there is nothing further to clean up.
+After acknowledgments, wait 10 seconds for processes to exit, then kill every teammate pane
+regardless — some processes hang after acknowledging shutdown (intermittent race):
+```bash
+tmux kill-pane -t <pane_id>
+```
+Run all `kill-pane` commands in a single message (parallel tool calls). Sequence:
+shutdown_request → wait for ack → wait 10s → kill-pane.
+
+The team config directory is removed automatically when the lead's session ends. Pane
+cleanup only applies in split-pane mode (tmux/iTerm2). Find the team config and check for
+`pane_id` fields:
+```bash
+cat ~/.claude/teams/session-*/config.json
+```
+If no `pane_id` field (in-process mode), there is nothing further to clean up.
 
 **Wave note:** When shutting down a completed wave's teammates before spawning the next
 wave (Step 6), follow the same procedure: shutdown_request first, then pane cleanup (if
