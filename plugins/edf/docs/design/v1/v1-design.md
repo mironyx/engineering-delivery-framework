@@ -38,6 +38,10 @@ Features* extension.
 | C2.1 — hidden `<!-- edf-map -->` mapping block | **Removed** | It existed solely to bridge sequence-diagram `click`, which is a fatal parse error, not the silent no-op v0.2 assumed. |
 | Flows 2, 3, 6 | **Removed / rewritten** | Flows 2 and 3 describe the `postMessage` channel and its path-validation boundary; neither exists in V1. Flow 6 is rewritten without a preview script. |
 
+**v0.2 anchors are not preserved.** Component names changed — `C2.4 EDF Review Extension`
+is now `C2.4 Review Comment Command` — so inbound links to old anchors do not resolve. The
+only such link is from the rejected ADR-0038, updated alongside this rewrite.
+
 The load-bearing decision that survives — *workspace-relative paths over a custom URL
 scheme* — is proposed as an ADR at this version's Step 5 gate rather than assumed here.
 
@@ -185,27 +189,32 @@ flowchart TD
 
     subgraph sgExt["VSCode Extension"]
         ReviewCmd["Review Comment Command"]
+        BuildHarness["Build and Test Harness"]
     end
 
     subgraph sgExternal["External — not built here"]
-        Mermaid["Mermaid Renderer"]
-        Preview["VSCode Markdown Preview"]
-        GitHub["GitHub Markdown Renderer"]
+        Mermaid["Diagram Renderer (Mermaid)"]
+        subgraph sgHost["Host Markdown Renderer"]
+            Preview["VSCode Markdown Preview"]
+            GitHub["GitHub Markdown Renderer"]
+        end
     end
 
     Template -->|"defines conventions for"| Skill
     Skill -->|"emits diagrams parsed by"| Mermaid
     Critique -->|"gates output of"| Skill
     Template -->|"conventions verified by"| Report
-    Mermaid -->|"renders in"| Preview
-    Mermaid -->|"renders in"| GitHub
+    Mermaid -->|"embeds anchors resolved by"| Preview
+    Mermaid -->|"embeds anchors resolved by"| GitHub
     Report -->|"records behaviour of"| Mermaid
+    Report -->|"records behaviour of"| Preview
+    BuildHarness -->|"tests and packages"| ReviewCmd
     ReviewCmd -->|"edits source behind"| Preview
 
     classDef new fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
     classDef extsvc fill:#d6e8f7,stroke:#2d5f8a,color:#1a2f44
 
-    class Template,Skill,Critique,Report,ReviewCmd new
+    class Template,Skill,Critique,Report,ReviewCmd,BuildHarness new
     class Mermaid,Preview,GitHub extsvc
 ```
 
@@ -231,6 +240,9 @@ diagram vocabulary, the palette, the annotation format, and the link conventions
   components specified in Part B
 - Define the enforcement-annotation format and its adjacency rule
 - Define the `classDiagram` display-label workaround for identifiers containing `/`
+- Define the role tie-break precedence when a participant plausibly matches more than one
+  role: `new` and `external` outrank `error` and `auth`, because "what is this" outranks
+  "how does it fail" for a first-pass reviewer. Exactly one class applies
 
 **Non-responsibilities:**
 - Does not evaluate which diagram types a given feature needs — the skill applies the gates
@@ -282,7 +294,8 @@ before a document reaches a human reviewer.
   carries either a workspace-relative path or a `#LLD-` anchor
 - Verify each `#LLD-` fragment matches a real Part B anchor, and each workspace-relative path
   points at a file that exists
-- Verify the palette block is present and applied consistently
+- Verify the palette block is present, sits in a `text` fence rather than a bare `mermaid`
+  fence — a `classDef` block alone is not a valid diagram — and is applied consistently
 - Verify each trust-boundary-crossing interaction carries a `Note`
 - Report failures naming the specific participant, path, interaction, or diagram type
 
@@ -374,8 +387,65 @@ renderer — the evidence base for C4's claims.
 - Does not gate generation at runtime; it is design-time evidence, not a check in the pipeline
 - Does not cover GitLab, which V1 assumes behaves like GitHub without testing it
 
-**Depends on:** LLD Template (supplies the conventions under test), Diagram Renderer (the
-subject).
+**Depends on:** LLD Template (supplies the conventions under test), Diagram Renderer and Host
+Markdown Renderer (the subjects).
+
+---
+
+### C2.7: Extension Build and Test Harness
+
+**Purpose:** Turns C2.4's source into a verified artefact a reviewer can install — the test
+suite that proves its behaviour and the packaging that makes it usable outside a debug host.
+
+**Responsibilities:**
+- Provide an integration-test suite driving C2.4's behaviours in a real VSCode instance:
+  quick-pick presentation, filtering, insertion position, and target resolution when a preview
+  holds focus. Target resolution is the case that cannot be tested outside a real host, and it
+  is the one most likely to regress
+- Carry the manifest fields packaging strictly requires — `publisher`, `name`, `version`,
+  `engines.vscode` — and no more
+- Produce a `.vsix` with no packaging errors, installable via `code --install-extension`
+- Verify the installed extension activates in a normal window and behaves identically to the
+  Dev-Host-tested build, catching packaging-only regressions such as unbundled assets
+
+**Non-responsibilities:**
+- Does not author marketplace listing content — no icon, gallery banner, or categories. V1
+  produces a build artefact, not a published product
+- Does not publish, sign, or distribute beyond emitting the local file
+- Does not test C2.1–C2.3, which are markdown and skill instructions with no runtime
+- Does not define C2.4's behaviour — it verifies it
+
+**Depends on:** Review Comment Command (its subject), VSCode extension test tooling.
+
+**Note on test strategy.** This is the repo's only runtime-tested surface that is not Python;
+`CLAUDE.md`'s pytest convention does not apply. The choice of a VSCode-native integration
+runner is load-bearing for the whole extension and is proposed as an ADR at Step 5 rather
+than settled here.
+
+---
+
+### C2.8: Host Markdown Renderer
+
+**Purpose:** The renderer surrounding the diagram — GitHub's rendered markdown and VSCode's
+built-in preview. External, but it performs the single most load-bearing behaviour in C4:
+resolving a link once the reader clicks it.
+
+**Responsibilities (as depended upon):**
+- Resolve a workspace-relative link against the document's own location, reaching the correct
+  file in the repository
+- Scroll to a page-internal `#` fragment matching an element ID in the document
+- Treat a fragment with no matching target as a silent no-op — no error surfaced to the reader
+
+**Non-responsibilities:**
+- Does not parse or style diagram content — that is the Diagram Renderer's boundary
+- Does not offer a documented channel back to an extension host. The absence of one is what
+  deferred the hover and click-to-open stories, and it is a property of this component rather
+  than a gap in ours
+- **Does not have verified behaviour for a file link clicked inside a rendered SVG in
+  VSCode.** GitHub's behaviour here is relied upon; VSCode's is explicitly unverified until
+  C2.6 measures it, and no V1 capability depends on the answer
+
+**Depends on:** None — external. Its behaviour is pinned by evidence in C2.6, not assumed.
 
 ---
 
@@ -486,11 +556,20 @@ sequenceDiagram
     end
     Cmd->>Editor: Extract ## and ### headings with line numbers
     Editor-->>Cmd: Heading list
-    Cmd-->>Reviewer: Filterable quick-pick
-    Reviewer->>Cmd: Select heading
-    Note over Cmd: Insertion point is after any existing<br/>[Review] markers, preserving their order
-    Cmd->>Editor: Insert marker, focus, position cursor
-    Note over Reviewer,Editor: Preview stays open in its column
+    alt No headings found
+        Cmd-->>Reviewer: "No section headings found in this document"
+        Note over Editor: Document untouched
+    else Headings found
+        Cmd-->>Reviewer: Filterable quick-pick
+        alt Reviewer presses Escape
+            Cmd-->>Reviewer: Dismissed
+            Note over Editor: Document untouched — cancel is a true no-op
+        else Reviewer selects a heading
+            Note over Cmd: Insertion point is after any existing<br/>[Review] markers, preserving their order
+            Cmd->>Editor: Insert marker, focus, position cursor
+            Note over Reviewer,Editor: Preview stays open in its column
+        end
+    end
 ```
 
 **Walkthrough.** This is the only V1 flow where the system writes to a user's file, making it
@@ -534,6 +613,42 @@ from an SVG, a deferred story may already be delivered with no extension code.
 
 ---
 
+### Flow 5: Build, package and install (distribution boundary)
+
+```mermaid
+sequenceDiagram
+    actor Maintainer as Plugin Maintainer
+    participant Harness as Build and Test Harness
+    participant Host as VSCode Test Host
+    participant Vsix as .vsix Artefact
+    actor Reviewer as LLD Reviewer
+    participant Normal as Reviewer's VSCode
+
+    Maintainer->>Harness: Run test suite
+    Harness->>Host: Drive command in a real VSCode instance
+    Note over Host: Target resolution under preview focus<br/>cannot be tested outside a real host
+    Host-->>Harness: Pass or fail per behaviour
+    Maintainer->>Harness: Package
+    Note over Harness: Manifest carries only what packaging<br/>requires — no marketplace listing content
+    Harness->>Vsix: Emit edf-review-<version>.vsix
+    Reviewer->>Normal: code --install-extension
+    Note over Reviewer,Normal: Trust boundary — code leaves the debug host<br/>and runs with full Node privileges, persisting across sessions
+    Normal->>Normal: Activate, register command
+    Reviewer->>Normal: Verify behaviour matches Dev-Host build
+    Note over Normal: Catches packaging-only regressions<br/>such as unbundled assets
+```
+
+**Walkthrough.** This is the flow that changes who is exposed to the extension. Under
+Dev-Host loading the code ran only on the maintainer's machine during debugging; a `.vsix`
+installs into a reviewer's everyday editor and persists. Nothing in the manifest constrains
+what it may then do, which is why the security guarantee below is a review obligation
+attached to each packaged release rather than a one-off. The verification step after install
+exists because Dev-Host and packaged builds differ in exactly one way that matters — what
+files were included — so behaviour parity has to be observed, not inferred. The contract to
+pin at Level 4 is the manifest's required-field set and the test-host invocation.
+
+---
+
 ## Cross-Cutting Concerns
 
 ### Security
@@ -546,6 +661,13 @@ unfounded. The V1 guarantee is that C2.4's code performs only heading extraction
 display, and insertion into the resolved editor, and it holds only because the surface is
 small enough to verify by reading it. **This is an argument for keeping that surface small**,
 and it is the strongest reason to resolve Open Question 1 by deletion.
+
+**`.vsix` installation moves that boundary.** v0.2 assumed Dev-Host-only loading, where the
+code ran on the maintainer's machine during debugging. C7 installs it into a reviewer's
+everyday editor, where it activates on every markdown preview and persists across sessions.
+The code-review guarantee is therefore not a one-off sign-off but an obligation attached to
+each packaged release: whatever ships in the `.vsix` is what runs, and the manifest constrains
+none of it. Keeping C2.4 to one command is what keeps that obligation affordable.
 
 **Path traversal is not a V1 concern.** V1 resolves no paths from document content — the
 capability that did moved to V2. The carried-forward containment requirement applies only if
@@ -613,19 +735,27 @@ while still removing the manifest contribution, which decouples "keep the refere
 
 ## Traceability
 
-| Capability | Components | Flows |
-|---|---|---|
-| C1 Enriched Diagram Vocabulary | C2.1, C2.2 | 1 |
-| C2 Standard Visual Palette | C2.1, C2.2, C2.3 | 1 |
-| C3 Enforcement-Point Annotations | C2.1, C2.2, C2.3 | 1 |
-| C4 Renderer-Native Navigable Surface | C2.1, C2.2, C2.3, C2.5 | 1, 2 |
-| C5 Cross-Renderer Verification Evidence | C2.6, C2.5 | 4 |
-| C6 In-Flow Review Feedback | C2.4 | 3 |
-| C7 Verified, Installable Build | C2.4 | 3 |
-| C8 Self-Documenting Generation Rules | C2.2, C2.3 | 1 |
+| Capability | Components | Flows | Visual reference |
+|---|---|---|---|
+| C1 Enriched Diagram Vocabulary | C2.1, C2.2 | 1 | — |
+| C2 Standard Visual Palette | C2.1, C2.2, C2.3 | 1 | — |
+| C3 Enforcement-Point Annotations | C2.1, C2.2, C2.3 | 1 | — |
+| C4 Renderer-Native Navigable Surface | C2.1, C2.2, C2.3, C2.5, C2.8 | 1, 2 | [vis-markdown-preview-navigation.html](vis-markdown-preview-navigation.html) |
+| C5 Cross-Renderer Verification Evidence | C2.6, C2.5, C2.8 | 4 | — |
+| C6 In-Flow Review Feedback | C2.4 | 3 | [vis-review-comment-insertion.html](vis-review-comment-insertion.html) |
+| C7 Verified, Installable Build | C2.7, C2.4 | 5 | — |
+| C8 Self-Documenting Generation Rules | C2.2, C2.3 | 1 | — |
 
-Every component traces to at least one capability. `C2.5 Diagram Renderer` is external and
-built by no epic; it appears because its constraints are load-bearing on C2.1 and C2.2.
+Every component traces to at least one capability. `C2.5 Diagram Renderer` and `C2.8 Host
+Markdown Renderer` are external and built by no epic; they appear because their constraints
+are load-bearing on C2.1, C2.2 and C4 — the sanitiser's scheme-stripping is why the link
+format is what it is, and relative-path resolution is what makes the format work without an
+extension.
+
+**Visual specifications (ADR-0035).** Two wireframes exist in this folder and are the visual
+contract for the capabilities above: the anchor-navigation state for C4's `#LLD-` scroll
+behaviour, and the quick-pick open and inserted states for C6. LLDs produced by `/architect`
+propagate these into their Part A Visual Specifications tables with per-state screenshots.
 
 ---
 

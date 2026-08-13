@@ -59,8 +59,12 @@ minimum permissions, and the V1 distribution model.
 
 The requirements doc records an open question about the preview↔extension communication
 mechanism ([Open Question 2](../../requirements/v1-requirements.md#open-questions)):
-postMessage vs a custom `vscode-resource` URI scheme. The HLD
-([C2.4](../design/v1/v1-design.md#c24-edf-review-extension)) commits to `postMessage`.
+postMessage vs a custom `vscode-resource` URI scheme. The HLD at the time
+(`v1-design.md` v0.2, §C2.4 "EDF Review Extension") committed to `postMessage`. That HLD has
+since been rewritten — see [v1-design.md](../design/v1/v1-design.md), where the extension is
+reduced to [C2.4 Review Comment Command](../design/v1/v1-design.md#c24-review-comment-command)
+with no preview script and no message channel. The v0.2 anchor referenced here no longer
+resolves.
 
 Prior decisions that constrain this one:
 
