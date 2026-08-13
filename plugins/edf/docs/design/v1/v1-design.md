@@ -102,6 +102,17 @@ that support matrix as a first-class constraint rather than an implementation de
 treats any form of `click` as a fatal parse error that takes down the whole diagram, so
 participants there are reached through an accompanying structural diagram instead.
 
+**The two stories split along emission versus navigation.** Their acceptance criteria
+overlap in the requirements, so the seam is stated here to keep each independently closable:
+
+| Subset | Story | What it owns |
+|---|---|---|
+| **Emission** | 1.4 | Which diagram types carry a link and which must not, the two link forms, the path-form constraint, and the no-dead-labels rule within the supported types |
+| **Navigation** | 1.5 | What happens when the reader clicks: the scroll to a matching Part B anchor, the silent no-op on a broken one, and the anchor-format match between fragment and target |
+
+Put plainly: 1.4 is satisfied by inspecting the generated diagram source, 1.5 only by
+clicking something in a renderer.
+
 *Covers:* Stories 1.4, 1.5.
 
 ### C5: Cross-Renderer Verification Evidence
@@ -435,10 +446,12 @@ suite that proves its behaviour and the packaging that makes it usable outside a
 
 **Depends on:** Review Comment Command (its subject), VSCode extension test tooling.
 
-**Note on test strategy.** This is the repo's only runtime-tested surface that is not Python;
-`CLAUDE.md`'s pytest convention does not apply. The choice of a VSCode-native integration
-runner is load-bearing for the whole extension and is proposed as an ADR at Step 5 rather
-than settled here.
+**Note on test strategy.** This is the repo's only runtime-tested surface that is not Python,
+so `CLAUDE.md`'s pytest convention does not apply. Story 2.2 AC1 already fixes the runner as
+`@vscode/test-electron` driving Mocha specs, and that approved acceptance criterion is
+binding. The Step 5 ADR **records** this choice and its rationale — it does not reopen it.
+An ADR free to contradict an approved AC would put the design and the requirements into a
+race, which is the coordination failure ADRs exist to prevent.
 
 ---
 
