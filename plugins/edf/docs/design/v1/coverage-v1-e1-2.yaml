@@ -1,0 +1,27 @@
+epic: v1-e1-2
+entries:
+  # Both Epic 2 stories close fully within this epic — no cross-epic seam.
+  # This epic depends on E1.1 only for document structure (## / ### headings),
+  # not for any diagram link format. See v1-design.md C2.4 "Depends on".
+
+  - req: REQ-vscode-extension-review-feedback-quick-pick-insert-review-comment
+    lld: lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-command-wiring
+    issue: null
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 2.1 — primary section is command wiring and target resolution.
+    # Also satisfied in part by
+    # lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-pure-modules
+    # (ACs 2, 7, 9: heading extraction, no-headings message, insert-after-markers).
+
+  - req: REQ-vscode-extension-review-feedback-test-framework-local-packaging
+    lld: lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-packaging-security
+    issue: null
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 2.2 — primary section is packaging, install verification and the
+    # recorded security review. The test-framework half of the story is carried by
+    # lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-scaffold-harness (AC1: the
+    # @vscode/test-electron + Mocha runner fixed by Story 2.2 AC1).
