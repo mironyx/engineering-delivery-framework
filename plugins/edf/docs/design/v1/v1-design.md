@@ -237,7 +237,10 @@ diagram vocabulary, the palette, the annotation format, and the link conventions
   (`sequenceDiagram` emits no `click` in any form; `erDiagram` emits none because Mermaid
   generates no anchor) and the `stateDiagram-v2` no-`_self` rule
 - Define the two link forms: workspace-relative path for existing code, `#LLD-` anchor for
-  components specified in Part B
+  components specified in Part B. A path form carries no leading slash and no `..` segments,
+  so that it resolves both by `vscode.Uri.joinPath` and by GitHub's native relative-link
+  handling. An absolute or escaping path can still resolve on the author's own filesystem
+  while breaking for every other reader — the same class of failure as `edf://`
 - Define the enforcement-annotation format and its adjacency rule
 - Define the `classDiagram` display-label workaround for identifiers containing `/`
 - Define the role tie-break precedence when a participant plausibly matches more than one
@@ -266,6 +269,8 @@ diagram surface. Reads the template as its specification.
 - Assign a single palette role to each participant that matches one
 - Emit links per the support matrix — workspace-relative for existing code, `#LLD-` anchors
   for new components, nothing at all for `sequenceDiagram` and `erDiagram`
+- Emit the `classDiagram` display-label workaround whenever an identifier would contain `/`,
+  keeping the module path visible without producing a parse error
 - Place `Note` annotations at each trust-boundary-crossing interaction
 - Carry a worked example for each concern, so the rules are demonstrable rather than merely
   asserted
@@ -292,12 +297,16 @@ before a document reaches a human reviewer.
   `stateDiagram-v2` `click`, no `/` in a `classDiagram` identifier
 - Then run navigability checks, scoped to the three link-supporting types: every participant
   carries either a workspace-relative path or a `#LLD-` anchor
-- Verify each `#LLD-` fragment matches a real Part B anchor, and each workspace-relative path
-  points at a file that exists
+- Verify each `#LLD-` fragment matches a real Part B anchor; verify each workspace-relative
+  path points at a file that exists **and** carries no leading slash or `..` segment. File
+  existence and path form are separate checks — an escaping path resolves fine locally
 - Verify the palette block is present, sits in a `text` fence rather than a bare `mermaid`
   fence — a `classDef` block alone is not a valid diagram — and is applied consistently
 - Verify each trust-boundary-crossing interaction carries a `Note`
 - Report failures naming the specific participant, path, interaction, or diagram type
+- Surface its findings at the same prominence as the existing checklist items (security,
+  error paths, reused helpers) rather than as an appended afterthought — a check the author
+  scrolls past is a check that did not run
 
 **Non-responsibilities:**
 - Does not modify diagrams — it reports; the author fixes
@@ -326,6 +335,9 @@ under a chosen heading.
 - Present a filterable quick-pick, with case-insensitive substring matching
 - Insert `> **[Review]:** ` after the selected heading, after any existing markers already
   beneath it, preserving their order
+- Leave the document untouched when the reviewer cancels — dismissal is a true no-op
+- Report "No section headings found in this document" when the resolved document has none,
+  rather than presenting an empty quick-pick
 - Focus the source editor with the cursor positioned after the inserted text
 - Log resolution failures to an `EDF Review` output channel
 - Work on any markdown document with headings, not only LLDs
@@ -378,7 +390,13 @@ renderer — the evidence base for C4's claims.
 **Responsibilities:**
 - Record pass/fail per diagram type per renderer for both link forms, including the negative
   cases that confirm an omission is harmless
-- Record the pinned Mermaid and VSCode versions the observations were made against
+- Record whether the four palette colours render distinctly from one another in each
+  renderer. This is the design's only perceptual claim, so it needs observed evidence in the
+  same place as the mechanical ones
+- Record the pinned Mermaid and VSCode versions the observations were made against, and state
+  the re-verification trigger: a change to either pinned version invalidates the report and
+  requires a re-run. Without a stated trigger the evidence silently becomes a claim from
+  recall again, which is the failure this report exists to prevent
 - Record the finding on whether VSCode's preview natively opens workspace-relative links
   clicked inside a Mermaid SVG — the input to a deferred V2 scoping decision
 
@@ -430,20 +448,28 @@ than settled here.
 built-in preview. External, but it performs the single most load-bearing behaviour in C4:
 resolving a link once the reader clicks it.
 
-**Responsibilities (as depended upon):**
-- Resolve a workspace-relative link against the document's own location, reaching the correct
-  file in the repository
-- Scroll to a page-internal `#` fragment matching an element ID in the document
-- Treat a fragment with no matching target as a silent no-op — no error surfaced to the reader
+**Responsibilities (as depended upon), with per-renderer status.** The two renderers are one
+component but not one contract — V1 relies on GitHub's behaviour and has not yet measured
+VSCode's. Collapsing that difference is what produced v0.2's central error, so it is tracked
+per cell rather than per component:
+
+| Behaviour | GitHub | VSCode preview |
+|---|---|---|
+| Resolve a workspace-relative link against the document's location | Relied upon | **Unverified** — measured by C2.6 |
+| Scroll to a page-internal `#` fragment | Relied upon | Relied upon |
+| Silent no-op on a fragment with no matching target | Relied upon | Relied upon |
+
+No V1 capability depends on the unverified cell: C4's guarantee is that the link resolves for
+*some* reader without an extension, which GitHub already satisfies. The cell's value is that
+it decides a V2 story's scope.
 
 **Non-responsibilities:**
 - Does not parse or style diagram content — that is the Diagram Renderer's boundary
 - Does not offer a documented channel back to an extension host. The absence of one is what
   deferred the hover and click-to-open stories, and it is a property of this component rather
   than a gap in ours
-- **Does not have verified behaviour for a file link clicked inside a rendered SVG in
-  VSCode.** GitHub's behaviour here is relied upon; VSCode's is explicitly unverified until
-  C2.6 measures it, and no V1 capability depends on the answer
+- Does not guarantee that the unverified cell above resolves favourably. C4 is designed so
+  that the answer changes a V2 scoping decision, never a V1 guarantee
 
 **Depends on:** None — external. Its behaviour is pinned by evidence in C2.6, not assumed.
 
@@ -737,14 +763,17 @@ while still removing the manifest contribution, which decouples "keep the refere
 
 | Capability | Components | Flows | Visual reference |
 |---|---|---|---|
-| C1 Enriched Diagram Vocabulary | C2.1, C2.2 | 1 | — |
-| C2 Standard Visual Palette | C2.1, C2.2, C2.3 | 1 | — |
-| C3 Enforcement-Point Annotations | C2.1, C2.2, C2.3 | 1 | — |
+| C1 Enriched Diagram Vocabulary | C2.1, C2.2, C2.5, C2.6 | 1 | — |
+| C2 Standard Visual Palette | C2.1, C2.2, C2.5, C2.6, C2.3† | 1 | — |
+| C3 Enforcement-Point Annotations | C2.1, C2.2, C2.5, C2.3† | 1 | — |
 | C4 Renderer-Native Navigable Surface | C2.1, C2.2, C2.3, C2.5, C2.8 | 1, 2 | [vis-markdown-preview-navigation.html](vis-markdown-preview-navigation.html) |
 | C5 Cross-Renderer Verification Evidence | C2.6, C2.5, C2.8 | 4 | — |
 | C6 In-Flow Review Feedback | C2.4 | 3 | [vis-review-comment-insertion.html](vis-review-comment-insertion.html) |
 | C7 Verified, Installable Build | C2.7, C2.4 | 5 | — |
-| C8 Self-Documenting Generation Rules | C2.2, C2.3 | 1 | — |
+| C8 Self-Documenting Generation Rules | C2.1, C2.2, C2.3 | 1 | — |
+
+† C2.3 *checks* this capability's output but its work is funded by Story 3.2 under C8, not by
+Stories 1.2/1.3. Marked so the plan does not count the same checklist three times.
 
 Every component traces to at least one capability. `C2.5 Diagram Renderer` and `C2.8 Host
 Markdown Renderer` are external and built by no epic; they appear because their constraints

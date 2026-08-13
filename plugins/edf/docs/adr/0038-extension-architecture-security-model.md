@@ -179,7 +179,9 @@ or showing an information message. `logError` is fire-and-forget.
 - **MutationObserver** detects late-rendered Mermaid SVGs (they may arrive after DOM
   ready). The observer callback completes in under 1ms per invocation.
 - **Preview script** is kept under 5 KB minified.
-- **`#LLD-` fallback** is owned by C2.4: if native scroll-to-fragment does not work for
+- **`#LLD-` fallback** is owned by v0.2 §C2.4 (retired — the rewritten HLD's C2.4 does not
+  participate in diagram navigation at all, and V1 ships no preview script): if native
+  scroll-to-fragment does not work for
   SVG anchor clicks in VSCode's preview webview, the preview script adds a click listener
   that sets `window.location.hash` to the fragment.
 - **Distribution in V1** is via VSCode Extension Development Host only. Marketplace
