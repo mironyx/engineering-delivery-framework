@@ -12,7 +12,7 @@ entries:
 
   - req: REQ-lld-template-diagram-vocabulary-conditional-diagram-types
     lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
-    issue: null
+    issue: 52
     files: []
     status: Approved
     lld_revision: r1
@@ -21,7 +21,7 @@ entries:
 
   - req: REQ-lld-template-diagram-vocabulary-standard-classdef-palette
     lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
-    issue: null
+    issue: 52
     files: []
     status: Approved
     lld_revision: r1
@@ -30,7 +30,7 @@ entries:
 
   - req: REQ-lld-template-diagram-vocabulary-note-annotations-enforcement-points
     lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
-    issue: null
+    issue: 52
     files: []
     status: Approved
     lld_revision: r1
@@ -40,7 +40,7 @@ entries:
 
   - req: REQ-lld-template-diagram-vocabulary-click-directives-diagram-participants
     lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
-    issue: null
+    issue: 52
     files: []
     status: Approved
     lld_revision: r1
@@ -52,7 +52,7 @@ entries:
 
   - req: REQ-skill-instructions-quality-gates-diagram-generation-rules-lld-skill
     lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
-    issue: null
+    issue: 52
     files: []
     status: Approved
     lld_revision: r1
@@ -60,7 +60,7 @@ entries:
 
   - req: REQ-skill-instructions-quality-gates-self-critique-checklist-diagram-navigability
     lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-self-critique
-    issue: null
+    issue: 53
     files: []
     status: Approved
     lld_revision: r1

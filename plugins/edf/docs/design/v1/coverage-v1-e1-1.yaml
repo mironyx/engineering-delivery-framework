@@ -12,7 +12,7 @@ entries:
 
   - req: REQ-lld-template-diagram-vocabulary-conditional-diagram-types
     lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-gates-palette-annotations
-    issue: null
+    issue: 46
     files: []
     status: Approved
     lld_revision: r1
@@ -21,7 +21,7 @@ entries:
 
   - req: REQ-lld-template-diagram-vocabulary-standard-classdef-palette
     lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-gates-palette-annotations
-    issue: null
+    issue: 46
     files: []
     status: Approved
     lld_revision: r1
@@ -30,7 +30,7 @@ entries:
 
   - req: REQ-lld-template-diagram-vocabulary-note-annotations-enforcement-points
     lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-gates-palette-annotations
-    issue: null
+    issue: 46
     files: []
     status: Approved
     lld_revision: r1
@@ -39,7 +39,7 @@ entries:
 
   - req: REQ-lld-template-diagram-vocabulary-click-directives-diagram-participants
     lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-link-forms
-    issue: null
+    issue: 45
     files: []
     status: Approved
     lld_revision: r1
@@ -53,7 +53,7 @@ entries:
 
   - req: REQ-lld-template-diagram-vocabulary-lld-anchor-navigation-part-b
     lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-link-forms
-    issue: null
+    issue: 45
     files: []
     status: Approved
     lld_revision: r1
@@ -63,7 +63,7 @@ entries:
 
   - req: REQ-lld-template-diagram-vocabulary-verify-diagram-link-resolution
     lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-conformance-evidence
-    issue: null
+    issue: 47
     files: []
     status: Approved
     lld_revision: r1

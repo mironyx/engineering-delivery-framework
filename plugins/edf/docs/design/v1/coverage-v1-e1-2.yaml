@@ -6,7 +6,7 @@ entries:
 
   - req: REQ-vscode-extension-review-feedback-quick-pick-insert-review-comment
     lld: lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-command-wiring
-    issue: null
+    issue: 50
     files: []
     status: Approved
     lld_revision: r1
@@ -17,7 +17,7 @@ entries:
 
   - req: REQ-vscode-extension-review-feedback-test-framework-local-packaging
     lld: lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-packaging-security
-    issue: null
+    issue: 51
     files: []
     status: Approved
     lld_revision: r1
