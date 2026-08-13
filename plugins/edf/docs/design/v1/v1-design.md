@@ -4,12 +4,12 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.0 |
-| Status | Draft — awaiting Gate 1 |
+| Version | 1.1 |
+| Status | Reviewed — Gate 1 approved 2026-08-13 |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
 | Last updated | 2026-08-13 |
-| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.1) |
+| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.2) |
 | Mode | Rewrite — supersedes v0.2 |
 
 ## Change Log
@@ -18,6 +18,7 @@
 |---------|------|--------|---------|
 | 0.1 | 2026-08-01 | LS / Claude | Initial HLD — Levels 1–3 |
 | 0.2 | 2026-08-01 | LS / Claude | `edf:hld-review` fixes (0 blockers, 5 warnings resolved) |
+| 1.1 | 2026-08-13 | LS / Claude | Gate 1 approved. Applied `edf:hld-review` fixes (2 blockers: added C2.7 Extension Build and Test Harness, C2.8 Host Markdown Renderer; 8 warnings) and drift-scan fixes (traceability repair, path-form constraint, per-renderer verification status, Flow 5). Retargeted to requirements v1.2 — GitLab struck from Story 1.3 AC5. Stated the Story 1.4/1.5 emission-vs-navigation seam. Routed the two scaffold open questions to Epic 2's LLD rather than an ADR gate. |
 | 1.0 | 2026-08-13 | LS / Claude | **Rewrite against requirements v1.1.** Retired the `edf://` scheme (C4), preview-integrated source navigation (old C5), and graceful degradation (old C8) following ADR-0038's rejection. Added renderer-native navigation (C4), cross-renderer verification evidence (C5), and a verified installable build (C7). Deleted Flows 2, 3 and 6; rewrote Flow 5 as renderer-native resolution. Reduced the extension component to a single command with no preview script. |
 
 ---
@@ -810,7 +811,8 @@ propagate these into their Part A Visual Specifications tables with per-state sc
 
 ## References
 
-- [v1-requirements.md](../../requirements/v1-requirements.md) — v1.1, the authority for scope
+- [v1-requirements.md](../../requirements/v1-requirements.md) — v1.2, the authority for scope
+- [ADR-0039](../../adr/0039-workspace-relative-paths-for-diagram-navigability.md) — workspace-relative paths and the per-diagram-type `click` support matrix
 - [ADR-0026](../../adr/0026-stable-ids-requirements-lld.md) — `LLD-<epic-id>-<section-slug>` anchor format
 - [ADR-0034](../../adr/0034-design-review-gates.md) — design artefacts are review-gated
 - [ADR-0038](../../adr/0038-extension-architecture-security-model.md) — **Rejected.** Its rejection note is the empirical record of Mermaid sanitiser and `click` support behaviour

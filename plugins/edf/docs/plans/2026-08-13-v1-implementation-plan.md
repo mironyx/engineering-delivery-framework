@@ -33,6 +33,35 @@ Pulled from the requirements' "What We Are NOT Building" and "Deferred from V1":
 - Contextual "run tests for this section" from the preview
 - GitLab verification — V1 claims only what Story 1.6 measures
 
+## Story closure seam — read before assigning work
+
+Stories 1.1–1.4 are written with acceptance criteria phrased as *generation* outcomes:
+"when `/lld` Step 2 evaluates the feature's characteristics, then a `stateDiagram-v2` is
+included in Part A". That is the skill's behaviour, not the template's content — and the
+skill belongs to E1.3 while the stories belong to E1.1.
+
+This is not a numbering accident. The HLD states it as a boundary: C2.1's
+non-responsibilities read "Does not evaluate which diagram types a given feature needs — the
+skill applies the gates". The requirements encode the same split, which is why Story 3.1
+("Diagram generation rules in `/lld` SKILL.md") restates each concern from the generation
+side.
+
+**Therefore Stories 1.1–1.4 close in two halves, and neither epic closes them alone:**
+
+| Half | Epic | Artefact | Satisfied by |
+|---|---|---|---|
+| **Definition** — the convention exists and is stated as a checkable rule | E1.1 | `lld/template.md` | Reading the template |
+| **Application** — the convention is applied to every generated LLD | E1.3 | `lld/SKILL.md` | Running `/lld` and inspecting output |
+
+A story is closed only when both halves are done. `/architect` should mark the coverage
+manifest entries for Stories 1.1–1.4 against both epics' LLD sections, and neither epic's
+exit criteria should be read as closing them. This mirrors the emission-versus-navigation
+seam the HLD already states for Stories 1.4 and 1.5.
+
+Stories 1.5 and 1.6 do not split this way — 1.5's anchor format is template-defined and
+renderer-verified, and 1.6 is verification work with no skill component. Stories 2.1, 2.2,
+3.1 and 3.2 each close within a single epic.
+
 ## Epics
 
 ### Epic E1.1 — LLD Template & Diagram Vocabulary
@@ -56,15 +85,28 @@ Pulled from the requirements' "What We Are NOT Building" and "Deferred from V1":
 - **Rough task shape:**
   - Harden the four conditional diagram-type gates so each states a concrete, checkable rule
   - Migrate every link in the template from `edf://` to workspace-relative form, and encode
-    the ADR-0039 support matrix including the two prohibitions
+    the **full** ADR-0039 support matrix — all three parse-error cases (`sequenceDiagram`
+    fatal on `click` *and* on the `link` directive, `erDiagram` emits nothing,
+    `stateDiagram-v2` omits `_self`), the path-form constraint (no leading slash, no `..`
+    segments), and the `classDiagram` display-label workaround for identifiers containing `/`
+  - Define the `#LLD-` anchor form for Story 1.5: the fragment must match the Part B
+    `<a id="…">` exactly, in the ADR-0026 `LLD-<epic-id>-<section-slug>` format including the
+    epic ID, and a fragment with no target is a silent no-op
   - Apply the `classDef` palette to the template's diagram examples, with the role tie-break rule
   - Add enforcement `Note` annotations and the adjacency rule
-  - Author the conformance fixture and record the report (per type, per renderer, both link
-    forms, plus the negative cases and the palette-distinguishability observation)
+  - Author the conformance fixture and record the report: per type, per renderer, both link
+    forms, the negative cases, the palette-distinguishability observation, and **the finding
+    on whether VSCode's preview natively opens a workspace-relative link clicked inside a
+    Mermaid SVG** — the one output with a consumer outside V1, since it decides whether a
+    deferred V2 story is already delivered
+  - Propagate [vis-markdown-preview-navigation.html](../design/v1/vis-markdown-preview-navigation.html)
+    into the LLD's Part A Visual Specifications table per ADR-0035
 - **Exit criteria:** Every diagram example in `template.md` parses in both GitHub and VSCode;
-  no `edf://` remains anywhere in the file; the support matrix is stated normatively; the
-  conformance report is committed with pinned Mermaid and VS Code versions and a stated
-  re-verification trigger.
+  no `edf://` and no sequence-diagram `link` directive remains anywhere in the file; the
+  support matrix and the path-form constraint are stated normatively; the conformance report
+  is committed with pinned Mermaid and VS Code versions, a stated re-verification trigger, and
+  the VSCode native-open finding recorded either way. **Does not close Stories 1.1–1.4 —
+  see the closure seam above.**
 
 ### Epic E1.2 — VSCode Extension: Review Feedback
 
@@ -91,10 +133,19 @@ Pulled from the requirements' "What We Are NOT Building" and "Deferred from V1":
   - Insertion-point resolution as a pure module, including placement after existing markers
   - Command wiring: quick-pick, the three-way target resolution, focus and cursor placement,
     the empty-headings message, and the Escape no-op
+  - The `EDF Review` output channel, logging why no document could be resolved — V1's only
+    observability requirement, and invisible to the reviewer without it
   - Packaging: minimal manifest fields, `vsce package`, install verification in a normal window
+  - Propagate [vis-review-comment-insertion.html](../design/v1/vis-review-comment-insertion.html)
+    into the LLD's Part A Visual Specifications table per ADR-0035
 - **Exit criteria:** The command works from a focused preview; all Story 2.1 ACs have a
-  passing test; `vsce package` emits a `.vsix` with no errors; the installed extension
-  activates in a normal VSCode window and behaves identically to the Dev-Host build.
+  passing test; resolution failures reach the output channel; `vsce package` emits a `.vsix`
+  with no errors; the installed extension activates in a normal VSCode window and behaves
+  identically to the Dev-Host build; **the security review is recorded** — a reading of the
+  shipped code confirming it performs only heading extraction, quick-pick display and text
+  insertion, with no file reads beyond the open document, no network calls and no process
+  execution. This epic is where the trust boundary moves from a debug host to a reviewer's
+  everyday editor, so the review obligation belongs to its exit, not to a later gate.
 
 ### Epic E1.3 — Skill Instructions & Quality Gates
 
@@ -114,13 +165,20 @@ Pulled from the requirements' "What We Are NOT Building" and "Deferred from V1":
 - **Parallelisable with:** E1.2
 - **Rough task shape:**
   - Step 2 generation rules: diagram-type selection, palette application with the tie-break,
-    link emission per the ADR-0039 matrix, display-label workaround, `Note` placement — each
-    with a worked example
-  - Step 2.5 self-critique: parse checks gating navigability checks, path-form and
-    file-existence as separate checks, palette fence-type check, specific failure messages
-- **Exit criteria:** No `edf://` remains in `SKILL.md`; every template feature has a
-  corresponding generation rule; every concern has at least one worked example; the
-  self-critique reports name the specific participant, path, or diagram type at fault.
+    link emission per the full ADR-0039 matrix (including the `link`-directive exclusion, not
+    only `click`), display-label workaround, `Note` placement — each with a worked example
+  - Step 2.5 self-critique: parse checks gating navigability checks; path-form and
+    file-existence as separate checks; palette fence-type check (`text` fence, not a bare
+    `mermaid` fence); **verification that every trust-boundary-crossing interaction carries a
+    `Note`**; specific failure messages naming the offender
+  - Place the new checks at the same prominence as the existing checklist items (security,
+    error paths, reused helpers) rather than appending them — a placement decision that is
+    cheap now and awkward to retrofit
+- **Exit criteria:** No `edf://` and no sequence-diagram `link` directive remains in
+  `SKILL.md`; every template feature has a corresponding generation rule; every concern has at
+  least one worked example; the self-critique reports name the specific participant, path, or
+  diagram type at fault. **Together with E1.1, closes Stories 1.1–1.4 — see the closure seam
+  above.**
 
 ## Parallelisation Map
 
