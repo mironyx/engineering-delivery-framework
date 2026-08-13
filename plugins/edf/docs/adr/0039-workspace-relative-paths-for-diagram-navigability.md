@@ -1,7 +1,7 @@
 # 0039. Workspace-Relative Paths for LLD Diagram Navigability
 
 **Date:** 2026-08-13
-**Status:** Proposed
+**Status:** Accepted
 **Deciders:** LS / Claude
 
 ## Context
@@ -130,6 +130,12 @@ breaks documents.
 | `stateDiagram-v2` | Yes, with caveat | Emit **without** the `_self` target — supplying one is a parse error |
 | `erDiagram` | Parses, no anchor | Emit nothing. Mermaid generates no link, so a directive adds no navigability |
 | `sequenceDiagram` | **Fatal parse error** | Emit nothing, in any form. A `click` here takes down the entire diagram, not just the link |
+
+The sequence-diagram `link` directive (`link API: source @ <url>`, distinct syntax from
+`click`) is **not** used. It was tried with `edf://` during V1.0 and caused problems, which
+is consistent with the sanitiser finding above. It is not re-evaluated with a
+workspace-relative path in V1: the Structural Overview already provides a click path to the
+same components, so the payoff would be redundant navigation.
 
 Participants appearing only in a `sequenceDiagram` are reached through the accompanying
 `classDiagram` or `flowchart` in the section's Structural Overview. Where no such diagram
