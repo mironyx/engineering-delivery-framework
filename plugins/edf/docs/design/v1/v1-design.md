@@ -43,7 +43,11 @@ is now `C2.4 Review Comment Command` — so inbound links to old anchors do not 
 only such link is from the rejected ADR-0038, updated alongside this rewrite.
 
 The load-bearing decision that survives — *workspace-relative paths over a custom URL
-scheme* — is proposed as an ADR at this version's Step 5 gate rather than assumed here.
+scheme* — is recorded in [ADR-0039](../../adr/0039-workspace-relative-paths-for-diagram-navigability.md),
+which also carries the per-diagram-type `click` support matrix this HLD's C2.1 and C2.5 refer
+to. It is the only ADR V1 needs: the extension's scope, distribution and test runner are all
+already fixed by approved requirements, and an ADR restating them would add a document
+without adding a decision.
 
 ---
 
@@ -449,9 +453,9 @@ suite that proves its behaviour and the packaging that makes it usable outside a
 **Note on test strategy.** This is the repo's only runtime-tested surface that is not Python,
 so `CLAUDE.md`'s pytest convention does not apply. Story 2.2 AC1 already fixes the runner as
 `@vscode/test-electron` driving Mocha specs, and that approved acceptance criterion is
-binding. The Step 5 ADR **records** this choice and its rationale — it does not reopen it.
-An ADR free to contradict an approved AC would put the design and the requirements into a
-race, which is the coordination failure ADRs exist to prevent.
+binding — the LLD implements it rather than reopening it. It warrants no ADR of its own: an
+ADR free to contradict an approved AC would put design and requirements into a race, and one
+that merely restates the AC adds a document without adding a decision.
 
 ---
 
@@ -729,8 +733,11 @@ resolve the target document, which is otherwise invisible to the reviewer.
 ## Open Questions
 
 Both concern the existing `extensions/edf-review/` scaffold, which was written for the two
-V2-deferred stories. Neither blocks Gate 1 — recorded here for decision at the Step 5 ADR
-gate, where the extension-scope ADR will settle both together.
+V2-deferred stories. Neither blocks Gate 1, and neither warrants an ADR: the extension's
+scope is already fixed by Design Principle 5, its distribution by Design Principle 7 and
+Story 2.2, and its test runner by Story 2.2 AC1. What remains is the disposition of dead
+code, which is a task-level call. **Both are resolved in Epic 2's LLD by `/architect`**, and
+the answer belongs in that LLD's first task.
 
 ### OQ1: Delete or quarantine the spike scaffold?
 
