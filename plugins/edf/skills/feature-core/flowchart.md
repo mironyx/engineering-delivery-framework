@@ -18,10 +18,12 @@ flowchart TD
         S3A_NEW -->|"Yes"| S3A_FETCH["WebFetch pinned doc<br/>before coding"]
         S3A_FETCH --> S3B
         S3A_NEW -->|"No"| S3B["S3b: List 2-3 approaches,<br/>pick simplest"]
-        S3B --> S3B_LLD{"LLD still best?"}
-        S3B_LLD -->|"No — deviate"| S3B_DEV["Note deviation for<br/>PR Design deviations"]
+        S3B --> S3B_Q["S3b: Answer 3 LLD challenge<br/>questions in writing<br/>reinvention / simpler / would you"]
+        S3B_Q --> S3B_LLD{"Improvement found?"}
+        S3B_LLD -->|"Changes AC, contract,<br/>schema, other tasks' files"| STOP_ASK(["fa:fa-ban Stop: ask user"])
+        S3B_LLD -->|"AC + contract unchanged<br/>— build your version"| S3B_DEV["Note deviation for<br/>PR Design deviations"]
         S3B_DEV --> S3C
-        S3B_LLD -->|"Yes"| S3C["S3c: Classify pressure<br/>Estimate src lines"]
+        S3B_LLD -->|"No — keep LLD shape"| S3C["S3c: Classify pressure<br/>Estimate src lines"]
         S3C --> S3C_SEC{"Security-sensitive?<br/>auth / payments / PII /<br/>secrets / external input"}
         S3C_SEC -->|"No"| F3DF
         S3C_SEC -->|"Yes — verification = Standard"| F3DF["3dF: Create session log<br/>Approach rationale +<br/>cost checkpoint table"]
@@ -120,8 +122,8 @@ flowchart TD
     classDef stop fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S3,S3_READ,S3A,S3A_FETCH,S3B,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S10,S10_F,S10_OK,S10_CP,S10_W process
+    class S3,S3_READ,S3A,S3A_FETCH,S3B,S3B_Q,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S10,S10_F,S10_OK,S10_CP,S10_W process
     class F2,S5,S5_E2E_RUN,S5_AUDIT,S6B,S6B_REV,S8B agent
     class S3_EPIC,S3A_NEW,S3B_LLD,S3C_SEC,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6B_GATE,S6B_V,S6B_V2,S8_DEV,S9_B,S10_CI decision
-    class STOP_EPIC,STOP_SPEC,S6B_STOP stop
+    class STOP_EPIC,STOP_SPEC,STOP_ASK,S6B_STOP stop
 ```
