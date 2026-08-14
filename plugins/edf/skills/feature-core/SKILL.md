@@ -96,19 +96,30 @@ recall as current.
 change codes against, grep for prior use, and fetch docs for any with none. Note the gap
 under `## Design deviations` so `/lld-sync` backfills the table.
 
-### Step 3b: Pick the simplest approach
+### Step 3b: Pick the simplest approach and challenge the LLD
 
 Before writing any code, list 2-3 approaches in 1-2 sentences each. Pick the one that fixes the root cause with the least code. State why. Prefer fixing data at the source over adding complexity downstream (CLAUDE.md: "Simplicity first").
 
-**Critically evaluate the LLD — do not follow it blindly.** LLD sections are written before
-implementation; reality may reveal a simpler path, an incorrect assumption, an outdated pattern,
-or a better structural fit. Before coding, explicitly ask: is the LLD approach still the best one?
-Deviation is expected and welcome whenever you have a good reason. You must:
+**Challenge the LLD in writing.** Answer these three questions before coding.
+Write an answer to each, even when the answer is "no change needed" — silence
+is not an answer.
 
-1. State what the LLD recommended.
-2. State what you are doing instead and why it is better (simpler, more correct, better fit).
-3. Note the deviation in the PR body under a `## Design deviations` section so `/lld-sync` can
-   reconcile the LLD later.
+1. Does the LLD reinvent something the repo already has? (grep before answering)
+2. Is there a simpler way to get the same behaviour? "Simpler" means fewer of
+   something you can count — statements, round trips, branches, files, concepts,
+   moving parts. If you cannot name what got smaller, it is not simpler.
+3. Would you build it this way if the LLD didn't exist? If not, what differs?
+
+Then act on what you found:
+
+- **Your version keeps the acceptance criteria and the public contract
+  identical** — build your version. Note it in the PR body under a
+  `## Design deviations` section so `/lld-sync` reconciles the LLD later.
+- **Your version changes acceptance criteria, the public contract, the schema,
+  or another task's files** — stop and ask the user first.
+
+The LLD is a strong starting point, not a specification to transcribe. Most of
+the time you will keep its shape and improve details within it.
 
 Do not deviate silently — traceability matters. `/lld-sync` reads the PR body to pick up these
 notes and update the design doc accordingly.
