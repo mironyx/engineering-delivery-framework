@@ -4,12 +4,12 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.1 |
-| Status | Reviewed — Gate 1 approved 2026-08-13 |
+| Version | 1.2 |
+| Status | Reviewed — Gate 1 approved 2026-08-13; §C2.1 and §C2.3 path-form amended 2026-08-14 (issue #45) |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
-| Last updated | 2026-08-13 |
-| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.2) |
+| Last updated | 2026-08-14 |
+| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.3) |
 | Mode | Rewrite — supersedes v0.2 |
 
 ## Change Log
@@ -18,6 +18,7 @@
 |---------|------|--------|---------|
 | 0.1 | 2026-08-01 | LS / Claude | Initial HLD — Levels 1–3 |
 | 0.2 | 2026-08-01 | LS / Claude | `edf:hld-review` fixes (0 blockers, 5 warnings resolved) |
+| 1.2 | 2026-08-14 | LS / Claude | **Post-Gate-1 amendment (issue #45), reviewed in that issue's PR diff.** §C2.1's link-form bullet and §C2.3's navigability check both required a path form with "no leading slash and no `..` segments". Measurement established that form cannot resolve from any document below the repository root, which is every LLD; §C2.3's check, implemented as written, would have rejected every valid link. Both now state the document-relative form with `..` permitted plus a `design-root` containment check. See ADR-0039 §Revision R1. No component, boundary, or responsibility changed. |
 | 1.1 | 2026-08-13 | LS / Claude | Gate 1 approved. Applied `edf:hld-review` fixes (2 blockers: added C2.7 Extension Build and Test Harness, C2.8 Host Markdown Renderer; 8 warnings) and drift-scan fixes (traceability repair, path-form constraint, per-renderer verification status, Flow 5). Retargeted to requirements v1.2 — GitLab struck from Story 1.3 AC5. Stated the Story 1.4/1.5 emission-vs-navigation seam. Routed the two scaffold open questions to Epic 2's LLD rather than an ADR gate. |
 | 1.0 | 2026-08-13 | LS / Claude | **Rewrite against requirements v1.1.** Retired the `edf://` scheme (C4), preview-integrated source navigation (old C5), and graceful degradation (old C8) following ADR-0038's rejection. Added renderer-native navigation (C4), cross-renderer verification evidence (C5), and a verified installable build (C7). Deleted Flows 2, 3 and 6; rewrote Flow 5 as renderer-native resolution. Reduced the extension component to a single command with no preview script. |
 
@@ -252,11 +253,19 @@ diagram vocabulary, the palette, the annotation format, and the link conventions
 - Define the per-diagram-type link support matrix, including the two prohibitions
   (`sequenceDiagram` emits no `click` in any form; `erDiagram` emits none because Mermaid
   generates no anchor) and the `stateDiagram-v2` no-`_self` rule
-- Define the two link forms: workspace-relative path for existing code, `#LLD-` anchor for
-  components specified in Part B. A path form carries no leading slash and no `..` segments,
-  so that it resolves both by `vscode.Uri.joinPath` and by GitHub's native relative-link
-  handling. An absolute or escaping path can still resolve on the author's own filesystem
-  while breaking for every other reader — the same class of failure as `edf://`
+- Define the two link forms: document-relative path for existing code, `#LLD-` anchor for
+  components specified in Part B. A path form carries no leading slash, **may contain `..`
+  segments**, and must resolve — against the directory of the document containing it — to an
+  existing file inside the project's declared `design-root`. An absolute or escaping path can
+  still resolve on the author's own filesystem while breaking for every other reader — the
+  same class of failure as `edf://` — and it is the `design-root` containment check, not a
+  syntactic rule, that catches it
+
+  > **Amended 2026-08-14 (issue #45).** This bullet previously required "no leading slash and
+  > no `..` segments", resolving by `vscode.Uri.joinPath`. Measurement established that form
+  > cannot resolve from any document below the repository root, which is every LLD — see
+  > [ADR-0039 §Revision](../../adr/0039-workspace-relative-paths-for-diagram-navigability.md#revision--2026-08-14)
+  > R1. §C2.3 below is amended to match.
 - Define the enforcement-annotation format and its adjacency rule
 - Define the `classDiagram` display-label workaround for identifiers containing `/`
 - Define the role tie-break precedence when a participant plausibly matches more than one
@@ -313,9 +322,17 @@ before a document reaches a human reviewer.
   `stateDiagram-v2` `click`, no `/` in a `classDiagram` identifier
 - Then run navigability checks, scoped to the three link-supporting types: every participant
   carries either a workspace-relative path or a `#LLD-` anchor
-- Verify each `#LLD-` fragment matches a real Part B anchor; verify each workspace-relative
-  path points at a file that exists **and** carries no leading slash or `..` segment. File
-  existence and path form are separate checks — an escaping path resolves fine locally
+- Verify each `#LLD-` fragment matches a real Part B anchor; verify each document-relative
+  path resolves — against the linking document's own directory — to a file that **exists**
+  and that lies **inside `design-root`**. Existence and containment are separate checks: an
+  escaping path resolves fine locally, and a path inside `design-root` can still name a file
+  that was deleted
+
+  > **Amended 2026-08-14 (issue #45).** This check previously required "no leading slash or
+  > `..` segment". Implemented as written it would have rejected every valid link, since a
+  > document-relative path from a nested LLD necessarily begins with `..` — see §C2.1 above
+  > and ADR-0039 §Revision R1. The leading-slash ban stands; the `..` ban is replaced by the
+  > containment check.
 - Verify the palette block is present, sits in a `text` fence rather than a bare `mermaid`
   fence — a `classDef` block alone is not a valid diagram — and is applied consistently
 - Verify each trust-boundary-crossing interaction carries a `Note`

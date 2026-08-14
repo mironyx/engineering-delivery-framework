@@ -84,11 +84,22 @@ renderer-verified, and 1.6 is verification work with no skill component. Stories
 - **Parallelisable with:** E1.2
 - **Rough task shape:**
   - Harden the four conditional diagram-type gates so each states a concrete, checkable rule
-  - Migrate every link in the template from `edf://` to workspace-relative form, and encode
-    the **full** ADR-0039 support matrix — all three parse-error cases (`sequenceDiagram`
-    fatal on `click` *and* on the `link` directive, `erDiagram` emits nothing,
-    `stateDiagram-v2` omits `_self`), the path-form constraint (no leading slash, no `..`
-    segments), and the `classDiagram` display-label workaround for identifiers containing `/`
+  - Migrate every link in the template from `edf://` to document-relative form, and encode
+    the **full** ADR-0039 support matrix — **two** parse-error cases (`sequenceDiagram`
+    fatal on `click`; `stateDiagram-v2` on `_self`) plus one no-anchor case (`erDiagram`
+    parses `click` and generates no link, so emit nothing), the path-form constraint
+    (document-relative, `..` permitted, no leading slash, resolves inside `design-root` to an
+    existing file), and the `classDiagram` display-label workaround for identifiers
+    containing `/`
+
+    > **Corrected 2026-08-14 (issue #45).** This line previously said "all three parse-error
+    > cases", counting the sequence-diagram `link` directive as one. Measured on mermaid
+    > 11.12.2, `link A: source @ <path>` **parses**; ADR-0039 never claimed otherwise — it
+    > recorded the omission of `link` as a design choice, which this plan hardened into a
+    > parse fact. The omission stands as a convention with its rationale. The path-form
+    > constraint is likewise revised per ADR-0039 §Revision R1. Epic E1.1's exit criterion
+    > "no sequence-diagram `link` directive remains" stands as a convention check, not a
+    > parse fix; epic E1.3's Step 2.5 parse checks already omit `link` and need no change.
   - Define the `#LLD-` anchor form for Story 1.5: the fragment must match the Part B
     `<a id="…">` exactly, in the ADR-0026 `LLD-<epic-id>-<section-slug>` format including the
     epic ID, and a fragment with no target is a silent no-op

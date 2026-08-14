@@ -296,9 +296,13 @@ Identifiers use the display-label workaround confirmed in D3 — a raw `/` in a
 |---|---|---|---|---|
 | Markdown preview navigation | [vis-markdown-preview-navigation.html](vis-markdown-preview-navigation.html) | Anchor state — Part B section scrolled into view | [REQ-…-lld-anchor-navigation-part-b](../../requirements/v1-requirements.md#REQ-lld-template-diagram-vocabulary-lld-anchor-navigation-part-b) | [C2.1](v1-design.md#c21-lld-template) |
 
-> **Screenshot capture is a T1 deliverable**, not an authoring-time artefact — the wireframe
-> shows the anchor-scroll behaviour this section defines. Capture `vis-markdown-preview-navigation-anchor.png`
-> during T1 and embed it here.
+![Markdown preview navigation — anchor state](vis-markdown-preview-navigation-anchor.png)
+
+Captured in T1 (issue #45) from
+[vis-markdown-preview-navigation.html](vis-markdown-preview-navigation.html) in its `anchor`
+state. The wireframe's example fragment was corrected to `#LLD-v1-e1-delivery-service` at the
+same time — it previously read `#LLD-delivery-service`, omitting the epic id that this
+section's anchor-form rule requires.
 
 ### Invariants
 

@@ -4,11 +4,11 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.2 |
+| Version | 1.3 |
 | Status | Draft — Complete |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
-| Last updated | 2026-08-13 |
+| Last updated | 2026-08-14 |
 
 ## Change Log
 
@@ -20,6 +20,7 @@
 | 0.4 | 2026-08-01 | LS / Claude | Review fixes: corrected visual reference paths; aligned #LLD- anchor format with ADR-0026; resolved AC1/AC4 contradiction in Story 1.2; removed cross-epic AC dependency on Story 4.2 |
 | 1.0 | 2026-08-01 | LS / Claude | Finalised — Gate 2 approved |
 | 1.2 | 2026-08-13 | LS / Claude | `/kickoff` Gate 1 fix: struck GitLab from Story 1.3 AC5, which contradicted Story 1.6's Notes ("GitLab is not separately verified in V1"). As written, AC5 was an acceptance criterion no component owned and no verification exercised — it would have passed by assumption, the same failure mode as the `edf://` design. V1 now claims only what Story 1.6 measures. |
+| 1.3 | 2026-08-14 | LS / Claude | **Post-Gate-2 amendment (issue #45), reviewed in that issue's PR diff rather than as a separate gate.** Story 1.4 AC7 stated the path form as "no leading slash and no `..` segments"; measurement established that form cannot resolve from any document below the repository root, which is every LLD (ADR-0039 §Revision R1). AC7 now states the document-relative form with `..` permitted and a `design-root` containment check; the glossary entry for **Workspace-relative path** was corrected to match and a **`design-root`** entry added; Story 1.4 AC1's example was replaced, since the one it carried was an instance of the failing form. No story, epic, or scope boundary changed. |
 | 1.1 | 2026-08-02 | LS / Claude | Review cycle following ADR-0038's rejection: retired `edf://` from the requirements in favour of workspace-relative paths (still outstanding as real, unfinished work in `template.md`/`SKILL.md` — not yet migrated); dissolved Epic 2 (hover tooltip / click-to-open moved to V2/Future pending a communication-channel spike; anchor navigation and link-resolution verification folded into Epic 1 as Stories 1.5/1.6); added `classDiagram` as a fourth conditional diagram type (Story 1.1); resolved Design Principle 7 to local `.vsix` packaging and added Story 2.2 for the test/packaging work; fixed the `click`-support-matrix ACs across Stories 1.4, 1.5, 1.6, 3.1 (ex-4.1), 3.2 (ex-4.2), including a `stateDiagram-v2` inconsistency for new-component anchors caught by automated review; rewrote Design Principle 2 to match the current Story 2.1 and moved its stronger "preview stays open" guarantee to the deferred click-to-open story; trimmed Cross-Cutting Concerns to what the remaining V1 stories actually need; closed three stale open questions |
 
 ---
@@ -72,7 +73,8 @@ already built.
 | **LLD Part A** | The first half of an LLD document — behavioural diagrams (sequence, state, ER, flowchart, class) and an invariants table. The primary review surface. |
 | **LLD Part B** | The second half of an LLD document — internal decomposition, function signatures, data shapes, and task breakdown for each component. |
 | **`click` directive** | A Mermaid syntax element (`click ParticipantId href "url" [_self]`) that makes a diagram node clickable. Support is not uniform: `flowchart`, `classDiagram`, and `stateDiagram-v2` support it (each with caveats — see the support matrix in `lld/template.md`); `erDiagram` parses it but generates no link; `sequenceDiagram` treats any form of it as a fatal parse error. Used to link participants to source files or Part B anchors. |
-| **Workspace-relative path** | A repo-relative file path (e.g. `src/lib/auth/helper.ts`, no leading slash, no `..` segments) used as a `click` href. Survives Mermaid's strict URL sanitizer and resolves natively in both GitHub and VSCode — unlike a custom URL scheme, which the sanitizer strips regardless of diagram type. |
+| **Workspace-relative path** | A **document-relative** file path used as a `click` href — resolved against the directory of the document containing the link, not against the repository root (e.g. `../../../skills/lld/template.md` from an LLD in `plugins/edf/docs/design/v1/`). No leading slash; `..` segments are permitted; the resolved path must name an existing file inside the project's declared **`design-root`**. Survives Mermaid's strict URL sanitizer and resolves natively in both GitHub and VSCode — unlike a custom URL scheme, which the sanitizer strips regardless of diagram type. *The term is retained for continuity across V1 artefacts; "workspace" names the containment boundary (`design-root`), never the resolution base. Amended 2026-08-14 — see [ADR-0039 §Revision](../adr/0039-workspace-relative-paths-for-diagram-navigability.md#revision--2026-08-14) R1.* |
+| **`design-root`** | The directory a `click` href must resolve inside, declared once per project in `kb/file-map.md`. For a single-module repository it is the repository root; in a monorepo it may be a module root, which additionally rejects cross-module links. Replaces ADR-0039's original syntactic ban on `..` segments with a containment check. |
 | **`classDef` palette** | A set of Mermaid `classDef` declarations defining colour-coded styles for diagram participants. The canonical palette is defined in `lld/template.md`: error (`#f7d6d6`), auth (`#f7eed6`), external (`#d6e8f7`), new (`#d4f0d4`). |
 | **Enforcement point** | A location in a sequence diagram where a cross-cutting concern (authZ, validation, SSRF boundary, error propagation) is enforced. Marked with a `Note` annotation. |
 | **`[Review]` marker** | A blockquote convention (`> **[Review]:** <feedback>`) used to collect inline review feedback in EDF documents. Already established in `/requirements` and `/discovery`. |
@@ -293,9 +295,10 @@ preview or manually grepping the codebase.
 
 - Given a diagram participant representing existing code in a `flowchart`,
   `classDiagram`, or `stateDiagram-v2`, when the diagram is generated, then it carries
-  a `click` directive with an href resolving to the workspace-relative source file path
-  (e.g., `click AuthMiddleware href "src/lib/auth/middleware.ts" _self` in a
-  `flowchart`; `stateDiagram-v2` omits the `_self` target — see AC below).
+  a `click` directive with an href resolving to the source file, document-relative
+  (e.g., `click AuthMiddleware href "../../../src/lib/auth/middleware.ts" _self` in a
+  `flowchart` inside an LLD three directories below `design-root`; `stateDiagram-v2`
+  omits the `_self` target — see AC below).
 - Given a diagram participant representing a new component in a `flowchart`,
   `classDiagram`, or `stateDiagram-v2`, when the diagram is generated, then it carries
   a `click` directive with a `#LLD-` anchor referencing the Part B section's stable
@@ -316,9 +319,18 @@ preview or manually grepping the codebase.
   `classDiagram`, `stateDiagram-v2`), when the diagram source is inspected, then no
   participant is a "dead label" — every participant has a `click` directive resolving
   to either a workspace-relative path or a `#LLD-` anchor.
-- Given a workspace-relative path is constructed for a `click` href, when the path is
-  built, then it has no leading slash and no `..` segments — suitable for resolution by
-  `vscode.Uri.joinPath` and for GitHub's native relative-link resolution.
+- Given a document-relative path is constructed for a `click` href, when the path is
+  built, then it has no leading slash, may contain `..` segments, and resolves — against
+  the directory of the document containing the link — to an existing file inside the
+  project's declared `design-root`.
+
+  > **Amended 2026-08-14 (issue #45, post-Gate-2).** This AC previously read "no leading
+  > slash and no `..` segments". That form was measured and cannot resolve from any
+  > document below the repository root, which is every LLD; see
+  > [ADR-0039 §Revision](../adr/0039-workspace-relative-paths-for-diagram-navigability.md#revision--2026-08-14),
+  > R1. The `..` ban is replaced by the `design-root` containment check, which preserves its
+  > intent — rejecting paths that resolve only on the author's machine — and additionally
+  > catches escaping paths the syntactic ban admitted.
 - Given a Part B section exists with a stable anchor ID, when a `#LLD-` link targets
   it, then the anchor ID follows the ADR-0026 format (`LLD-<epic-id>-<section-slug>`)
   and the `click` directive uses the full anchor ID (including the epic ID) as its

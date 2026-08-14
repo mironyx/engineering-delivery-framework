@@ -58,28 +58,124 @@ enforcement-point annotations (see Behavioural Flows below).
 
 ### Diagram navigability convention — links
 
-Every diagram participant must be navigable so the reviewer can reach the relevant
-code or spec without leaving the preview. The mechanism depends on the diagram type —
-`click` is not supported on every type:
+Every diagram participant in a diagram type that supports `click` must be navigable, so
+the reviewer can reach the relevant code or spec without leaving the preview. This whole
+section is **normative** — it is not a style guide. Two of the support-matrix rows below
+describe behaviour that breaks the document, and the path form describes behaviour that
+breaks the link silently, which is worse.
 
-- **sequenceDiagram** — `click` is unsupported. Link each participant with the
-  sequence-diagram `link` directive:
-  `link API: source @ edf://src/app/api/example/route.ts`.
-- **flowchart / classDiagram / stateDiagram** — use Mermaid's `click` directive.
-  The third argument is the tooltip string, not a target keyword:
-  `click Service href "edf://src/lib/example/service.ts" "source"`.
-- **erDiagram** — no interaction support documented; omit links (refer to entities
-  in prose or via the classDiagram instead).
+Everything here is measured against `mermaid@11.12.2` and recorded in EDF's ADR-0039
+(*Workspace-Relative Paths for LLD Diagram Navigability*, as revised 2026-08-14). A change to
+the pinned Mermaid or VS Code version invalidates it and requires re-measurement. No relative
+link is given, because this template is instantiated in projects where that ADR is not
+present — which is the same reason a generated LLD's own links must obey the path form below.
 
-- **Existing source file** → `edf://` protocol with the repo-relative path.
-  The `edf-review` VSCode extension intercepts these: hover shows code, click opens
-  the file in the next column. Without the extension, the link is harmless (cursor
-  changes but no navigation — the same as any unrecognised URL scheme in an SVG).
-- **New-to-be-created code** → `#LLD-` anchor to the Part B section where its
-  internal decomposition and signatures are specified:
-  `click NewService href "#LLD-v12-e3-new-service" "spec"`
-  Click scrolls the preview to the implementation spec. These anchors work in any
-  markdown renderer including GitHub — they are standard page-internal links.
+#### The two link forms
+
+| Target | Form | Example |
+|--------|------|---------|
+| Existing source file | Document-relative path | `../../../src/lib/auth/helper.ts` |
+| Component specified in Part B of this document | `#LLD-` anchor fragment (ADR-0026) | `#LLD-v1-e1-review-command` |
+
+A custom URL scheme is **not** a third option. One was tried and retired: Mermaid's strict
+URL sanitizer strips every unrecognised scheme, in every diagram type, so the href never
+reaches the DOM for an editor extension to intercept. The same applies to `vscode:` and
+`file:` targets. Only the two forms above survive.
+
+#### Path form
+
+- **Document-relative.** The base is the directory of the file containing the link — *not*
+  the repository root. Both GitHub and VS Code resolve this way and neither honours a
+  configurable base, so a repo-root path written in an LLD nested three directories down
+  404s on click.
+- **`..` segments are permitted**, and are normally required. From an LLD in
+  `docs/design/v1/`, the source tree is reached as `../../../src/…`.
+- **A leading slash is not permitted.** It survives sanitisation and GitHub resolves it
+  against the repo root, but VS Code's preview is liable to read it as filesystem-absolute.
+- **The resolved path must lie inside `design-root`, and must name a file that exists.**
+  This replaces an earlier syntactic ban on `..`. The intent is the same — reject paths that
+  resolve only on the author's machine — but a containment check enforces it, and catches
+  escaping paths (`a/../../../etc/passwd`) that the syntactic rule admitted.
+
+**`design-root`** is declared once per project in `kb/file-map.md`. For a single-module
+repository it is the **repository root**. In a monorepo it may be a module root, which
+additionally rejects cross-module links a repo-root rule would wave through. Pick the
+narrower root only if every path a design needs is genuinely inside it.
+
+A path pointing at a deleted or misspelled file fails silently — no error, just a 404 on
+click. That is why the file-existence check is not optional.
+
+#### Support matrix — which diagram types may carry a `click`
+
+Normative. **Exactly two rows are parse errors** — `stateDiagram-v2` on `_self`, and
+`sequenceDiagram` on any `click`. The third case that carries no link, `erDiagram`, is not
+an error at all: it parses and quietly produces nothing.
+
+| Diagram type | `click` support | Failure mode | Rule |
+|--------------|-----------------|--------------|------|
+| `flowchart` | Yes | — | Emit `click X href "<path-or-fragment>" _self` |
+| `classDiagram` | Yes | — | As above |
+| `stateDiagram-v2` | Yes, with caveat | **Parse error** on `_self` | Emit **without** the `_self` target |
+| `erDiagram` | Parses, generates no anchor | — (silent no-op) | Emit nothing — a directive here adds no navigability |
+| `sequenceDiagram` | None | **Fatal parse error** on any `click` | Emit nothing, in any form — it takes down the whole diagram, not just the link |
+
+Participants appearing only in a `sequenceDiagram` are reached through the `classDiagram` or
+`flowchart` in the same section's Structural Overview. Where no such diagram exists, the
+participant has no click path and remains reachable by ordinary document navigation. This is
+an accepted limitation, not an oversight.
+
+#### The sequence-diagram `link` directive — a convention, not a parse rule
+
+`sequenceDiagram` has a second, distinct syntax: `link A: label @ <url>`. Measured on mermaid
+11.12.2, it **parses successfully** — it is *not* a parse error, and must not be described as
+one.
+
+It is nonetheless **not emitted**, by convention: the section's Structural Overview already
+provides a click path to the same components, so `link` would add a second, redundant
+navigation surface to maintain. Omit it.
+
+#### Declaration order — `click` comes after the thing it links
+
+**In `classDiagram` and `flowchart`, a `click` naming a node that has not been declared yet is
+silently dropped.** The diagram parses, renders, and produces **no anchor at all** — mermaid
+looks the identifier up in a table populated by the declarations and does nothing when it is
+absent, with no error and no warning. Measured on 11.12.2, same block, only the ordering
+changed:
+
+| Diagram type | `click` after declarations | `click` before |
+|--------------|---------------------------|----------------|
+| `classDiagram` | 3 anchors | **0 anchors** |
+| `flowchart` | 2 anchors | **0 anchors** |
+| `stateDiagram-v2` | 1 anchor | 1 anchor — order-insensitive |
+
+`stateDiagram-v2` is the exception because it creates states lazily; class and flowchart nodes
+are not created on reference.
+
+**Emit every `click` after the declaration of the node it names**, in all three types. The
+rule is safe everywhere and correct where it matters, which is why it is stated without an
+exception to remember. It is the only *ordering* rule here, and it has no visible failure
+mode — a diagram that has quietly lost all of its links looks exactly like one that never had
+any, so nothing prompts a reviewer to check.
+
+#### `classDiagram` identifier constraint
+
+Separate from `click` support: a class **identifier** containing `/` is a parse error. Keep
+the module path visible with a display label instead —
+`class EngineScoring["engine/scoring"]`.
+
+#### Anchor form for `#LLD-` fragments
+
+- `LLD-<epic-id>-<section-slug>` per ADR-0026 — the **epic id is part of the anchor** and
+  part of the fragment: `#LLD-v1-e1-review-command`. Dropping it and emitting
+  `#LLD-<section-slug>` alone is the common error, and produces a fragment that matches
+  nothing.
+- The fragment must match a Part B `<a id="…">` in the same document **exactly**, including
+  case.
+- **A fragment with no matching target is a silent no-op** — no scroll, no error, no visible
+  difference from a working link. Nothing warns you; verify the anchor exists.
+
+These fragments are ordinary page-internal links and work in any markdown renderer,
+including GitHub.
 
 ## N.1 [Section Name]
 
@@ -99,20 +195,18 @@ use it when the condition matches, skip it when optional.
 For every interaction involving >2 components: API routes, service calls, webhook
 chains, multi-step UI interactions with server round-trips.
 
-Every diagram participant must be navigable. sequenceDiagram does not support
-`click` — use its `link <actor>: <label> @ <url>` directive. Existing code links to
-the source file via `edf://`; new code links to its Part B spec via `#LLD-`.
+**This diagram carries no links.** Per the support matrix above, a `click` in a
+`sequenceDiagram` is a fatal parse error, and the `link` directive — which does parse — is
+omitted by convention because the section's Structural Overview already reaches the same
+components. Participants here are navigable through that diagram, not this one.
+
 Enforcement points (authZ, validation, external boundaries) are annotated with `Note`
 blocks so the security and validation story is visible in the diagram itself.
 
 `` ```mermaid
 sequenceDiagram
-    link API: source @ edf://src/app/api/example/route.ts
-    link Service: source @ edf://src/lib/example/service.ts
-    link DB: source @ edf://src/lib/db/client.ts
-    %% New-to-be-created — scrolls to Part B spec:
-    link NewService: spec @ #LLD-<epic-id>-<section-slug>
-
+    %% No click (fatal parse error here) and no link directive (convention).
+    %% Navigation to these participants comes from the Structural Overview below.
     Client->>API: POST /api/example
     Note over API: AuthZ check (RLS policy)
     API->>Service: processRequest(ctx, params)
@@ -185,9 +279,11 @@ lists would be hard to audit.
 
 Module/class dependency diagram showing how the pieces fit together. Use mermaid
 `classDiagram` syntax for code structure, or `erDiagram` for data structure. Every
-module, class, and interface must have a `click` directive — existing code links to
-source, new code links to its Part B spec. (`erDiagram` supports no interaction;
-refer to entities in prose instead.)
+module, class, and interface in a `classDiagram` must have a `click` directive — existing
+code links to source (document-relative path), new code links to its Part B spec (`#LLD-`
+fragment). This diagram is also what makes the section's sequence-diagram participants
+reachable, since that type can carry no link at all. (`erDiagram` parses a `click` but
+generates no anchor — emit none, and refer to entities in prose instead.)
 
 #### Code structure (`classDiagram`)
 
@@ -198,16 +294,18 @@ Works for both class-based and module-based codebases:
 - **Interfaces/Ports** — use `<<interface>>`, show who implements them
 - **Direction** — arrows show dependency direction (who depends on whom)
 
-A class name containing `/` is a parse error. Use an identifier-safe name with a display
-label — `class EngineScoring["engine/scoring"]` — to keep the module path visible.
+A class identifier containing `/` is a parse error — use the display-label form from the
+navigability convention above (`class EngineScoring["engine/scoring"]`) to keep the module
+path visible.
+
+The hrefs below are **document-relative**, written from an LLD living in
+`docs/design/v<N>/`: three `..` segments to reach the repository root, then down into the
+source tree. Recompute them for wherever this document actually sits — a repo-root path
+copied from a file listing will 404.
 
 `` ```mermaid
 classDiagram
-    click EngineScoring href "edf://src/lib/engine/scoring.ts" "source"
-    click PortsGitHub href "edf://src/lib/ports/github.ts" "source"
-    click AdaptersGitHub href "edf://src/lib/adapters/github.ts" "source"
-
-    class EngineScoring {
+    class EngineScoring["engine/scoring"] {
         <<module>>
         +calculateScore(responses) Score
         +buildDimensions(config) Dimension[]
@@ -222,6 +320,11 @@ classDiagram
     }
     EngineScoring --> PortsGitHub : depends on
     AdaptersGitHub ..|> PortsGitHub : implements
+
+    %% click directives come LAST — see the declaration-order rule above.
+    click EngineScoring href "../../../src/lib/engine/scoring.ts" _self
+    click PortsGitHub href "../../../src/lib/ports/github.ts" _self
+    click AdaptersGitHub href "../../../src/lib/adapters/github.ts" _self
 `` ```
 
 **When required:** Any task that introduces new modules/classes, modifies module boundaries,

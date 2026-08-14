@@ -1,7 +1,8 @@
 # 0039. Workspace-Relative Paths for LLD Diagram Navigability
 
 **Date:** 2026-08-13
-**Status:** Accepted
+**Status:** Accepted — revised 2026-08-14 (see [Revision](#revision--2026-08-14); the
+path-form constraint in the Decision below is superseded)
 **Deciders:** LS / Claude
 
 ## Context
@@ -184,6 +185,145 @@ into exactly what it replaced: a confident assertion from memory.
 - **This ADR supersedes nothing.** ADR-0038 was rejected before any artefact depended on it,
   so its contents bind nothing. This is a first decision, not a replacement.
 
+## Revision — 2026-08-14
+
+**Status of this section:** amends the Decision above. Two of its claims were measured after
+acceptance and one of them was false. Nothing above this heading has been edited — the
+superseded rule is left standing verbatim because the record of *what was asserted without
+measurement* is the point of this revision. Where the two conflict, this section governs.
+
+Measured 2026-08-13 during the E1.1 LLD authoring pass, against `mermaid@11.12.2`,
+`dompurify@3` and `@braintree/sanitize-url@7` — the same pins the Decision was measured at.
+Recorded in full in
+[lld-v1-e1-1-template-vocabulary.md](../design/v1/lld-v1-e1-1-template-vocabulary.md),
+decisions D1–D3. The operative reference for LLD authors is the support matrix in
+[`skills/lld/template.md`](../../skills/lld/template.md); this section records why it differs
+from the matrix above.
+
+### R1 — the path-form constraint could not resolve from any real LLD (confirmed defect)
+
+**What the Decision said.** Under [Link forms](#link-forms): "A path form carries **no leading
+slash and no `..` segments**", illustrated as `src/lib/auth/helper.ts`.
+
+**It was never measured.** The Decision's measurement pass covered the sanitiser and the
+per-diagram-type `click` matrix. Path *resolution* was not among the cases run — the rule was
+reasoned from `vscode.Uri.joinPath` semantics, which is a workspace-root API, and the
+inference that a renderer would resolve the same way was never executed against either
+renderer.
+
+**Why it fails.** A relative link in rendered markdown resolves against **the directory of
+the document containing it**, in both GitHub and VS Code. Neither honours a configurable
+base: GitHub strips `<base href>`, and VS Code's preview does not read one. So a repo-root
+path resolves correctly only from a document that already sits at the repository root, which
+no LLD does. The arithmetic, from the E1.1 LLD's own location
+(`plugins/edf/docs/design/v1/`):
+
+| Href as written | Resolves to | Result |
+|---|---|---|
+| `plugins/edf/skills/lld/template.md` (the mandated form) | `plugins/edf/docs/design/v1/plugins/edf/skills/lld/template.md` | **404** |
+| `../../../skills/lld/template.md` (the adopted form) | `plugins/edf/skills/lld/template.md` | resolves |
+
+The failure is silent — a 404 on click, not a parse error — which is the same class of quiet
+breakage the `edf://` scheme produced and which this ADR exists to end.
+
+**Adopted form.** A `click` href naming an existing file is **document-relative**: the base is
+the directory of the file containing the link, and `..` segments are permitted. The **leading
+slash stays banned**. It survives sanitisation and GitHub resolves it against the repo root,
+but VS Code's preview is liable to read it as filesystem-absolute, and VS Code preview
+behaviour is the one cell this ADR's evidence does not cover
+([v1-design.md §C2.8](../design/v1/v1-design.md#c28-host-markdown-renderer)).
+
+**The `..` ban is replaced, not dropped.** Its intent was to stop paths that resolve only on
+the author's machine. That intent is preserved as a containment check rather than a syntactic
+ban: **a resolved href must lie inside the project's declared `design-root` and must name an
+existing file.** `design-root` is declared once per project in `kb/file-map.md`; for a
+single-module repository it is the repository root, and in a monorepo it may be a module root,
+which additionally rejects cross-module links a repo-root rule would admit. A syntactic ban
+could not have caught an escaping path anyway — `a/../../../etc/passwd` contains no leading
+slash and satisfies the old rule.
+
+| Href from a document in `plugins/edf/docs/design/v1/` | Verdict |
+|---|---|
+| `../../../skills/lld/template.md` | resolves inside `design-root` — accept |
+| `../../../../../etc/passwd` | escapes `design-root` — reject |
+
+### R2 — the sequence-diagram `link` directive is not a parse error (correction)
+
+The Decision states the `link` directive is "not used", correctly framing that as a choice and
+explicitly declining to re-evaluate it with a workspace-relative path in V1. Downstream
+artefacts nevertheless hardened the choice into a parse fact — the v1 implementation plan
+directed E1.1 to encode "all three parse-error cases (`sequenceDiagram` fatal on `click` **and**
+on the `link` directive …)".
+
+Measured: a `sequenceDiagram` carrying `link A: source @ <path>` **parses successfully** on
+mermaid 11.12.2. There are **two** parse-error cases, not three:
+
+| Case | Behaviour |
+|---|---|
+| `sequenceDiagram` + `click` | fatal parse error — takes down the whole diagram |
+| `stateDiagram-v2` + `_self` | parse error |
+| `erDiagram` + `click` | parses, generates no anchor (not an error) |
+| `sequenceDiagram` + `link` | **parses** — omitted by convention, not by rule |
+
+The omission of `link` stands, on its original grounds: the section's Structural Overview
+already provides a click path to the same components, so `link` would add redundant
+navigation. It is stated in `template.md` as a convention with that rationale, and must not be
+described anywhere as a parse fix.
+
+### R3 — the rest of the support matrix is confirmed
+
+Re-measured independently: 9 of 10 cases matched the Decision, R2 being the sole mismatch.
+Both negative controls (`edf://` and `javascript:`) were stripped by the sanitiser exactly as
+the Decision reports, which is what makes the one mismatch credible as a finding rather than a
+harness artefact. The [Support matrix](#support-matrix) above therefore **stands unamended** —
+R2 corrects a claim the implementation plan made, not one this ADR made, so there is no
+sentence in the matrix to fix. R4 below adds a rule the matrix never covered.
+
+### R4 — a `click` before its node declaration is silently dropped (new finding)
+
+Found while reviewing the change that carries this revision, by rendering the matrix cases
+rather than only parsing them. `setLink` resolves the identifier against the class table and
+does nothing when it is absent — no error, no warning, no anchor:
+
+```js
+const theClass = this.classes.get(id);
+if (theClass) { theClass.link = ...; }   // no else branch
+```
+
+Measured on 11.12.2 with `mermaid.render` under `securityLevel: 'strict'`, changing only the
+ordering within each block:
+
+| Diagram type | `click` after declarations | `click` before declarations |
+|---|---|---|
+| `classDiagram` | 3 anchors | **0** |
+| `flowchart` | 2 anchors | **0** |
+| `stateDiagram-v2` | 1 anchor | 1 — order-insensitive |
+
+Both orderings **parse** in every case, which is why a parse-only check cannot catch it — the
+diagram renders perfectly and is simply not navigable. `stateDiagram-v2` escapes the problem
+because it creates states lazily on reference; class and flowchart nodes are not created on
+reference, so the lookup finds nothing.
+
+**Adopted:** every `click` is emitted after the declaration of the node it names, stated
+normatively in `template.md`. This matters beyond style: the previous `template.md` example
+placed its `click` directives first, so the worked example every generated LLD was copied from
+would have produced zero working links. It went unnoticed because the hrefs were `edf://`,
+which the sanitiser stripped anyway — one defect masking the other.
+
+**Note for the conformance harness:** parse success is not evidence of navigability. The
+harness must assert on rendered anchors, not only on `mermaid.parse`.
+
+### Consequences of this revision
+
+- **Positive** — links now resolve from the location LLDs are actually written in, and the
+  containment rule catches escaping paths the syntactic ban never could.
+- **Negative** — a document-relative href is more sensitive to document moves than a repo-root
+  one, so the existing mitigation (ADR-0036's version-folder convention, which makes moves
+  rare) is now load-bearing rather than incidental.
+- **Process** — the `..` rule read sensibly, was internally consistent, and was wrong. The
+  standing verification obligation below is extended to path resolution: a constraint on
+  renderer behaviour is not accepted into this ADR without a measured case.
+
 ## References
 
 - [ADR-0038](0038-extension-architecture-security-model.md) — Rejected. Its rejection note is
@@ -196,3 +336,5 @@ into exactly what it replaced: a confident assertion from memory.
   (renderer constraints), §C2.8 (host renderer, per-renderer verification status)
 - [v1-requirements.md](../requirements/v1-requirements.md) — Stories 1.4, 1.5; Design
   Principles 1 and 3
+- [lld-v1-e1-1-template-vocabulary.md](../design/v1/lld-v1-e1-1-template-vocabulary.md) —
+  decisions D1–D3, the measurement record behind the [Revision](#revision--2026-08-14)
