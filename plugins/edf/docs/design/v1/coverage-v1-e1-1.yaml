@@ -47,7 +47,8 @@ entries:
     # constraint). Application half: coverage-v1-e1-3.yaml, same req anchor.
     # NOTE: AC7 of this story ("no leading slash and no .. segments") is amended by
     # T1 per decision D1 in the LLD — the form as written cannot resolve from a
-    # nested document. Subject to OQ2 sign-off.
+    # nested document. OQ2 decided 2026-08-14 — T1 amends AC7; sign-off at
+    # T1's PR review. OQ1 decided: ADR-0039 is amended in place, not superseded.
 
   # --- Stories closing fully within this epic ---------------------------------------
 
