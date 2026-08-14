@@ -131,10 +131,32 @@ harness caught in real content, which is the argument for T3 existing at all.
 
 ## Open questions
 
-| # | Question | Owner |
+| # | Question | Status |
 |---|---|---|
-| OQ1 | ADR-0039 requires a dated revision recording D1 and D2. Revising an Accepted ADR that the HLD, plan, both epic issues and the requirements already cite is a governance call, not a design one. T1 carries the revision; **confirm the revision-in-place approach rather than a superseding ADR-0040 before T1 merges.** | Human |
-| OQ2 | Story 1.4 AC7 states the path form as "no leading slash and no `..` segments" and is contradicted by D1. T1 amends it. A requirements change after Gate 2 needs sign-off. | Human |
+| OQ1 | ADR-0039 requires a dated revision recording D1 and D2. Revise in place, or supersede with an ADR-0040? | **Resolved 2026-08-14 — amend in place.** See below |
+| OQ2 | Story 1.4 AC7 states the path form as "no leading slash and no `..` segments" and is contradicted by D1. | **Decided — T1 amends it.** Sign-off at T1's PR review |
+
+### OQ1 resolution — amend ADR-0039 in place
+
+T1 appends a dated `## Revision` section to ADR-0039 rather than writing a superseding
+ADR-0040.
+
+**Rationale.** Only the path-form constraint failed. The ADR's load-bearing content — the
+rejection of `edf://`, the sanitiser finding, and the per-diagram-type `click` matrix — was
+measured and is confirmed correct by D3. Splitting one decision across two documents would
+make every reader join them up, while the ADR is already cited by the HLD, the plan, both
+epic issues and the requirements. A dated revision keeps the superseded rule visible as
+history in the document people already open.
+
+**Constraint for T1:** do **not** edit the original Decision section's text. The record of
+the wrong rule, and the fact that it was never measured, is the point of the revision.
+
+### OQ2 resolution — amend Story 1.4 AC7
+
+Entailed by OQ1 and by D1 itself: leaving AC7 as written would leave an approved requirement
+contradicting both the ADR and the template it governs. T1 makes the amendment; the
+post-Gate-2 requirements change is reviewed as part of T1's PR diff rather than as a separate
+gate, so the human sees the exact wording before it lands.
 
 ---
 
@@ -300,7 +322,7 @@ Identifiers use the display-label workaround confirmed in D3 — a raw `/` in a
 - [ ] The `classDiagram` display-label workaround is stated for identifiers containing `/`
 - [ ] ADR-0039 carries a dated revision section recording D1 and D2 (subject to OQ1)
 - [ ] Story 1.4 AC7 is amended to match the adopted path form (subject to OQ2)
-- [ ] `plugin.json` and `marketplace.json` bumped to `0.10.30` in sync
+- [ ] `plugin.json` and `marketplace.json` bumped one patch, in sync
 
 ### BDD Specs
 
@@ -634,11 +656,16 @@ plugins/edf/docs/requirements/v1-requirements.md
                                             — Story 1.4 AC7 amendment
 plugins/edf/docs/plans/2026-08-13-v1-implementation-plan.md
                                             — "three parse-error cases" → two
-plugins/edf/.claude-plugin/plugin.json       — 0.10.29 → 0.10.30
-.claude-plugin/marketplace.json              — 0.10.29 → 0.10.30
+plugins/edf/.claude-plugin/plugin.json       — bump one patch
+.claude-plugin/marketplace.json              — bump one patch (must match)
 plugins/edf/docs/design/v1/vis-markdown-preview-navigation-anchor.png
                                             — captured screenshot
 ```
+
+> **Version bumping — do not hard-code a target.** Read the current value from
+> `plugin.json`, bump one patch, and set `marketplace.json` to the same value. This LLD
+> originally named explicit versions; they went stale when unrelated PR #55 landed
+> `0.10.30` mid-epic. Any number written here is a guess about merge order.
 
 #### The 10 `edf://` sites to migrate
 
@@ -717,8 +744,8 @@ Invariants above and the T3 harness.
 
 ```
 plugins/edf/skills/lld/template.md   — gates, palette application, enforcement annotations
-plugins/edf/.claude-plugin/plugin.json  — 0.10.30 → 0.10.31
-.claude-plugin/marketplace.json         — 0.10.30 → 0.10.31
+plugins/edf/.claude-plugin/plugin.json  — bump one patch
+.claude-plugin/marketplace.json         — bump one patch (must match)
 ```
 
 > **Constraint:** T2 must not touch the link forms, support matrix, path constraint, or
@@ -902,8 +929,8 @@ Record the D1/D2 corrections in ADR-0039 and amend Story 1.4 AC7 and the plan to
 - `plugins/edf/docs/adr/0039-workspace-relative-paths-for-diagram-navigability.md` — dated revision (OQ1)
 - `plugins/edf/docs/requirements/v1-requirements.md` — Story 1.4 AC7 (OQ2)
 - `plugins/edf/docs/plans/2026-08-13-v1-implementation-plan.md` — "three parse-error cases" → two
-- `plugins/edf/.claude-plugin/plugin.json` — 0.10.30
-- `.claude-plugin/marketplace.json` — 0.10.30
+- `plugins/edf/.claude-plugin/plugin.json` — bump one patch
+- `.claude-plugin/marketplace.json` — bump one patch (must match plugin.json)
 - `plugins/edf/docs/design/v1/vis-markdown-preview-navigation-anchor.png` — screenshot
 
 ### Task 2: Diagram gates, palette and enforcement annotations
@@ -925,8 +952,8 @@ types with the adjacency rule.
 
 **Files to create/modify:**
 - `plugins/edf/skills/lld/template.md` — gates, palette, annotations
-- `plugins/edf/.claude-plugin/plugin.json` — 0.10.31
-- `.claude-plugin/marketplace.json` — 0.10.31
+- `plugins/edf/.claude-plugin/plugin.json` — bump one patch
+- `.claude-plugin/marketplace.json` — bump one patch (must match plugin.json)
 
 ### Task 3: Renderer conformance fixture, harness and report
 
