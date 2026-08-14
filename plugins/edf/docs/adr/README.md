@@ -24,7 +24,7 @@ consuming project's `docs/adr/` and are numbered by the project.
 ## Numbering
 
 Framework ADRs use the same `NNNN-title.md` numbering as project ADRs. The
-plugin currently claims numbers 0018, 0019, 0021, 0022, 0026, 0030, 0033, 0034, 0035, 0036, 0037 — pulled from the
+plugin currently claims numbers 0018, 0019, 0021, 0022, 0026, 0030, 0033, 0034, 0035, 0036, 0037, 0038, 0039 — pulled from the
 seed project (`feature-comprehension-score`) where they originated. Consuming
 projects should treat those numbers as reserved by the framework and pick
 unused numbers for their own ADRs.
@@ -49,6 +49,8 @@ project side".
 | [0035](0035-visual-specifications-in-design-pipeline.md) | Visual specifications — wireframes/mockups propagated from requirements through LLD |
 | [0036](0036-document-organisation-convention.md) | Document organisation — version-foldered design, flat requirements, date-foldered sessions |
 | [0037](0037-incremental-session-logging.md) | Incremental session logging with feature-ID filename — draft created early, cost checkpoints at phase boundaries |
+| [0038](0038-extension-architecture-security-model.md) | **Rejected.** VSCode extension architecture for the `edf://` scheme — retained for its rejection note, which is the empirical record of Mermaid sanitiser and `click` support behaviour |
+| [0039](0039-workspace-relative-paths-for-diagram-navigability.md) | Workspace-relative paths for LLD diagram navigability, with the per-diagram-type `click` support matrix |
 
 ## How references resolve
 

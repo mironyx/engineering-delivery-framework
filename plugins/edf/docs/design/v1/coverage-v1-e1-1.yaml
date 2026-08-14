@@ -1,0 +1,70 @@
+epic: v1-e1-1
+entries:
+  # --- Story closure seam (implementation plan, "Story closure seam") ---------------
+  # Stories 1.1-1.4 have acceptance criteria phrased as GENERATION behaviour
+  # ("when /lld Step 2 evaluates..."), which is the skill's job, not the template's.
+  # This epic delivers the DEFINITION half in lld/template.md.
+  # Epic E1.3 delivers the APPLICATION half in lld/SKILL.md — see coverage-v1-e1-3.yaml,
+  # which carries a matching entry for each of these four REQ anchors.
+  # NEITHER epic closes these four stories alone. Do not mark Implemented until both
+  # halves have merged.
+  # ---------------------------------------------------------------------------------
+
+  - req: REQ-lld-template-diagram-vocabulary-conditional-diagram-types
+    lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-gates-palette-annotations
+    issue: 46
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.1 — definition half only (diagram-type gates in template.md).
+    # Application half: coverage-v1-e1-3.yaml, same req anchor.
+
+  - req: REQ-lld-template-diagram-vocabulary-standard-classdef-palette
+    lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-gates-palette-annotations
+    issue: 46
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.2 — definition half only (palette table, tie-break, text-fence placement).
+    # Application half: coverage-v1-e1-3.yaml, same req anchor.
+
+  - req: REQ-lld-template-diagram-vocabulary-note-annotations-enforcement-points
+    lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-gates-palette-annotations
+    issue: 46
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.3 — definition half only (annotation format, adjacency rule, D4
+    # no-semicolon-in-Note rule). Application half: coverage-v1-e1-3.yaml.
+
+  - req: REQ-lld-template-diagram-vocabulary-click-directives-diagram-participants
+    lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-link-forms
+    issue: 45
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.4 — definition half only (link forms, support matrix, path-form
+    # constraint). Application half: coverage-v1-e1-3.yaml, same req anchor.
+    # NOTE: AC7 of this story ("no leading slash and no .. segments") is amended by
+    # T1 per decision D1 in the LLD — the form as written cannot resolve from a
+    # nested document. Subject to OQ2 sign-off.
+
+  # --- Stories closing fully within this epic ---------------------------------------
+
+  - req: REQ-lld-template-diagram-vocabulary-lld-anchor-navigation-part-b
+    lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-link-forms
+    issue: 45
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.5 — closes fully in this epic. Anchor format is template-defined (T1);
+    # renderer scroll behaviour is verified by
+    # lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-conformance-evidence (T3).
+
+  - req: REQ-lld-template-diagram-vocabulary-verify-diagram-link-resolution
+    lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-conformance-evidence
+    issue: 47
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.6 — closes fully in this epic (T3). Verification-only story.

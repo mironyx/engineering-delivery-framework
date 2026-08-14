@@ -59,8 +59,12 @@ minimum permissions, and the V1 distribution model.
 
 The requirements doc records an open question about the preview↔extension communication
 mechanism ([Open Question 2](../../requirements/v1-requirements.md#open-questions)):
-postMessage vs a custom `vscode-resource` URI scheme. The HLD
-([C2.4](../design/v1/v1-design.md#c24-edf-review-extension)) commits to `postMessage`.
+postMessage vs a custom `vscode-resource` URI scheme. The HLD at the time
+(`v1-design.md` v0.2, §C2.4 "EDF Review Extension") committed to `postMessage`. That HLD has
+since been rewritten — see [v1-design.md](../design/v1/v1-design.md), where the extension is
+reduced to [C2.4 Review Comment Command](../design/v1/v1-design.md#c24-review-comment-command)
+with no preview script and no message channel. The v0.2 anchor referenced here no longer
+resolves.
 
 Prior decisions that constrain this one:
 
@@ -175,7 +179,9 @@ or showing an information message. `logError` is fire-and-forget.
 - **MutationObserver** detects late-rendered Mermaid SVGs (they may arrive after DOM
   ready). The observer callback completes in under 1ms per invocation.
 - **Preview script** is kept under 5 KB minified.
-- **`#LLD-` fallback** is owned by C2.4: if native scroll-to-fragment does not work for
+- **`#LLD-` fallback** is owned by v0.2 §C2.4 (retired — the rewritten HLD's C2.4 does not
+  participate in diagram navigation at all, and V1 ships no preview script): if native
+  scroll-to-fragment does not work for
   SVG anchor clicks in VSCode's preview webview, the preview script adds a click listener
   that sets `window.location.hash` to the fragment.
 - **Distribution in V1** is via VSCode Extension Development Host only. Marketplace

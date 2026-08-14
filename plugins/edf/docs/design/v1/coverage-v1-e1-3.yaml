@@ -1,0 +1,67 @@
+epic: v1-e1-3
+entries:
+  # --- Story closure seam (implementation plan, "Story closure seam") ---------------
+  # Stories 1.1-1.4 close in two halves. Epic E1.1 delivers the DEFINITION half in
+  # lld/template.md — see coverage-v1-e1-1.yaml, which carries a matching entry for
+  # each of the four REQ anchors below. This epic delivers the APPLICATION half in
+  # lld/SKILL.md, because those stories' acceptance criteria are phrased as generation
+  # behaviour ("when /lld Step 2 evaluates...").
+  # NEITHER epic closes these four stories alone. Do not mark Implemented until both
+  # halves have merged.
+  # ---------------------------------------------------------------------------------
+
+  - req: REQ-lld-template-diagram-vocabulary-conditional-diagram-types
+    lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
+    issue: 52
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.1 — application half (diagram-type selection rules in SKILL.md Step 2).
+    # Definition half: coverage-v1-e1-1.yaml, same req anchor.
+
+  - req: REQ-lld-template-diagram-vocabulary-standard-classdef-palette
+    lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
+    issue: 52
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.2 — application half (palette assignment with tie-break).
+    # Definition half: coverage-v1-e1-1.yaml, same req anchor.
+
+  - req: REQ-lld-template-diagram-vocabulary-note-annotations-enforcement-points
+    lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
+    issue: 52
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.3 — application half (Note placement at trust boundaries).
+    # Also checked by lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-self-critique.
+    # Definition half: coverage-v1-e1-1.yaml, same req anchor.
+
+  - req: REQ-lld-template-diagram-vocabulary-click-directives-diagram-participants
+    lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
+    issue: 52
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.4 — application half (link emission per the support matrix).
+    # Also checked by lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-self-critique.
+    # Definition half: coverage-v1-e1-1.yaml, same req anchor.
+
+  # --- Stories closing fully within this epic ---------------------------------------
+
+  - req: REQ-skill-instructions-quality-gates-diagram-generation-rules-lld-skill
+    lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
+    issue: 52
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 3.1 — closes fully in this epic.
+
+  - req: REQ-skill-instructions-quality-gates-self-critique-checklist-diagram-navigability
+    lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-self-critique
+    issue: 53
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 3.2 — closes fully in this epic.

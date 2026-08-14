@@ -4,11 +4,11 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.1 |
+| Version | 1.2 |
 | Status | Draft — Complete |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
-| Last updated | 2026-08-02 |
+| Last updated | 2026-08-13 |
 
 ## Change Log
 
@@ -19,6 +19,7 @@
 | 0.3 | 2026-08-01 | LS / Claude | Testability fixes: tightened 3 vague ACs (Story 1.3 AC5, Story 2.4 AC5, Story 4.1 AC6) |
 | 0.4 | 2026-08-01 | LS / Claude | Review fixes: corrected visual reference paths; aligned #LLD- anchor format with ADR-0026; resolved AC1/AC4 contradiction in Story 1.2; removed cross-epic AC dependency on Story 4.2 |
 | 1.0 | 2026-08-01 | LS / Claude | Finalised — Gate 2 approved |
+| 1.2 | 2026-08-13 | LS / Claude | `/kickoff` Gate 1 fix: struck GitLab from Story 1.3 AC5, which contradicted Story 1.6's Notes ("GitLab is not separately verified in V1"). As written, AC5 was an acceptance criterion no component owned and no verification exercised — it would have passed by assumption, the same failure mode as the `edf://` design. V1 now claims only what Story 1.6 measures. |
 | 1.1 | 2026-08-02 | LS / Claude | Review cycle following ADR-0038's rejection: retired `edf://` from the requirements in favour of workspace-relative paths (still outstanding as real, unfinished work in `template.md`/`SKILL.md` — not yet migrated); dissolved Epic 2 (hover tooltip / click-to-open moved to V2/Future pending a communication-channel spike; anchor navigation and link-resolution verification folded into Epic 1 as Stories 1.5/1.6); added `classDiagram` as a fourth conditional diagram type (Story 1.1); resolved Design Principle 7 to local `.vsix` packaging and added Story 2.2 for the test/packaging work; fixed the `click`-support-matrix ACs across Stories 1.4, 1.5, 1.6, 3.1 (ex-4.1), 3.2 (ex-4.2), including a `stateDiagram-v2` inconsistency for new-component anchors caught by automated review; rewrote Design Principle 2 to match the current Story 2.1 and moved its stronger "preview stays open" guarantee to the deferred click-to-open story; trimmed Cross-Cutting Concerns to what the remaining V1 stories actually need; closed three stale open questions |
 
 ---
@@ -260,10 +261,11 @@ into the interaction flow, not buried in Part B prose.
 - Given a sequence diagram with an error propagation path, when the diagram is
   generated, then a `Note` annotation marks the error boundary with the error
   response code and recovery behaviour.
-- Given a `Note` annotation exists, when the diagram is rendered in any
-  Mermaid-compatible renderer (VSCode, GitHub, GitLab), then the note renders
-  without Mermaid syntax errors and the note text is visible (not truncated,
-  not hidden by `display: none`, not positioned outside the diagram bounds).
+- Given a `Note` annotation exists, when the diagram is rendered in VSCode's markdown
+  preview and in GitHub, then the note renders without Mermaid syntax errors and the
+  note text is visible (not truncated, not hidden by `display: none`, not positioned
+  outside the diagram bounds). GitLab is out of scope for V1 verification, consistent
+  with Story 1.6's Notes — V1 claims only what Story 1.6 measures.
 - Given a flow crosses a trust boundary without a stated enforcement point, when the
   diagram is reviewed against the template's enforcement annotation rules, then the
   omission is detectable by inspection (every trust-boundary-crossing interaction
