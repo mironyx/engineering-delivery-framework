@@ -304,10 +304,10 @@ plugins/edf/.claude-plugin/plugin.json — version bump
 .claude-plugin/marketplace.json        — version bump (must match)
 ```
 
-> **Version numbering.** Bump one patch from whatever `plugin.json` holds when this task
-> starts. E1.1's three tasks land first and take `0.10.30` and `0.10.31`, so this task is
-> expected to be `0.10.32` — but read the file rather than assuming, since E1.1's T3 does not
-> bump.
+> **Version numbering — do not hard-code a target.** Bump one patch from whatever
+> `plugin.json` holds when this task starts, and set `marketplace.json` to match. Do not
+> compute an expected number from E1.1's task order: unrelated PRs land mid-epic (#55 took
+> `0.10.30` while these LLDs were in review), and E1.1's T3 does not bump at all.
 
 #### The 4 `edf://` sites to migrate
 

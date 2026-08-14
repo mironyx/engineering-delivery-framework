@@ -300,7 +300,7 @@ Identifiers use the display-label workaround confirmed in D3 — a raw `/` in a
 - [ ] The `classDiagram` display-label workaround is stated for identifiers containing `/`
 - [ ] ADR-0039 carries a dated revision section recording D1 and D2 (subject to OQ1)
 - [ ] Story 1.4 AC7 is amended to match the adopted path form (subject to OQ2)
-- [ ] `plugin.json` and `marketplace.json` bumped to `0.10.30` in sync
+- [ ] `plugin.json` and `marketplace.json` bumped one patch, in sync
 
 ### BDD Specs
 
@@ -634,11 +634,16 @@ plugins/edf/docs/requirements/v1-requirements.md
                                             — Story 1.4 AC7 amendment
 plugins/edf/docs/plans/2026-08-13-v1-implementation-plan.md
                                             — "three parse-error cases" → two
-plugins/edf/.claude-plugin/plugin.json       — 0.10.29 → 0.10.30
-.claude-plugin/marketplace.json              — 0.10.29 → 0.10.30
+plugins/edf/.claude-plugin/plugin.json       — bump one patch
+.claude-plugin/marketplace.json              — bump one patch (must match)
 plugins/edf/docs/design/v1/vis-markdown-preview-navigation-anchor.png
                                             — captured screenshot
 ```
+
+> **Version bumping — do not hard-code a target.** Read the current value from
+> `plugin.json`, bump one patch, and set `marketplace.json` to the same value. This LLD
+> originally named explicit versions; they went stale when unrelated PR #55 landed
+> `0.10.30` mid-epic. Any number written here is a guess about merge order.
 
 #### The 10 `edf://` sites to migrate
 
@@ -717,8 +722,8 @@ Invariants above and the T3 harness.
 
 ```
 plugins/edf/skills/lld/template.md   — gates, palette application, enforcement annotations
-plugins/edf/.claude-plugin/plugin.json  — 0.10.30 → 0.10.31
-.claude-plugin/marketplace.json         — 0.10.30 → 0.10.31
+plugins/edf/.claude-plugin/plugin.json  — bump one patch
+.claude-plugin/marketplace.json         — bump one patch (must match)
 ```
 
 > **Constraint:** T2 must not touch the link forms, support matrix, path constraint, or
@@ -902,8 +907,8 @@ Record the D1/D2 corrections in ADR-0039 and amend Story 1.4 AC7 and the plan to
 - `plugins/edf/docs/adr/0039-workspace-relative-paths-for-diagram-navigability.md` — dated revision (OQ1)
 - `plugins/edf/docs/requirements/v1-requirements.md` — Story 1.4 AC7 (OQ2)
 - `plugins/edf/docs/plans/2026-08-13-v1-implementation-plan.md` — "three parse-error cases" → two
-- `plugins/edf/.claude-plugin/plugin.json` — 0.10.30
-- `.claude-plugin/marketplace.json` — 0.10.30
+- `plugins/edf/.claude-plugin/plugin.json` — bump one patch
+- `.claude-plugin/marketplace.json` — bump one patch (must match plugin.json)
 - `plugins/edf/docs/design/v1/vis-markdown-preview-navigation-anchor.png` — screenshot
 
 ### Task 2: Diagram gates, palette and enforcement annotations
@@ -925,8 +930,8 @@ types with the adjacency rule.
 
 **Files to create/modify:**
 - `plugins/edf/skills/lld/template.md` — gates, palette, annotations
-- `plugins/edf/.claude-plugin/plugin.json` — 0.10.31
-- `.claude-plugin/marketplace.json` — 0.10.31
+- `plugins/edf/.claude-plugin/plugin.json` — bump one patch
+- `.claude-plugin/marketplace.json` — bump one patch (must match plugin.json)
 
 ### Task 3: Renderer conformance fixture, harness and report
 
