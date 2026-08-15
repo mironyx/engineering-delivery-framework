@@ -45,23 +45,20 @@ import { JSDOM } from 'jsdom';
 import { sanitizeUrl } from '@braintree/sanitize-url';
 
 /** @typedef {{line:number,type:string|null,parsed:boolean,error?:string,src:string}} BlockResult */
-/** @typedef {{url:string,gate1:boolean,gate2:boolean,gate3:boolean,survives:boolean,expected:boolean,ok:boolean}} SanitizerResult */
+/** @typedef {{url:string,gate1:boolean,gate2:boolean,gate3:boolean,gate3Error?:string,survives:boolean,expected:boolean,ok:boolean}} SanitizerResult */
 /** @typedef {{href:string,resolved:string,inside:boolean,exists:boolean,ok:boolean,line:number}} PathResult */
 /** @typedef {{fragment:string,wellFormed:boolean,matched:boolean,ok:boolean,line:number}} AnchorResult */
-/** @typedef {{line:number,type:string|null,clicks:number,anchors:number,roles:string[],styledRoles:string[],ok:boolean,error?:string}} RenderResult */
-
-/** The four palette roles defined by `skills/lld/template.md`. */
-export const PALETTE_ROLES = ['error', 'auth', 'external', 'new'];
+/** @typedef {{line:number,clicks:number,anchors:number,roles:string[],styledRoles:string[],ok:boolean,error?:string}} RenderResult */
 
 /** ADR-0026 anchor form, including the epic id. */
-export const ANCHOR_RE = /^#LLD-v\d+-e[\d-]+-[a-z0-9-]+$/;
+const ANCHOR_RE = /^#LLD-v\d+-e[\d-]+-[a-z0-9-]+$/;
 
 /**
  * URLs the harness always pushes through the sanitiser gates, whatever the input file
  * contains. These are properties of the pinned toolchain rather than of any one document, and
  * the negative controls are what make a positive result credible.
  */
-export const SANITIZER_CONTROLS = [
+const SANITIZER_CONTROLS = [
   '../../../skills/lld/template.md',
   '#LLD-v1-e1-1-fixture-report',
   'https://mermaid.js.org/config/usage.html',
@@ -160,6 +157,70 @@ async function getMermaid() {
 // Markdown scanning
 // ---------------------------------------------------------------------------
 
+const FENCE_RE = /^(\s*)(`{3,}|~{3,})\s*([A-Za-z0-9_+-]*)\s*$/;
+
+/**
+ * Single pass over the document's fenced-block structure. Both the href scanner and the
+ * diagram extractor need exactly this, and keeping one implementation means a fix to fence
+ * handling cannot land in one of them and silently miss the other.
+ *
+ * Returns the source lines, one classification per line, and every fenced block found —
+ * including a block whose fence is never closed, which is reported rather than dropped.
+ *
+ * @param {string} markdown
+ */
+function scanFences(markdown) {
+  const lines = markdown.split('\n');
+  const state = new Array(lines.length).fill('outside');
+  const blocks = [];
+  let fence = null;
+  let buffer = [];
+  let startLine = 0;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const open = line.match(FENCE_RE);
+
+    if (fence) {
+      const isClose = open
+        && open[2][0] === fence.marker[0]
+        && open[2].length >= fence.marker.length
+        && open[3] === '';
+      if (isClose) {
+        state[i] = 'marker';
+        blocks.push({
+          line: startLine, endLine: i + 1, isMermaid: fence.isMermaid,
+          src: buffer.join('\n'), terminated: true,
+        });
+        fence = null;
+        buffer = [];
+      } else {
+        state[i] = fence.isMermaid ? 'mermaid-body' : 'other-body';
+        buffer.push(line);
+      }
+      continue;
+    }
+
+    if (open) {
+      state[i] = 'marker';
+      fence = { marker: open[2], isMermaid: open[3].toLowerCase() === 'mermaid' };
+      startLine = i + 1;
+      buffer = [];
+    }
+  }
+
+  // A fence left open at EOF. Reported, never dropped: a truncated diagram that vanishes
+  // from the checker's view is precisely the silent no-op this harness exists to catch.
+  if (fence) {
+    blocks.push({
+      line: startLine, endLine: null, isMermaid: fence.isMermaid,
+      src: buffer.join('\n'), terminated: false,
+    });
+  }
+
+  return { lines, state, blocks };
+}
+
 /**
  * Replace inline code spans and every fenced block that is *not* a mermaid block with blank
  * space, preserving line numbering so that findings still cite the right line.
@@ -171,74 +232,26 @@ async function getMermaid() {
  * @param {string} markdown
  * @returns {string}
  */
-export function stripNonMermaidContext(markdown) {
-  const lines = markdown.split('\n');
-  const out = [];
-  let fence = null; // { marker, isMermaid }
+function stripNonMermaidContext(markdown) {
+  const { lines, state } = scanFences(markdown);
 
-  for (const line of lines) {
-    const open = line.match(/^(\s*)(`{3,}|~{3,})\s*([A-Za-z0-9_+-]*)/);
-
-    if (fence) {
-      const close = open && open[2][0] === fence.marker[0] && open[2].length >= fence.marker.length && open[3] === '';
-      if (close) {
-        fence = null;
-        out.push(line);
-      } else {
-        out.push(fence.isMermaid ? line : '');
-      }
-      continue;
-    }
-
-    if (open && open[2]) {
-      fence = { marker: open[2], isMermaid: open[3].toLowerCase() === 'mermaid' };
-      out.push(line);
-      continue;
-    }
-
+  return lines.map((line, i) => {
+    if (state[i] === 'other-body') return '';
+    if (state[i] === 'mermaid-body' || state[i] === 'marker') return line;
     // Outside any fence: blank out inline code spans, keeping length so columns still line up.
-    out.push(line.replace(/`[^`]*`/g, (m) => ' '.repeat(m.length)));
-  }
-
-  return out.join('\n');
+    return line.replace(/`[^`]*`/g, (m) => ' '.repeat(m.length));
+  }).join('\n');
 }
 
 /**
- * Extract every fenced mermaid block with the 1-based line number of its opening fence.
+ * Every fenced mermaid block, with the 1-based line number of its opening fence. An
+ * unterminated block is included and carries `terminated: false`.
+ *
  * @param {string} markdown
- * @returns {{line:number,src:string}[]}
+ * @returns {{line:number,endLine:number|null,src:string,terminated:boolean}[]}
  */
-export function extractMermaidBlocks(markdown) {
-  const lines = markdown.split('\n');
-  const blocks = [];
-  let fence = null;
-  let buffer = [];
-  let startLine = 0;
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
-    const open = line.match(/^(\s*)(`{3,}|~{3,})\s*([A-Za-z0-9_+-]*)/);
-
-    if (fence) {
-      const close = open && open[2][0] === fence.marker[0] && open[2].length >= fence.marker.length && open[3] === '';
-      if (close) {
-        if (fence.isMermaid) blocks.push({ line: startLine, src: buffer.join('\n') });
-        fence = null;
-        buffer = [];
-      } else {
-        buffer.push(line);
-      }
-      continue;
-    }
-
-    if (open && open[2]) {
-      fence = { marker: open[2], isMermaid: open[3].toLowerCase() === 'mermaid' };
-      startLine = i + 1;
-      buffer = [];
-    }
-  }
-
-  return blocks;
+function extractMermaidBlocks(markdown) {
+  return scanFences(markdown).blocks.filter((b) => b.isMermaid);
 }
 
 // ---------------------------------------------------------------------------
@@ -287,7 +300,7 @@ export async function parseBlocks(markdown) {
  * `file:` — must be stripped before it reaches the DOM.
  * @param {string} url
  */
-export function expectedToSurvive(url) {
+function expectedToSurvive(url) {
   if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) return true;
   return /^https?:/i.test(url);
 }
@@ -315,17 +328,23 @@ export async function checkSanitizer(urls) {
     });
     const gate2 = cleaned.includes(`href="${url}"`);
 
+    // A render crash is NOT evidence that the sanitiser stripped the URL — it is a missing
+    // measurement. Recording it as `gate3 = false` would make the negative controls pass for
+    // the wrong reason, and those rows are exactly what makes the positive rows credible.
     let gate3 = false;
+    let gate3Error;
     try {
       const svg = await renderSource(`flowchart TD\n    N["node"]\n    click N href "${url}" _self\n`);
       gate3 = countAnchors(svg, dom) > 0;
-    } catch {
-      gate3 = false;
+    } catch (err) {
+      gate3Error = String(err && err.message ? err.message : err).split('\n')[0];
     }
 
     const survives = gate1 && gate2 && gate3;
     const expected = expectedToSurvive(url);
-    results.push({ url, gate1, gate2, gate3, survives, expected, ok: survives === expected });
+    // Unmeasured is never OK, however the expectation happens to line up.
+    const ok = gate3Error === undefined && survives === expected;
+    results.push({ url, gate1, gate2, gate3, gate3Error, survives, expected, ok });
   }
 
   return results;
@@ -476,8 +495,29 @@ function countAnchors(svg, dom) {
   return doc.querySelectorAll('a[href], a[xlink\\:href]').length;
 }
 
+/**
+ * Does the emitted SVG carry a CSS rule produced by a `classDef` for this role?
+ *
+ * Measured on 11.12.2: an applied `classDef` emits selectors of the form `.role>*{`,
+ * `.role span{`, `.role tspan{`. The `>` rule is the reliable one to probe for.
+ *
+ * A loose `\.role\b` test is NOT safe, and was the original implementation's bug: mermaid
+ * always emits a built-in `.error-icon{…}` and `.error-text{…}` into every stylesheet, which
+ * that pattern matches. The `error` role could therefore never fail the D6 check — the one
+ * palette role whose name collides with mermaid's own, silently exempted from the check
+ * written to catch it.
+ *
+ * @param {string} svg
+ * @param {string} role
+ */
+function rolePaletteApplied(svg, role) {
+  const escaped = role.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // The serialised SVG encodes the child combinator as `&gt;`, so accept either form.
+  return new RegExp(`\\.${escaped}\\s*(?:>|&gt;)\\s*\\*`).test(svg);
+}
+
 /** `click X href "…"` directives declared in a block's source. */
-export function countClickDirectives(src) {
+function countClickDirectives(src) {
   return (src.match(/^\s*click\s+\S+\s+href\s+"/gm) || []).length;
 }
 
@@ -488,20 +528,16 @@ export function countClickDirectives(src) {
  * declaration — `class Foo`, `class Foo["a/b"]`, `class Foo {` — is not one, and must not be
  * mistaken for a reference to a role named after the class.
  */
-export function referencedRoles(src) {
+function referencedRoles(src) {
   const roles = new Set();
   for (const line of src.split('\n')) {
     const m = line.match(/^\s*class\s+([A-Za-z0-9_][A-Za-z0-9_,\s-]*?)\s+([A-Za-z][A-Za-z0-9_-]*)\s*$/);
     if (m) roles.add(m[2]);
   }
+  // The `A:::role` shorthand assigns a class too, and is easy to write by accident when
+  // copying flowchart examples. Without this the same D6 violation goes unchecked.
+  for (const m of src.matchAll(/:::([A-Za-z][A-Za-z0-9_-]*)/g)) roles.add(m[1]);
   return [...roles];
-}
-
-/** Palette roles a block *declares* via `classDef`. */
-export function declaredRoles(src) {
-  return [...new Set(
-    [...src.matchAll(/^\s*classDef\s+([A-Za-z][A-Za-z0-9_-]*)\b/gm)].map((m) => m[1]),
-  )];
 }
 
 /**
@@ -534,7 +570,6 @@ export async function checkAnchorsRendered(markdown) {
     } catch (err) {
       results.push({
         line: block.line,
-        type: null,
         clicks,
         anchors: 0,
         roles,
@@ -546,10 +581,10 @@ export async function checkAnchorsRendered(markdown) {
     }
 
     const anchors = countAnchors(svg, dom);
-    const styledRoles = roles.filter((role) => new RegExp(`\\.${role}\\b`).test(svg));
+    const styledRoles = roles.filter((role) => rolePaletteApplied(svg, role));
     const ok = anchors === clicks && styledRoles.length === roles.length;
 
-    results.push({ line: block.line, type: null, clicks, anchors, roles, styledRoles, ok });
+    results.push({ line: block.line, clicks, anchors, roles, styledRoles, ok });
   }
 
   return results;
@@ -560,7 +595,7 @@ export async function checkAnchorsRendered(markdown) {
 // ---------------------------------------------------------------------------
 
 /** Walk up from `start` looking for a `.git` entry — the single-module `design-root` default. */
-export function findRepoRoot(start) {
+function findRepoRoot(start) {
   let dir = path.resolve(start);
   for (;;) {
     if (fs.existsSync(path.join(dir, '.git'))) return dir;
@@ -620,7 +655,8 @@ export async function main(argv) {
   for (const file of files) {
     const markdown = fs.readFileSync(file, 'utf8');
     const blocks = await parseBlocks(markdown);
-    const anyParseFailure = blocks.some((b) => !b.parsed);
+    const unterminated = extractMermaidBlocks(markdown).filter((b) => !b.terminated);
+    const anyParseFailure = blocks.some((b) => !b.parsed) || unterminated.length > 0;
 
     // Parse gates the rest: navigability findings about a diagram that does not render are
     // noise, not evidence.
@@ -630,6 +666,7 @@ export async function main(argv) {
 
     const entry = {
       path: file,
+      unterminatedBlocks: unterminated.map((b) => ({ line: b.line })),
       blocks: blocks.map(({ src, ...rest }) => rest),
       paths,
       anchors,
@@ -643,6 +680,9 @@ export async function main(argv) {
       lines.push(b.parsed
         ? `  ok    parse   line ${b.line}  ${b.type}`
         : `  FAIL  parse   line ${b.line}  ${b.error}`);
+    }
+    for (const b of unterminated) {
+      lines.push(`  FAIL  fence   line ${b.line}  mermaid block is never closed — truncated diagram`);
     }
     if (anyParseFailure) {
       lines.push('  ----  navigability checks skipped: a block in this file does not parse');
@@ -677,7 +717,8 @@ export async function main(argv) {
     process.stdout.write(`design-root: ${root}\n`);
     for (const s of sanitizer) {
       const verdict = s.ok ? 'ok   ' : 'FAIL ';
-      process.stdout.write(`  ${verdict} sanitize  survives=${s.survives} expected=${s.expected}  ${s.url}\n`);
+      const detail = s.gate3Error ? ` RENDER-ERROR: ${s.gate3Error}` : '';
+      process.stdout.write(`  ${verdict} sanitize  survives=${s.survives} expected=${s.expected}  ${s.url}${detail}\n`);
     }
     process.stdout.write(`${lines.join('\n')}\n\n${report.ok ? 'PASS' : 'FAIL'}\n`);
   }

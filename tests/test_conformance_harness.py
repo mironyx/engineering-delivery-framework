@@ -1,8 +1,7 @@
 """Tests for the renderer conformance harness, fixture and report (issue #47).
 
-Drives `tests/conformance/check-diagrams.mjs` (a Node ESM CLI, still stubbed —
-every exported function `throw`s `not implemented`) through its public CLI
-contract:
+Drives `tests/conformance/check-diagrams.mjs` (a Node ESM CLI) through its
+public CLI contract:
 
     node tests/conformance/check-diagrams.mjs [--design-root <dir>] [--json] <file.md> [...]
     exit 0 = all checks passed; exit 1 = at least one check failed; exit 2 = usage error.

@@ -303,9 +303,27 @@ Each was filed as its own issue. None is fixed in #47.
 
 ---
 
-## Harness self-finding
+## Harness self-findings
 
-Worth recording because it is the same failure class, one level up.
+Both are worth recording because they are the same failure class, one level up: the checker
+ran green while measuring the wrong thing.
+
+### The palette probe was blind to exactly one role
+
+The D6 check asked whether the rendered SVG carried a CSS rule for each referenced role, by
+testing it against `\.<role>\b`. Mermaid emits built-in `.error-icon{…}` and `.error-text{…}`
+rules into **every** stylesheet, which that pattern matches. So `error` — alone among the four
+palette roles — was reported as styled even when its block declared no `classDef`, and could
+never fail the check written to catch precisely that. The gap survived the first adversarial
+test too, because that test happened to pick the role `new`.
+
+Fixed by probing for the `.<role>>*` rule an applied `classDef` actually emits (measured; and
+note the serialised SVG encodes the combinator as `&gt;`). The regression test is now
+parametrised over all four roles, with a positive control per role — a probe that is correct
+for three roles and silently exempt for the fourth is the exact defect this epic exists to
+remove.
+
+### The anchor count was read from a failed XML parse
 
 The harness's first implementation counted anchors by parsing the rendered SVG as
 `image/svg+xml`. When a node label contains `<br/>`, mermaid emits it into a `foreignObject` as

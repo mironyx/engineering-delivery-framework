@@ -26,3 +26,4 @@
 | 4dF | 2026-08-15T18:09:36Z | $0.00 | 0 in / 0 out | implementation complete — harness green on fixture, report and template.md |
 | 5 | 2026-08-15T18:09:36Z | $0.00 | 0 in / 0 out | green on attempt 2 — 380 passed, 1 pre-existing failure (test_cross_references edf:xxx, from PR #55); npm audit high deferred (lodash-es via pinned mermaid 11.12.2) |
 | 6 | 2026-08-15T18:09:36Z | $0.00 | 0 in / 0 out | ruff clean on changed file; no .diagnostics exporter in worktree |
+| 6b | 2026-08-15T18:13:28Z | $0.00 | 0 in / 0 out | evaluator: PASS WITH WARNINGS — AC1-AC8 all covered; 1 adversarial test added for the D6 half |
