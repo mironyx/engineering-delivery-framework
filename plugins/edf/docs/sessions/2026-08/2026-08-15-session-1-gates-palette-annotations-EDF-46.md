@@ -68,7 +68,7 @@ shipping T3's files early.
 
 ## Work completed
 
-**PR:** [#58](https://github.com/mironyx/engineering-delivery-framework/pull/58) — 3 commits, squash-merged to `main`.
+**PR:** [#58](https://github.com/mironyx/engineering-delivery-framework/pull/58) — 4 commits, rebased onto `main`. Merge performed by the feature-team lead.
 
 Implemented T2 of epic [#28](https://github.com/mironyx/engineering-delivery-framework/issues/28), the definition half of Stories 1.1–1.3.
 
