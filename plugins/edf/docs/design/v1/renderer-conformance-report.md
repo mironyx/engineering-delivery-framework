@@ -275,9 +275,9 @@ constraint. See [Follow-ups](#follow-ups).
 
 ## Follow-ups
 
-Each needs its own issue. None is fixed in #47.
+Each was filed as its own issue. None is fixed in #47.
 
-1. **GitHub renders mermaid in a cross-origin iframe, so no diagram link navigates.**
+1. **GitHub renders mermaid in a cross-origin iframe, so no diagram link navigates.** ([#60](https://github.com/mironyx/engineering-delivery-framework/issues/60))
    Highest priority, because it challenges the premise of
    [§C4](v1-design.md#c4-renderer-native-navigable-diagram-surface) rather than an
    implementation detail. This needs a decision, not a patch: keep the links as correct,
@@ -285,7 +285,7 @@ Each needs its own issue. None is fixed in #47.
    GitHub does not honour them; or drop the navigability claim from the HLD; or pursue a
    host-specific mechanism. Evidence is in this report.
 
-2. **`template.md`'s outer ```` ```markdown ```` fence closes prematurely.**
+2. **`template.md`'s outer ```` ```markdown ```` fence closes prematurely.** ([#61](https://github.com/mironyx/engineering-delivery-framework/issues/61))
    The fence opened at line 10 is closed at **line 322** — the closing fence of the nested
    `stateDiagram-v2` example, which is written bare rather than with the `` `` `` escape the
    other inner examples use. Everything from line 323 on therefore renders as *live markdown*
@@ -295,7 +295,7 @@ Each needs its own issue. None is fixed in #47.
    Consequence: the harness sees only **one** renderable mermaid block in `template.md`, so the
    other worked examples are never machine-checked.
 
-3. **State the `classDiagram` palette and comma-list constraints in `template.md`.**
+3. **State the `classDiagram` palette and comma-list constraints in `template.md`.** ([#62](https://github.com/mironyx/engineering-delivery-framework/issues/62))
    `classDef` styling does not reach `classDiagram` nodes at all on 11.12.2, and `class A,B role`
    is a parse error there while valid elsewhere. An author following the palette section will
    write a `classDiagram` that parses, renders, and is silently unstyled — the D6 failure mode
