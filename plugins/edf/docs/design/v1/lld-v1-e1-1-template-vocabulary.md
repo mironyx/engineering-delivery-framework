@@ -179,6 +179,7 @@ normatively in `template.md` and recorded as ADR-0039 §Revision R4. Consequence
 |---|---|---|
 | OQ1 | ADR-0039 requires a dated revision recording D1 and D2. Revise in place, or supersede with an ADR-0040? | **Resolved 2026-08-14 — amend in place.** See below |
 | OQ2 | Story 1.4 AC7 states the path form as "no leading slash and no `..` segments" and is contradicted by D1. | **Decided — T1 amends it.** Sign-off at T1's PR review |
+| OQ3 | The tie-break orders `new`/`external` above `error`/`auth` but does not order `new` against `external`, so "exactly one class applies" is not decidable for a node that is both. | **Proposed — T2 adopts `external` > `new`.** Sign-off at T2's PR review. See below |
 
 ### OQ1 resolution — amend ADR-0039 in place
 
@@ -201,6 +202,32 @@ Entailed by OQ1 and by D1 itself: leaving AC7 as written would leave an approved
 contradicting both the ADR and the template it governs. T1 makes the amendment; the
 post-Gate-2 requirements change is reviewed as part of T1's PR diff rather than as a separate
 gate, so the human sees the exact wording before it lands.
+
+### OQ3 proposal — order `external` above `new`
+
+> **Implementation note (issue #46):** raised during T2's PR review, which correctly observed
+> that T2 was adding *new normative content* to a shared convention, not merely restating an
+> approved one. Recorded here rather than settled in a PR comment, because `template.md` is the
+> single source of truth every future LLD is written against.
+
+The tie-break as approved orders `{new, external}` above `{error, auth}` but does not order
+`new` against `external`. That leaves "exactly one class applies" undecidable for the case
+that provoked the rule — a **new module that calls a third-party API**, which is both. The
+flowchart worked example in `template.md` contains exactly such a node, so T2 could not stay
+silent and still ship a worked example.
+
+**Proposed (implemented by T2, pending sign-off): `external` > `new` > `auth` > `error`.**
+`external` leads because a trust boundary is the more consequential fact for a reviewer
+scanning a diagram: "this leaves our system" outranks "this is new here".
+
+**Why it needs a decision rather than a default.** Measured on `mermaid@11.12.2`: two `class`
+statements naming the same node do not blend or error — the later one silently wins. So the
+ordering is not cosmetic, and leaving it unstated does not leave it open; it leaves it decided
+at random by statement order in whoever's diagram it is.
+
+Reject the proposal and the alternative is `new` > `external`, which is a one-line change to
+the precedence list and the example's comment. Either way the rule must be **total**, or the
+"exactly one class" acceptance criterion cannot be checked.
 
 ---
 
