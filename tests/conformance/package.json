@@ -1,0 +1,16 @@
+{
+  "name": "edf-conformance-harness",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Renderer conformance harness for EDF LLD diagrams (issue #47).",
+  "scripts": {
+    "check": "node check-diagrams.mjs"
+  },
+  "dependencies": {
+    "@braintree/sanitize-url": "^7.1.1",
+    "dompurify": "^3.2.7",
+    "jsdom": "^26.1.0",
+    "mermaid": "11.12.2"
+  }
+}
