@@ -40,23 +40,35 @@ entries:
   - req: REQ-lld-template-diagram-vocabulary-click-directives-diagram-participants
     lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-link-forms
     issue: 45
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/skills/lld/template.md
+      - plugins/edf/docs/adr/0039-workspace-relative-paths-for-diagram-navigability.md
+      - plugins/edf/docs/requirements/v1-requirements.md
+      - plugins/edf/docs/design/v1/v1-design.md
+      - plugins/edf/docs/plans/2026-08-13-v1-implementation-plan.md
+      - tests/test_lld_template_link_forms.py
+    status: Revised
     lld_revision: r1
     # Story 1.4 — definition half only (link forms, support matrix, path-form
     # constraint). Application half: coverage-v1-e1-3.yaml, same req anchor.
-    # NOTE: AC7 of this story ("no leading slash and no .. segments") is amended by
-    # T1 per decision D1 in the LLD — the form as written cannot resolve from a
-    # nested document. OQ2 decided 2026-08-14 — T1 amends AC7; sign-off at
-    # T1's PR review. OQ1 decided: ADR-0039 is amended in place, not superseded.
+    # Status stays Revised, not Implemented: (a) the application half in E1.3 has not
+    # merged, and (b) T1 corrected the LLD (see D5 and the B.1.1 implementation notes).
+    # AC7 was amended by T1 per D1 and ADR-0039 R1 — the "no leading slash and no ..
+    # segments" form cannot resolve from a nested document. OQ1 and OQ2 both applied:
+    # ADR-0039 amended in place; AC7, the glossary, AC1's example and the HLD's C2.1/C2.3
+    # amended to match. Post-gate sign-off rides on issue #45's PR review.
 
   # --- Stories closing fully within this epic ---------------------------------------
 
   - req: REQ-lld-template-diagram-vocabulary-lld-anchor-navigation-part-b
     lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-link-forms
     issue: 45
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/skills/lld/template.md
+      - plugins/edf/docs/design/v1/vis-markdown-preview-navigation.html
+      - plugins/edf/docs/design/v1/vis-markdown-preview-navigation-anchor.png
+      - tests/test_lld_template_link_forms.py
+    status: Revised
     lld_revision: r1
     # Story 1.5 — closes fully in this epic. Anchor format is template-defined (T1);
     # renderer scroll behaviour is verified by

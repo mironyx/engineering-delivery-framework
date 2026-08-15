@@ -4,10 +4,11 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.1 |
-| Status | Draft |
+| Version | 0.2 |
+| Status | Revised |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
+| Revised | 2026-08-15 | Issue #45 (T1) |
 | Epic | [#28](https://github.com/mironyx/engineering-delivery-framework/issues/28) |
 | Parent | [v1-design.md](v1-design.md) (v1.1) |
 | Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.2) |
@@ -64,6 +65,16 @@ behaviour of the rule:
 `design-root` is declared once per project in `kb/file-map.md`. For a single-module repo it
 is the repository root; for a monorepo it may be a module root, which additionally catches
 cross-module links a repo-root rule would wave through.
+
+> **Implementation note (issue #45):** D1 listed its consequences outside this LLD as epics #28
+> and #31 and the implementation plan — but **omitted `v1-design.md`**, which carried the
+> superseded form in two places. §C2.1 restated it, and §C2.3 specified the self-critique
+> gate's navigability check as "carries no leading slash or `..` segment" — a check that,
+> implemented as written by E1.3, would have **rejected every valid link**. Both were amended
+> by T1 (HLD 1.1 → 1.2). The E1.3 LLD already stated the corrected rule, so the HLD was the
+> sole stale authority and contradicted its own child document. Recorded because the omission
+> was in the consequence list itself: D1 correctly identified that the rule was wrong and still
+> under-scoped where it had propagated.
 
 > **`design-root` for this repository is the repository root**, not `plugins/edf/`. Every
 > E1.1 and E1.3 task must edit `.claude-plugin/marketplace.json`, which sits at the repo
@@ -128,6 +139,39 @@ it parses every block — no separate check is needed.
 
 This is recorded as a decision rather than a footnote because it is the first defect the
 harness caught in real content, which is the argument for T3 existing at all.
+
+### D5 — a `click` before its node declaration is silently dropped (found during T1)
+
+> **Implementation note (issue #45):** found while implementing T1, by *rendering* the matrix
+> cases rather than only parsing them. It is recorded here with D1–D4 because T2 and T3 both
+> depend on it, and because it is the same failure class the epic exists to remove — a rule
+> that reads fine, parses fine, and produces nothing.
+
+In `classDiagram` and `flowchart`, a `click` naming a node that has not yet been declared is
+silently discarded: mermaid resolves the identifier against a table populated by the
+declarations and does nothing when it is absent — no error, no warning, no anchor. Measured on
+11.12.2 with `mermaid.render` under `securityLevel: 'strict'`, changing only the ordering:
+
+| Diagram type | `click` after declarations | `click` before |
+|---|---|---|
+| `classDiagram` | 3 anchors | **0** |
+| `flowchart` | 2 anchors | **0** |
+| `stateDiagram-v2` | 1 anchor | 1 — order-insensitive (states are created lazily) |
+
+**Both orderings parse in every case.** This is the finding's significance for this epic: a
+parse-only check — which is exactly what [§B.1.3](#LLD-v1-e1-1-conformance-evidence) originally
+specified — cannot see it. The diagram renders perfectly and is simply not navigable.
+
+**Adopted:** every `click` is emitted after the declaration of the node it names, stated
+normatively in `template.md` and recorded as ADR-0039 §Revision R4. Consequences:
+
+- The pre-T1 `template.md` classDiagram example placed its `click` lines *first*, so the worked
+  example every generated LLD is copied from produced zero working links. It went unnoticed
+  because the hrefs were `edf://`, which the sanitiser stripped anyway — one defect masking
+  the other. This is the concrete argument for T3 existing.
+- **T3 must assert on rendered anchors, not only on `mermaid.parse`.** See the added
+  `checkAnchorsRendered` in §B.1.3.
+- T2 must obey the ordering when it adds `click` directives to the state and flowchart examples.
 
 ## Open questions
 
@@ -296,9 +340,13 @@ Identifiers use the display-label workaround confirmed in D3 — a raw `/` in a
 |---|---|---|---|---|
 | Markdown preview navigation | [vis-markdown-preview-navigation.html](vis-markdown-preview-navigation.html) | Anchor state — Part B section scrolled into view | [REQ-…-lld-anchor-navigation-part-b](../../requirements/v1-requirements.md#REQ-lld-template-diagram-vocabulary-lld-anchor-navigation-part-b) | [C2.1](v1-design.md#c21-lld-template) |
 
-> **Screenshot capture is a T1 deliverable**, not an authoring-time artefact — the wireframe
-> shows the anchor-scroll behaviour this section defines. Capture `vis-markdown-preview-navigation-anchor.png`
-> during T1 and embed it here.
+![Markdown preview navigation — anchor state](vis-markdown-preview-navigation-anchor.png)
+
+Captured in T1 (issue #45) from
+[vis-markdown-preview-navigation.html](vis-markdown-preview-navigation.html) in its `anchor`
+state. The wireframe's example fragment was corrected to `#LLD-v1-e1-delivery-service` at the
+same time — it previously read `#LLD-delivery-service`, omitting the epic id that this
+section's anchor-form rule requires.
 
 ### Invariants
 
@@ -310,6 +358,8 @@ Identifiers use the display-label workaround confirmed in D3 — a raw `/` in a
 | 4 | Every `click` href in `template.md` examples resolves inside `design-root` and exists, or is a documented placeholder | T3 harness path-resolution check, placeholders allowlisted by `<…>` marker |
 | 5 | Every `#LLD-` fragment used as an example matches the documented ADR-0026 format | grep for `#LLD-` and assert `^#LLD-v[0-9]+-e[0-9-]+-[a-z0-9-]+$` |
 | 6 | `plugin.json` and `marketplace.json` versions are equal | `test "$(jq -r .version plugins/edf/.claude-plugin/plugin.json)" = "$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)"` |
+| 20 | Every `click` in a `template.md` example is emitted **after** the declaration of the node it names (D5) | `tests/test_lld_template_link_forms.py::test_classdiagram_example_emits_clicks_after_declarations`; T3 harness `checkAnchorsRendered` generalises it |
+| 21 | No document in the repo states the superseded path form as a live rule (`..` banned) outside a dated history note | `grep -rn 'no \`\`..\`\` segments'` — hits must be inside a Change Log row, an `Amended`/`Revision` note, or the ADR's preserved Decision section |
 
 ### Acceptance Criteria
 
@@ -653,9 +703,14 @@ plugins/edf/skills/lld/template.md          — link forms, support matrix, path
 plugins/edf/docs/adr/0039-workspace-relative-paths-for-diagram-navigability.md
                                             — dated revision recording D1 and D2
 plugins/edf/docs/requirements/v1-requirements.md
-                                            — Story 1.4 AC7 amendment
+                                            — Story 1.4 AC7 amendment (plus the glossary entry
+                                              carrying the same rule, and AC1's example)
+plugins/edf/docs/design/v1/v1-design.md     — §C2.1 and §C2.3 path-form amendment (added by
+                                              issue #45; see the implementation note below)
 plugins/edf/docs/plans/2026-08-13-v1-implementation-plan.md
                                             — "three parse-error cases" → two
+plugins/edf/docs/design/v1/vis-markdown-preview-navigation.html
+                                            — example anchor id corrected to carry the epic id
 plugins/edf/.claude-plugin/plugin.json       — bump one patch
 .claude-plugin/marketplace.json              — bump one patch (must match)
 plugins/edf/docs/design/v1/vis-markdown-preview-navigation-anchor.png
@@ -676,11 +731,18 @@ document-relative path.
 | Line | Context | Replacement form |
 |---|---|---|
 | 67 | `link API: source @ edf://…` in the navigability convention prose | Removed with the `link` convention change (D2) |
-| 70 | `click Service href "edf://…" "source"` | `click Service href "src/lib/example/service.ts" _self` |
+| 70 | `click Service href "edf://…" "source"` | `click Service href "../../../src/lib/example/service.ts" _self` |
 | 74 | "**Existing source file** → `edf://` protocol" bullet | Rewritten to the document-relative form |
 | 104 | Sequence-diagram prose referencing `edf://` | Rewritten per D2 |
 | 110–112 | Three `link …: source @ edf://…` lines in the sequence example | Removed — the example carries no `link` (D2) |
-| 206–208 | Three `click … href "edf://…" "source"` in the classDiagram example | `click … href "src/lib/…" _self` |
+| 206–208 | Three `click … href "edf://…" "source"` in the classDiagram example | `click … href "../../../src/lib/…" _self`, emitted **after** the `class` declarations (D5) |
+
+> **Implementation note (issue #45):** the replacement forms for lines 70 and 206–208
+> originally read `src/lib/…` — a repo-root path, which is the form D1 measured as
+> non-resolving. The table contradicted the decision three sections above it. Corrected to the
+> `../../../src/lib/…` form actually shipped. Worth recording because the error survived LLD
+> authoring *and* review: the prose stated the rule correctly while the worked example beside
+> it did not, which is the reading failure the epic's own worked examples are meant to prevent.
 
 > **Constraint:** the template's examples are illustrative and their paths are *not*
 > required to exist in a host project. Mark them with the existing `<…>` placeholder
@@ -724,7 +786,10 @@ Anchor form
 
 #### ADR-0039 revision (subject to OQ1)
 
-Append a `## Revision — 2026-08-13` section. It must state: what the path-form constraint
+Append a dated `## Revision` section — shipped as `## Revision — 2026-08-14`, the day it was
+written and OQ1 was decided, rather than the 2026-08-13 measurement date this LLD originally
+named; the measurement date is stated inside the section instead. It must state: what the
+path-form constraint
 said; that it was never measured; the resolution arithmetic showing the failure; the adopted
 form and containment rule; and the `link`-directive correction from D2. Do **not** edit the
 Decision section's history in place — the record of the wrong rule is the point.
@@ -848,8 +913,23 @@ checkAnchors(markdown: string): AnchorResult[]
   - Every #LLD- fragment must match an <a id="…"> in the same file, case-sensitive.
   - Every fragment must match /^#LLD-v\d+-e[\d-]+-[a-z0-9-]+$/
 
-main(): exits 1 if any block fails to parse, any path fails, or any anchor is unmatched.
+checkAnchorsRendered(markdown: string): RenderResult[]      // added by D5, issue #45
+  - For every block containing a click directive: await mermaid.render(id, src) in jsdom
+    under securityLevel 'strict', then count <a href> elements in the produced SVG.
+  - Assert renderedAnchorCount === clickDirectiveCount for that block.
+  - RenderResult = { line, type, clicks: number, anchors: number, ok: boolean }
+
+main(): exits 1 if any block fails to parse, any path fails, any anchor is unmatched, or any
+        block renders fewer anchors than it declares clicks.
 ```
+
+> **Implementation note (issue #45):** `checkAnchorsRendered` was added after T1 measured D5.
+> The original four checks were all parse- or text-based, and D5 is invisible to every one of
+> them: a `click` emitted before its node declaration parses, renders, and yields no anchor.
+> **Parse success is not evidence of navigability** — the harness must assert on the rendered
+> SVG, which is also the only check that would have caught the pre-T1 `template.md` example
+> shipping zero working links. Note this makes `mermaid.render` (not just `mermaid.parse`) a
+> harness dependency, so jsdom is load-bearing rather than convenience.
 
 > **Constraint:** parse checks gate the rest, per
 > [v1-design.md §C2.3](v1-design.md#c23-self-critique-gate) — if any block fails to parse,
