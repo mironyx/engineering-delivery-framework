@@ -40,18 +40,48 @@ Part B block above the `# Part B` heading.
 
 ### Diagram styling palette
 
-All diagrams in this document use a standard set of styles. Define the `classDef`
-blocks inside the first diagram of each type that uses them, then reference by class
-name in subsequent diagrams — a standalone `classDef` block (no diagram-type keyword)
-is invalid Mermaid. The palette matches the EDF pipeline flowcharts for visual
-consistency.
+**The table below is canonical** — it is the single source of truth for which roles exist
+and what colour each one carries. The `classDef` lines shown further down are a syntax
+demonstration of these same four roles, not a second definition of them. The palette matches
+the EDF pipeline flowcharts, so a reviewer moving between an LLD and the pipeline docs reads
+one scheme.
 
-| Class | Use for |
-|-------|---------|
-| `error` | Error paths, failure states, exception flows |
-| `auth` | AuthZ enforcement points, trust boundaries, permission checks |
-| `external` | External service calls, third-party APIs, webhooks |
-| `new` | New code introduced by this LLD (modules, services, components created from scratch) |
+| Class | Fill | Use for |
+|-------|------|---------|
+| `error` | `#f7d6d6` | Error paths, failure states, exception flows |
+| `auth` | `#f7eed6` | AuthZ enforcement points, trust boundaries, permission checks |
+| `external` | `#d6e8f7` | External service calls, third-party APIs, webhooks |
+| `new` | `#d4f0d4` | New code introduced by this LLD (modules, services, components created from scratch) |
+
+**Role tie-break — exactly one class per participant.** Participants routinely match more
+than one role: a new module that calls a third-party API, an authZ gate that is also the
+error path. Assign exactly one class, by this order of precedence:
+
+1. `external` — a trust boundary is the most consequential fact about a node.
+2. `new` — what a node *is* comes before how it fails.
+3. `auth`
+4. `error`
+
+So `new` and `external` outrank `error` and `auth`, because "what is this thing" is what a
+first-pass reviewer needs before "how does it fail". Two `class` assignments naming the same
+node do not blend — the later one wins, silently — so the diagram will never tell you the
+rule was ignored.
+
+**Every diagram carries its own `classDef` lines.** Each fenced block is rendered
+independently, so a `classDef` declared in one diagram does not carry into the next one. A
+`class` assignment naming a role the current diagram never defined parses, renders, and
+applies no styling whatsoever — no error, no warning, just an unstyled node. Repeat the
+`classDef` lines each diagram actually uses, in every diagram that uses them.
+
+Syntax, shown once. A standalone `classDef` block is not a valid diagram, so it is fenced as
+`text` — inside a bare `mermaid` fence it would fail to render:
+
+`` ```text
+classDef error fill:#f7d6d6,stroke:#a33,color:#3a1a1a
+classDef auth fill:#f7eed6,stroke:#a80,color:#3a2f1a
+classDef external fill:#d6e8f7,stroke:#2d5f8a,color:#1a2f44
+classDef new fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
+`` ```
 
 Apply with `class` assignments on nodes, or `Note` blocks on sequence diagrams for
 enforcement-point annotations (see Behavioural Flows below).
@@ -187,8 +217,22 @@ including GitHub.
 
 ### Behavioural Flows
 
-Pick the right diagram type for the flow. Each type has a "When required" gate —
-use it when the condition matches, skip it when optional.
+Pick the diagram type from the content of the section, not from taste. Each conditional type
+below carries a **"When required"** gate naming a signal that is present or absent by
+inspection, and a **"When optional"** negative case. Check for the signal; where it is
+absent, do not draw the diagram.
+
+| Diagram type | When required — content signal | When optional |
+|--------------|-------------------------------|---------------|
+| `sequenceDiagram` | Unconditional primary — more than two components interact in the flow | Single-component CRUD, pure utility functions, schema-only changes |
+| `stateDiagram-v2` | A UI states table exists **and** at least one transition is non-trivial (retry from error, optimistic update, polling loop) | Two-state read-only pages (Loading → Content), and sections with no UI surface |
+| `erDiagram` | The section adds a table or an FK relationship | Column-type, index, or constraint changes that leave the entity graph unchanged, and sections with no DB layer |
+| `flowchart TD` | The flow branches on two or more conditions | A single branch point, and simple guard clauses |
+| `classDiagram` | The section adds a module, changes a module boundary, or adds a dependency between existing modules | Changes inside one module that leaves its public surface and dependencies unchanged |
+
+A section matching none of the four conditional signals carries the sequence diagram alone.
+That is the expected outcome, not a gap — the gates exist to stop diagram bloat, and "no
+signal" is a negative result a reviewer can check as quickly as a positive one.
 
 #### Sequence diagram (primary)
 
@@ -208,15 +252,16 @@ sequenceDiagram
     %% No click (fatal parse error here) and no link directive (convention).
     %% Navigation to these participants comes from the Structural Overview below.
     Client->>API: POST /api/example
-    Note over API: AuthZ check (RLS policy)
+    Note over API: AuthZ — bearer token validated against the session,<br/>401 on an invalid or expired token
     API->>Service: processRequest(ctx, params)
-    Note over Service: Input validation + rate limit
+    Note over Service: Validation — body schema-checked before use,<br/>400 with per-field errors on failure
     Service->>DB: query(...)
     DB-->>Service: rows
     Service->>NewService: delegateSideEffect(data)
-    Note over NewService: External API call — SSRF risk,<br/>timeout + retry budget
+    Note over NewService: External call — URL checked against the allowlist,<br/>5s timeout and a one-retry budget, 502 on reject or timeout
     NewService-->>Service: result
     Service-->>API: Result
+    Note over Service,API: Error propagation — wrapped as AppError at the boundary,<br/>500 with a correlation id, cause logged and not returned
     API-->>Client: 200 OK
 `` ```
 
@@ -226,11 +271,28 @@ calls.
 
 **When optional:** Single-component CRUD. Pure utility functions. Schema-only changes.
 
-**Enforcement point annotations.** Annotate these crossing points with `Note` blocks:
-- AuthZ enforcement (RLS, ownership checks, permission gates)
-- Input validation boundaries (where untrusted data enters the system)
-- External service calls (SSRF risk, timeout budgets)
-- Error propagation points (where errors cross component boundaries)
+**Enforcement point annotations.** Annotate every crossing point where the system stops
+trusting its input, or hands control to something it does not own. There are four boundary
+types, and the diagram above demonstrates all four:
+
+- **AuthZ enforcement** (RLS, ownership checks, permission gates)
+- **Input validation** boundaries (where untrusted data enters the system)
+- **External service calls** (SSRF risk, timeout and retry budgets)
+- **Error propagation** points (where errors cross component boundaries)
+
+**Format: `Note over <participant>: <mechanism> — <rejection behaviour>`.** State both
+halves. A note naming only a mechanism ("AuthZ check") tells the reviewer that something
+happens, not what happens when it fails — and the failure half is the one that carries the
+security and correctness story.
+
+**A `;` inside `Note` text is a parse error.** The semicolon is Mermaid's
+statement separator, so it terminates the note early and fails the entire diagram — measured
+on `mermaid@11.12.2`. Separate mechanism from rejection with an em dash and a comma, never a
+semicolon. Commas, em dashes, `..` segments, `#LLD-` fragments and `<br/>` are all safe.
+
+**Adjacency rule.** An annotation sits immediately beside the interaction it describes.
+Gathering the annotations in a legend block away from their interactions is a defect — it
+reintroduces precisely the cross-referencing these notes exist to remove.
 
 **Decomposition heuristic.** If a sequence diagram exceeds ~12 interactions, split it:
 a top-level flow showing the main path, plus separate detail diagrams for the error
@@ -246,34 +308,64 @@ stateDiagram-v2
     Loading --> Error : fetch failed
     Error --> Loading : retry
     Success --> Loading : refresh
+
+    %% This diagram declares the classDef lines it uses — they never carry over.
+    classDef error fill:#f7d6d6,stroke:#a33,color:#3a1a1a
+    classDef new fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
+
+    class Error error
+    class Success new
+
+    %% click comes after the states, and carries NO _self — see the support matrix.
+    click Loading href "../../../src/lib/example/useResource.ts"
+    click Success href "#LLD-v1-e1-resource-view"
 ```
 
-**When required:** Any FE section with a UI states table (Loading, Error, Empty,
-Success) where the transitions between states are non-trivial — e.g. retry from
-error, optimistic updates from success, polling loops. A state machine makes the
-transition rules explicit where a table only lists the states.
+**When required:** The section has a UI states table (Loading, Error, Empty, Success)
+**and** at least one transition between those states is non-trivial — retry from error,
+optimistic update from success, a polling loop. Both halves of that signal must be present.
+A state machine makes the transition rules explicit where a table only lists the states.
 
-**When optional:** Simple read-only pages with only two states (Loading → Content).
-Pure backend sections with no UI surface.
+**When optional:** Two-state read-only pages (Loading → Content), where the single
+transition is already obvious from the states table. Sections with no UI surface at all —
+pure backend, CLI, or schema work.
 
 #### Decision flowchart
 
 ```mermaid
 flowchart TD
-    A[Incoming request] --> B{AuthZ check}
-    B -->|allowed| C[Process request]
-    B -->|denied| D[403 Forbidden]
-    C --> E{Rate limit}
-    E -->|within limit| F[Execute]
-    E -->|exceeded| G[429 Too Many Requests]
+    A["Incoming request"] --> B{"AuthZ check"}
+    B -->|"allowed"| C["Process request"]
+    B -->|"denied"| D["403 Forbidden"]
+    C --> E{"Rate limit"}
+    E -->|"within limit"| F["Execute"]
+    E -->|"exceeded"| G["429 Too Many Requests"]
+    F --> H["Call payment provider"]
+
+    %% This diagram declares the classDef lines it uses — they never carry over.
+    classDef error fill:#f7d6d6,stroke:#a33,color:#3a1a1a
+    classDef auth fill:#f7eed6,stroke:#a80,color:#3a2f1a
+    classDef external fill:#d6e8f7,stroke:#2d5f8a,color:#1a2f44
+    classDef new fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
+
+    class B,E auth
+    class D,G error
+    class F new
+    %% H is both new and external — external wins, per the tie-break precedence.
+    class H external
+
+    %% click directives come LAST — see the declaration-order rule above.
+    click B href "../../../src/lib/auth/guard.ts" _self
+    click H href "#LLD-v1-e1-payment-adapter" _self
 ```
 
-**When required:** Decision-heavy logic where the flow branches on multiple
-conditions — auth rules, feature flags, routing decisions, business rule evaluation.
-A flowchart shows the branching structure at a glance where nested prose or bullet
+**When required:** The flow branches on two or more conditions — auth rules, feature flags,
+routing decisions, business rule evaluation. Count the decision points: two or more is the
+signal. A flowchart shows the branching structure at a glance where nested prose or bullet
 lists would be hard to audit.
 
-**When optional:** Linear flows with a single branch point. Simple guard clauses.
+**When optional:** A single branch point, which reads just as well as a sentence. Simple
+guard clauses. Linear flows.
 
 ### Structural Overview
 
@@ -327,11 +419,13 @@ classDiagram
     click AdaptersGitHub href "../../../src/lib/adapters/github.ts" _self
 `` ```
 
-**When required:** Any task that introduces new modules/classes, modifies module boundaries,
-or adds new dependencies between existing modules. Changes touching the ports/adapters layer.
+**When required:** The section adds a module or class, changes a module boundary, or adds a
+dependency between existing modules. Any change touching the ports/adapters layer qualifies
+on the boundary signal.
 
-**When optional:** Changes within a single existing module that do not alter its public
-surface or dependencies.
+**When optional:** Changes inside one existing module that leave its public surface and its
+dependency list unchanged — the module graph the diagram would draw is the one already in
+the repo.
 
 #### Data structure (`erDiagram`)
 
@@ -351,13 +445,12 @@ erDiagram
     users ||--o{ sessions : "has many"
 `` ```
 
-**When required:** Any DB section that introduces new tables, adds FK relationships
-between existing tables, or modifies the schema in a way that changes the
-entity-relationship graph. The diagram is the schema — prose descriptions are
-supplementary, not primary.
+**When required:** The section adds a table, or adds an FK relationship between existing
+tables. Either one changes the entity-relationship graph, which is the signal. The diagram
+is the schema — prose descriptions are supplementary, not primary.
 
-**When optional:** Sections that only modify column types, add indexes, or change
-constraints without altering the entity graph. Sections with no DB layer.
+**When optional:** Changes that leave the entity graph exactly as it was — column-type
+changes, added indexes, altered constraints. Sections with no DB layer.
 
 ### Visual Specifications
 
