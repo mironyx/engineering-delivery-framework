@@ -27,3 +27,5 @@
 | 5 | 2026-08-15T18:09:36Z | $0.00 | 0 in / 0 out | green on attempt 2 — 380 passed, 1 pre-existing failure (test_cross_references edf:xxx, from PR #55); npm audit high deferred (lodash-es via pinned mermaid 11.12.2) |
 | 6 | 2026-08-15T18:09:36Z | $0.00 | 0 in / 0 out | ruff clean on changed file; no .diagnostics exporter in worktree |
 | 6b | 2026-08-15T18:13:28Z | $0.00 | 0 in / 0 out | evaluator: PASS WITH WARNINGS — AC1-AC8 all covered; 1 adversarial test added for the D6 half |
+| 9 | 2026-08-15T18:22:15Z | $0.00 | 0 in / 0 out | review: 2 blockers + 7 warnings; 8 fixed in 0e96461, 1 rejected (Co-Authored-By is this repo's convention) |
+| 10 | 2026-08-15T18:22:25Z | $0.00 | 0 in / 0 out | report done — no CI configured in this repo; review clean after fixes |
