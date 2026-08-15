@@ -424,12 +424,16 @@ flowchart TD
     Seq -->|"no"| SkipSeq["No sequence diagram"]
     Section --> State{"UI states table with<br/>non-trivial transitions?"}
     State -->|"yes"| EmitState["stateDiagram-v2"]
+    State -->|"no"| SkipState["No state diagram"]
     Section --> Er{"New tables or<br/>FK relationships?"}
     Er -->|"yes"| EmitEr["erDiagram"]
+    Er -->|"no"| SkipEr["No ER diagram"]
     Section --> Flow{"Branches on two or<br/>more conditions?"}
     Flow -->|"yes"| EmitFlow["flowchart TD"]
+    Flow -->|"no"| SkipFlow["No flowchart"]
     Section --> Cls{"New module or changed<br/>module boundary?"}
     Cls -->|"yes"| EmitCls["classDiagram"]
+    Cls -->|"no"| SkipCls["No class diagram"]
     SkipSeq --> None["Sequence diagram only —<br/>gates prevent bloat"]
 
     classDef new fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
