@@ -4,18 +4,19 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.2 |
-| Status | Reviewed — Gate 1 approved 2026-08-13; §C2.1 and §C2.3 path-form amended 2026-08-14 (issue #45) |
+| Version | 1.3 |
+| Status | Reviewed — Gate 1 approved 2026-08-13; §C2.1/§C2.3 path-form amended 2026-08-14 (issue #45); §C4 navigation claim corrected 2026-08-16 (issue #47) |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
-| Last updated | 2026-08-14 |
-| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.3) |
+| Last updated | 2026-08-16 |
+| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.4) |
 | Mode | Rewrite — supersedes v0.2 |
 
 ## Change Log
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.3 | 2026-08-16 | LS / Claude | **Post-Gate-1 correction (issue #47's measured finding), reviewed against #47's conformance report rather than as a separate gate.** §C4 claimed diagram click navigation worked with no extension in either renderer; measured false in both. GitHub is structurally unfixable (cross-origin sandboxed iframe, confirmed 404). VSCode's native click also fails, but a thin `markdown.previewScripts` extension was confirmed working the same day — see requirements v1.4's "Reopened" entry, which pulls the previously-deferred "click opens source file" story back into scope for a future epic. No component or boundary changed; the corrected claim is narrower than what was asserted, not a redesign. |
 | 0.1 | 2026-08-01 | LS / Claude | Initial HLD — Levels 1–3 |
 | 0.2 | 2026-08-01 | LS / Claude | `edf:hld-review` fixes (0 blockers, 5 warnings resolved) |
 | 1.2 | 2026-08-14 | LS / Claude | **Post-Gate-1 amendment (issue #45), reviewed in that issue's PR diff.** §C2.1's link-form bullet and §C2.3's navigability check both required a path form with "no leading slash and no `..` segments". Measurement established that form cannot resolve from any document below the repository root, which is every LLD; §C2.3's check, implemented as written, would have rejected every valid link. Both now state the document-relative form with `..` permitted plus a `design-root` containment check. See ADR-0039 §Revision R1. No component, boundary, or responsibility changed. |
@@ -97,9 +98,20 @@ The absence of an annotation on a boundary-crossing flow becomes detectable by i
 Diagram participants are dead labels: a reviewer seeing `AuthHelper` must grep the codebase
 to find it, losing their place in the document. This capability makes every participant that
 *can* carry a link resolve to something actionable — a workspace-relative path for existing
-code, a `#LLD-` anchor for a component specified in Part B. Critically, it works with no
-extension in either GitHub or VSCode, because both link forms survive Mermaid's sanitizer
-and resolve through each renderer's own native behaviour.
+code, a `#LLD-` anchor for a component specified in Part B. Both link forms survive Mermaid's
+sanitizer and resolve to the correct target string with no extension, in either renderer.
+
+> **Corrected 2026-08-16 (issue #47's measured finding; v1-requirements.md v1.4).** This
+> section originally claimed click navigation itself — not just correct link data — worked
+> natively with no extension in both renderers. Measured false in both, for different
+> reasons: GitHub renders Mermaid in a cross-origin sandboxed iframe, so a click resolves
+> against the iframe's origin and 404s — unfixable by this project. VSCode's built-in
+> preview click handler requires `tagName === "A"`, which an SVG anchor never satisfies —
+> but a thin `markdown.previewScripts` extension overlaying a real HTML anchor over the SVG
+> click target makes the *existing* handler pick it up, confirmed working in a live VSCode
+> window the same day. See v1-requirements.md's "Reopened 2026-08-16" entry for the newly
+> in-scope VSCode extension work this unblocks. GitHub navigability is not reopened by
+> anything and is recorded as permanently out of scope.
 
 "Every participant" is bounded by what Mermaid actually supports, and this capability owns
 that support matrix as a first-class constraint rather than an implementation detail:

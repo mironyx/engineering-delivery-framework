@@ -4,16 +4,17 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.3 |
+| Version | 1.4 |
 | Status | Draft — Complete |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
-| Last updated | 2026-08-14 |
+| Last updated | 2026-08-16 |
 
 ## Change Log
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.4 | 2026-08-16 | LS / Claude | **Post-Gate-2 correction (issue #47's measured finding), reviewed against #47's conformance report rather than as a separate gate.** Design Principle 3 and Story 1.6 AC1 claimed diagram links "resolve natively in GitHub and VSCode without any extension" — measured false in both renderers, for different reasons: GitHub renders Mermaid inside a cross-origin sandboxed iframe (`viewscreen.githubusercontent.com`), so a relative href resolves against that iframe's origin and 404s — structurally unfixable by anything this project controls. VSCode's built-in preview click handler only recognises `tagName === "A"`; an SVG `<a>` reports lowercase `"a"` and never matches, so native clicks also do nothing — but a throwaway prototype (2026-08-15) confirmed a `markdown.previewScripts`-only extension overlaying real HTML anchors on the SVG click targets makes the *existing* built-in handler open them, no extension-host code or custom webview required. This satisfies the reopening condition the "Deferred from V1" table set for "Click opens source file in adjacent column" — moved out of that table below. GitHub navigability is not reopened by anything; it is now explicitly out of scope, permanently, in "What We Are NOT Building". |
 | 0.1 | 2026-08-01 | LS / Claude | Initial draft — epics, stories, roles |
 | 0.2 | 2026-08-01 | LS / Claude | Acceptance criteria for all 11 stories; closed stale open questions; added security ACs to Stories 2.1/2.2; added extension packaging deferral |
 | 0.3 | 2026-08-01 | LS / Claude | Testability fixes: tightened 3 vague ACs (Story 1.3 AC5, Story 2.4 AC5, Story 4.1 AC6) |
@@ -94,12 +95,22 @@ already built.
    rendered document is preserved. (The stronger version of this principle — opening a
    *source file* beside the preview without closing it — belongs to the deferred
    click-to-open story; see its carried-forward requirements in V2/Future.)
-3. **Renderer-native navigation** — Every diagram link must work without any extension —
-   GitHub PR reviews, external contributors, and non-VSCode users get a working link, not
-   a harmless dead one. Where an extension exists, it makes the experience richer than the
-   renderer-native baseline, not different from it. This supersedes the original "graceful
-   degradation" framing: with workspace-relative paths, links resolve to real files in
-   GitHub rather than degrading to inert placeholders.
+3. **Renderer-native navigation — corrected 2026-08-16, see v1.4 change log.** Every diagram
+   link must resolve to the *correct string* without any extension, and this remains true —
+   `..`-permitted document-relative paths and `#LLD-` fragments both survive Mermaid's
+   sanitizer and point at the right target. What is **not** true, measured against GitHub
+   and VSCode 1.127.0 (#47's report): clicking a link rendered inside a Mermaid SVG does not
+   navigate anywhere in either renderer natively. GitHub renders diagrams in a cross-origin
+   sandboxed iframe, so the href resolves against the iframe's origin and 404s — no fix is
+   possible from this project. VSCode's built-in preview click handler requires
+   `tagName === "A"`, which an SVG anchor never satisfies — but a thin extension can make it
+   satisfy it, by overlaying a real HTML anchor over the SVG click target; the *existing*
+   built-in handler then opens it. So: GitHub gets correct, inspectable link data and no
+   click navigation, permanently. VSCode gets working click navigation, but only with the
+   extension installed — "no extension required" no longer holds for VSCode either. This
+   supersedes the original "graceful degradation" framing only partially: GitHub links do
+   resolve to real files as strings, which is still stronger than an inert placeholder, but
+   the click-through guarantee this principle originally promised does not hold there.
 4. **Convention over configuration** — The `classDef` palette, diagram type selection rules,
    and annotation placement are defined once in the template and skill instructions. No
    per-project or per-team customisation in V1.
@@ -396,10 +407,24 @@ what makes the rest of the epic trustworthy.
 
 - Given an LLD with a `flowchart` containing workspace-relative `click` links, when
   viewed in GitHub, then each link navigates to the correct file in the repository.
+
+  > **Corrected 2026-08-16 (issue #47's measured finding).** This AC is false as
+  > written. GitHub renders Mermaid diagrams inside a cross-origin sandboxed iframe
+  > (`viewscreen.githubusercontent.com`); a relative href resolves against that iframe's
+  > origin, not the repository, and returns a confirmed HTTP 404. No path form fixes this —
+  > it is a property of GitHub's renderer, not of this epic's link conventions. The
+  > corrected claim: the link resolves to the *correct string*, verified by the harness, but
+  > does not navigate on click, in GitHub, permanently. See Design Principle 3's correction
+  > and #47's `renderer-conformance-report.md`.
 - Given the same diagram viewed in VSCode's built-in markdown preview, when a link is
   clicked, then the verification records the actual behaviour observed (VSCode may or
   may not open the file natively via its own relative-link handling — no extension
   exists to guarantee this in V1) rather than assuming an outcome.
+
+  > **Recorded 2026-08-16.** Observed: VSCode does not open it natively — the built-in
+  > preview's click handler requires `tagName === "A"`, which an SVG anchor never reports.
+  > See the "Click opens source file in adjacent column" entry below, moved out of
+  > "Deferred from V1" on the strength of this finding plus a working prototype.
 - Given an LLD with a `classDiagram` using the display-label workaround for
   slash-containing names, when rendered in GitHub and in VSCode, then the diagram
   parses without error in both and the `click` link resolves to the correct file in
@@ -675,6 +700,14 @@ reopened.
 
 ## What We Are NOT Building
 
+- **GitHub click-through diagram navigation** — Confirmed structurally impossible
+  (2026-08-16, issue #47): GitHub renders Mermaid diagrams inside a cross-origin sandboxed
+  iframe, so a diagram link resolves against that iframe's origin and 404s regardless of
+  path form. Nothing running client-side on GitHub's page — extension or otherwise — can
+  intercept a click inside that iframe. GitHub links remain correct, inspectable data (the
+  string resolves to the right file); they do not navigate on click, and no future version
+  should attempt to fix this without new evidence that GitHub's rendering architecture has
+  changed.
 - **Additional diagram types (C4Context, gantt, pie, etc.)** — V1 is scoped to
   `stateDiagram-v2`, `erDiagram`, `flowchart TD`, and `classDiagram` as conditional
   additions to the existing sequence diagram foundation. Other diagram types may be
@@ -729,8 +762,31 @@ either requires a new architecture answer, not just implementation time.
 
 | Feature | Description | Reopening condition |
 |---------|--------------|----------------------|
-| Hover tooltip showing source file preview | Hover over a diagram link to see ~40 lines of the referenced file in a tooltip. | The V1 spike could not find `vscode.window.onDidReceivePreviewMessage` in the public VS Code API — the built-in markdown preview has no confirmed two-way channel back to the extension host. Reopen only after a spike finds a working preview→host communication channel, or the story is rebuilt against a custom webview panel instead of the built-in preview. |
-| Click opens source file in adjacent column | Click a diagram link to open the file beside the preview, which stays visible. | Story 1.6 verifies whether VSCode's built-in markdown preview already opens workspace-relative links natively when clicked inside a rendered Mermaid SVG. If it does, this feature may already be delivered for free by Epic 1 with no extension code — check Story 1.6's verification report before re-scoping this. |
+| Hover tooltip showing source file preview | Hover over a diagram link to see ~40 lines of the referenced file in a tooltip. | The V1 spike could not find `vscode.window.onDidReceivePreviewMessage` in the public VS Code API — the built-in markdown preview has no confirmed two-way channel back to the extension host. Reopen only after a spike finds a working preview→host communication channel, or the story is rebuilt against a custom webview panel instead of the built-in preview. **Not resolved by the 2026-08-16 finding below** — that finding needed no extension-host channel at all, because it never asks the extension host for anything; a hover tooltip showing file *content* would still need one. |
+
+### Reopened 2026-08-16 — click opens source file (VSCode only)
+
+**"Click opens source file in adjacent column" is no longer deferred.** Its reopening
+condition — check Story 1.6's verification report before re-scoping — is satisfied:
+Story 1.6 (#47) measured that VSCode does **not** deliver this natively (the built-in
+preview's click handler requires `tagName === "A"`, which an SVG anchor never reports), so
+it is not "delivered for free" as the condition's optimistic branch hoped. But a throwaway
+prototype the same evening found a working mechanism the original spike never considered:
+a `markdown.previewScripts`-only extension overlays a real HTML `<a>` over each SVG click
+target, carrying the same href. No extension-host code, no custom webview, no message
+channel — the *existing* built-in click handler picks up the overlay anchor on its own,
+because it only ever checked `tagName`, not who created the element. Confirmed working
+against two diagrams in the pushed fixture (a `stateDiagram-v2` path-form link and a
+`#LLD-` fragment) in a live VSCode window, 2026-08-16.
+
+This is real, newly in-scope work — not a follow-up task on an existing issue. It touches
+the security constraints below (this is exactly the kind of DOM-injecting preview script
+they were written for), needs its own packaging, and deserves its own HLD component rather
+than folding into Epic 1. GitHub is not reopened by this finding and is not reopenable by
+any extension — see "What We Are NOT Building".
+
+Carried-forward requirements below apply to this reopened story specifically (not to the
+hover tooltip, which remains deferred).
 
 Carried-forward requirements (apply only if either feature above is reopened):
 

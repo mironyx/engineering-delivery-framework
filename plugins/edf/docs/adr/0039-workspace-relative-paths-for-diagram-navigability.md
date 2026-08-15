@@ -154,10 +154,19 @@ into exactly what it replaced: a confident assertion from memory.
 
 ### Positive
 
-- **The baseline needs no extension.** Every reader gets working links — GitHub PR reviewers,
-  external contributors, non-VSCode users. This is a stronger guarantee than the "graceful
-  degradation" the earlier design aimed at, which promised only that broken links would be
-  harmless.
+- **The baseline needs no extension to produce a correct link.** Every reader gets a string
+  that resolves to the right file — GitHub PR reviewers, external contributors, non-VSCode
+  users. This is a stronger guarantee than the "graceful degradation" the earlier design
+  aimed at, which promised only that broken links would be harmless.
+
+  > **Corrected 2026-08-16 — see §Revision R5.** This bullet originally claimed the baseline
+  > delivers *working, click-navigable links* with no extension. Measured false: GitHub
+  > renders Mermaid in a cross-origin sandboxed iframe, so a click resolves against the
+  > iframe's origin and 404s, independent of path form. VSCode's built-in preview click
+  > handler also does not act on an SVG anchor natively. What survives is narrower but real:
+  > the href is the correct string, inspectable and harness-verifiable, in both. Click
+  > navigation itself needs a thin VSCode extension (confirmed working R5) and is
+  > permanently unavailable on GitHub.
 - **The framework stops depending on a client it does not control.** Navigability is now a
   property of the document, so an LLD is fully navigable the moment it is committed.
 - **The support matrix is mechanically checkable.** "No `click` in a `sequenceDiagram`" is a
@@ -323,6 +332,45 @@ harness must assert on rendered anchors, not only on `mermaid.parse`.
 - **Process** — the `..` rule read sensibly, was internally consistent, and was wrong. The
   standing verification obligation below is extended to path resolution: a constraint on
   renderer behaviour is not accepted into this ADR without a measured case.
+
+### R5 — click navigation works natively in neither renderer; a thin VSCode extension fixes one of them (new finding, 2026-08-16)
+
+Found by issue #47's conformance harness, then independently confirmed by a live browser click
+and a live VSCode click. Distinct from D1/R1: that finding was about whether the **href string**
+resolves to the right target. This finding is about whether **clicking it does anything**.
+
+**GitHub.** Mermaid renders inside a cross-origin sandboxed iframe
+(`viewscreen.githubusercontent.com`), one per fenced block. A relative href resolves against
+that iframe's own origin, not the repository, and the anchor carries `target="_parent"` — so a
+click would navigate the whole tab to that resolved URL. Confirmed by direct HTTP request:
+
+| Authored href | Resolves to | HTTP |
+|---|---|---|
+| `../../../skills/lld/template.md` | `https://viewscreen.githubusercontent.com/skills/lld/template.md` | **404** |
+
+No path form reaches the repository from that origin. This is a property of GitHub's renderer,
+not of anything this ADR controls, and is not reopenable by a future revision without new
+evidence that GitHub's architecture has changed.
+
+**VSCode.** The built-in preview's click handler (`markdown-language-features/media/index.js`,
+confirmed present in VS Code 1.127.0) walks up from the click target checking
+`t.tagName === "A"`. An SVG `<a>` reports lowercase `"a"` — SVG is case-sensitive XML — so the
+check never matches and the click falls through with no action.
+
+**Adopted, and this is the actionable half of the finding:** a thin extension contributing only
+`markdown.previewScripts` (no extension-host code, no custom webview, no message channel) can
+overlay a real HTML `<a>` — same href — directly over each SVG click target's bounding box. The
+*existing* built-in handler then opens it, because its check is purely `tagName`-based and does
+not care which extension created the element. Confirmed working in a live VSCode window against
+two diagrams (a `stateDiagram-v2` path-form link and a `#LLD-` fragment) the same day. This
+directly answers the "Deferred from V1" reopening condition for "click opens source file in
+adjacent column" in v1-requirements.md — see that document's v1.4 change log.
+
+This also corrects ADR-0038's rejection reasoning by implication, without reopening ADR-0038
+itself: that ADR's proposed mechanism (`onDidReceivePreviewMessage`, a message channel from the
+built-in preview back to an extension host) really doesn't exist, and R5's fix does not use it
+or need it — it never asks the extension host for anything, which is why it survives where
+ADR-0038's design could not.
 
 ## References
 
