@@ -22,3 +22,7 @@
 | Step | Timestamp | Cost (cumulative) | Tokens (cumulative) | Note |
 |------|-----------|--------------------|----------------------|------|
 | 3c | 2026-08-15T17:44:12Z | $0.00 | 0 in / 0 out | pressure: heavy — ~350 src lines, 2 source files (harness + manifest); docs + verification tooling |
+| 4bF | 2026-08-15T18:09:36Z | $0.00 | 0 in / 0 out | test-author complete — 19 BDD properties, all covered |
+| 4dF | 2026-08-15T18:09:36Z | $0.00 | 0 in / 0 out | implementation complete — harness green on fixture, report and template.md |
+| 5 | 2026-08-15T18:09:36Z | $0.00 | 0 in / 0 out | green on attempt 2 — 380 passed, 1 pre-existing failure (test_cross_references edf:xxx, from PR #55); npm audit high deferred (lodash-es via pinned mermaid 11.12.2) |
+| 6 | 2026-08-15T18:09:36Z | $0.00 | 0 in / 0 out | ruff clean on changed file; no .diagnostics exporter in worktree |

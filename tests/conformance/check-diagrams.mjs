@@ -27,6 +27,16 @@
  *   2 — usage error (no input files, or an unreadable file)
  */
 
+// TODO(#47): `npm audit` reports a high-severity advisory for `lodash-es`, reached
+// transitively as mermaid 11.12.2 -> @mermaid-js/parser -> langium -> chevrotain. The
+// advisories are prototype pollution and `_.template` code injection, neither reachable
+// here: this harness runs offline over markdown files already in the repo, and is test
+// tooling that is never shipped with the plugin. `npm audit fix --force` resolves it only
+// by installing mermaid 11.16.1, which would break the version pin that this whole
+// artefact exists to measure against. Revisit when the conformance report is
+// re-measured against a newer pinned Mermaid — see renderer-conformance-report.md
+// "Re-verification trigger".
+
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';

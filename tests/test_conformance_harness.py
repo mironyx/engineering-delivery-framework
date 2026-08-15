@@ -72,7 +72,10 @@ def _run_harness(*files, design_root=None, json_output=True, timeout=HARNESS_TIM
     if json_output:
         cmd.append("--json")
     cmd += [str(f) for f in files]
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    # check=False — the exit code IS the assertion target for most of these tests.
+    return subprocess.run(
+        cmd, capture_output=True, text=True, timeout=timeout, check=False
+    )
 
 
 def _run_harness_json(*files, design_root=None, timeout=HARNESS_TIMEOUT):

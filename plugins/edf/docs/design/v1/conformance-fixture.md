@@ -36,6 +36,7 @@ It is deliberately exhaustive rather than realistic. It carries:
 Run the harness against it with:
 
 ```sh
+npm --prefix tests/conformance ci        # once — pins mermaid 11.12.2 and the sanitiser stack
 node tests/conformance/check-diagrams.mjs plugins/edf/docs/design/v1/conformance-fixture.md
 ```
 
