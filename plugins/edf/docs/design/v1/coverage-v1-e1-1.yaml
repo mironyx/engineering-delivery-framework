@@ -13,29 +13,51 @@ entries:
   - req: REQ-lld-template-diagram-vocabulary-conditional-diagram-types
     lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-gates-palette-annotations
     issue: 46
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/skills/lld/template.md
+      - tests/test_lld_template_gates_palette_annotations.py
+      - tests/evaluation/test_gates_palette_annotations_eval.py
+    status: Revised
     lld_revision: r1
     # Story 1.1 — definition half only (diagram-type gates in template.md).
     # Application half: coverage-v1-e1-3.yaml, same req anchor.
+    # Story 1.1 — definition half only (diagram-type gates in template.md).
+    # Application half: coverage-v1-e1-3.yaml, same req anchor.
+    # T2 (#46) shipped the four gates as a single index table plus hardened per-type
+    # prose. Status Revised, not Implemented: the E1.3 application half has not merged,
+    # and T2 corrected the LLD (D6, OQ3).
 
   - req: REQ-lld-template-diagram-vocabulary-standard-classdef-palette
     lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-gates-palette-annotations
     issue: 46
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/skills/lld/template.md
+      - tests/test_lld_template_gates_palette_annotations.py
+      - tests/evaluation/test_gates_palette_annotations_eval.py
+    status: Revised
     lld_revision: r1
     # Story 1.2 — definition half only (palette table, tie-break, text-fence placement).
     # Application half: coverage-v1-e1-3.yaml, same req anchor.
+    # Story 1.2 — definition half only (palette table, tie-break, text-fence placement).
+    # Application half: coverage-v1-e1-3.yaml, same req anchor.
+    # Status Revised: D6 (a classDef does not carry between diagrams) corrected a
+    # pre-existing template instruction, and OQ3 made the tie-break total.
 
   - req: REQ-lld-template-diagram-vocabulary-note-annotations-enforcement-points
     lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-gates-palette-annotations
     issue: 46
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/skills/lld/template.md
+      - tests/test_lld_template_gates_palette_annotations.py
+      - tests/evaluation/test_gates_palette_annotations_eval.py
+    status: Revised
     lld_revision: r1
     # Story 1.3 — definition half only (annotation format, adjacency rule, D4
     # no-semicolon-in-Note rule). Application half: coverage-v1-e1-3.yaml.
+    # Story 1.3 — definition half only (annotation format, adjacency rule, D4
+    # no-semicolon-in-Note rule). Application half: coverage-v1-e1-3.yaml.
+    # Status Revised: shipped with all four boundary types demonstrated; D4 re-measured
+    # and confirmed during T2.
 
   - req: REQ-lld-template-diagram-vocabulary-click-directives-diagram-participants
     lld: lld-v1-e1-1-template-vocabulary.md#LLD-v1-e1-1-link-forms

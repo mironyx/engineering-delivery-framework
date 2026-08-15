@@ -4,11 +4,12 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.2 |
-| Status | Revised |
+| Version | 0.3 |
+| Status | Revised v2 |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Revised | 2026-08-15 | Issue #45 (T1) |
+| Revised | 2026-08-15 | Issue #46 (T2) |
 | Epic | [#28](https://github.com/mironyx/engineering-delivery-framework/issues/28) |
 | Parent | [v1-design.md](v1-design.md) (v1.1) |
 | Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.2) |
@@ -173,12 +174,43 @@ normatively in `template.md` and recorded as ADR-0039 §Revision R4. Consequence
   `checkAnchorsRendered` in §B.1.3.
 - T2 must obey the ordering when it adds `click` directives to the state and flowchart examples.
 
+### D6 — a `classDef` does not carry into the next diagram (found during T2)
+
+> **Implementation note (issue #46):** found while implementing T2, by rendering the palette
+> examples rather than only parsing them. Recorded with D1–D5 because it is the same failure
+> class the epic exists to remove, and because it invalidated an instruction `template.md` had
+> been giving authors since before this epic.
+
+`template.md` instructed authors to *"define the `classDef` blocks inside the first diagram of
+each type that uses them, then reference by class name in subsequent diagrams"*. Each fenced
+block is an independent render, so nothing carries. A `class X role` assignment in a diagram
+whose block omits the matching `classDef` **parses, renders, and applies no styling at all**.
+Measured on 11.12.2, two flowcharts differing only in whether the `classDef` line is present:
+
+| Diagram | `classDef` present | Palette fill in emitted SVG | `.role` CSS rule emitted |
+|---|---|---|---|
+| A | yes | 3 occurrences | yes |
+| B | no — relies on carry-over | **0 occurrences** | **no** |
+
+Both parse. Both render. B is silently unstyled — the node even carries the `class` attribute,
+so the SVG looks correct until you check for the rule that would colour it.
+
+**Adopted:** every diagram repeats the `classDef` lines it uses, stated normatively in
+`template.md`. Consequences:
+
+- The instruction this replaces was **pre-existing**, not introduced by this epic. Every LLD
+  generated from the template that relied on carry-over has unstyled diagrams downstream of the
+  first one. Cosmetic rather than navigational, so unlike D5 it loses no links.
+- T3's harness should assert on emitted `classDef` CSS rules for any block using `class`, by the
+  same argument that added `checkAnchorsRendered` for D5 — parse success cannot see this either.
+
 ## Open questions
 
 | # | Question | Status |
 |---|---|---|
 | OQ1 | ADR-0039 requires a dated revision recording D1 and D2. Revise in place, or supersede with an ADR-0040? | **Resolved 2026-08-14 — amend in place.** See below |
 | OQ2 | Story 1.4 AC7 states the path form as "no leading slash and no `..` segments" and is contradicted by D1. | **Decided — T1 amends it.** Sign-off at T1's PR review |
+| OQ3 | The tie-break orders `new`/`external` above `error`/`auth` but does not order `new` against `external`, so "exactly one class applies" is not decidable for a node that is both. | **Resolved 2026-08-15 — adopted `external` > `new`** at T2's PR review (PR #58). See below |
 
 ### OQ1 resolution — amend ADR-0039 in place
 
@@ -201,6 +233,38 @@ Entailed by OQ1 and by D1 itself: leaving AC7 as written would leave an approved
 contradicting both the ADR and the template it governs. T1 makes the amendment; the
 post-Gate-2 requirements change is reviewed as part of T1's PR diff rather than as a separate
 gate, so the human sees the exact wording before it lands.
+
+### OQ3 resolution — order `external` above `new`
+
+> **Resolved 2026-08-15 at PR #58 review.** Adopted as proposed. Sign-off rationale: "this
+> epic's palette exists for reviewer risk-scanning, and a node that is both new and external
+> (calls a third-party API) should read as `external` first — that's the trust-boundary-relevant
+> classification." No change to the shipped template was required; it already implements this
+> order. The proposal as put to review is preserved below.
+
+> **Implementation note (issue #46):** raised during T2's PR review, which correctly observed
+> that T2 was adding *new normative content* to a shared convention, not merely restating an
+> approved one. Recorded here rather than settled in a PR comment, because `template.md` is the
+> single source of truth every future LLD is written against.
+
+The tie-break as approved orders `{new, external}` above `{error, auth}` but does not order
+`new` against `external`. That leaves "exactly one class applies" undecidable for the case
+that provoked the rule — a **new module that calls a third-party API**, which is both. The
+flowchart worked example in `template.md` contains exactly such a node, so T2 could not stay
+silent and still ship a worked example.
+
+**Proposed (implemented by T2, pending sign-off): `external` > `new` > `auth` > `error`.**
+`external` leads because a trust boundary is the more consequential fact for a reviewer
+scanning a diagram: "this leaves our system" outranks "this is new here".
+
+**Why it needs a decision rather than a default.** Measured on `mermaid@11.12.2`: two `class`
+statements naming the same node do not blend or error — the later one silently wins. So the
+ordering is not cosmetic, and leaving it unstated does not leave it open; it leaves it decided
+at random by statement order in whoever's diagram it is.
+
+Reject the proposal and the alternative is `new` > `external`, which is a one-line change to
+the precedence list and the example's comment. Either way the rule must be **total**, or the
+"exactly one class" acceptance criterion cannot be checked.
 
 ---
 
@@ -499,6 +563,8 @@ classDiagram
 | 11 | All four enforcement boundary types are demonstrated with mechanism **and** rejection behaviour | grep the sequence example for four `Note` blocks, each containing a `—` separating mechanism from rejection |
 | 12 | Every fenced mermaid block in `template.md` parses | T3 harness runs `mermaid.parse` per block; exit 0 |
 | 19 | No `;` appears inside any `Note` text in `template.md` (D4) | `grep -n 'Note over[^:]*:.*;' plugins/edf/skills/lld/template.md` returns nothing; also caught by Invariant 12 |
+| 22 | Every `template.md` example that uses a palette `class` also declares the matching `classDef` in the same block (D6) | `tests/test_lld_template_gates_palette_annotations.py`; T3 harness should assert the emitted SVG carries a CSS rule per referenced role — parse checks cannot see this |
+| 23 | The role tie-break is **total** — it orders `new` against `external`, not only `{new, external}` above `{error, auth}` (OQ3) | grep the palette section for a precedence list naming all four roles in order |
 
 ### Acceptance Criteria
 
@@ -839,9 +905,30 @@ The canonical palette lives in one table. The classDef syntax is shown once in a
 render if placed in a bare ```mermaid fence.
 ```
 
+> **Implementation note (issue #46):** shipped as specified, with one rule added that this
+> section did not anticipate — **every diagram repeats the `classDef` lines it uses.** The
+> template previously told authors the opposite (define once, reference in later diagrams),
+> which measurement showed produces silently unstyled diagrams. See [D6](#d6--a-classdef-does-not-carry-into-the-next-diagram-found-during-t2).
+> The `text`-fence placement was confirmed empirically: a bare `classDef` block in a `mermaid`
+> fence fails with "No diagram type detected".
+
+> **Implementation note (issue #46):** the gate conditions above shipped as a **single index
+> table** in the template's Behavioural Flows section, with each diagram type's existing
+> "When required" / "When optional" prose hardened to match it — rather than as a second copy
+> of the gates alongside the per-type prose. One statement of each gate, one place to keep in
+> sync.
+
 Tie-break sentence to state verbatim in intent: a participant matching more than one role
 takes exactly one class; `new` and `external` outrank `error` and `auth`, because "what is
 this" outranks "how does it fail" for a first-pass reviewer.
+
+> **Implementation note (issue #46):** as written this rule is **partial** — it orders the pair
+> `{new, external}` above `{error, auth}` but never orders `new` against `external`, so
+> "exactly one class" was undecidable for the case that motivates the rule (a new module that
+> calls a third-party API), which the shipped flowchart example contains. Made total as
+> `external` > `new` > `auth` > `error`; see [OQ3](#oq3-resolution--order-external-above-new),
+> resolved at PR #58 review. Left partial, the order is not open — it is decided silently by
+> `class` statement order, because the later statement wins with no error.
 
 #### Enforcement annotation format
 
