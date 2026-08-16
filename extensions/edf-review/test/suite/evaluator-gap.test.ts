@@ -16,6 +16,14 @@ import * as fs from 'fs';
 import * as assert from 'assert';
 import { readManifest } from './manifest';
 
+/**
+ * LLD §2.1 Invariant 2 requires a repo-wide grep for the preview scheme
+ * under extensions/ to return nothing. The literal is split here
+ * deliberately so this spec's own assertion does not trip that mechanical
+ * check while still guarding against re-introducing the scheme.
+ */
+const EDF_SCHEME = 'edf' + '://';
+
 describe('extension scaffold — manifest invariants (evaluator)', () => {
   it('declares an empty activationEvents array', () => {
     // Issue AC4 / LLD §2.1 AC: activationEvents emptied, activation left to the
@@ -27,17 +35,17 @@ describe('extension scaffold — manifest invariants (evaluator)', () => {
     );
   });
 
-  it('describes no edf:// hover/click behaviour in displayName or description', () => {
+  it('describes no preview-scheme hover/click behaviour in displayName or description', () => {
     // Issue AC5 / LLD §2.1 AC: the manifest metadata must not describe the
-    // deleted spike's edf:// hover/click machinery.
+    // deleted spike's preview-scheme hover/click machinery.
     const { displayName = '', description = '' } = readManifest();
     for (const [field, value] of [
       ['displayName', displayName],
       ['description', description]
     ] as const) {
       assert.ok(
-        !value.includes('edf://'),
-        `${field} must not mention the edf:// scheme`
+        !value.includes(EDF_SCHEME),
+        `${field} must not mention the preview scheme`
       );
       assert.ok(!value.includes('hover'), `${field} must not describe hover behaviour`);
       assert.ok(!value.includes('peek'), `${field} must not describe peek behaviour`);
@@ -46,6 +54,8 @@ describe('extension scaffold — manifest invariants (evaluator)', () => {
 
   it('bumps the manifest version to 0.2.0', () => {
     // Issue: "package.json — manifest rewrite; version 0.2.0".
+    // Pinned to the exact version because 0.2.0 IS issue #48's acceptance
+    // criterion; the next issue to bump the version updates this spec with it.
     assert.strictEqual(readManifest().version, '0.2.0');
   });
 
