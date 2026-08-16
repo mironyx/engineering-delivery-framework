@@ -149,14 +149,15 @@ classDiagram
 | 6 | The link-emission rule states `design-root` containment, not a `..` ban | `grep -n 'design-root' SKILL.md` returns ≥ 1; `grep -n 'no \.\. segments' SKILL.md` returns 0 |
 | 7 | `plugin.json` and `marketplace.json` versions are equal | `test "$(jq -r .version …plugin.json)" = "$(jq -r '.plugins[0].version' …marketplace.json)"` |
 
-> **Implementation note (issue #52) — Invariant 2 is not satisfiable until T2 lands.** Its
-> grep is written whole-file, with no Step 2.5 carve-out — unlike Invariant 1, which Part B
-> exempts explicitly ("The fifth occurrence belongs to Step 2.5 and is T2's"). Step 2.5 still
-> carries the `link <actor>` prose, so a whole-file grep returns a hit after T1. T1's shipped
-> tests bound every assertion to the Step 2 block for this reason, and a `TODO(#53)` marker
-> was added to the Step 2.5 item deferring to Step 2 where the two disagree — both sections
-> are loaded into the same prompt on every `/lld` run, so the contradiction is live until
-> #53 lands. Invariants 1 and 2 should carry the same carve-out wording when T2 closes.
+> **Resolved by T2 (issue #53).** Between T1 and T2 these two invariants disagreed: Invariant
+> 1 carried an explicit Part-B carve-out for the fifth `edf://` occurrence ("belongs to Step
+> 2.5 and is T2's"), while Invariant 2's whole-file grep had none and so returned a hit on the
+> `link <actor>` prose Step 2.5 still carried. T1 bounded its tests to the Step 2 block and
+> left a `TODO(#53)` marker deferring to Step 2 where the two disagreed. T2 deleted the old
+> Step 2.5 item outright, taking the marker, the fifth `edf://` and the `link <actor>` prose
+> with it. **Neither invariant needs a carve-out now** — both greps are satisfiable whole-file
+> as written, and are verified that way in T2's tests. The aligned wording is the absence of a
+> carve-out, not a shared exemption.
 
 ### Acceptance Criteria
 

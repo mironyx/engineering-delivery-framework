@@ -272,25 +272,60 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 - **Open decisions surfaced.** Are there design questions still unresolved that the LLD silently picks a side on? List them at the top of the LLD as "Open questions" and flag to the user — do not decide in the LLD.
 - **Layer placement.** For each behaviour, is it in the right layer (DB constraint vs API guard vs UI guard)? Defence-in-depth is fine but the *primary* enforcement layer must be explicit.
 - **Attack surface / STRIDE-lite.** For each flow crossing a trust boundary or handling untrusted input, state the enforcement point for: injection (SQL/NoSQL/command/HTML), authZ (ownership/RLS on reads and writes), secrets (never in code/logs/URLs), error leakage, SSRF (server-side fetch of client-supplied URLs). No threat without a stated enforcement point.
+- **Diagram parse checks — run these FIRST; they gate every diagram check below.** A diagram
+  that fails to parse renders as nothing, so a navigability finding against it names the wrong
+  defect. Check each fenced block for the four cases measured against the pinned Mermaid
+  version:
+  - A `click` directive in a `sequenceDiagram` — fatal, it takes the whole diagram down.
+  - A `_self` target on a `stateDiagram-v2` `click` — the directive is supported there, the
+    `_self` argument is not.
+  - A `/` inside a `classDiagram` identifier — keep the module path visible with a display
+    label instead.
+  - A `;` inside `Note` text — it terminates the note and fails the diagram; use a comma or an
+    em dash.
+  If a diagram fails any of these, report the offending block — by diagram type and line — and
+  **stop assessing that diagram**. Do not report navigability, path, palette or annotation
+  findings against a diagram that does not render.
+- **Diagram navigability** (only once every diagram parses). Scope: `flowchart`,
+  `classDiagram`, `stateDiagram-v2`. The other two types carry no links by design —
+  `sequenceDiagram` and `erDiagram` participants are reached through the Structural Overview,
+  so their absence of links is not a finding. Within the scoped types, is every participant
+  navigable? A participant with no link is a fix — no dead labels. Name the participant that
+  lacks one.
+- **Link path form.** Is every path-valued link target document-relative, with no leading
+  slash, resolving inside `design-root` (declared in `kb/file-map.md`)? `..` segments are
+  expected — the base is the LLD's own directory. Name the offending path.
+- **Link target exists** — a separate check, deliberately. Does each resolved path name a file
+  that actually exists? A path that escapes `design-root` still resolves on the author's own
+  machine, so form and existence cannot be collapsed into one check without passing locally and
+  failing for every other reader. Confirm with a grep or the Step 0c brief; a wrong path 404s
+  silently. Name the offending path.
+- **Link fragments resolve.** Does every `#LLD-` fragment match a Part B `<a id>` in this
+  document exactly, case-sensitive? A fragment with no target is a silent no-op — no scroll, no
+  error. Name the offending fragment.
+- **Diagram palette applied.** Is the palette definition block present and fenced as `text`? A
+  bare `mermaid` fence holding only `classDef` lines is not a valid diagram and fails to
+  render. Within each diagram: does every participant matching a defined role carry that role's
+  class, exactly one class each, and does the block repeat the `classDef` lines it uses? A
+  `classDef` is fence-local, so a `class` naming a role the block never defined applies no
+  styling, with no error. Name the participant and the role. (Measured on the pinned version: a
+  `classDef` in a `classDiagram` applies no styling even when correctly declared, unlike
+  `flowchart` and `stateDiagram-v2`. Consistent class assignment is still required for review,
+  but an unstyled `classDiagram` is not an authoring defect — do not report it as one.)
+- **Trust-boundary annotations.** Does every interaction crossing a trust boundary — authZ
+  check, input validation, external service call, error propagation — carry an adjacent `Note`
+  stating the mechanism? A reviewer should get the security and validation story from the
+  diagram alone. Name the interaction that is missing one.
+
+> **Report format for the diagram checks:** name the specific participant, path, fragment,
+> interaction or diagram type at fault. "Diagram could be improved" is not a finding — it gives
+> the author nothing to fix and hides whether the check ran at all.
+
 - **Error paths.** Is there at least one BDD spec per non-trivial error case, or did I only spec the happy path?
 - **Reused helpers table is mandatory.** Read kb/architecture.md and list every catalogued helper whose layer matches the section: backend (auth, context, validation, DB clients), frontend (shared UI components, design tokens, client-side hooks), database (migration helpers, RLS patterns). Add the "Reused helpers — DO NOT re-implement" table to Part B.0 listing each helper, its import path, and what re-implementing pattern it replaces. Code samples must call helpers by name — not inline the equivalent logic (no raw queries against access-controlled tables). The table at B.0 is the agent's first stop before any implementation code. If no helper covers the exact shape needed, note it and propose extending an existing helper or adding a new one in the `## kb/ additions` block.
 - **Single RPC write per response.** For any endpoint that persists data, does the flow use exactly one RPC call to write all related rows? Multiple sequential writes to the same table within one request are a race-condition risk and waste DB round-trips (#788).
 - **Performance at design time.** Is every non-trivial data path's round-trip / network-call count bounded — no N+1, no unbounded loop baked into the design? If the requirement implies latency, throughput, or a bulk path, does the design state a budget or batch size? Apply the project's efficiency convention.
 - **Visual specs populated (FE sections).** For every section with a Frontend layer, does Part A have a Visual Specifications subsection with a populated table and screenshots? Flag sections where FE work is described but no visual reference exists.
-- **Diagram navigability.** <!-- TODO(#53): this item's link mechanics are superseded by
-  Step 2's generation rules and are rewritten in task #53. Until then, apply Step 2 where the
-  two disagree: no link directive on a sequenceDiagram, `_self` rather than a tooltip as
-  click's third argument, and document-relative paths rather than `edf://`. -->
-  Is every diagram participant navigable via the correct
-  mechanism for its diagram type? sequenceDiagram → `link <actor>: <label> @ <url>`;
-  flowchart / classDiagram / stateDiagram → `click <node> href "<url>" "<tooltip>"`;
-  erDiagram → no links (refer in prose). Existing code → `edf://` path that resolves
-  to a real file; new code → `#LLD-` anchor that matches a Part B `<a id>`. A
-  participant with no link is a fix — no dead labels. Are enforcement points (authZ,
-  validation, external boundaries, error propagation) annotated with `Note` blocks on
-  sequence diagrams? Missing enforcement annotations on a flow crossing a trust
-  boundary is a fix.
-
 ### Step 2.6: Automated LLD review
 
 After the self-critique pass, launch the `edf:lld-review` agent as an independent
