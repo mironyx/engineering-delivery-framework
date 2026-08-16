@@ -43,3 +43,29 @@
 | 8 | 2026-08-16T10:12:07Z | $0.00 | 0 in / 0 out | [PR #66](https://github.com/mironyx/engineering-delivery-framework/pull/66) |
 | 9 | 2026-08-16T10:19:47Z | $0.00 | 0 in / 0 out | review: 2 test blockers fixed (inverted NEGATION guard, non-local content-signal search), 2 tautological assertions tightened, no-emit reason and Step 2.5 contradiction marker added; mutation-tested |
 | 10 | 2026-08-16T10:21:03Z | $0.00 | 0 in / 0 out | report done — PR #66 open for human review; only check is the human-gated Comprehension Check |
+
+## Reviewer-facing concerns (carried from PR #66 body, recorded here per lead request)
+
+Four items raised for human attention before merge, none blocking, none fixed as part of #52:
+
+1. **Self-caught bug in the task's own test suite.** During review, an inverted assertion was
+   found that checked for the *opposite* of D6 — it passed when `classDef` was (wrongly)
+   treated as globally scoped across fenced blocks. The author had noticed the assertion read
+   awkwardly while writing it and bent the prose to satisfy it rather than question it. Fixed,
+   and all three test corrections from this review pass are now mutation-tested (removing the
+   property they check genuinely fails the test).
+2. **New measured finding, out of #52's scope, not fixed — only flagged.** `classDef` +
+   `class X role` in a `classDiagram` renders with **zero styling applied**; the identical
+   construct in a `flowchart` styles correctly. Measured via the #47 conformance harness, not
+   assumed. Possible gap in `template.md`'s "every diagram carries its own `classDef`"
+   guidance, which reads as type-independent but isn't. Candidate for a follow-up issue
+   alongside #60–#62.
+3. **Deliberate scope split, needs lead/human sign-off.** Step 2.5's self-critique checklist
+   still asserts the old `edf://`/`..`-ban claims that Step 2 now contradicts, so `SKILL.md`
+   briefly disagrees with itself. Rewriting Step 2.5 is task #53's job; a `TODO(#53)` marker
+   was left in place rather than doing #53's work early. One `edf://` reference remains in
+   `SKILL.md` (Step 2.5, line 283) for exactly this reason — not an oversight.
+4. **Two pre-existing, unrelated issues observed, not introduced or fixed here:**
+   `test_cross_references` fails on `main` too (an `edf:xxx` placeholder in feature-core's
+   prose); and `run-tests.sh` cannot spawn `pytest` in this environment (`uv run --with pytest`
+   works as a substitute).
