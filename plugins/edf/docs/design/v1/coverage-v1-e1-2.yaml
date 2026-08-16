@@ -25,3 +25,16 @@ entries:
     # recorded security review. The test-framework half of the story is carried by
     # lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-scaffold-harness (AC1: the
     # @vscode/test-electron + Mocha runner fixed by Story 2.2 AC1).
+
+  - req: REQ-vscode-extension-review-feedback-diagram-click-through-overlay
+    lld: lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-overlay
+    issue: 63
+    files: []
+    status: Approved
+    lld_revision: r2
+    # Story 2.3 — folded into this epic 2026-08-16 (was standalone issue #63; the
+    # productionisation task for the throwaway edf-diagram-click-poc prototype).
+    # Issue #60 (GitHub cross-origin iframe finding) closed without an implementing
+    # entry — it is a documentation finding, fully captured in requirements v1.5's
+    # Story 2.3 Notes and Design Principle 3/Story 1.6 AC1 (v1.4). No coverage row
+    # for #60: nothing implements it, there is nothing to implement.
