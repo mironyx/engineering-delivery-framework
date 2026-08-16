@@ -7,8 +7,12 @@ Two operations:
 
 Usage:
   gh issue view <N> --json body --jq .body | update-coverage-manifest.py --extract-epic-slug
-  update-coverage-manifest.py --verify-anchors docs/design/v{N}/coverage-<slug>.yaml  # ADR-0036
-  update-coverage-manifest.py --verify-anchors docs/design/coverage-<slug>.yaml         # legacy flat
+  update-coverage-manifest.py --verify-anchors <path-to>/coverage-<slug>.yaml
+
+--verify-anchors resolves each manifest entry's lld: file relative to the manifest's
+own directory (not the repo root), since the manifest and the LLD it references always
+live side by side per ADR-0036 — this holds regardless of where docs/design/ sits in a
+given project (e.g. nested under plugins/<name>/ in a plugin monorepo).
 """
 
 import argparse
@@ -37,7 +41,12 @@ def verify_anchors(manifest_path: str) -> bool:
         if not lld:
             continue
         file, _, anchor = lld.partition("#")
-        p = pathlib.Path("docs/design") / file
+        # Resolve relative to the manifest's own directory, not a hardcoded
+        # "docs/design" — the manifest and the LLD it references always live
+        # side by side per ADR-0036, but a project's docs/design/ need not
+        # sit at the repo root (e.g. a plugin monorepo nests it under
+        # plugins/<name>/docs/design/).
+        p = pathlib.Path(manifest_path).resolve().parent / file
         if not p.exists():
             print(f"broken anchor: {lld} — file not found", file=sys.stderr)
             ok = False

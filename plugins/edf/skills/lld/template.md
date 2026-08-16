@@ -73,6 +73,16 @@ independently, so a `classDef` declared in one diagram does not carry into the n
 applies no styling whatsoever — no error, no warning, just an unstyled node. Repeat the
 `classDef` lines each diagram actually uses, in every diagram that uses them.
 
+**`classDiagram` does not apply this palette at all — measured, not a documentation gap
+elsewhere.** `classDef` plus `class X role` parses and renders without error in a
+`classDiagram`, exactly as it does in a `flowchart` or `stateDiagram-v2`, but produces **no
+styling** — the node renders in Mermaid's default appearance regardless of which role is
+assigned. This is a `classDiagram`-specific limitation, confirmed against the pinned Mermaid
+version; the same syntax works correctly in every other diagram type this template uses.
+There is no workaround: do not add `class` role assignments to a `classDiagram`'s
+participants, and do not treat an unstyled `classDiagram` node as a self-critique finding —
+it is expected, not an author error.
+
 Syntax, shown once. A standalone `classDef` block is not a valid diagram, so it is fenced as
 `text` — inside a bare `mermaid` fence it would fail to render:
 
