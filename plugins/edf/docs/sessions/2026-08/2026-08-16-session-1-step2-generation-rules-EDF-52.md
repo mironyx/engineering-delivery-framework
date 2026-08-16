@@ -69,3 +69,156 @@ Four items raised for human attention before merge, none blocking, none fixed as
    `test_cross_references` fails on `main` too (an `edf:xxx` placeholder in feature-core's
    prose); and `run-tests.sh` cannot spawn `pytest` in this environment (`uv run --with pytest`
    works as a substitute).
+
+## Work completed
+
+Rewrote the "Diagram generation rules" block of `plugins/edf/skills/lld/SKILL.md` Step 2 so the
+template's conventions are applied mechanically rather than remembered.
+
+- **PR:** [#66](https://github.com/mironyx/engineering-delivery-framework/pull/66)
+- **Key files:**
+  - `plugins/edf/skills/lld/SKILL.md` — Step 2 rules (co-versioning rule, four concerns each
+    with a worked example, retained decomposition rule, rewritten syntax rule); plus a
+    `TODO(#53)` marker on the Step 2.5 navigability item.
+  - `tests/test_lld_skill_step2_generation_rules.py` — new, 16 tests.
+  - `plugins/edf/.claude-plugin/plugin.json` / `.claude-plugin/marketplace.json` — 0.10.34.
+- **Tests added:** 16 (all passing). Full suite 406/407 — the single failure is pre-existing on
+  `main` and unrelated.
+- **All four Step 2 `edf://` references removed.** The fifth occurrence is inside Step 2.5 and
+  belongs to task #53, exactly as the LLD specifies.
+- **`flowchart.md` unchanged** — it models Step 2 only as file-per-epic/phase plus the
+  FE-wireframe branch, and no step ordering or branching changed.
+
+## Decisions made
+
+1. **Each worked example folded under its own rule** rather than into a separate examples
+   section (the LLD lists the two as separate structures). Four blocks instead of eight, no
+   rule↔example cross-references, less prompt text on every `/lld` run — which is the
+   constraint the LLD itself states. Acceptance criteria unchanged.
+2. **Claims were measured, not assumed**, using the conformance harness from #47 (mermaid
+   11.12.2). Three results changed what shipped:
+   - A trailing `%%` comment on the same line as a declaration is a **parse error** — so the
+     examples carry no inline comments.
+   - The D4 semicolon-in-`Note` claim reproduced as a genuine parse error; the comma form
+     parses.
+   - In a `classDiagram`, `classDef` + `class X role` renders with **no styling**, while the
+     same construct in a `flowchart` styles correctly. The palette example was therefore
+     written as a text snippet rather than a diagram, so the skill does not teach a form that
+     silently does nothing. Recorded in the LLD as an E1.1/template-level question.
+3. **Type-selection signals reduced to short lookup labels.** The first draft copied the gate
+   rows near-verbatim, which is the duplication the reference-not-restate constraint exists to
+   prevent. Review caught it.
+4. **Step 2.5 marked as superseded pending #53.** Step 2 now corrects three claims that item
+   still makes, and both are loaded into the same prompt on every `/lld` run. A one-line
+   `TODO(#53)` marker resolves the contradiction for the reader without doing #53's work.
+
+## Review feedback addressed
+
+Two blockers and five warnings from the two-agent review. Both blockers were in the **test
+module**, not the prose.
+
+| Finding | Resolution |
+|---|---|
+| **Block** — `NEGATION` guard applied inverted: the D6 assertion passed on "classDef is global" and failed on the correct "classDef is not global" | Fixed with a direct assertion; unused constant removed |
+| **Block** — content-signal assertions had no locality, so "gate table" satisfied the `erDiagram` signal | Windowed to ±200 chars around each diagram-type mention; patterns tightened |
+| Warn — `re.search(r"/", block)` tautological | Now requires the slash on the same line as the identifier rule |
+| Warn — worked-example test would pass with one example beside four headings | Now asserts on the four labelled markers |
+| Warn — type-selection signals near-verbatim copies of the gate rows | Reduced to short lookup labels |
+| Warn — link-emission example omitted the no-emit *reason* | Reason added |
+| Warn — Step 2.5 contradicts Step 2 in the same prompt file | `TODO(#53)` marker added |
+
+All three test fixes were **mutation-tested**: removing the property from `SKILL.md` now fails
+the corresponding test.
+
+**Rejected:** the `Co-Authored-By` blocker. The last 20 commits on `main` carry 21 such
+trailers and the harness mandates them — repo convention wins over the generic checklist item.
+
+**Deferred, flagged to the human reviewer:** review also noted that Step 2 restates the support
+matrix and path form in prose. That text is prescribed verbatim by the LLD's Part B "Rules to
+state", and serves a different purpose from the template's table (what to emit vs. support and
+failure mode). Changing it would contradict the approved LLD.
+
+## LLD Sync report
+
+```
+## LLD Sync — Issue #52: v1-e1-3: Step 2 diagram generation rules with worked examples
+
+### Corrections (spec was wrong)
+- Palette rendering is type-dependent: E1.1's D6 guidance ("every diagram carries its own
+  classDef") is uniform as advice but not in effect. Measured on mermaid 11.12.2, `classDef` +
+  `class X role` inside a `classDiagram` applies no styling; the same construct in a
+  `flowchart` styles correctly. → the palette worked example ships as a text snippet.
+  Belongs to the template (E1.1); warrants its own issue.
+- Invariant 2 is not satisfiable until T2 (#53) lands: its grep is whole-file with no Step 2.5
+  carve-out, unlike Invariant 1 which Part B exempts explicitly. → tests bound assertions to
+  the Step 2 block; Invariants 1 and 2 should carry matching carve-out wording when T2 closes.
+- Part B "Rules to state" ("do not restate the gate conditions") conflicts with the acceptance
+  criterion ("name each type's content signal"). → resolved with four short lookup labels plus
+  an instruction to read the exact condition from the table.
+
+### Additions (not in spec)
+- D5 (emit `click` after the declaration it names) and D6 (`classDef` is fence-local) are in
+  the shipped rules but absent from the LLD's four-rule block, which predates #45/#46's syncs.
+- A `TODO(#53)` marker on the Step 2.5 navigability item, deferring to Step 2 where the two
+  disagree — the PR introduces that contradiction even though the fix is T2's scope.
+- `tests/test_lld_skill_step2_generation_rules.py` — 16 tests against the LLD's 12 BDD specs,
+  plus D5, D6 and version parity.
+
+### Omissions (in spec but not built)
+- The `stateDiagram-v2` no-`_self` form is stated in the rule but not exemplified in a diagram
+  — traded away for prompt economy. The LLD required "both forms, on a supporting type", which
+  the `classDiagram` example satisfies.
+
+### Confirmations (notable)
+- All four Step 2 `edf://` sites migrated; the fifth correctly left to T2.
+- The version bump was read from the file rather than hard-coded — and moved twice (0.10.32 →
+  0.10.33, then rebased to 0.10.34), which is exactly the failure the LLD's warning predicted.
+
+### LLD updated
+File: plugins/edf/docs/design/v1/lld-v1-e1-3-skill-quality-gates.md §3.1 (Part A + Part B)
+Version: 0.1 → 0.2
+```
+
+## Cost retrospective
+
+**Cost telemetry was unavailable** — Prometheus returned $0.0000 / 0 tokens for every
+checkpoint and for the final query, so the figures below are wall-clock from the checkpoint
+timestamps, not spend. (Fixing the exporter is worth doing: this is the second signal that
+cost data is not being recorded for teammate sessions.)
+
+| Bucket | Wall clock | Share |
+|---|---|---|
+| 3c → 5 — design reading, test-author, implementation, verification | 8m33s | 42% |
+| 5 → 8 — evaluator, diagnostics, commit/push/PR | 2m54s | 14% |
+| 8 → 9 — review and review rework | 7m40s | 38% |
+| 9 → 10 — reporting | 1m16s | 6% |
+
+**Cost drivers and actions:**
+
+1. **Post-PR rework was 38% of elapsed time, and both blockers were in the test module.** The
+   tests were written against the spec before implementation (correct), but their assertions
+   were never themselves checked. **Action: mutation-test new assertions at Step 4dF** — flip
+   or delete the property and confirm the test fails. Doing that pre-PR would have caught both
+   blockers and roughly halved the review bucket. This generalises to any docs/prose task where
+   the "unit under test" is text, since text assertions are unusually easy to satisfy vacuously.
+2. **An inverted assertion bent the implementation.** I reworded the prose awkwardly to satisfy
+   a guard that was asserting the opposite of its docstring, instead of questioning the guard.
+   **Action: when a test forces unnatural phrasing, suspect the test first.** The awkwardness
+   was itself the signal, and I noticed it at the time without acting on it.
+3. **Verification ran green on the first attempt** (3c→5 has no fix cycles). Reading the design
+   and the sibling test modules before writing anything is what paid for that.
+
+## Next steps
+
+- **#53 (T2)** is the direct follow-up: Step 2.5 parse-then-navigability checks. It should
+  remove the `TODO(#53)` marker, migrate the fifth `edf://`, and align Invariants 1 and 2's
+  carve-out wording.
+- **New issue worth filing:** the `classDiagram` palette finding — the template's "every
+  diagram carries its own `classDef`" guidance applies no styling in `classDiagram` under the
+  pinned Mermaid. Belongs with the #60–#62 conformance follow-ups.
+- **New issue worth filing:** `test_cross_references::test_feature_core_refers_real_agents`
+  fails on `main` (literal `edf:xxx` placeholder in feature-core's prose reads as an agent name).
+- **Tooling:** `update-coverage-manifest.py --verify-anchors` reports "file not found" for every
+  entry in this repo, including manifests untouched by this PR — it does not resolve this repo's
+  nested `plugins/edf/docs/design/` layout. Anchors were verified manually.
+- **Tooling:** `run-tests.sh` cannot spawn `pytest` here; `uv run --with pytest pytest` works.
