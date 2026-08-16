@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.4 |
+| Version | 1.5 |
 | Status | Draft — Complete |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
@@ -14,6 +14,7 @@
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.5 | 2026-08-16 | LS / Claude | **Formalises the "Reopened 2026-08-16" entry as Story 2.3**, folded into Epic 2 (#30) rather than a new epic — the maintainer wants one extension, not two. Added REQ anchor `REQ-vscode-extension-review-feedback-diagram-click-through-overlay` and a full AC list from the carried-forward requirements the reopened entry already listed. Issue #60 (GitHub cross-origin iframe finding) closes against this revision — its finding is fully captured in Design Principle 3/Story 1.6 AC1 (v1.4) and now also in Story 2.3's Notes; no further action needed on #60. Issue #63 becomes Story 2.3's implementing task. See `v1-design.md` v1.4 (C9/C2.9) and `lld-v1-e1-2-review-feedback.md` §2.5. |
 | 1.4 | 2026-08-16 | LS / Claude | **Post-Gate-2 correction (issue #47's measured finding), reviewed against #47's conformance report rather than as a separate gate.** Design Principle 3 and Story 1.6 AC1 claimed diagram links "resolve natively in GitHub and VSCode without any extension" — measured false in both renderers, for different reasons: GitHub renders Mermaid inside a cross-origin sandboxed iframe (`viewscreen.githubusercontent.com`), so a relative href resolves against that iframe's origin and 404s — structurally unfixable by anything this project controls. VSCode's built-in preview click handler only recognises `tagName === "A"`; an SVG `<a>` reports lowercase `"a"` and never matches, so native clicks also do nothing — but a throwaway prototype (2026-08-15) confirmed a `markdown.previewScripts`-only extension overlaying real HTML anchors on the SVG click targets makes the *existing* built-in handler open them, no extension-host code or custom webview required. This satisfies the reopening condition the "Deferred from V1" table set for "Click opens source file in adjacent column" — moved out of that table below. GitHub navigability is not reopened by anything; it is now explicitly out of scope, permanently, in "What We Are NOT Building". |
 | 0.1 | 2026-08-01 | LS / Claude | Initial draft — epics, stories, roles |
 | 0.2 | 2026-08-01 | LS / Claude | Acceptance criteria for all 11 stories; closed stale open questions; added security ACs to Stories 2.1/2.2; added extension packaging deferral |
@@ -563,6 +564,62 @@ preferred instead.
 
 ---
 
+<a id="REQ-vscode-extension-review-feedback-diagram-click-through-overlay"></a>
+
+### Story 2.3: Diagram click-through navigation via preview overlay (VSCode only)
+
+**As an** LLD Reviewer,
+**I want to** click a diagram participant in VSCode's markdown preview and have the linked
+source file open, the same way clicking a diagram link already works when reading on GitHub,
+**so that** I don't have to abandon the preview and hunt for the file by hand when the
+renderer I happen to be using is VSCode instead of GitHub.
+
+**Acceptance Criteria:**
+
+- Given a rendered Mermaid diagram in VSCode's built-in markdown preview, when the preview
+  loads or re-renders, then a real HTML `<a>` anchor is overlaid over each SVG element that
+  carries a `click`-generated href, positioned over that element's bounding box.
+- Given the preview scrolls, resizes, or its content updates, when any of these occur, then
+  overlay positions stay in sync with their SVG targets, and overlays for SVGs no longer
+  present are removed rather than left stale.
+- Given an overlay anchor's underlying href, when the overlay is created, then the href is
+  resolved and validated to stay within `design-root` (ADR-0039's containment rule) before
+  being set on the anchor — a resolved path outside `design-root` is rejected, not overlaid.
+- Given an overlay anchor exists, when the reviewer clicks it, then VSCode's existing
+  built-in preview click handler opens the resolved file, and the preview stays visible in
+  its original column — the reviewer does not lose their place in the document.
+- Given the overlay mechanism, when it runs, then it works for every diagram type that
+  supports `click` (`flowchart`, `classDiagram`, `stateDiagram-v2`) and both link forms
+  (document-relative path, `#LLD-` fragment).
+- Given the injected preview script, when measured, then it stays under 5KB minified and its
+  mutation-observation callback completes in under 1ms per invocation — the deleted v0.2
+  script's unthrottled full-document `querySelectorAll` on every mutation must not recur.
+- Given a JavaScript error inside the preview script, when it occurs, then it is caught and
+  relayed to the extension host for logging to the `EDF Review` output channel, and it does
+  not crash the preview webview.
+- Given the file is read to resolve or verify a click target, when content is accessed, then
+  it is read via `vscode.workspace.fs.readFile` as UTF-8 text only — never evaluated,
+  `import()`ed, or otherwise interpreted.
+- Given GitHub's renderer, when a diagram is viewed there, then this story does not apply —
+  GitHub renders Mermaid inside a cross-origin sandboxed iframe
+  (`viewscreen.githubusercontent.com`) that no client-side mechanism can reach across; this is
+  permanent and is not reopened by anything in this story.
+
+**Notes:** Reopens "Click opens source file in adjacent column" from the "Deferred from V1"
+table, on the strength of Story 1.6's (#47) measured finding that VSCode does not deliver
+this natively, plus a working prototype found the same evening (`markdown.previewScripts`
+overlay, confirmed against a `stateDiagram-v2` path-form link and a `#LLD-` fragment link in a
+live VSCode window). Folded into Epic 2 rather than a separate epic so the review-feedback
+extension and the diagram-navigation extension ship as one `.vsix`, not two — this is a
+deliberate packaging decision, not a scope dilution; see `v1-design.md` C2.9's
+non-responsibilities for the boundary between this story's surface and Story 2.1's. Does not
+resolve or reopen the hover-tooltip story, which remains deferred (it needs a
+preview→extension-host content channel that this mechanism does not provide). Issue #60
+(GitHub's cross-origin iframe finding) is captured by this story's last AC and by Design
+Principle 3/Story 1.6 AC1 (v1.4) — no separate action needed.
+
+---
+
 ## Epic 3: Skill Instructions & Quality Gates [Priority: Medium]
 
 Updates to `/lld` skill instructions so the template conventions are self-documenting
@@ -785,6 +842,11 @@ they were written for), needs its own packaging, and deserves its own HLD compon
 than folding into Epic 1. GitHub is not reopened by this finding and is not reopenable by
 any extension — see "What We Are NOT Building".
 
+> **Formalised 2026-08-16 as Story 2.3**, folded into Epic 2 (issue #30) rather than a new
+> epic — one `.vsix`, not two. See Story 2.3 above for the REQ anchor and full AC list, and
+> `v1-design.md` v1.4 (capability C9, component C2.9) for the HLD component this section
+> asked for. Issue #63 is the implementing task.
+
 Carried-forward requirements below apply to this reopened story specifically (not to the
 hover tooltip, which remains deferred).
 
@@ -834,6 +896,12 @@ Carried-forward requirements (apply only if either feature above is reopened):
 ---
 
 ## Next steps
+
+> **Item 1 below is stale as of v1.5.** Story 2.3's HLD gap (capability C9, component C2.9)
+> was closed directly in `v1-design.md` v1.4 by `/architect` on 2026-08-16, without a full
+> `/kickoff` re-run — the addition was one capability plus one component with no epic
+> renumbering or ADR trigger, small enough for a direct revision. Item 1 otherwise remains
+> unactioned for the `edf://`-scheme and epic-structure cleanup it originally described.
 
 1. Run `edf:kickoff docs/requirements/v1-requirements.md` to re-verify the HLD and
    re-attempt the ADR gate now that Epic 2's stories have changed — the existing HLD
