@@ -152,11 +152,10 @@ correct until the template changes, and then nothing flags it.
    "When required — content signal" against what the section actually does. Decide from
    content, not from the section title or from what the previous section used.
    `sequenceDiagram` is the unconditional primary; a section that trips no other row gets it
-   alone. In short, the signal to look for is: `erDiagram` — a new table or an FK
-   relationship; `stateDiagram-v2` — a UI states table with a non-trivial transition (retry,
-   optimistic update, polling); `flowchart TD` — a flow branching on two or more conditions;
-   `classDiagram` — a new module, a changed module boundary, or a new dependency between
-   existing modules.
+   alone. The signal to look for, in short: `erDiagram` — an entity-graph change;
+   `stateDiagram-v2` — a non-trivial UI transition; `flowchart TD` — a multi-condition branch;
+   `classDiagram` — a module-boundary change. Those four labels are a lookup key, not the
+   gate: read the exact condition, and its "When optional" counterpart, from the table.
 
    *Worked example — type selection.*
 
@@ -174,9 +173,9 @@ correct until the template changes, and then nothing flags it.
    Where a participant matches more than one role, resolve it with the template's role
    tie-break instead of assigning two classes — a second `class` on the same node silently
    overwrites the first, so the diagram never reports the rule was ignored.
-   Repeat in every diagram the `classDef` lines that diagram uses: `classDef` scope is
-   fence-local rather than global, and a `class` naming a role the block never defined renders
-   unstyled, with no error and no warning.
+   Repeat in every diagram the `classDef` lines that diagram uses: a `classDef` is fence-local
+   and does not carry over into the next fenced block, so a `class` naming a role the current
+   block never defined renders unstyled, with no error and no warning.
 
    *Worked example — palette.*
 
@@ -219,7 +218,8 @@ correct until the template changes, and then nothing flags it.
        click PayoutApi href "#LLD-v1-e2-payout-api" _self
    ```
 
-   The same two participants in this section's `sequenceDiagram` carry no link of either kind.
+   The same two participants in this section's `sequenceDiagram` carry no link of either kind:
+   a `click` there is a fatal parse error, and `link` is redundant with the click path above.
 
 4. **Annotation — annotate every trust boundary.** One `Note` per boundary the flow crosses
    (authZ check, input validation, external service call, error propagation), adjacent to the
@@ -277,7 +277,11 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 - **Single RPC write per response.** For any endpoint that persists data, does the flow use exactly one RPC call to write all related rows? Multiple sequential writes to the same table within one request are a race-condition risk and waste DB round-trips (#788).
 - **Performance at design time.** Is every non-trivial data path's round-trip / network-call count bounded — no N+1, no unbounded loop baked into the design? If the requirement implies latency, throughput, or a bulk path, does the design state a budget or batch size? Apply the project's efficiency convention.
 - **Visual specs populated (FE sections).** For every section with a Frontend layer, does Part A have a Visual Specifications subsection with a populated table and screenshots? Flag sections where FE work is described but no visual reference exists.
-- **Diagram navigability.** Is every diagram participant navigable via the correct
+- **Diagram navigability.** <!-- TODO(#53): this item's link mechanics are superseded by
+  Step 2's generation rules and are rewritten in task #53. Until then, apply Step 2 where the
+  two disagree: no link directive on a sequenceDiagram, `_self` rather than a tooltip as
+  click's third argument, and document-relative paths rather than `edf://`. -->
+  Is every diagram participant navigable via the correct
   mechanism for its diagram type? sequenceDiagram → `link <actor>: <label> @ <url>`;
   flowchart / classDiagram / stateDiagram → `click <node> href "<url>" "<tooltip>"`;
   erDiagram → no links (refer in prose). Existing code → `edf://` path that resolves

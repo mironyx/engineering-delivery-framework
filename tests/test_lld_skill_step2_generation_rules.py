@@ -55,12 +55,6 @@ def _skill_text():
     return SKILL_PATH.read_text(encoding="utf-8")
 
 
-# A rule is only encoded if the document cannot also be read as stating its
-# opposite. See test_lld_template_link_forms.py for the rationale behind this
-# guard; the same construction is reused here.
-NEGATION = r"(?<!not )(?<!never )(?<!isn't )(?<!aren't )"
-
-
 def _step2_block(text):
     """Return the Step 2 "Diagram generation rules" block, bounded from its
     marker through the start of "### Step 2.5".
@@ -100,21 +94,37 @@ def test_instructs_no_link_directive_in_a_sequence_diagram():
 
 
 def test_states_content_signal_per_conditional_diagram_type():
-    """#52: each conditional diagram type is gated by a concrete content signal."""
+    """#52: each conditional diagram type is gated by a concrete content signal.
+
+    The signal must appear *near* the diagram type it gates. Searching the whole
+    block would let unrelated prose satisfy the assertion — "gate table" and
+    "canonical palette table" both contain "table", so a bare `table` pattern
+    passes even with the erDiagram signal deleted entirely.
+    """
     block = _step2_block(_skill_text())
     signal_patterns = {
-        "stateDiagram-v2": r"(non-trivial|retry|optimistic|polling)",
-        "erDiagram": r"(new )?table|FK relationship|foreign.key",
-        "flowchart": r"(two|2|multiple) or more conditions|branch",
-        "classDiagram": r"(new )?module|module boundary|dependency between",
+        "stateDiagram-v2": r"non-trivial|retry|optimistic|polling",
+        "erDiagram": r"entity-graph|FK relationship|foreign.key|adds a table|new table",
+        "flowchart": r"(two|2|multi|multiple)[- ]condition|or more conditions|branch",
+        "classDiagram": r"module boundary|module-boundary|adds a module|new module|"
+        r"dependency between",
     }
+    window = 200
     for diagram_type in CONDITIONAL_DIAGRAM_TYPES:
-        assert re.search(re.escape(diagram_type), block), (
-            f"Step 2 block does not mention {diagram_type!r}"
-        )
+        occurrences = list(re.finditer(re.escape(diagram_type), block))
+        assert occurrences, f"Step 2 block does not mention {diagram_type!r}"
         pattern = signal_patterns[diagram_type]
-        assert re.search(pattern, block, re.IGNORECASE), (
-            f"Step 2 block does not name a concrete content signal for {diagram_type!r}"
+        near = any(
+            re.search(
+                pattern,
+                block[max(0, m.start() - window) : m.end() + window],
+                re.IGNORECASE,
+            )
+            for m in occurrences
+        )
+        assert near, (
+            f"Step 2 block does not name a concrete content signal near any "
+            f"mention of {diagram_type!r}"
         )
 
 
@@ -216,7 +226,10 @@ def test_states_classdiagram_display_label_workaround_for_slash_identifiers():
     assert re.search(r"display label", block, re.IGNORECASE), (
         "Step 2 block does not describe the display-label workaround"
     )
-    assert re.search(r"/", block), (
+    # A bare `/` search is tautological — any path or "and/or" in a ~100-line
+    # markdown block satisfies it. Require the slash on the same line as the
+    # identifier rule it constrains.
+    assert re.search(r"identifier[^\n]{0,60}`?/`?", block, re.IGNORECASE), (
         "Step 2 block does not tie the workaround to identifiers containing `/`"
     )
 
@@ -238,21 +251,23 @@ def test_states_mechanism_and_rejection_annotation_format_without_semicolon():
 
 
 def test_provides_a_worked_example_for_each_of_the_four_concerns():
-    """#52: a worked example is present for type selection, palette, link emission, annotation."""
+    """#52: a worked example is present for type selection, palette, link emission, annotation.
+
+    This guards the PR's central acceptance criterion, so it asserts on the
+    labelled worked-example markers themselves. Checking only that the four
+    concern words and the word "example" appear somewhere would pass with a
+    single example alongside four rule headings.
+    """
     block = _step2_block(_skill_text())
-    example_signals = {
-        "type selection": r"type selection",
-        "palette": r"palette",
-        "link emission": r"link emission",
-        "annotation": r"annotation",
+    labelled = {
+        m.group(1).strip().lower()
+        for m in re.finditer(r"\*Worked example\s*[—-]\s*([^.*]+)", block)
     }
-    for concern, pattern in example_signals.items():
-        assert re.search(pattern, block, re.IGNORECASE), (
-            f"Step 2 block has no heading/section for the {concern!r} concern"
+    for concern in ("type selection", "palette", "link emission", "annotation"):
+        assert concern in labelled, (
+            f"Step 2 block has no labelled worked example for the {concern!r} "
+            f"concern (found: {sorted(labelled)})"
         )
-    assert re.search(r"example", block, re.IGNORECASE), (
-        "Step 2 block does not mention a worked example anywhere"
-    )
 
 
 def test_states_covering_rule_every_template_feature_has_a_generation_rule():
@@ -300,7 +315,10 @@ def test_states_classdef_needs_a_local_scope_per_fence():
         re.IGNORECASE,
     ), "Step 2 block does not state that classDef must be defined locally per fence"
     assert re.search(
-        rf"{NEGATION}(global|carr(y|ies) over|shared across)", block, re.IGNORECASE
+        r"not global|fence-local|per-fence|does not carry|never carries|"
+        r"not shared across|do(es)? not carry over",
+        block,
+        re.IGNORECASE,
     ), (
         "Step 2 block does not state that classDef is not global/shared across "
         "fences"

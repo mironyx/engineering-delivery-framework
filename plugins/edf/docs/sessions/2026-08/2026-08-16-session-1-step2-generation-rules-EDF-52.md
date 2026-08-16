@@ -40,3 +40,5 @@
 | 4dF | 2026-08-16T10:07:08Z | $0.00 | 0 in / 0 out | implementation complete — 16/16 green; examples verified against mermaid 11.12.2 via the #47 conformance harness |
 | 5 | 2026-08-16T10:09:13Z | $0.00 | 0 in / 0 out | green on attempt 2 (16/16 target; 406/407 suite — 1 pre-existing unrelated failure on main: test_cross_references edf:xxx placeholder in feature-core). ruff clean. No .diagnostics input in worktree |
 | 6b | 2026-08-16T10:10:59Z | $0.00 | 0 in / 0 out | evaluator: PASS — 15/15 ACs covered, 0 adversarial tests written, no gaps |
+| 8 | 2026-08-16T10:12:07Z | $0.00 | 0 in / 0 out | [PR #66](https://github.com/mironyx/engineering-delivery-framework/pull/66) |
+| 9 | 2026-08-16T10:19:47Z | $0.00 | 0 in / 0 out | review: 2 test blockers fixed (inverted NEGATION guard, non-local content-signal search), 2 tautological assertions tightened, no-emit reason and Step 2.5 contradiction marker added; mutation-tested |
