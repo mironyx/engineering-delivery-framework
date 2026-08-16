@@ -18,12 +18,15 @@ Part B §3.1 "Rules to state" / "Worked examples — required shape", for the
 source wording these tests are derived from.
 
 Scoping: assertions are bounded to the Step 2 "Diagram generation rules"
-block of SKILL.md via `_step2_block()`, not the whole file. Step 2.5 (the
-self-critique checklist) is a different task (#53) and still contains an
-`edf://` reference and sequenceDiagram `link` prose that is out of scope
-here and must not fail these tests. The one exception is the palette-hex
-invariant (LLD Invariant 4), which is file-wide but only requires that any
-hex hit sits inside a fenced code block.
+block of SKILL.md via `_step2_block()`, not the whole file. This bounding was
+originally required because Step 2.5 still carried an `edf://` reference and
+sequenceDiagram `link` prose that were out of scope here; #53 has since
+removed both, and whole-file coverage of those two invariants now lives in
+`test_lld_skill_step25_self_critique.py`. The bounding is kept regardless: it
+is what proves a Step 2 assertion passes on Step 2's own text rather than on
+Step 2.5's mirror of it. The one exception is the palette-hex invariant (LLD
+Invariant 4), which is file-wide but only requires that any hex hit sits
+inside a fenced code block.
 """
 
 import json

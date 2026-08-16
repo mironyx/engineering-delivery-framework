@@ -56,7 +56,12 @@ flowchart TD
     %% ── Steps 2.5-2.6: Quality loop ──
     subgraph QUALITY["Quality Gates (Steps 2.5-2.6)"]
         S2_5["S2.5: Self-critique pass<br/>Adversarial checklist review<br/>Acceptance ↔ BDD ↔ Invariants<br/>External contracts vs docs<br/>Task sizing · Error paths · Reuse"]
-        S2_5 --> S2_5_CHK{"Issues found?"}
+        S2_5 --> S2_5_PARSE{"All diagrams parse?"}
+        S2_5_PARSE -->|"No"| S2_5_PARSE_FAIL["Report offending block<br/>by type and line<br/>Skip that diagram's<br/>remaining checks"]
+        S2_5_PARSE -->|"Yes"| S2_5_NAV["Navigability · path form<br/>file existence · fragments<br/>palette · annotations<br/>Findings name the offender"]
+        S2_5_PARSE_FAIL --> S2_5_CHK
+        S2_5_NAV --> S2_5_CHK
+        S2_5_CHK{"Issues found?"}
         S2_5_CHK -->|"Yes"| S2_5_FIX["Fix LLD in place"]
         S2_5_FIX --> S2_5
         S2_5_CHK -->|"No, clean"| S2_6(("S2.6: edf:lld-review agent"))
@@ -89,9 +94,9 @@ flowchart TD
     classDef human fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S0,S0B_EPIC,S0B_PHASE,S0B_SECTION,S0_KB,S1_OVERVIEW,S2,S2_VIS,S2_5,S2_5_FIX,S2_6_FIX,S2_6_WARN,S3,S3B,S3C,S4 process
+    class S0,S0B_EPIC,S0B_PHASE,S0B_SECTION,S0_KB,S1_OVERVIEW,S2,S2_VIS,S2_5,S2_5_NAV,S2_5_PARSE_FAIL,S2_5_FIX,S2_6_FIX,S2_6_WARN,S3,S3B,S3C,S4 process
     class S0C,S2_6 agent
-    class S0_PATHS,S0_MODE,S0C_GATE,S1_GATE,S2_FE_GATE,S2_5_CHK,S2_6_TRIAGE,S3C_GATE decision
+    class S0_PATHS,S0_MODE,S0C_GATE,S1_GATE,S2_FE_GATE,S2_5_PARSE,S2_5_CHK,S2_6_TRIAGE,S3C_GATE decision
     class STOP_PATHS human
     class S0_ASK,S1_CONFIRM human
 ```
