@@ -135,61 +135,118 @@ If no wireframe exists for an FE section, flag it as a gap — the requirements
 review gate should have caught this, but if it didn't, surface it to the human
 rather than proceeding without a visual reference.
 
-**Diagram generation rules** — when producing diagrams for Part A, follow these rules.
-The template at [`template.md`](template.md) defines the diagram vocabulary and formatting;
-this is the *generation logic* the LLD agent applies:
+**Diagram generation rules** — when producing diagrams for Part A, apply the rules below.
+[`template.md`](template.md) is the single source of truth for the *values*: its gate table,
+canonical palette table, role tie-break, support matrix and path form are normative. Read them
+there and apply them — never restate them here or in the generated LLD. What follows is the
+*generation logic* only.
 
-1. **Select diagram types by content, not by habit.** Scan each section for the content
-   signals listed in the template's "When required" gates:
-   - `sequenceDiagram` — any flow >2 components (API + service + DB, webhook chains,
-     multi-step UI interactions)
-   - `stateDiagram-v2` — FE sections with a UI states table where transitions between
-     states are non-trivial (retry, optimistic update, polling)
-   - `erDiagram` — DB sections introducing new tables or FK relationships
-   - `flowchart TD` — decision-heavy branching (auth rules, feature flags, routing)
-   - `classDiagram` — new modules/classes or changed module boundaries
+**Co-versioning.** Every template feature has a corresponding generation rule below. Add a
+feature to the template and you add its rule here in the same change; if a rule names a
+template section that no longer exists, the rule is stale — reread the template rather than
+guessing. Copying a template value into a rule is the failure this prevents: the copy stays
+correct until the template changes, and then nothing flags it.
 
-2. **Apply the standard palette.** Define `classDef` blocks inside the first diagram
-   of each type that uses them — never as a standalone block, which is invalid Mermaid
-   (no diagram-type keyword). Assign `class` on nodes to apply the
-   error/auth/external/new styles. The palette colours match the EDF pipeline flowcharts.
+1. **Type selection — select diagram types by content signal, not by habit.** For each
+   section, apply the template's *Behavioural Flows* gate table, matching each row's
+   "When required — content signal" against what the section actually does. Decide from
+   content, not from the section title or from what the previous section used.
+   `sequenceDiagram` is the unconditional primary; a section that trips no other row gets it
+   alone. The signal to look for, in short: `erDiagram` — an entity-graph change;
+   `stateDiagram-v2` — a non-trivial UI transition; `flowchart TD` — a multi-condition branch;
+   `classDiagram` — a module-boundary change. Those four labels are a lookup key, not the
+   gate: read the exact condition, and its "When optional" counterpart, from the table.
 
-3. **Every diagram participant gets a navigability link.** No dead labels. The
-   mechanism depends on the diagram type:
-   - sequenceDiagram → `link <actor>: <label> @ <url>` (`click` is unsupported there)
-   - flowchart / classDiagram / stateDiagram → `click <node> href "<url>" "<tooltip>"`
-     (the third argument is a tooltip string — `"source"` / `"spec"` — not a target
-     keyword)
-   - erDiagram → no interaction support documented; omit links, reference entities
-     in prose instead
-   - **Node ids.** classDiagram/flowchart ids must not contain `/` or other reserved
-     punctuation — `engine/scoring` is a parse error; use `EngineScoring` and show the
-     module path in the tooltip/`edf://` URL instead. sequenceDiagram `link` ids are
-     the actor names as declared (`API`, `Service`, …), which may be `edf://` or
-     `#LLD-` URLs
-   - Existing source file → `edf://<repo-relative-path>` — use paths from the
-     code-explorer brief in Step 0c, or grep to confirm the file exists
-   - New-to-be-created code → `#LLD-<epic-id>-<section-slug>` — this must resolve
-     to an `<a id="LLD-...">` anchor on the corresponding Part B section heading
-   - If a participant wraps both existing and new behaviour, link to the existing
-     file (the reviewer wants to see the current state first)
+   *Worked example — type selection.*
 
-4. **Annotate enforcement points on sequence diagrams.** Use `Note over` blocks to
-   mark: authZ checks, input validation boundaries, external service calls (SSRF
-   risk), error propagation points. The goal: a reviewer reading the diagram
-   should see the security and validation story without cross-referencing prose.
+   ```text
+   Section adds a webhook_deliveries table with an FK to orders, and retries
+   failed deliveries on a backoff schedule.
+   → erDiagram        — trips "adds a table or an FK relationship"
+   → stateDiagram-v2  — trips "at least one transition is non-trivial" (retry from error)
+   → flowchart        — not emitted: one branch point, below the two-condition gate
+   Emit: sequenceDiagram (primary) + erDiagram + stateDiagram-v2.
+   ```
+
+2. **Palette — exactly one class per participant.** Take fill values from the template's
+   canonical palette table; never write a hex value outside a syntax-demonstration snippet.
+   Where a participant matches more than one role, resolve it with the template's role
+   tie-break instead of assigning two classes — a second `class` on the same node silently
+   overwrites the first, so the diagram never reports the rule was ignored.
+   Repeat in every diagram the `classDef` lines that diagram uses: a `classDef` is fence-local
+   and does not carry over into the next fenced block, so a `class` naming a role the current
+   block never defined renders unstyled, with no error and no warning.
+
+   *Worked example — palette.*
+
+   ```text
+   PaymentGateway is new code (role: new) that calls a third-party API (role: external).
+   Tie-break: external outranks new → one class, not two:  class PaymentGateway external
+   ```
+
+3. **Link emission — follow the support matrix.** Apply the template's *Support matrix* as
+   written. `flowchart` and `classDiagram` take `click X href "<target>" _self`.
+   `stateDiagram-v2` takes the same directive without _self — the _self target is a parse
+   error there.
+   `erDiagram` and `sequenceDiagram` — emit nothing, in any form: a `click` is fatal to the
+   whole sequence diagram, and a silent no-op on an entity diagram. Do not emit the
+   sequence-diagram `link` directive either — it parses, but the section's Structural Overview
+   already provides the click path, so it is a second navigation surface to maintain.
+   - **Order.** Emit each `click` after the declaration of the node it names. Placed before,
+     it is silently dropped in `classDiagram` and `flowchart`: the diagram renders with no
+     anchors at all, and looks exactly like one that never carried links.
+   - **Existing source file** → a document-relative path. The base is the LLD's own directory,
+     so `..` segments are permitted and normally required. No leading slash. The path must
+     resolve inside `design-root` (declared in `kb/file-map.md`) and name a file that exists —
+     confirm with the Step 0c brief or a grep, because a wrong path 404s silently.
+   - **Component specified in Part B of this document** → `#LLD-<epic-id>-<section-slug>`,
+     matching its `<a id>` exactly, case-sensitive. A fragment with no target is a silent
+     no-op.
+   - A participant wrapping both existing and new behaviour links to the existing file — the
+     reviewer wants the current state first.
+   - A `classDiagram` identifier cannot contain `/`. Keep the module path visible with a
+     display label instead.
+
+   *Worked example — link emission.* Both target forms, and the display label:
+
+   ```mermaid
+   classDiagram
+       class EngineScoring["engine/scoring"]
+       class PayoutApi["api/payouts"]
+       EngineScoring --> PayoutApi
+       click EngineScoring href "../../../src/engine/scoring.ts" _self
+       click PayoutApi href "#LLD-v1-e2-payout-api" _self
+   ```
+
+   The same two participants in this section's `sequenceDiagram` carry no link of either kind:
+   a `click` there is a fatal parse error, and `link` is redundant with the click path above.
+
+4. **Annotation — annotate every trust boundary.** One `Note` per boundary the flow crosses
+   (authZ check, input validation, external service call, error propagation), adjacent to the
+   interaction it governs. State the mechanism and the rejection behaviour, comma separated. A
+   semicolon in `Note` text is a parse error — it terminates the note and takes the diagram
+   with it, so use a comma or an em dash. A reviewer reading the diagram should get the
+   security and validation story without cross-referencing the prose.
+
+   *Worked example — annotation.*
+
+   ```mermaid
+   sequenceDiagram
+       participant API
+       participant DB
+       API->>DB: select order rows
+       Note over API,DB: RLS on tenant_id enforces the read, a cross-tenant<br/>row returns empty rather than 403
+   ```
 
 5. **Decompose long sequence diagrams.** If a diagram exceeds ~12 interactions,
    split into: a top-level flow (showing the main path), plus separate detail
    diagrams for the error path and any async/webhook side paths. Link between
    them with prose: "See error-path detail below."
 
-6. **Mermaid syntax validation.** Wrap labels containing punctuation or special
-   characters in quotes. `edf://` links must be bare paths without trailing
-   punctuation. `#LLD-` anchors must match the `<a id>` exactly (case-sensitive).
-   Verify interaction syntax per diagram type against the Mermaid docs — `click` is
-   not supported on sequenceDiagram (use `link`) or erDiagram (omit), and `click`'s
-   third argument is a tooltip string, not a target keyword.
+6. **Mermaid syntax.** Wrap labels containing punctuation or special characters in quotes.
+   Link targets are bare — a path or fragment with no trailing punctuation and no URL scheme.
+   Mermaid's sanitizer strips every unrecognised scheme in every diagram type, so a
+   custom-scheme href never reaches the DOM and the link silently does nothing.
 
 **Section mode** (`/lld 2.3`): Update the relevant section within the existing phase LLD file rather than creating a new file.
 
@@ -220,7 +277,11 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 - **Single RPC write per response.** For any endpoint that persists data, does the flow use exactly one RPC call to write all related rows? Multiple sequential writes to the same table within one request are a race-condition risk and waste DB round-trips (#788).
 - **Performance at design time.** Is every non-trivial data path's round-trip / network-call count bounded — no N+1, no unbounded loop baked into the design? If the requirement implies latency, throughput, or a bulk path, does the design state a budget or batch size? Apply the project's efficiency convention.
 - **Visual specs populated (FE sections).** For every section with a Frontend layer, does Part A have a Visual Specifications subsection with a populated table and screenshots? Flag sections where FE work is described but no visual reference exists.
-- **Diagram navigability.** Is every diagram participant navigable via the correct
+- **Diagram navigability.** <!-- TODO(#53): this item's link mechanics are superseded by
+  Step 2's generation rules and are rewritten in task #53. Until then, apply Step 2 where the
+  two disagree: no link directive on a sequenceDiagram, `_self` rather than a tooltip as
+  click's third argument, and document-relative paths rather than `edf://`. -->
+  Is every diagram participant navigable via the correct
   mechanism for its diagram type? sequenceDiagram → `link <actor>: <label> @ <url>`;
   flowchart / classDiagram / stateDiagram → `click <node> href "<url>" "<tooltip>"`;
   erDiagram → no links (refer in prose). Existing code → `edf://` path that resolves

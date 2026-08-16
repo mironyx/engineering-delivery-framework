@@ -13,8 +13,10 @@ entries:
   - req: REQ-lld-template-diagram-vocabulary-conditional-diagram-types
     lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
     issue: 52
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/skills/lld/SKILL.md
+      - tests/test_lld_skill_step2_generation_rules.py
+    status: Revised
     lld_revision: r1
     # Story 1.1 — application half (diagram-type selection rules in SKILL.md Step 2).
     # Definition half: coverage-v1-e1-1.yaml, same req anchor.
@@ -22,8 +24,10 @@ entries:
   - req: REQ-lld-template-diagram-vocabulary-standard-classdef-palette
     lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
     issue: 52
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/skills/lld/SKILL.md
+      - tests/test_lld_skill_step2_generation_rules.py
+    status: Revised
     lld_revision: r1
     # Story 1.2 — application half (palette assignment with tie-break).
     # Definition half: coverage-v1-e1-1.yaml, same req anchor.
@@ -31,8 +35,10 @@ entries:
   - req: REQ-lld-template-diagram-vocabulary-note-annotations-enforcement-points
     lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
     issue: 52
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/skills/lld/SKILL.md
+      - tests/test_lld_skill_step2_generation_rules.py
+    status: Revised
     lld_revision: r1
     # Story 1.3 — application half (Note placement at trust boundaries).
     # Also checked by lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-self-critique.
@@ -41,8 +47,10 @@ entries:
   - req: REQ-lld-template-diagram-vocabulary-click-directives-diagram-participants
     lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
     issue: 52
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/skills/lld/SKILL.md
+      - tests/test_lld_skill_step2_generation_rules.py
+    status: Revised
     lld_revision: r1
     # Story 1.4 — application half (link emission per the support matrix).
     # Also checked by lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-self-critique.
@@ -53,8 +61,10 @@ entries:
   - req: REQ-skill-instructions-quality-gates-diagram-generation-rules-lld-skill
     lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-generation-rules
     issue: 52
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/skills/lld/SKILL.md
+      - tests/test_lld_skill_step2_generation_rules.py
+    status: Revised
     lld_revision: r1
     # Story 3.1 — closes fully in this epic.
 

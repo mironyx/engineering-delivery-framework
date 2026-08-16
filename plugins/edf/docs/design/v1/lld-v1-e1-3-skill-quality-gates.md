@@ -4,10 +4,11 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.1 |
-| Status | Draft |
+| Version | 0.2 |
+| Status | Revised |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
+| Revised | 2026-08-16 | Issue #52 |
 | Epic | [#31](https://github.com/mironyx/engineering-delivery-framework/issues/31) |
 | Parent | [v1-design.md](v1-design.md) (v1.1) |
 | Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.2) |
@@ -147,6 +148,15 @@ classDiagram
 | 5 | Each of the four concerns has at least one worked example | grep for the four example headings; assert present |
 | 6 | The link-emission rule states `design-root` containment, not a `..` ban | `grep -n 'design-root' SKILL.md` returns ≥ 1; `grep -n 'no \.\. segments' SKILL.md` returns 0 |
 | 7 | `plugin.json` and `marketplace.json` versions are equal | `test "$(jq -r .version …plugin.json)" = "$(jq -r '.plugins[0].version' …marketplace.json)"` |
+
+> **Implementation note (issue #52) — Invariant 2 is not satisfiable until T2 lands.** Its
+> grep is written whole-file, with no Step 2.5 carve-out — unlike Invariant 1, which Part B
+> exempts explicitly ("The fifth occurrence belongs to Step 2.5 and is T2's"). Step 2.5 still
+> carries the `link <actor>` prose, so a whole-file grep returns a hit after T1. T1's shipped
+> tests bound every assertion to the Step 2 block for this reason, and a `TODO(#53)` marker
+> was added to the Step 2.5 item deferring to Step 2 where the two disagree — both sections
+> are loaded into the same prompt on every `/lld` run, so the contradiction is live until
+> #53 lands. Invariants 1 and 2 should carry the same carve-out wording when T2 closes.
 
 ### Acceptance Criteria
 
@@ -351,6 +361,28 @@ T2's.
    - A semicolon in Note text is a parse error (E1.1 D4). Never use one.
 ```
 
+> **Implementation note (issue #52):** the shipped rules also carry **D5** (emit each `click`
+> after the declaration of the node it names) and **D6** (`classDef` is fence-local), carried
+> forward from #45's and #46's lld-syncs. Neither appears in the four rules above, which were
+> written before those syncs landed.
+
+> **Implementation note (issue #52) — a tension in this block.** "Do not restate the gate
+> conditions" conflicts with the acceptance criterion "name each type's content signal".
+> Shipped resolution: four short lookup labels (`erDiagram` — an entity-graph change;
+> `stateDiagram-v2` — a non-trivial UI transition; `flowchart TD` — a multi-condition branch;
+> `classDiagram` — a module-boundary change), each naming the signal without reproducing the
+> gate row, plus an explicit instruction to read the exact condition from the table. A first
+> draft copied the rows near-verbatim and was caught at PR review.
+
+> **Implementation note (issue #52) — palette rendering is type-dependent.** Measured on
+> mermaid 11.12.2 with the #47 conformance harness: inside a `classDiagram`, `classDef` plus
+> `class X role` parses, renders, and applies **no styling at all**, while the identical
+> construct in a `flowchart` styles correctly. E1.1's D6 guidance ("every diagram carries its
+> own `classDef`") is therefore uniform as *advice* but not uniform in *effect*. The palette
+> worked example was written as a text snippet rather than a rendered `classDiagram` so the
+> skill does not teach a form that silently does nothing. Not resolved here — it belongs to
+> the template (E1.1) and warrants its own issue alongside the #60–#62 follow-ups.
+
 #### Worked examples — required shape
 
 One per concern, each minimal and each demonstrating the rule rather than restating it:
@@ -361,6 +393,15 @@ One per concern, each minimal and each demonstrating the rule rather than restat
 | Palette | A participant matching two roles, and the single class the tie-break selects |
 | Link emission | Both forms, on a supporting type, plus one no-emit case with the reason |
 | Annotation | A `Note` with mechanism and rejection, comma separated |
+
+> **Implementation note (issue #52):** the link-emission example shows both target forms on a
+> `classDiagram` plus the `sequenceDiagram` no-emit case with its reason. The
+> `stateDiagram-v2` no-`_self` variant — the one *syntactic* divergence between supporting
+> types — is stated in the rule but not exemplified in a diagram, traded away for prompt
+> economy. The two `mermaid` blocks that did ship were verified to parse and render under the
+> pinned Mermaid with the #47 harness, and the `classDiagram` emits 2 anchors for its 2
+> `click` directives. Comments were kept out of the examples entirely: a trailing `%%` on the
+> same line as a declaration is a parse error.
 
 > **Constraint (prompt economy):** these examples are verbatim LLM prompt text loaded on
 > every `/lld` run. Keep each to the minimum that demonstrates the rule. Do not include
