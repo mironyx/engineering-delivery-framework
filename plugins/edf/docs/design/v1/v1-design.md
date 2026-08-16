@@ -4,18 +4,19 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.3 |
-| Status | Reviewed — Gate 1 approved 2026-08-13; §C2.1/§C2.3 path-form amended 2026-08-14 (issue #45); §C4 navigation claim corrected 2026-08-16 (issue #47) |
+| Version | 1.4 |
+| Status | Reviewed — Gate 1 approved 2026-08-13; §C2.1/§C2.3 path-form amended 2026-08-14 (issue #45); §C4 navigation claim corrected 2026-08-16 (issue #47); C9/C2.9 added 2026-08-16 (issues #60, #63 folded into epic #30) |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
 | Last updated | 2026-08-16 |
-| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.4) |
+| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.5) |
 | Mode | Rewrite — supersedes v0.2 |
 
 ## Change Log
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.4 | 2026-08-16 | LS / Claude | **Fulfils the "future epic" the 1.3 entry deferred.** Added capability C9 and component C2.9 (Diagram Click-Through Overlay), covering Story 2.3 — the reopened "click opens source file" story from requirements v1.5. Folded into Epic 2 (#30) rather than a new epic, on the maintainer's instruction that the extension stay a single `.vsix`; issue #63 (the productionisation task) and #60 (the GitHub-iframe finding that made C4's claim narrower) both close against this revision. Corrected two claims C4/C2.4 made under the narrower 1.3 scope: C2.4's "does not resolve or open source files from diagram links — that moved to V2" no longer holds (C2.9 does exactly this, VSCode-only); the component diagram's "no preview script" note no longer holds (C2.9 reintroduces one, narrower in scope and budget than the deleted `edf://` version). See `lld-v1-e1-2-review-feedback.md` §2.5 for the implementation-level design. |
 | 1.3 | 2026-08-16 | LS / Claude | **Post-Gate-1 correction (issue #47's measured finding), reviewed against #47's conformance report rather than as a separate gate.** §C4 claimed diagram click navigation worked with no extension in either renderer; measured false in both. GitHub is structurally unfixable (cross-origin sandboxed iframe, confirmed 404). VSCode's native click also fails, but a thin `markdown.previewScripts` extension was confirmed working the same day — see requirements v1.4's "Reopened" entry, which pulls the previously-deferred "click opens source file" story back into scope for a future epic. No component or boundary changed; the corrected claim is narrower than what was asserted, not a redesign. |
 | 0.1 | 2026-08-01 | LS / Claude | Initial HLD — Levels 1–3 |
 | 0.2 | 2026-08-01 | LS / Claude | `edf:hld-review` fixes (0 blockers, 5 warnings resolved) |
@@ -184,6 +185,24 @@ participant, path, or diagram type at fault.
 
 *Covers:* Stories 3.1, 3.2.
 
+### C9: Diagram Click-Through Overlay
+
+VSCode's built-in preview click handler only recognises `tagName === "A"`; a Mermaid SVG's
+`<a>` anchor reports lowercase `"a"` and never matches, so a diagram `click` link — real,
+document-relative, correctly resolving per C4 — does nothing when a reviewer clicks it in
+VSCode. This capability closes that gap for VSCode only, without a custom webview or an
+extension-host message channel: a `markdown.previewScripts` script overlays a real HTML
+anchor over each SVG click target's bounding box, carrying the same href. The *existing*
+built-in click handler picks up the overlay anchor on its own, because its check is
+`tagName`-only and does not care which extension created the element.
+
+GitHub is not addressed and is not addressable — Mermaid renders inside a cross-origin
+sandboxed iframe there (`viewscreen.githubusercontent.com`), and no client-side mechanism can
+reach across that boundary. This is a permanent, structural limit, not a scoping choice for a
+later version.
+
+*Covers:* Story 2.3.
+
 ### Capability ↔ requirement coverage
 
 | Capability | REQ anchor | Story |
@@ -198,8 +217,9 @@ participant, path, or diagram type at fault.
 | C7 | `REQ-vscode-extension-review-feedback-test-framework-local-packaging` | 2.2 |
 | C8 | `REQ-skill-instructions-quality-gates-diagram-generation-rules-lld-skill` | 3.1 |
 | C8 | `REQ-skill-instructions-quality-gates-self-critique-checklist-diagram-navigability` | 3.2 |
+| C9 | `REQ-vscode-extension-review-feedback-diagram-click-through-overlay` | 2.3 |
 
-All 10 REQ anchors are covered. No capability exists without a requirement.
+All 11 REQ anchors are covered. No capability exists without a requirement.
 
 ---
 
@@ -219,6 +239,7 @@ flowchart TD
     subgraph sgExt["VSCode Extension"]
         ReviewCmd["Review Comment Command"]
         BuildHarness["Build and Test Harness"]
+        Overlay["Diagram Click Overlay"]
     end
 
     subgraph sgExternal["External — not built here"]
@@ -239,18 +260,23 @@ flowchart TD
     Report -->|"records behaviour of"| Preview
     BuildHarness -->|"tests and packages"| ReviewCmd
     ReviewCmd -->|"edits source behind"| Preview
+    Overlay -->|"overlays real anchors on SVG click targets in"| Preview
+    BuildHarness -->|"tests and packages"| Overlay
 
     classDef new fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
     classDef extsvc fill:#d6e8f7,stroke:#2d5f8a,color:#1a2f44
 
-    class Template,Skill,Critique,Report,ReviewCmd,BuildHarness new
+    class Template,Skill,Critique,Report,ReviewCmd,BuildHarness,Overlay new
     class Mermaid,Preview,GitHub extsvc
 ```
 
-Note what is absent relative to v0.2: there is no preview script, no protocol handler, no
-source navigator, and no arrow from the extension into the filesystem. The extension no
-longer participates in navigation at all — navigation is a property of the link format,
-handled entirely by the renderers.
+Note what changed relative to v1.3: C9/Overlay reintroduces a `markdown.previewScripts`
+script, which v1.0–v1.3 deliberately dropped as dead code with no V1 consumer. The
+reintroduced script is narrower than the one it replaces — single-purpose overlay only, no
+`edf://` hover/click machinery, budgeted under 5KB minified — and its consumer is C9, not the
+deleted spike. GitHub still has no arrow into the extension: no client-side mechanism reaches
+across its cross-origin iframe boundary, so C9 is VSCode-only by construction, not by
+scoping choice.
 
 ---
 
@@ -392,9 +418,9 @@ under a chosen heading.
   is enforced by code review, not by the manifest (see Cross-Cutting Concerns)
 - Does not make network calls or execute processes
 - Does not inject a script into the markdown preview, and does not participate in diagram
-  navigation in any way
+  navigation in any way — that is C2.9's boundary, a separate manifest contribution point
 - Does not parse markdown into an AST — regex is sufficient for the heading structure
-- Does not resolve or open source files from diagram links — that moved to V2
+- Does not resolve or open source files from diagram links — C2.9 does, and only in VSCode
 
 **Depends on:** VSCode extension API (`window.showQuickPick`,
 `window.onDidChangeActiveTextEditor`, `TextEditor.edit`). Notably it does **not** depend on
@@ -519,6 +545,45 @@ it decides a V2 story's scope.
   that the answer changes a V2 scoping decision, never a V1 guarantee
 
 **Depends on:** None — external. Its behaviour is pinned by evidence in C2.6, not assumed.
+
+---
+
+### C2.9: Diagram Click-Through Overlay
+
+**Purpose:** Makes a diagram `click` link actually navigate when clicked inside VSCode's
+preview — C4/C2.8 established that the link resolves correctly but the built-in click
+handler never fires on an SVG anchor. Closes that gap without a custom webview or an
+extension-host message channel.
+
+**Responsibilities:**
+- Inject a `markdown.previewScripts` script that, for each rendered Mermaid SVG, overlays a
+  real HTML `<a>` positioned over each `click`-target's bounding box, carrying the same
+  resolved href
+- Keep overlays in sync across scroll, resize, and preview content updates, and remove stale
+  overlays when the SVG they cover is replaced on re-render
+- Validate a resolved href stays inside `design-root` before setting it as an overlay anchor's
+  href — the same containment rule ADR-0039 fixes for C4's own links, enforced a second time
+  here because the overlay is what a click actually resolves against
+- Relay script errors to the extension host for logging to the `EDF Review` output channel;
+  never let an unhandled script error crash the preview webview
+- Stay under a 5KB-minified, sub-1ms-per-mutation performance budget — the deleted `edf://`
+  script's unthrottled `MutationObserver` is the failure mode this budget exists to prevent
+
+**Non-responsibilities:**
+- Does not run in, or attempt to reach, GitHub's rendering surface — no client-side mechanism
+  crosses its cross-origin sandboxed iframe boundary (C2.5's constraint). This is permanent,
+  not deferred
+- Does not open a custom webview or establish an extension-host↔preview message channel — the
+  entire point is that the *existing* built-in click handler already does the opening, once a
+  real anchor exists for it to find
+- Does not read file content or evaluate anything — it only sets an `href` attribute; the
+  built-in handler performs the actual file open
+- Does not duplicate C2.4's command or its target-resolution logic — unrelated surfaces that
+  happen to ship in the same `.vsix`
+
+**Depends on:** VSCode's built-in markdown preview click handler (tagName-only check, C2.8),
+Mermaid's rendered SVG structure and `click`-generated anchors (C2.5), `design-root`
+containment (ADR-0039).
 
 ---
 
@@ -722,6 +787,39 @@ pin at Level 4 is the manifest's required-field set and the test-host invocation
 
 ---
 
+### Flow 6: Diagram click-through in VSCode preview (overlay resolution)
+
+```mermaid
+sequenceDiagram
+    actor Reviewer as LLD Reviewer
+    participant Preview as VSCode Markdown Preview
+    participant Mermaid as Mermaid Renderer
+    participant Script as C2.9 Preview Script
+    participant Handler as Built-in Click Handler
+
+    Reviewer->>Preview: Open an LLD with a diagram
+    Preview->>Mermaid: Render diagram source
+    Mermaid-->>Preview: SVG with click-generated <a> anchors
+    Preview->>Script: Injected via markdown.previewScripts
+    Script->>Script: Locate each SVG click target, read its href
+    Note over Script: Enforcement — reject any href resolving<br/>outside design-root before creating an overlay
+    Script->>Preview: Overlay a real HTML <a> over each target's bounding box
+    Note over Script: Re-runs on scroll, resize, and content update;<br/>removes overlays for SVGs no longer present
+    Reviewer->>Preview: Click a diagram participant
+    Preview->>Handler: Click event bubbles to built-in handler
+    Note over Handler: Enforcement — handler only checks<br/>tagName === "A"; overlay satisfies it
+    Handler-->>Reviewer: Opens the resolved file, preview stays open
+```
+
+**Walkthrough.** No new channel exists here — the mechanism the diagram found is that
+VSCode's built-in click handler was always willing to act on any real anchor, and Mermaid's
+generated `<a>` simply never qualified as one. The overlay is a second anchor occupying the
+same screen position, not a replacement renderer or a message bridge. The containment check
+runs before the overlay is created, not after a click — by the time a click happens the only
+hrefs present are ones already validated.
+
+---
+
 ## Cross-Cutting Concerns
 
 ### Security
@@ -742,16 +840,18 @@ The code-review guarantee is therefore not a one-off sign-off but an obligation 
 each packaged release: whatever ships in the `.vsix` is what runs, and the manifest constrains
 none of it. Keeping C2.4 to one command is what keeps that obligation affordable.
 
-**Path traversal is not a V1 concern.** V1 resolves no paths from document content — the
-capability that did moved to V2. The carried-forward containment requirement applies only if
-that story is reopened.
+**Path traversal is a C9 concern, not a C2.4 one.** C2.4 resolves no paths from document
+content. C2.9 does — it reads an SVG anchor's href and sets it on an overlay element — so it
+carries the containment requirement directly: a resolved href must stay inside `design-root`,
+checked before the overlay is created, matching ADR-0039's rule for C4's own links.
 
 ### Performance
 
-No V1 performance requirements. Both latency-sensitive capabilities moved to V2 with their
-budgets, including a known violation: the v0.2 preview script's `MutationObserver` runs an
-unthrottled full-document `querySelectorAll` on every mutation. If that script is retained
-(Open Question 2), the violation is inherited rather than fixed.
+C2.4 has no performance requirement. C2.9 does, precisely because its predecessor violated
+one: the deleted v0.2 preview script's `MutationObserver` ran an unthrottled full-document
+`querySelectorAll` on every mutation. C2.9's script is budgeted under 5KB minified with its
+mutation callback completing in under 1ms per invocation — the fix is part of the design, not
+inherited from the spike.
 
 ### Observability
 
@@ -807,6 +907,14 @@ which ADR-0038 suggests it cannot be, since it is the missing channel that block
 while still removing the manifest contribution, which decouples "keep the reference" from
 "inject it into previews".
 
+> **Superseded 2026-08-16 for C2.9 only.** The leaning above still applies to the *spike*
+> script — `media/preview.js`'s `edf://` hover/click content is still dead code and Epic 2's
+> Task 1 still deletes it. What changed is that a later, unrelated task (Task 5, C2.9) adds a
+> new, narrower preview script afterward — the manifest contribution point is removed by Task
+> 1 and reintroduced by Task 5, not left dropped. This does not reopen OQ2's answer for the
+> spike; it adds a second, independent decision the spike's absence doesn't affect. See
+> `lld-v1-e1-2-review-feedback.md` §2.5.
+
 ---
 
 ## Traceability
@@ -821,6 +929,7 @@ while still removing the manifest contribution, which decouples "keep the refere
 | C6 In-Flow Review Feedback | C2.4 | 3 | [vis-review-comment-insertion.html](vis-review-comment-insertion.html) |
 | C7 Verified, Installable Build | C2.7, C2.4 | 5 | — |
 | C8 Self-Documenting Generation Rules | C2.1, C2.2, C2.3 | 1 | — |
+| C9 Diagram Click-Through Overlay | C2.9, C2.5, C2.8, C2.7 | 6 | — |
 
 † C2.3 *checks* this capability's output but its work is funded by Story 3.2 under C8, not by
 Stories 1.2/1.3. Marked so the plan does not count the same checklist three times.
