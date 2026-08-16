@@ -71,7 +71,15 @@ entries:
   - req: REQ-skill-instructions-quality-gates-self-critique-checklist-diagram-navigability
     lld: lld-v1-e1-3-skill-quality-gates.md#LLD-v1-e1-3-self-critique
     issue: 53
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/skills/lld/SKILL.md
+      - plugins/edf/skills/lld/flowchart.md
+      - tests/test_lld_skill_step25_self_critique.py
+    status: Revised
     lld_revision: r1
     # Story 3.2 — closes fully in this epic.
+    # Revised (not Implemented): #53's lld-sync recorded two Corrections against
+    # §B.3.2 — the checks shipped as seven flat checklist items rather than three
+    # nested ones, and the palette check gained a measured carve-out for the
+    # classDiagram styling gap. Revised outranks Implemented until a later feature
+    # confirms the new shape.

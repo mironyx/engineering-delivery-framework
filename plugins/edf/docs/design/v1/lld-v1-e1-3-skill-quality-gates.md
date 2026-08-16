@@ -4,11 +4,12 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.2 |
-| Status | Revised |
+| Version | 0.3 |
+| Status | Revised v2 |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Revised | 2026-08-16 | Issue #52 |
+| Revised | 2026-08-16 | Issue #53 |
 | Epic | [#31](https://github.com/mironyx/engineering-delivery-framework/issues/31) |
 | Parent | [v1-design.md](v1-design.md) (v1.1) |
 | Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.2) |
@@ -432,7 +433,20 @@ plugins/edf/skills/lld/SKILL.md        — Step 2.5 checklist
 plugins/edf/skills/lld/flowchart.md    — update if the gate's branching changed
 plugins/edf/.claude-plugin/plugin.json — version bump
 .claude-plugin/marketplace.json        — version bump (must match)
+tests/test_lld_skill_step25_self_critique.py — 28 tests (added by #53)
 ```
+
+> **Implementation note (issue #53):** the file list above omitted a test file. One was added —
+> `tests/test_lld_skill_step25_self_critique.py`, 28 tests covering all 13 BDD specs plus
+> Invariants 7–14. Because the tests are written *after* the prose they assert on, they were
+> mutation-checked by running them against the pre-change `SKILL.md`: 23 of 28 fail there. A
+> docs-only assertion suite that has never been seen to fail is indistinguishable from one that
+> asserts nothing, so future docs tasks in this epic should record the same check.
+>
+> `flowchart.md` did change: Step 2.5 gained a decision node (`All diagrams parse?`) branching to
+> either report-and-skip or the full check sequence, both rejoining the existing "Issues found?"
+> node. The edited diagram was verified through the #47 conformance harness — it parses and all
+> five palette roles render styled.
 
 #### Placement
 
@@ -476,6 +490,37 @@ authors will follow whichever they reach first.
 Report format: name the specific participant, path, interaction or diagram type at fault.
 "Diagram could be improved" is not a finding.
 ```
+
+> **Implementation note (issue #53) — the block above shipped as seven top-level checklist
+> items, not three.** The spec nests path form, file existence and the `#LLD-` fragment check as
+> sub-bullets under "Diagram navigability". In a markdown checklist a sub-bullet is not a
+> separate item: it inherits the parent's heading and, in practice, the parent's single verdict.
+> That directly undercuts the "path form and file existence stay two checks" constraint this
+> section exists to enforce, and Invariant 11's "two distinct bullets present". Shipped shape,
+> in order: parse · navigability · link path form · link target exists · link fragments resolve ·
+> palette applied · trust-boundary annotations. Each carries its own bolded label and its own
+> "name the offender" instruction. The nesting in the spec block above is retained as the
+> *logical* grouping; the rendered checklist is flat.
+
+> **Implementation note (issue #53) — the palette check must not assert classDiagram styling.**
+> The spec's "every participant matching a defined role carries its class" is correct as an
+> authoring rule but silent on a measured renderer gap that #52 found and #53 re-measured
+> independently: on the pinned mermaid, `classDef` plus `class X role` applies **no** styling
+> inside a `classDiagram`, while the identical construct works in `flowchart` and
+> `stateDiagram-v2`.
+>
+> ```
+> flowchart        roles=[external] styledRoles=[external] ok=true
+> classDiagram     roles=[external] styledRoles=[]         ok=false
+> stateDiagram-v2  roles=[external] styledRoles=[external] ok=true
+> ```
+>
+> Applied verbatim, the spec would have the gate report an unstyled `classDiagram` as an
+> authoring defect the author cannot fix — the same "reports a non-error, trains authors to
+> distrust the section" failure that D2 rules out for the `link` directive. The shipped check
+> therefore asserts only on source-level consistency (class present, exactly one, `classDef`
+> repeated per fence) and states the gap explicitly. Fixing `template.md`'s classDiagram
+> guidance remains out of scope for this epic and needs its own issue.
 
 > **Constraint (D2):** do **not** add a parse check for the sequence-diagram `link`
 > directive. It parses successfully on mermaid 11.12.2 — measured, see
