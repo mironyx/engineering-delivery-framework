@@ -189,7 +189,17 @@ later.
    ## Cost checkpoints
    | Step | Timestamp | Cost (cumulative) | Tokens (cumulative) | Note |
    |------|-----------|--------------------|----------------------|------|
+
+   ## Concerns & Deferred Items
    ````
+   Leave this section with only its heading — no placeholder text. Every step below that
+   would otherwise "note it in the Step 10 report" appends a bullet here **immediately**,
+   not just at Step 10. The PR body and Step 10 report are read once, at PR-creation time;
+   the session log is what a reviewer or `/feature-end` reads later, potentially hours or
+   days after the PR was opened. A concern that exists only in the PR body is invisible to
+   anyone reading the session log before `/feature-end` appends its narrative sections —
+   which may never happen, if the PR sits for review first. Record it once, here, as it is
+   found.
    Then immediately append the Step 3c checkpoint row with a live timestamp and cost query:
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
@@ -312,8 +322,9 @@ Skill: edf:test <test-file>
 
 Before running the full suite, re-read the sub-agent's report and confirm every listed
 property maps to a passing test. If the sub-agent missed a property you can see in the
-spec, add the test yourself and note this in the Step 10 report (so we can feed it back
-into the sub-agent's prompt).
+spec, add the test yourself and note this **in the session log's Concerns & Deferred
+Items section, immediately** (so we can feed it back into the sub-agent's prompt) — not
+only in the Step 10 report.
 
 **Full track:** after self-check passes, append a cost checkpoint row:
 ```bash
@@ -439,10 +450,12 @@ Input: requirements_paths=<absolute list> lld_path=<absolute path> issue_number=
 **Triage the verdict:**
 
 - **PASS** — every acceptance criterion maps to at least one passing test, no gaps. Proceed to Step 7.
-- **PASS WITH WARNINGS** — minor gaps found, evaluator added a small number of adversarial tests. Review warnings, fix quick wins, note the rest in the PR body. Proceed to Step 7.
+- **PASS WITH WARNINGS** — minor gaps found, evaluator added a small number of adversarial tests. Review warnings, fix quick wins, note the rest **in the session log's Concerns & Deferred Items section, immediately** (and in the PR body). Proceed to Step 7.
 - **FAIL** — a criterion is uncovered or an adversarial test exposed a real defect. Fix the implementation, re-run Step 5 (verification) and Step 6 (`edf:diag`), then re-run the evaluator once to confirm the previously-uncovered criteria now pass. PASS or PASS WITH WARNINGS → proceed to Step 7. FAIL again → pause and report. One re-run only — if it still fails, stop.
 
-If evaluator writes > 3 adversarial tests, note count in Step 10 report and PR body — but do not block.
+If evaluator writes > 3 adversarial tests, note count **in the session log's Concerns &
+Deferred Items section, immediately**, and in the Step 10 report and PR body — but do not
+block.
 
 Evaluator tests follow the project's test file convention, committed in Step 7.
 
@@ -547,11 +560,11 @@ When the probe reports back during Step 9:
 Run `edf:pr-review <pr-number>` on the PR just created. This posts a comment on the PR and
 returns findings. Triage each finding:
 
-- **Blocker / correctness issue** — fix it: update the code, re-run Step 5 (verification), add a commit, push.
+- **Blocker / correctness issue** — fix it: update the code, re-run Step 5 (verification), add a commit, push. If fixing it surfaced something a future reader needs to know (a bug in the task's own tests, a measured finding outside this issue's scope, an assumption that turned out wrong), append it to the session log's Concerns & Deferred Items section immediately, not just the fix itself.
 - **Design contract mismatch** — check whether the design or the implementation is wrong:
-  if the implementation is wrong, fix it; if the design is outdated, update the design doc in the same branch.
-- **Non-blocking suggestion** — decide whether it is worth fixing now (quick win) or deferring. If deferring, **leave a `TODO` comment in the affected file** (see [Managing technical debt](#managing-technical-debt)) and note it in the Step 10 report.
-- **Style / minor** — fix if trivial; otherwise note and move on.
+  if the implementation is wrong, fix it; if the design is outdated, update the design doc in the same branch. Note which one was wrong, and why, in the session log's Concerns & Deferred Items section.
+- **Non-blocking suggestion** — decide whether it is worth fixing now (quick win) or deferring. If deferring, **leave a `TODO` comment in the affected file** (see [Managing technical debt](#managing-technical-debt)) and append it **to the session log's Concerns & Deferred Items section, immediately** — not only the Step 10 report. A deferred finding that lives only in the PR body is invisible to anyone reading the session log before `/feature-end` runs, which may be hours or days later.
+- **Style / minor** — fix if trivial; otherwise note in the session log's Concerns & Deferred Items section and move on.
 
 After any fixes, re-run `edf:pr-review <pr-number>` to confirm no new issues were introduced.
 
