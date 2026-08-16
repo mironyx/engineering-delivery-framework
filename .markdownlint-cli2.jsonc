@@ -1,0 +1,7 @@
+{
+  // Third-party markdown is not ours to lint. `tests/conformance/node_modules`
+  // arrived with the renderer conformance harness (issue #47) and is gitignored.
+  "ignores": [
+    "**/node_modules/**"
+  ]
+}
