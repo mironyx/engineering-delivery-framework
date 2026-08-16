@@ -4,15 +4,25 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.1 |
+| Version | 0.2 |
 | Status | Draft |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Epic | [#30](https://github.com/mironyx/engineering-delivery-framework/issues/30) |
-| Parent | [v1-design.md](v1-design.md) (v1.1) |
-| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.2) |
+| Parent | [v1-design.md](v1-design.md) (v1.4) |
+| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.5) |
 | Implementation plan | [2026-08-13-v1-implementation-plan.md](../../plans/2026-08-13-v1-implementation-plan.md) |
 | Epic id | `v1-e1-2` |
+
+## Recent revisions
+
+**0.2 (2026-08-16).** Folded Story 2.3 (diagram click-through overlay, formerly issue #63) in
+as §2.5/Task 5, on the maintainer's instruction that the extension stay one `.vsix`, not two.
+Issue #60 (GitHub cross-origin iframe finding) closes without an implementing task — it is a
+documentation finding, not implementable work; see requirements v1.5. This revision does
+**not** change Task 1's (#48) OQ1/OQ2 resolutions — the spike deletion still stands — but adds
+a note next to OQ2 that a later, independent task reintroduces a preview script, so a reader
+of OQ2 alone isn't misled into thinking `previewScripts` never returns to this epic.
 
 ---
 
@@ -54,6 +64,15 @@ tell by inspection that nothing is injected. Both go.
 > modern VS Code auto-generates `onCommand:` activation from `contributes.commands`, so the
 > `activationEvents` array becomes empty. T1 removes it rather than leaving an event whose
 > only rationale has been deleted.
+
+> **OQ2 superseded for Task 5 only (2026-08-16).** The answer above is unchanged for the
+> *spike* script: `media/preview.js`'s `edf://` hover/click content is still dead code, and
+> Task 1 still deletes it and the manifest contribution as its first move. What's new is
+> Task 5 (§2.5), an independent later task that reintroduces `media/preview.js` and
+> `markdown.previewScripts` from scratch — a different file with a different, narrower
+> purpose, not a reversal of this decision. `activationEvents` stays empty even after Task 5:
+> `previewScripts` injection does not require `onMarkdownPreview` activation (VS Code injects
+> declared preview scripts regardless of extension-host activation state).
 
 ---
 
@@ -499,6 +518,117 @@ describe('installed extension', () => {
 
 - [C7](v1-design.md#c7-verified-installable-extension-build), [Flow 5](v1-design.md#flow-5-build-package-and-install-distribution-boundary) — sufficient, referenced only
 
+## 2.5 Diagram click-through overlay
+
+**Stories:** 2.3
+**Layers:** BE — extension host (manifest only) and a preview-webview script. No DB or
+command-palette surface.
+
+### Purpose
+
+Make a diagram `click` link actually navigate when clicked inside VSCode's preview.
+[C4](v1-design.md#c4-renderer-native-navigable-diagram-surface) already guarantees the href
+resolves correctly; the gap is that VSCode's built-in preview click handler only recognises
+`tagName === "A"`, and Mermaid's generated SVG anchor reports lowercase `"a"`, so it never
+matches. A `markdown.previewScripts` script overlays a real HTML `<a>` over each SVG click
+target's bounding box, carrying the same href — the *existing* built-in handler picks it up
+on its own, because its check never inspected who created the element.
+
+This section is independent of §2.1–§2.4: it shares no source file with the review-comment
+command (`extension.ts`, `headings.ts`, `review-insert.ts`, `editor-tracker.ts`), and touches
+`package.json` only to re-add the `markdown.previewScripts` contribution that §2.1 (Task 1)
+removes as dead weight from the spike. See §2.1's OQ2 superseded-note for why this is a later,
+separate decision rather than a reversal of Task 1's.
+
+### Behavioural Flows
+
+See [v1-design.md Flow 6](v1-design.md#flow-6-diagram-click-through-in-vscode-preview-overlay-resolution)
+for the sequence — this section adds file-level detail on top of it, not a competing version.
+
+### Structural Overview
+
+```mermaid
+classDiagram
+    class Manifest["extensions/edf-review/package.json"] {
+        <<asset>>
+        +contributesMarkdownPreviewScripts()
+    }
+    class Overlay["media/overlay.js"] {
+        <<script>>
+        +observeMermaidContainers()
+        +createOverlaysFor(svg)
+        +removeStaleOverlays()
+        +resolveAndValidateHref(anchor)
+    }
+    class Bridge["src/overlay-bridge.ts"] {
+        <<module>>
+        +createOverlayLog(context) OverlayLog
+    }
+
+    Manifest --> Overlay : declares as previewScript
+    Overlay --> Bridge : posts error messages to, via window.parent
+
+    click Manifest href "../../../../../extensions/edf-review/package.json" _self
+    click Overlay href "../../../../../extensions/edf-review/media/overlay.js" _self
+    click Bridge href "../../../../../extensions/edf-review/src/overlay-bridge.ts" _self
+    click Overlay href "#LLD-v1-e1-2-overlay" _self
+```
+
+**When required:** met — new manifest contribution, new script, and a new host-side module
+with no existing counterpart (§2.1–§2.4 have no preview-webview surface at all).
+
+### Invariants
+
+| # | Invariant | Verification |
+|---|---|---|
+| 23 | Every overlay anchor's resolved href stays within `design-root` | unit test with a `../../../..` escape asserts no overlay is created |
+| 24 | Overlays are removed when their source SVG is no longer in the document | integration test: re-render with a diagram removed, assert 0 stale overlay nodes |
+| 25 | `media/overlay.js` stays under 5KB minified | build check: `wc -c` on the minified artefact |
+| 26 | The mutation-observation callback completes in under 1ms per invocation | perf test with `performance.now()` around the callback body, 100-run p95 |
+| 27 | A script error is caught, never crashes the webview, and reaches the `EDF Review` channel | integration test throws inside the callback, asserts webview still responds and the channel received an entry |
+| 28 | The script performs no `readFile`, network call, or `eval`/`Function`/`import()` | `grep -E "readFile\|fetch\|eval\(\|new Function\|import\(" media/overlay.js` returns nothing |
+
+### Acceptance Criteria
+
+- [ ] A real `<a>` anchor overlays every SVG `click`-target's bounding box on preview load/re-render
+- [ ] Overlay positions track scroll, resize, and content updates; stale overlays are removed
+- [ ] A resolved href outside `design-root` is rejected — no overlay is created for it
+- [ ] Clicking an overlay opens the resolved file via the built-in handler; the preview stays open in its column
+- [ ] Works for `flowchart`, `classDiagram`, `stateDiagram-v2` and both link forms (path, `#LLD-` fragment)
+- [ ] `media/overlay.js` is under 5KB minified; its mutation callback completes in under 1ms
+- [ ] Script errors are caught, relayed to the `EDF Review` output channel, and never crash the webview
+
+### BDD Specs
+
+```ts
+describe('overlay creation', () => {
+  it('overlays a real anchor over each SVG click-target bounding box');
+  it('carries the same href as the underlying SVG anchor');
+  it('rejects a resolved href outside design-root, creating no overlay');
+  it('supports flowchart, classDiagram and stateDiagram-v2 click targets');
+});
+
+describe('overlay lifecycle', () => {
+  it('repositions overlays on scroll and resize');
+  it('removes overlays whose source SVG is no longer present after a re-render');
+  it('creates no duplicate overlay for an SVG that re-renders unchanged');
+});
+
+describe('overlay click-through', () => {
+  it('opens the resolved file when the built-in handler processes an overlay anchor click');
+  it('leaves the preview open in its original column after the file opens');
+});
+
+describe('overlay error handling', () => {
+  it('catches a script error and logs it to the EDF Review output channel');
+  it('continues functioning after a caught error, without crashing the webview');
+});
+```
+
+### HLD coverage assessment
+
+- [C9](v1-design.md#c9-diagram-click-through-overlay), [C2.9](v1-design.md#c29-diagram-click-through-overlay), [Flow 6](v1-design.md#flow-6-diagram-click-through-in-vscode-preview-overlay-resolution) — sufficient; decomposition added here
+
 ---
 
 # Part B — Agent Implementation Detail
@@ -822,10 +952,104 @@ One row per property, each with the evidence that established it, not a bare ass
 > `.vsix` file listing in the document — the grep evidence is only meaningful if the shipped
 > artefact contains the files that were grepped.
 
+> **Amended by Task 5 (§2.5).** "No preview script injection" holds at the point Task 4 runs
+> (Task 5 hasn't landed yet in execution order) but is not the epic's final state. Task 5
+> updates this table in place — see §2.5's Part B for the replacement row and the three new
+> properties it adds. A reader of this document after Task 5 lands should not find a "no
+> injection" claim next to a `media/overlay.js` file in the same tree.
+
 #### Error handling
 
 `vsce package` failures are build failures. Install verification is manual and its outcome is
 recorded in the security review document.
+
+<a id="LLD-v1-e1-2-overlay"></a>
+
+## 2.5 Diagram click-through overlay — Implementation
+
+### Layer: Backend (manifest) and preview-webview script
+
+#### File structure
+
+```
+extensions/edf-review/
+  package.json                — re-add markdown.previewScripts contribution
+  media/overlay.js             — create; the overlay script (plain DOM, no bundler)
+  src/overlay-bridge.ts        — create; relays webview error postMessage to EDF Review channel
+  test/suite/overlay.test.ts   — create; DOM-level unit tests via jsdom or a headless webview harness
+```
+
+#### Manifest changes (on top of Task 1's rewrite)
+
+| Field | From (post-Task 1) | To |
+|---|---|---|
+| `contributes.markdown.previewScripts` | absent | `["./media/overlay.js"]` |
+| `contributes.markdown.previewStyles` | absent | unchanged — no CSS needed; overlay anchors are positioned inline |
+
+> **Constraint:** `activationEvents` stays `[]`. `previewScripts` is a static declarative
+> contribution VS Code injects into every preview regardless of extension-host activation
+> state — it does not need `onMarkdownPreview` back. `overlay-bridge.ts`'s log relay uses
+> `commands.registerCommand`'s existing activation path (auto-generated `onCommand:` from
+> Task 1/3), triggered by the webview's `postMessage`, not by a dedicated activation event.
+
+#### Function signatures
+
+```ts
+// media/overlay.js — runs inside the preview webview, no imports, no bundler
+function observeMermaidContainers(): void
+  // MutationObserver on document.body, filtered to added/removed `svg[id^="mermaid"]`
+  // nodes only — not a full-document querySelectorAll on every mutation (Invariant 26).
+
+function createOverlaysFor(svg: SVGElement): void
+  // Finds svg a[*|href] elements with click-generated hrefs; for each, calls
+  // resolveAndValidateHref, and on success creates an absolutely positioned <a> at the
+  // element's getBoundingClientRect(), appended to the preview document body.
+
+function resolveAndValidateHref(href: string): string | null
+  // Resolves href against the preview document's base URI; returns null (no overlay
+  // created) if the resolved path falls outside design-root. Fragment-only hrefs
+  // (#LLD-…) pass through unresolved — they never leave design-root by construction.
+
+function removeStaleOverlays(): void
+  // Removes overlay nodes whose source svg is no longer in the DOM (WeakMap-tracked).
+
+// src/overlay-bridge.ts
+export function createOverlayLog(context: vscode.ExtensionContext): OverlayLog
+  // Registers a window.addEventListener('message', …) bridge is not available from the
+  // extension host side; instead subscribes to the webview panel's onDidReceiveMessage
+  // equivalent exposed by the built-in markdown preview, per VS Code's previewScripts
+  // postMessage convention. Writes each relayed error to the EDF Review output channel
+  // (shared with §2.3's Logger).
+```
+
+> **Constraint:** neither `resolveAndValidateHref` nor any function in `overlay.js` calls
+> `fetch`, `XMLHttpRequest`, `eval`, `new Function`, or `import()`. Invariant 28 checks this
+> by grep against the shipped `media/overlay.js`, matching Task 4's existing grep convention
+> for `src/`.
+
+> **Constraint — design-root containment.** `resolveAndValidateHref` must reuse the exact
+> containment logic [ADR-0039](../../adr/0039-diagram-link-navigability-conventions.md) fixes
+> for C4's own links, not a re-derivation. If the two containment checks drift, a link that
+> §2.1–§2.4's convention accepts could be silently dropped by the overlay, or worse, a link
+> the convention would reject could be overlaid anyway.
+
+#### Error handling
+
+A thrown error inside `observeMermaidContainers`, `createOverlaysFor`, or the mutation
+callback is caught at the top-level `try/catch` the script installs around its own entry
+point, `postMessage`d to the extension host with `{ type: 'edf-overlay-error', message }`,
+and swallowed — the webview must keep functioning (Invariant 27). `overlay-bridge.ts` never
+throws; a malformed message is logged as-is rather than re-parsed defensively.
+
+#### Security review update (amends Task 4's document)
+
+Replace the "No preview script injection" row and add:
+
+| Property | Evidence | Verdict |
+|---|---|---|
+| Preview script injection is scoped to the overlay only | `jq '.contributes.markdown.previewScripts' package.json` → `["./media/overlay.js"]`; read `overlay.js` end to end | |
+| Overlay script performs no file reads, network calls, or dynamic evaluation | `grep -E "readFile\|fetch\|XMLHttpRequest\|eval\(\|new Function\|import\(" media/overlay.js` → no hits | |
+| Overlay hrefs are containment-checked before use | read `resolveAndValidateHref`; confirm it rejects paths outside `design-root` | |
 
 ---
 
@@ -837,14 +1061,17 @@ recorded in the security review document.
 - §2.2 depends on: [§2.1](#21-scaffold-disposition-and-test-harness) — needs the Mocha harness to run its specs
 - §2.3 depends on: [§2.2](#22-heading-extraction-and-insertion-point) — imports both pure modules
 - §2.4 depends on: [§2.3](#23-command-wiring-and-target-resolution) — packages and reviews the finished command
+- §2.5 depends on: [§2.1](#21-scaffold-disposition-and-test-harness) — needs the rewritten manifest baseline; [§2.4](#24-packaging-install-verification-and-security-review) — amends its security review document in place. Shares no file with §2.2/§2.3.
 
 ### External
 
 - Independent of Epics E1.1 and E1.3. Per [v1-design.md §C2.4](v1-design.md#c24-review-comment-command) the command scans heading structure only and does not depend on the template's link format. It touches neither `plugin.json` nor `marketplace.json`, so it shares no file with either epic and may run start-to-finish in parallel.
+- §2.5 depends on [v1-design.md §C4](v1-design.md#c4-renderer-native-navigable-diagram-surface)'s link format and [ADR-0039](../../adr/0039-diagram-link-navigability-conventions.md)'s containment rule — both owned by Epic E1.1, read-only.
 
 ### Shared types
 
 `Heading` (§2.2) is consumed by §2.3. `EditorTracker` and `Resolution` are internal to §2.3.
+§2.5 introduces no shared types — `overlay.js` and `overlay-bridge.ts` are self-contained.
 
 ---
 
@@ -944,6 +1171,33 @@ recording the four guaranteed properties against the shipped artefact.
 - `extensions/edf-review/package.json` — packaging scripts
 - `plugins/edf/docs/design/v1/extension-security-review.md` — create
 
+### Task 5: Diagram click-through overlay
+
+**Issue title:** v1-e1-2: diagram click-through navigation via previewScripts overlay
+**Layer:** BE
+**Depends on:** Task 1 (manifest baseline), Task 4 (amends its security review document)
+**Stories:** 2.3
+**HLD reference:** [C9](v1-design.md#c9-diagram-click-through-overlay), [C2.9](v1-design.md#c29-diagram-click-through-overlay), [Flow 6](v1-design.md#flow-6-diagram-click-through-in-vscode-preview-overlay-resolution)
+
+**What:** Productionise the throwaway overlay prototype (`edf-diagram-click-poc`, confirmed
+working against two diagram types) into `extensions/edf-review/media/overlay.js`: re-add the
+`markdown.previewScripts` manifest contribution Task 1 removed, overlay real anchors on
+Mermaid SVG click targets with `design-root` containment validation before each overlay is
+created, keep overlays in sync across scroll/resize/re-render, relay script errors to the
+`EDF Review` output channel, and amend Task 4's security review document with the three new
+properties this task's surface introduces.
+
+**Acceptance criteria:** see [§2.5](#25-diagram-click-through-overlay).
+
+**BDD specs:** see [§2.5 BDD Specs](#25-diagram-click-through-overlay).
+
+**Files to create/modify:**
+- `extensions/edf-review/package.json` — re-add `markdown.previewScripts`
+- `extensions/edf-review/media/overlay.js` — create
+- `extensions/edf-review/src/overlay-bridge.ts` — create
+- `extensions/edf-review/test/suite/overlay.test.ts` — create
+- `plugins/edf/docs/design/v1/extension-security-review.md` — amend (replace one row, add three)
+
 ---
 
 ## Execution Order
@@ -955,6 +1209,8 @@ graph LR
   T1["T1 · Scaffold and harness<br/>(BE)"] --> T2["T2 · Pure modules<br/>(BE)"]
   T2 --> T3["T3 · Command wiring<br/>(BE)"]
   T3 --> T4["T4 · Packaging and security review<br/>(BE)"]
+  T1 --> T5["T5 · Click-through overlay<br/>(BE)"]
+  T4 --> T5
 ```
 
 ### Execution Waves
@@ -965,7 +1221,11 @@ graph LR
 | 2 | Task 2 | Wave 1 | Needs the Mocha harness |
 | 3 | Task 3 | Wave 2 | Imports both pure modules; edits `extension.ts` |
 | 4 | Task 4 | Wave 3 | Packages the finished command |
+| 5 | Task 5 | Wave 4 | Needs Task 1's manifest baseline and Task 4's security review document to amend; shares no source file with Tasks 2–4 |
 
-The chain is fully sequential — each task consumes the previous one's surface. This epic
-touches neither `plugin.json` nor `marketplace.json`, so any of its tasks may share a wave
-with any task from E1.1 or E1.3.
+Tasks 1–4 remain fully sequential — each consumes the previous one's surface. Task 5 is
+placed last rather than run in parallel with Tasks 2–4: it doesn't share source files with
+them, but it does share `package.json` with Task 1 and `extension-security-review.md` with
+Task 4, and amending a document that doesn't exist yet (or a manifest Task 1 hasn't rewritten
+yet) isn't well-defined. This epic touches neither `plugin.json` nor `marketplace.json`, so
+any of its tasks may share a wave with any task from E1.1 or E1.3.
