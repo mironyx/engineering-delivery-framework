@@ -19,10 +19,17 @@ Executes the implementation cycle from design reading through PR review. Called 
 These override any conflicting instinct. Violations are the top cost drivers.
 
 1. **Pass fully-resolved `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-*.sh` commands to sub-agents.** `${CLAUDE_PLUGIN_ROOT}` is resolved by Claude Code in skill markdown. No `EDF_SCRIPTS` variable, no `.env` reading — the `bash` prefix avoids execute-bit issues.
-2. **Never run tests without a file filter in Step 4.** Use `edf:test <test-file>`. The full suite runs once in Step 5 — nowhere else. The skill auto-infers language from file extensions.
-3. **Step 5 uses `edf:test` skill.** All verification runs through the skill — zero test output reaches the main context. This applies to single-file runs during the fix loop too.
+2. **Never run tests without a file filter in Step 4.** Use `edf:test <test-file>`. The full
+   suite runs once in Step 5 — nowhere else, **except** Step 4L's inline run (explicitly
+   scoped to the target test file, not the suite) and `edf:feature-evaluator`'s Step 5
+   (explicitly scoped to `test_files` plus its own new eval file, not the suite).
+3. **Step 5 uses `edf:test` skill.** All verification runs through the skill — zero test
+   output reaches the main context. This applies to single-file runs during the fix loop
+   too. **Exception: Step 4L** runs its target test file directly via Bash — the Light track
+   has no sub-agent involvement by design, and the output is small enough to stay compact
+   in the main context.
 4. **Pass pointers to sub-agents, not content.** File paths, issue numbers, LLD paths. Never paste diffs or file contents into agent prompts.
-5. **Review agents run in-process, not out-of-process.** All review agents (`edf:feature-evaluator`, `edf:pr-review`, `edf:ci-probe`, `edf:lld-review`, `edf:hld-review`, `edf:requirements-review`) are spawned via `Agent({subagent_type: "edf:feature-evaluator"})` (substituting whichever review agent applies) — they run inside the calling session, share the CWD, and return findings directly to the caller. Only `edf:feature-team` teammates should be out-of-process (separate git worktree, separate session). Do not launch review agents with worktree isolation or as external processes.
+5. **Review agents run in-process, not out-of-process.** All review agents (`edf:feature-evaluator`, `edf:pr-review`, `edf:ci-probe`, `edf:lld-review`, `edf:hld-review`, `edf:requirements-review`) are spawned via `Agent({subagent_type: "edf:feature-evaluator"})` (substituting whichever review agent applies) — they run inside the calling session and return findings directly to the caller. `edf:pr-review` is a Skill, not a registered agent — invoke it with `Skill: edf:pr-review`, not `Agent(...)`. **Do not assume CWD is reliably shared with a spawned review agent** — sub-agent spawns do not reliably inherit the calling session's CWD (the same failure mode `edf:test` was fixed for); any review agent that runs its own verification commands must capture and pin its own CWD explicitly rather than relying on inheritance. Only `edf:feature-team` teammates should be out-of-process (separate git worktree, separate session). Do not launch review agents with worktree isolation or as external processes.
 6. **Never invoke `/simplify`.** Only if the user explicitly asks.
 7. **Do not move the board item to Done.** `/feature-end` handles that.
 
@@ -441,15 +448,26 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-
 **Full track:** Launch the `edf:feature-evaluator` agent. Pass it:
 
 - `requirements_paths` — same absolute list passed to the edf:test-author in Step 4bF
-- `lld_path` — the LLD file absolute path from Step 3 (or the issue number if no LLD exists)
+- `lld_path` — the LLD file absolute path from Step 3, or the literal string `"none"` if no
+  LLD exists (same sentinel used for `edf:test-author` in Step 4bF — do not pass the issue
+  number here, `edf:feature-evaluator` does not treat it as an LLD path)
 - `issue_number` — the current issue number
 - `changed_files` — all `src/` files created or modified in this cycle (absolute paths)
 - `test_files` — all `tests/` files created or modified in this cycle (absolute paths; including the
   file the `edf:test-author` sub-agent produced in Step 4bF)
+- `coverage_manifest` — if `lld_path` is not `"none"`, resolve the coverage manifest next to
+  it: derive the epic slug (`v{N}-e{M}`) from the LLD filename and glob for a matching file
+  in the same directory:
+  ```bash
+  LLD_DIR=$(dirname "<lld_path>")
+  EPIC_SLUG=$(basename "<lld_path>" | sed -n 's/^lld-\(v[0-9]\+-e[0-9]\+\).*/\1/p')
+  COVERAGE_MANIFEST=$(ls "$LLD_DIR"/coverage-${EPIC_SLUG}*.yaml 2>/dev/null | head -1)
+  ```
+  Pass the resolved absolute path, or `"none"` if the glob finds nothing or `lld_path` is `"none"`.
 
 ```
 Launch Agent: edf:feature-evaluator
-Input: requirements_paths=<absolute list> lld_path=<absolute path> issue_number=<N> changed_files=<absolute list> test_files=<absolute list>
+Input: requirements_paths=<absolute list> lld_path=<absolute path or "none"> issue_number=<N> changed_files=<absolute list> test_files=<absolute list> coverage_manifest=<absolute path or "none">
 ```
 
 **HTTP mocking check:** verify the test files use the project's HTTP mocking convention as declared in CLAUDE.md. If they use manual stubs, spies, or monkeypatching instead, flag it as a blocker — the tests must be rewritten before the feature can proceed.

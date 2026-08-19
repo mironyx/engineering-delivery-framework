@@ -82,7 +82,7 @@ Input: command="<resolved command>"
 ### 4. Report
 
 - **PASS** — report pass and continue.
-- **FAIL** — report the failure (test-runner surfaces the first 10 lines). Do not retry — the caller decides whether to fix and re-run.
+- **FAIL** — report the failure (test-runner surfaces the last 30 lines of output — the tail, not the head, since a failing stage in a chained `full`/`e2e` command prints after any earlier passing stage). Do not retry — the caller decides whether to fix and re-run.
 
 ## Guidelines
 

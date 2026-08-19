@@ -32,9 +32,12 @@ adversarial tests ONLY when you find a genuine gap — not as your default outpu
 
 ## Volume discipline
 
-Do not halt on volume. Write whatever adversarial tests you believe are warranted by
-genuine gaps, then report how many you wrote and why — the feature-core agent surfaces
-this in the PR as a process signal, it does not block the PR.
+Write what genuine gaps warrant, but **if you're about to write a 6th adversarial test,
+stop.** Report the remaining gaps as findings in the output table instead of continuing to
+write tests — at that volume, either the spec has a structural coverage problem worth a
+human decision, or you've drifted from "genuine gap" into "everything I can think of." Up
+to five, report how many you wrote and why — the feature-core agent surfaces this in the
+PR as a process signal, it does not block the PR.
 
 When you do write more than three adversarial tests, include in your report which of
 these explains the volume, for each test:
@@ -53,14 +56,15 @@ Your volume is a diagnostic. Prefer fewer, higher-signal tests — but report, d
 You will receive:
 - `requirements_paths` — one or more paths to the project requirements document(s)
   (e.g. `docs/requirements/v1-requirements.md`). These are the contract of record.
-- `lld_path` — path to the Low-Level Design document (refinement of requirements)
+- `lld_path` — path to the Low-Level Design document (refinement of requirements), or the
+  literal string `"none"` if no LLD exists for this issue
 - `issue_number` — the GitHub issue number
 - `changed_files` — list of source files created or modified
 - `test_files` — list of test files created or modified (including the file written by
   the `edf:test-author` sub-agent in feature-core Step 4b)
 - `coverage_manifest` — path to the coverage manifest (`docs/design/v{N}/coverage-<epic-id>.yaml`
-  per ADR-0036, or `docs/design/coverage-<epic-id>.yaml` legacy flat), e.g. `coverage-v11-e11-1.yaml`.
-  Maps REQ- → LLD- → issue → status per ADR-0026.
+  per ADR-0036, or `docs/design/coverage-<epic-id>.yaml` legacy flat), e.g. `coverage-v11-e11-1.yaml`,
+  or the literal string `"none"` if there isn't one. Maps REQ- → LLD- → issue → status per ADR-0026.
 
 ## Process
 
@@ -72,11 +76,14 @@ Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `al
 Read in this order, most authoritative first:
 
 1. Every file in `requirements_paths` — these are the contract of record.
-2. The LLD at `lld_path` — refinement of the requirements.
+2. The LLD at `lld_path` — refinement of the requirements. **If `lld_path` is `"none"`,
+   skip this source entirely** — there is no LLD for this issue; derive criteria from
+   requirements and the issue body only.
 3. The issue body: `gh issue view <issue_number>` — often the narrowest scope.
-4. If `coverage_manifest` is provided and the file exists, read it — it records the
-   formal REQ- → LLD- → issue mapping per ADR-0026. Use it to confirm which REQ- anchors
-   this issue is expected to cover, rather than re-deriving that mapping from scratch.
+4. If `coverage_manifest` is provided, not `"none"`, and the file exists, read it — it
+   records the formal REQ- → LLD- → issue mapping per ADR-0026. Use it to confirm which
+   REQ- anchors this issue is expected to cover, rather than re-deriving that mapping
+   from scratch.
 
 Build a unified numbered checklist. Tag each criterion with its source so drift is
 visible:
@@ -177,13 +184,22 @@ worth the cost.
 
 Keep tests focused — one assertion per test where possible.
 
-### Step 5: Run all tests
+### Step 5: Run the scoped test files
+
+**Do not run the full suite.** `feature-core`'s own Step 5 already ran it once and reruns it
+again after this step — running it a third time here duplicates cost for no new signal.
+Scope this run to `test_files` (as passed in) plus your own new evaluation file, if you
+wrote one.
+
+**Capture your own CWD before running anything.** Sub-agent spawns do not reliably inherit
+the calling session's CWD — pin it explicitly rather than assuming it:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p>
+CWD=$(pwd)
+cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test_files...> <your-eval-file-if-written>
 ```
 
-This runs the full suite including your new evaluation tests. Record results.
+Record results.
 
 If your new tests fail, that's a finding — don't fix the implementation. The failures
 are your evidence.

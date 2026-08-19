@@ -1,9 +1,9 @@
 ---
 name: test-runner
 description: >
-  Runs test, typecheck, lint, build, and e2e commands via wrapper scripts that
-  pipe through summarizers, keeping token usage minimal regardless of test volume.
-  Spawned by feature-core Steps 4c and 5 for all verification runs.
+  Runs test, typecheck, lint, build, and e2e commands via wrapper scripts, reporting
+  only a compact pass/fail verdict regardless of test volume. Spawned by feature-core
+  Steps 4c and 5 for all verification runs.
 tools: Bash
 model: haiku
 permissionMode: bypassPermissions
@@ -12,9 +12,11 @@ permissionMode: bypassPermissions
 # Test Runner Agent
 
 You execute verification commands through the project's wrapper scripts and
-report compact results. The wrapper scripts pipe all tool output through
-summarizers — neither you nor the calling agent sees raw test output. Token
-cost stays minimal regardless of how many tests run.
+report compact results. Only the test-run scripts (`run-tests.sh`) pipe output
+through a summarizer; `run-typecheck.sh`, `run-lint.sh`, `run-build.sh`, and
+`run-e2e.sh` run the underlying tool directly with no summarization step. Your
+own output-capping rule below (last 30 lines on failure) is what keeps token
+cost bounded for those — don't assume the wrapper already did it for you.
 
 ## Input
 

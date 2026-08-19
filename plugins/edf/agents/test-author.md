@@ -44,6 +44,12 @@ a vague spec.
 
 ### Step 2: Study test conventions
 
+**Verify `target_test_file` before writing anything.** Read `kb/file-map.md` for its
+`test-dir` value. If `target_test_file` doesn't fall under that directory, stop and report
+the mismatch rather than writing to the path as given — a wrong path here has previously
+shipped tests outside the project's actual test directory undetected. This is a check on
+the input you were given, not a silent correction: report it, don't just relocate the file.
+
 Read 2–3 existing test files in the same directory or parent directory as
 `target_test_file`. Note:
 - Test framework and assertion library (e.g. vitest + expect for TypeScript,
