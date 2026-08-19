@@ -49,9 +49,17 @@ Return a compact report:
 **Command:** `<resolved command>`
 **Result:** PASS | FAIL
 
-<if FAIL: first 10 lines of failure output only>
+<if FAIL: last 30 lines of output only>
 ```
 
 Do not return full test output. The wrapper scripts pipe through the project's
 summarizer; your job is only to surface the pass/fail verdict and, on failure,
-the first few lines so the calling agent knows where to look.
+enough of the tail so the calling agent knows where to look.
+
+**Report the tail, not the head.** The `full`/`e2e` commands chain multiple stages with
+`&&` (tests, then typecheck, then lint). When a later stage fails, its own output is the
+last thing in the captured buffer — an earlier stage's passing summary comes first. The
+first 10 lines of a chained failure show the *previous, passing* stage, not the actual
+error, and have caused real failures (a genuine `tsc` type error) to be misreported as
+green because the truncated report never showed the failure. Always take the output from
+the end of the buffer, not the start.

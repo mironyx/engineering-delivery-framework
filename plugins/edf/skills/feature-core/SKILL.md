@@ -268,6 +268,12 @@ For bug fixes the interface usually already exists — skip the stub step and go
 launching test-author. If the fix requires a new signature (e.g. adding a parameter), commit
 the signature change first.
 
+**Resolve `target_test_file` from the project's convention — do not construct it freehand.**
+Read `kb/conventions.md` for its `test-dir` (and `test-suffix`, if named) value the same way
+Step 5 resolves `e2e-dir`, and build the path under that directory. A path built by pattern-
+matching nearby files (e.g. mirroring a `src/`-colocated example) has shipped tests outside
+the project's actual test directory before — verify against the convention, not an example.
+
 Then launch the `edf:test-author` agent with:
 
 ```

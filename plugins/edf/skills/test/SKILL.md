@@ -43,20 +43,32 @@ Split `$ARGUMENTS` on whitespace. The first token is the mode or file path.
 
 ### 2. Resolve command
 
-Construct the fully-resolved command using `${CLAUDE_PLUGIN_ROOT}`:
+**Capture your own CWD first, and prefix it onto the command.** `edf:test-runner` never
+changes directory itself (see its anti-patterns) — it runs wherever it inherits, and
+sub-agent spawns do not reliably inherit the calling session's CWD. This is what caused
+verification to silently run against the wrong checkout (main repo instead of a
+`/feature-team` worktree). Run this before building the command:
+
+```bash
+CWD=$(pwd)
+```
+
+Construct the fully-resolved command using `${CLAUDE_PLUGIN_ROOT}`, with `cd "$CWD" &&`
+prefixed onto every variant below:
 
 | Mode | Command |
 |------|---------|
-| `file` | `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts\|p> <file>` |
-| `all` | `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts\|p>` |
-| `full` | `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts\|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-typecheck.sh <ts\|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh <ts\|p>` |
-| `typecheck` | `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-typecheck.sh <ts\|p>` |
-| `lint` | `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh <ts\|p>` |
-| `build` | `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-build.sh <ts\|p>` |
-| `e2e` | `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-build.sh <ts\|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-e2e.sh <ts\|p>` |
-| `audit` | `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-audit.sh <ts\|p>` |
+| `file` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts\|p> <file>` |
+| `all` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts\|p>` |
+| `full` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts\|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-typecheck.sh <ts\|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh <ts\|p>` |
+| `typecheck` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-typecheck.sh <ts\|p>` |
+| `lint` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh <ts\|p>` |
+| `build` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-build.sh <ts\|p>` |
+| `e2e` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-build.sh <ts\|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-e2e.sh <ts\|p>` |
+| `audit` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-audit.sh <ts\|p>` |
 
 `${CLAUDE_PLUGIN_ROOT}` is resolved by Claude Code in skill markdown — do not read it from `.env`.
+`$CWD` is the literal path captured above — substitute it in, don't pass the variable name.
 
 ### 3. Execute
 

@@ -47,8 +47,12 @@ If diff is empty, print "Nothing to review — diff is empty." and stop.
 
 From the gathered data, compute:
 
-- `DIFF_LINE_COUNT` — total lines in the diff (added + removed)
 - `CHANGED_FILES` — source files added or modified (not deleted). Treat any path under the project's source root as a source file; `kb/conventions.md` may name a `test-suffix` to recognise tests.
+- `DIFF_LINE_COUNT` — lines added + removed **in source files only** (per `CHANGED_FILES`'s
+  test-suffix rule above) — excludes test files. A large test-only diff (e.g. an evaluator's
+  adversarial tests, or a bulk fixture update) must not push a small source change onto the
+  more expensive 2-agent path. Compute per-file with `git diff --numstat` (or `gh pr diff
+  <number> --patch` parsed the same way) and sum only the rows for non-test files.
 - `EXTERNAL_SURFACES` — every surface the diff codes against whose contract is defined
   outside this repo, each with its pinned version. Broader than the dependency manifest: a
   protocol or wire-format spec (MCP, OAuth, a webhook payload format) has no manifest entry
