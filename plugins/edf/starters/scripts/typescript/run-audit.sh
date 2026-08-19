@@ -22,7 +22,7 @@ fi
 
 OUTPUT="$("${AUDIT_CMD[@]}" 2>&1)"
 rc=$?
-if [ "$rc" -ne 0 ] && echo "$OUTPUT" | grep -qiE 'npm (error|err)|code E|EAI_AGAIN|ENOTFOUND|ETIMEDOUT|ENETUNREACH|ECONNREFUSED|ERR_SSL|network|registry'; then
+if [ "$rc" -ne 0 ] && echo "$OUTPUT" | grep -qiE 'npm (error|err)|code E|EAI_AGAIN|ENOTFOUND|ETIMEDOUT|ENETUNREACH|ECONNREFUSED|ERR_SSL'; then
     echo "audit skipped (audit tool or network failure):"
     echo "$OUTPUT" | head -n 3
     exit 0

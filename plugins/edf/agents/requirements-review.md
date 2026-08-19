@@ -4,7 +4,7 @@ description: >
   Reviews a requirements document before each human gate. Checks INVEST compliance,
   AC testability, cross-reference completeness, anchor presence, and internal consistency.
   Spawned by /requirements before Gate 1 and Gate 2.
-tools: Read, Glob, Grep
+tools: Read, Glob, Grep, WebFetch, WebSearch
 model: sonnet
 ---
 
@@ -117,6 +117,13 @@ Run all Gate 1 checks, plus:
   security-relevant (auth flow, permissions, token handling) with no security AC is a
   **block**.
 
+- **External/regulatory claim verification** — where an AC's shape is justified by
+  asserting a third-party system's behaviour (a webhook payload, an OAuth flow, an
+  API contract) or a regulatory/compliance requirement (GDPR, PCI-DSS, an
+  accessibility standard), spot-check the highest-risk claims against authoritative
+  documentation with `WebFetch`/`WebSearch`. Cap this to claims the ACs are directly
+  built on — not general domain colour.
+
 ### Step 4: Produce findings
 
 Each finding: state the story reference (epic + story number + REQ- anchor), what the
@@ -125,10 +132,11 @@ issue is, and a suggested fix. Classify severity:
 - **block** — INVEST violation that would prevent implementation (untestable,
   dependent on another unbuilt story), missing REQ- anchor, uncovered discovery
   feature with no deferral, undefined role, security-relevant story with no
-  security AC
+  security AC, external/regulatory claim that contradicts its source
 - **warn** — missing negative case, vague qualifier, missing visual reference,
   priority ordering concern, story likely oversized, security/perf-sensitive
-  story with zero security or performance AC
+  story with zero security or performance AC, uncited external/regulatory claim
+  an AC is directly built on
 
 ## Output
 

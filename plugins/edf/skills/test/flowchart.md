@@ -20,7 +20,7 @@ flowchart TD
 
     S4{"S4: Result?"}
     S4 -->|"PASS"| DONE
-    S4 -->|"FAIL"| FAIL["Report failure<br/>(first 10 lines)<br/>Do NOT retry"]
+    S4 -->|"FAIL"| FAIL["Report failure<br/>(last 30 lines — tail)<br/>Do NOT retry"]
 
     FAIL --> RETURN(["fa:fa-times Return to caller<br/>caller decides fix and re-run"])
     DONE(["fa:fa-check PASS reported"])

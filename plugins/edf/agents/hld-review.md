@@ -6,7 +6,7 @@ description: >
   interaction coverage, trust boundary explicitness, ADR triggers, delta-mode
   reference resolution, and technology-free naming.
   Spawned by /kickoff after Step 2, before Gate 1.
-tools: Read, Glob, Grep
+tools: Read, Glob, Grep, WebFetch, WebSearch
 model: sonnet
 ---
 
@@ -65,6 +65,14 @@ cross-cutting concern.
   Flag decisions that should have an ADR but don't. Check `adr_dir` for existing ADRs
   before flagging.
 
+- **External technology claims** — where the HLD justifies a component boundary,
+  ADR trigger, or trust-boundary decision by asserting a third-party technology's or
+  vendor's capability (a specific protocol, SLA, compliance certification, integration
+  pattern) that isn't grounded in this repo's existing code or ADRs, spot-check the
+  highest-risk claims against the vendor's documentation with `WebFetch`/`WebSearch`.
+  Cap this to load-bearing choices — the ones an ADR trigger or component boundary
+  depends on — not every technology mentioned.
+
 - **Delta-mode reference resolution** — every `See [prior HLD §anchor]` reference
   must resolve to a real anchor in the prior HLD file. Verify by grepping the prior
   HLD for each referenced anchor. Broken references are blockers.
@@ -96,11 +104,13 @@ Classify severity:
 
 - **block** — uncovered capability with no owner, component with no
   non-responsibilities, broken delta reference, missing trust boundary declaration,
-  missing authZ model on a component owning sensitive data
+  missing authZ model on a component owning sensitive data, external technology
+  claim that contradicts its source
 - **warn** — missing interaction diagram for non-critical flow, unclear component
   responsibility, load-bearing decision without ADR, technology in component name,
   missing performance expectations where requirements imply scale, missing
-  data-protection statement for sensitive data
+  data-protection statement for sensitive data, uncited external technology claim
+  on a load-bearing decision
 
 ## Output
 

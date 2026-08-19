@@ -269,6 +269,19 @@ Total:                             N
 
 **Skip if `--mode pre` or no `--app-url`.**
 
+Categories C (Acceptance Criteria) and D (Visual Specifications) from Step 1 do not get
+their own execution loop — fold them into the E2E scenarios below, or the Step 6 report's
+"Acceptance Criteria" and "Visual State Coverage" tables will have nothing to populate them:
+
+- For each scenario, add the AC(s) it satisfies to its `assertions` list (an AC is a
+  pass/fail assertion — that's what the field is for).
+- If the scenario's screen has an entry in the LLD's Visual Specifications table, set
+  `visual_reference` to that screen's states and pass them through so qa-executor verifies
+  each state renders, not just that the happy path completes.
+- If an AC or visual state has no corresponding E2E scenario from Step 1A, it has no
+  coverage path here — note it as a gap directly in the Step 6 report tables rather than
+  silently leaving the row blank.
+
 For each E2E scenario identified in Step 1A, spawn the `edf:qa-executor` agent:
 
 ```

@@ -24,7 +24,8 @@ case "$LANG" in
         echo ""
         echo "=== Python format check ==="
         "$SCRIPT_DIR/python/run-format-check.sh" "$@"; py_rc=$?
-        exit $(( ts_rc + py_rc ))
+        if [ "$ts_rc" -ne 0 ] || [ "$py_rc" -ne 0 ]; then exit 1; fi
+        exit 0
         ;;
     *)
         echo "Unknown language: $LANG. Use ts (TypeScript), p (Python), or all." >&2
