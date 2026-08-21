@@ -29,23 +29,38 @@ Determine mode from `$ARGUMENTS`:
 - Number present → **PR mode**
 - Otherwise → **local mode**
 
-Run ALL of the following in parallel:
+Build the review package first, then run the rest in parallel.
 
-1. **PR mode:** `gh pr diff <number>` — full diff, untruncated.
-   **Local mode:** `git diff HEAD` (fall back to `git diff --cached` if empty).
-2. **PR mode:** `gh pr diff --name-only <number>`.
-   **Local mode:** `git diff --name-only HEAD`.
-3. Read `CLAUDE.md` (root).
-4. Read the project's dependency manifest if one exists (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc.) — capture exact versions of direct dependencies. Skip if none present.
-5. Read `kb/architecture.md` — the project's architecture rules. Pass its full contents to the review agent(s) as `{{ARCHITECTURE_RULES}}`. Skip if absent.
-6. Read `kb/anti-patterns.md` — the project's anti-pattern checklist (framework-specific patterns, language conventions, helper-reuse rules). Pass its full contents as `{{ANTI_PATTERNS}}`. Skip if absent.
-7. Pass `kb/architecture.md` contents (already read in step 5) as `{{KB_ARCHITECTURE}}` — it doubles as the reusable helper catalogue. Skip if the file has no API composition pattern entries (helper-reuse checks rely on `{{ANTI_PATTERNS}}` content instead).
+1. **Build the review package.** The diff never enters this session's context — it goes
+   to a git-ignored file that the review agents read for themselves.
 
-If diff is empty, print "Nothing to review — diff is empty." and stop.
+   ```bash
+   # PR mode
+   bash ${CLAUDE_PLUGIN_ROOT}/bin/review-package.sh --pr <number>
+   # Local mode
+   bash ${CLAUDE_PLUGIN_ROOT}/bin/review-package.sh --local
+   ```
+
+   The script prints `package: <path>` followed by a `numstat:` table — one
+   `added<TAB>removed<TAB>path` row per changed file. That path is `{{DIFF_FILE}}`, and
+   the numstat table is the only diff-derived data allowed in this session: it supplies
+   both the changed-file list and the line counts Step 2 needs.
+
+   **Never `cat`, `Read`, `gh pr diff`, or `git diff` the change yourself.** Reading the
+   diff here puts it in context for every remaining turn and defeats the package — the
+   agents each read the file directly instead.
+
+   Exit code 3 means the diff is empty: print "Nothing to review — diff is empty." and stop.
+
+2. Read `CLAUDE.md` (root).
+3. Read the project's dependency manifest if one exists (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc.) — capture exact versions of direct dependencies. Skip if none present.
+4. Read `kb/architecture.md` — the project's architecture rules. Pass its full contents to the review agent(s) as `{{ARCHITECTURE_RULES}}`. Skip if absent.
+5. Read `kb/anti-patterns.md` — the project's anti-pattern checklist (framework-specific patterns, language conventions, helper-reuse rules). Pass its full contents as `{{ANTI_PATTERNS}}`. Skip if absent.
+6. Pass `kb/architecture.md` contents (already read in step 4) as `{{KB_ARCHITECTURE}}` — it doubles as the reusable helper catalogue. Skip if the file has no API composition pattern entries (helper-reuse checks rely on `{{ANTI_PATTERNS}}` content instead).
 
 ### Step 2: Classify the review
 
-From the gathered data, compute:
+From the numstat table printed in Step 1 (never from a fresh diff command), compute:
 
 - `CHANGED_FILES` — source files added or modified (not deleted). Treat any path under the
   project's source root as a source file; `kb/conventions.md` may name a `test-suffix` to
@@ -56,9 +71,8 @@ From the gathered data, compute:
 - `DIFF_LINE_COUNT` — lines added + removed **in source files only** (per `CHANGED_FILES`'s
   test-suffix rule above, including its fallback) — excludes test files. A large test-only
   diff (e.g. an evaluator's adversarial tests, or a bulk fixture update) must not push a
-  small source change onto the more expensive 2-agent path. Compute per-file with `git diff
-  --numstat` (or `gh pr diff <number> --patch` parsed the same way) and sum only the rows
-  for non-test files.
+  small source change onto the more expensive 2-agent path. Sum the added and removed
+  columns of the Step 1 numstat table, counting only the rows for non-test files.
 - `EXTERNAL_SURFACES` — every surface the diff codes against whose contract is defined
   outside this repo, each with its pinned version. Broader than the dependency manifest: a
   protocol or wire-format spec (MCP, OAuth, a webhook payload format) has no manifest entry
@@ -69,7 +83,7 @@ From the gathered data, compute:
   - **No LLD or no table:** derive it. Direct (not dev) dependencies the changed files
     import, plus any spec surface evident from the diff — handshake or capability
     negotiation, a versioned wire format, a dated revision in comments or constants.
-    Versions come from the manifest read in Step 1.4; for spec surfaces, whatever revision
+    Versions come from the manifest read in Step 1.3; for spec surfaces, whatever revision
     the diff states, or `unpinned` if it states none.
 - `NEW_SURFACES` — the subset used here for the first time anywhere in this repo. Read the
   table's `New to repo` column, or grep outside the diff for prior use. First use means the
@@ -243,10 +257,14 @@ Kb (reusable helpers — block any re-implementation):
 {{KB_ARCHITECTURE}}
 </kb_architecture>
 
-Diff:
-<diff>
-{{DIFF}}
-</diff>
+Diff — read this file first with the Read tool. It holds the diffstat and the full
+diff with 10 lines of context, and it is your view of the change. Those context
+lines ARE the changed files: do not open a changed file separately unless a hunk you
+must judge is cut off mid-function, and say so in your finding if you do. Do not run
+`git diff` or `gh pr diff` to fetch the change yourself.
+<diff_file>
+{{DIFF_FILE}}
+</diff_file>
 
 Commits:
 <commits>
@@ -360,10 +378,14 @@ Anti-patterns checklist:
 {{ANTI_PATTERNS}}
 </anti_patterns>
 
-Diff:
-<diff>
-{{DIFF}}
-</diff>
+Diff — read this file first with the Read tool. It holds the diffstat and the full
+diff with 10 lines of context, and it is your view of the change. Those context
+lines ARE the changed files: do not open a changed file separately unless a hunk you
+must judge is cut off mid-function, and say so in your finding if you do. Do not run
+`git diff` or `gh pr diff` to fetch the change yourself.
+<diff_file>
+{{DIFF_FILE}}
+</diff_file>
 
 Commits:
 <commits>
@@ -497,10 +519,14 @@ Kb (reusable helpers — block any re-implementation):
 {{KB_ARCHITECTURE}}
 </kb_architecture>
 
-Diff:
-<diff>
-{{DIFF}}
-</diff>
+Diff — read this file first with the Read tool. It holds the diffstat and the full
+diff with 10 lines of context, and it is your view of the change. Those context
+lines ARE the changed files: do not open a changed file separately unless a hunk you
+must judge is cut off mid-function, and say so in your finding if you do. Do not run
+`git diff` or `gh pr diff` to fetch the change yourself.
+<diff_file>
+{{DIFF_FILE}}
+</diff_file>
 
 Changed files:
 <changed_files>
@@ -596,10 +622,14 @@ that has a doc URL.
 
 ## Input
 
-Diff:
-<diff>
-{{DIFF}}
-</diff>
+Diff — read this file first with the Read tool. It holds the diffstat and the full
+diff with 10 lines of context, and it is your view of the change. Those context
+lines ARE the changed files: do not open a changed file separately unless a hunk you
+must judge is cut off mid-function, and say so in your finding if you do. Do not run
+`git diff` or `gh pr diff` to fetch the change yourself.
+<diff_file>
+{{DIFF_FILE}}
+</diff_file>
 
 Issue body:
 <issue>
@@ -699,7 +729,10 @@ Append to terminal output (not to the PR comment):
   in the **same message** so they run concurrently. In the < 150 line path: launch Agent Q
   (and Agent B if SURFACE_RESEARCH) the same way. Agent B's trigger is independent of diff
   size — a first integration against an external spec can be small and still be invented.
-- If the diff is empty, report "Nothing to review — diff is empty." and stop.
+- If the diff is empty, `review-package.sh` exits 3 without writing a package: report
+  "Nothing to review — diff is empty." and stop.
+- The review package is scratch, written to a self-ignoring `.edf/review/` at the repo
+  root. It is never committed, and there is nothing to clean up.
 - The 150-line threshold is a guide. If a large diff is mostly trivial changes (whitespace,
   renames, generated code), use judgment and prefer the single-agent path.
 - The static anti-pattern list (`kb/anti-patterns.md`, surfaced as `{{ANTI_PATTERNS}}`)

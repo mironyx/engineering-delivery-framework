@@ -6,7 +6,7 @@ Visual overview of the adaptive code review pipeline. Cost-adaptive: diff size s
 flowchart TD
     START(["fa:fa-play /pr-review invoked"]) --> S1
 
-    S1["S1: Gather context<br/>Diff, changed files, CLAUDE.md,<br/>kb/architecture.md,<br/>kb/anti-patterns.md, manifest"] --> S1_CHK{"Diff empty?"}
+    S1["S1: Gather context<br/>review-package.sh writes the diff<br/>to a file (path + numstat only),<br/>CLAUDE.md, kb/architecture.md,<br/>kb/anti-patterns.md, manifest"] --> S1_CHK{"Diff empty?<br/>(script exit 3)"}
     S1_CHK -->|"Yes"| STOP_EMPTY(["fa:fa-ban Nothing to review"])
     S1_CHK -->|"No"| S2
 
