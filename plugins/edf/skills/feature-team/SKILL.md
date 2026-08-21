@@ -101,19 +101,19 @@ implicitly on the first teammate spawn and is scoped to the lead's session under
 session-derived name (`session-<first 8 chars of session ID>`) — you never need to invent
 or pass a team name.
 
-Call `Agent` once per teammate, **all in the same message**, with `name` and **`model` set
-to the same model the lead is running on** (inherit — do not let the agent definition
-override to a more expensive model):
+Call `Agent` once per teammate, **all in the same message**, with `name` and **no `model`
+field at all**:
 
    ```
-   Agent(description="Implement issue #<N> — <short_title>", name="teammate-<N>", model="sonnet", run_in_background=true, prompt="...")
-   Agent(description="Implement issue #<M> — <short_title>", name="teammate-<M>", model="sonnet", run_in_background=true, prompt="...")
+   Agent(description="Implement issue #<N> — <short_title>", name="teammate-<N>", run_in_background=true, prompt="...")
+   Agent(description="Implement issue #<M> — <short_title>", name="teammate-<M>", run_in_background=true, prompt="...")
    ```
-   Replace `"sonnet"` with whatever model the lead session is actually using (check
-   `/model` output). The `model` field overrides the agent definition's default and
-   ensures teammates run on the same model as the lead — not a more expensive one.
-   (A `team_name` field is still accepted for backward compatibility but is ignored —
-   omit it.)
+   An omitted `model` defaults to `inherit`, so each teammate runs on the lead session's
+   model automatically — no need to check `/model` and hand-substitute an alias, which
+   goes stale the moment the lead switches models. Passing `model` explicitly overrides
+   that inheritance, so only do it to deliberately run a teammate on a *different* model
+   than the lead. (A `team_name` field is still accepted for backward compatibility but is
+   ignored — omit it.)
 
 Do **not** pass "Create a team with N teammates" as prose to the `Agent` tool — that
 syntax is not supported and will be echoed back as text rather than spawning teammates.

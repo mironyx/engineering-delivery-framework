@@ -6,7 +6,7 @@ description: >
   writes test file using project conventions. Spawned by
   feature-core Step 4b (Standard/Heavy pressure path) before implementation.
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: sonnet
+model: inherit
 ---
 
 # Test Author Agent

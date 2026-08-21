@@ -7,7 +7,7 @@ description: >
   complete enough for a /feature agent to implement against?
   Spawned by /lld after Step 2.5, before Step 3.
 tools: Read, Glob, Grep, WebFetch, WebSearch
-model: sonnet
+model: inherit
 ---
 
 # LLD Review Agent

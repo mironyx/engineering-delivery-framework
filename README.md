@@ -88,7 +88,9 @@ Without this file, board-aware skills will fail with a configuration error.
 
 ### Model configuration
 
-Several EDF agents pin `model: haiku` in their frontmatter (`ci-probe`, `diagnostics-checker`, `gh-issue-manager`, `test-runner`) to keep cost low on mechanical work. This relies on the calling environment having a `haiku` model available — either:
+EDF agents fall into two groups. Agents that exercise judgement (`feature-evaluator`, `hld-review`, `lld-review`, `qa-executor`, `qa-explorer`, `requirements-design-drift`, `requirements-review`, `test-author`) use `model: inherit`, so they run on whatever model your session is using — run Opus and your reviewers are Opus, run Sonnet and they are Sonnet. Nothing to configure.
+
+Mechanical agents (`ci-probe`, `diagnostics-checker`, `gh-issue-manager`, `qa-contracts`, `qa-coverage`, `test-runner`) pin `model: haiku` to keep cost low on work that is command execution and string substitution. This relies on the calling environment having a `haiku` model available — either:
 
 - **Anthropic API directly** — `claude-haiku-4-5` is selected automatically.
 - **External routing** — set `ANTHROPIC_DEFAULT_HAIKU_MODEL` (or your routing tool's equivalent) so the `haiku` selector resolves to your chosen backend (e.g. DeepSeek, a local model).
