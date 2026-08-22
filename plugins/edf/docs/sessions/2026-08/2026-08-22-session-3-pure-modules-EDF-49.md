@@ -80,6 +80,20 @@
 - **Doc nit (self-fixed):** Agent Q noted the session log referenced "PR #49" where the actual PR is #72. Fixed in commit `42ba1ed`.
 - **Deferred (recorded in Concerns & Deferred Items above):** dev-toolchain `npm audit` finding (serialize-javascript via mocha) — pre-existing, dev-only, unrelated to this change.
 
+## Process notes
+
+- **Comprehension Check did not re-run on the rebased head (2026-08-22).** After Step 3.5
+  rebased the branch onto `origin/main` (head moved `42ba1ed` → `ddc843b`), the feature-end
+  Step 3.5 instruction to "wait for CI to pass before merging" left the poller waiting on a
+  re-run that never came. Root cause: the "Comprehension Check" is the external
+  `feature-comprehension-score` GitHub App, not a repo workflow — it evaluated the pre-rebase
+  head (`42ba1ed`) as SUCCESS and posts no new check-run after a rebase. This repo has no
+  `.github/workflows/` directory, so there are no GitHub Actions to re-run and `gh run watch`
+  has nothing to watch. Resolution: PR #72 was `mergeState=CLEAN` and mergeable, the rebase
+  left the 7-file diff unchanged, and the check is not a required gate — merge proceeded on
+  the pre-rebase SUCCESS. Lesson: for external-app checks on this repo, a post-rebase "wait
+  for CI" is a no-op; verify `mergeable` + unchanged diff instead.
+
 ## LLD Sync report
 
 ## LLD Sync — Issue #49: v1-e1-2 heading extraction and review insertion-point pure modules
