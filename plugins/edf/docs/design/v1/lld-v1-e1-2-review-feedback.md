@@ -4,8 +4,8 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.2 |
-| Status | Draft |
+| Version | 0.3 |
+| Status | Revised |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Epic | [#30](https://github.com/mironyx/engineering-delivery-framework/issues/30) |
@@ -15,6 +15,11 @@
 | Epic id | `v1-e1-2` |
 
 ## Recent revisions
+
+**0.3 (2026-08-22).** Post-implementation sync for Task 1 (#48). Backfilled the External
+Surfaces table with `glob` and `@types/node`; recorded the `main → ./out/src/extension.js`
+rootDir consequence; documented the extra test files and the `test/`-in-`.vscodeignore`
+deferral. See §2.1 Implementation notes.
 
 **0.2 (2026-08-16).** Folded Story 2.3 (diagram click-through overlay, formerly issue #63) in
 as §2.5/Task 5, on the maintainer's instruction that the extension stay one `.vsix`, not two.
@@ -641,8 +646,10 @@ describe('overlay error handling', () => {
 | `@vscode/vsce` | `^3.9.2` | https://github.com/microsoft/vscode-vsce | Yes — version confirmed on npm | Yes |
 | `mocha` | `^11.8.0` | https://mochajs.org/ | Yes — version confirmed on npm | Yes |
 | `@types/mocha` | `^10.0.10` | https://www.npmjs.com/package/@types/mocha | Yes | Yes |
+| `@types/node` | `^20.19.0` | https://www.npmjs.com/package/@types/node | Yes — types `path`/`process`/`__dirname` in the harness files (extension host runs Node 20) | Yes |
 | `@types/vscode` | `^1.88.0` | https://code.visualstudio.com/api/references/vscode-api | Yes — matched to `engines.vscode` | No (already a devDep) |
 | `typescript` | `^5.9.3` | https://www.typescriptlang.org/ | Yes — 5.9.3 is the latest 5.x | No (already a devDep, `^5.3.0`) |
+| `glob` | `^13.0.0` | https://www.npmjs.com/package/glob | Yes — pinned to ^13: the 11.x line is deprecated on npm, and 13 dedupes with `@vscode/vsce`'s own glob | Yes |
 | VS Code extension API | `engines.vscode ^1.88.0` | https://code.visualstudio.com/api/references/vscode-api | Yes for the APIs listed below | No |
 
 > **On TypeScript.** npm `latest` is `7.0.2` (the native port). This design pins the `5.9`
@@ -675,12 +682,27 @@ describe('overlay error handling', () => {
 extensions/edf-review/
   package.json          — rewritten manifest (see below)
   tsconfig.json         — add "test" to include; keep strict
-  .vscodeignore         — exclude src, test, tsconfig, node_modules
+  .vscodeignore         — exclude src, tsconfig, node_modules (test/ not excluded — see note)
   src/extension.ts      — reduced to activate/deactivate
   test/runTest.ts       — create; launches the VSCode test host
   test/suite/index.ts   — create; Mocha bootstrap
+  test/suite/scaffold.test.ts       — create; scaffold invariants as real specs
+  test/suite/evaluator-gap.test.ts  — create; manifest invariants (feature-evaluator)
+  test/suite/manifest.ts            — create; manifest assertions shared by the specs
   media/                — DELETED (directory and preview.js)
 ```
+
+> **Implementation note (issue #48):** the tsconfig change (add `test` to `include`) forces
+> `rootDir` to the extension root, so the compiled `main` moves to `./out/src/extension.js`;
+> the manifest's `main` row reflects this — the LLD's `"test": "node ./out/test/runTest.js"`
+> script requires exactly this layout. The LLD named only `runTest.ts` and `suite/index.ts`;
+> the scaffold BDD block is implemented as real specs in `scaffold.test.ts`, and the
+> feature-evaluator added `evaluator-gap.test.ts` (manifest invariants: empty
+> `activationEvents`, `edf://`-free metadata, version 0.2.0, `media/` absence, command
+> title/category) plus `manifest.ts` — 8 specs total. The `.vscodeignore` still excludes only
+> `src/`, `tsconfig.json`, `node_modules/`, `.vscode/` — `test/` was not added as the spec's
+> file-structure line called for. _(deferred → #51: the packaging task's shipped-artefact
+> file listing should confirm whether `test/` must be excluded.)_
 
 #### Manifest changes
 
@@ -689,10 +711,11 @@ extensions/edf-review/
 | `displayName` | "EDF Review — Navigable LLD Diagrams" | "EDF Review" |
 | `description` | "Makes edf:// links in LLD diagrams interactive: hover shows code, click opens source files side-by-side…" | "Insert `[Review]` markers into markdown documents from a command-palette quick-pick." |
 | `version` | `0.1.0` | `0.2.0` |
+| `main` | `./out/extension.js` | `./out/src/extension.js` (rootDir consequence — see note below) |
 | `activationEvents` | `["onMarkdownPreview"]` | `[]` (see OQ2 consequence) |
 | `contributes` | `markdown.previewScripts` | `commands` only |
 | `scripts` | `compile`, `watch` | add `test`, `package`, `pretest` |
-| `devDependencies` | `@types/vscode`, `typescript` | add `@vscode/test-electron`, `@vscode/vsce`, `mocha`, `@types/mocha` |
+| `devDependencies` | `@types/vscode`, `typescript` | add `@vscode/test-electron`, `@vscode/vsce`, `mocha`, `@types/mocha`, `glob`, `@types/node` |
 
 ```jsonc
 "contributes": {
@@ -729,6 +752,12 @@ export function run(): Promise<void>
 > **Constraint:** `test/suite/index.ts` must **reject** its promise when `failures > 0`.
 > A bootstrap that resolves unconditionally reports a green run for a red suite, which is
 > worse than having no harness — it is the defect Invariant 5's negative case exists to catch.
+>
+> **Implementation note (issue #48):** the reject-on-failure path has no automated coverage —
+> asserting it needs a second host launch whose suite is deliberately failing, which
+> `@vscode/test-electron` does not model cleanly. Carried as `TODO(#48)` in
+> `test/suite/index.ts`; verified empirically during the issue (red suite exits 1 with
+> `Error: 1 tests failed.`).
 
 #### Error handling
 

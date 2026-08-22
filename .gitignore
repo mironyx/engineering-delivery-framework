@@ -14,3 +14,4 @@ __pycache__/
 # Dependencies & build output
 node_modules/
 out/
+.vscode-test/
