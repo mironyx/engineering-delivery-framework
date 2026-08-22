@@ -82,6 +82,28 @@
      prescribed `applyMarker(editor, headingLine)` signature, needed to implement the LLD's own
      `editor.edit`-false error-table row. Documented: `Justification:` comment in code + PR body
      Design deviations bullet.
+- **PR review re-run (Step 9, post-0.6):** after force-pushing the 0.6 title-first + MRU code,
+  `edf:pr-review` re-ran on PR #73 (285 source diff lines → 2-agent path: Quality + Design
+  Conformance). **0 blockers, 3 warnings**, posted as a PR comment — triaged, none blocking the
+  0.6 spec the coordinator required:
+  1. **No-trailing-newline insert** (bug/warn, `extension.ts`) — when the selected heading (or
+     the last consecutive marker) is the final content line and the document lacks a trailing
+     newline, `Position(at + 1, 0)` is end-of-document and the marker is appended onto the
+     heading line. Edge case (markdown conventionally ends with a newline); the stale-heading
+     guard from the prior review is unaffected. **Deferred** — LLD does not specify; raise at
+     feature-end triage.
+  2. **Cold-start tracker** (bug/warn, `editor-tracker.ts`) — `activationEvents` is empty, so on
+     the very first command invocation the tracker is empty and `resolveTarget` returns `none`
+     when ≥2 markdown editors are visible but none is a focused preview. This is the LLD 0.6
+     contract exactly (`resolveTarget` has no `activeTextEditor` fallback); an added fallback
+     would deviate from the spec the coordinator mandated. **Deferred as an LLD-level limitation**
+     — surfaces only until the user switches tabs once.
+  3. **Test-harness duplication** (maintainability/warn) — the three test files re-implement
+     small stubs (`settle`, `stubQuickPick`, `closedEditor`, …) rather than sharing a helper
+     module. **Deferred** — consistent with the existing suite's self-contained test-file style;
+     a shared helper module is a refactor, not a correctness fix.
+  Design Conformance agent returned no findings (all implemented functions match the LLD 0.6
+  designed list; every deviation is documented in the PR body).
 
 ## Cost checkpoints
 
@@ -95,3 +117,5 @@
 | 6b | 2026-08-22T18:48:00Z | $0.00 | 0 in / 0 out | evaluator: PASS WITH WARNINGS — 5 adversarial tests written, all pass; AC5 filter delegated to native widget |
 | 8 | 2026-08-22T18:50:40Z | $0.00 | 0 in / 0 out | [PR #73](https://github.com/mironyx/engineering-delivery-framework/pull/73) |
 | 0.6 rework | 2026-08-22T23:47:00Z | $0.00 | 0 in / 0 out | LLD → 0.6 title-first + MRU (`a18503c`); tracker rewritten to bounded MRU stack, resolveTarget title-first; suite green 58 passing, 0 failing (4 new resolution specs: title-first, MRU walk, newest-closed fallback, closed-doc eviction) |
+| 9 (re-run) | 2026-08-23T00:00:00Z | $0.00 | 0 in / 0 out | [pr-review re-run](https://github.com/mironyx/engineering-delivery-framework/pull/73#issuecomment-5383239946) — 285 src diff lines → 2 agents; 0 blockers, 3 warnings (all deferred, see Concerns) |
+| 10 | 2026-08-23T00:01:00Z | $0.00 | 0 in / 0 out | CI reconciled synchronously — `gh pr checks 73` reports no checks (no Actions workflows); external Comprehension Check not awaited per task; PR #73 head `82f9862` reports 0.6 code; suite 58 passing |
