@@ -441,10 +441,12 @@ classDiagram
 |---|---|---|---|---|
 | Review comment insertion | [vis-review-comment-insertion.html](vis-review-comment-insertion.html) | Quick-pick open, inserted | [REQ-…-quick-pick-insert-review-comment](../../requirements/v1-requirements.md#REQ-vscode-extension-review-feedback-quick-pick-insert-review-comment) | [C2.4](v1-design.md#c24-review-comment-command) |
 
-> **Screenshot capture is a T3 deliverable.** Capture `vis-review-comment-insertion-quickpick.png`
-> and `vis-review-comment-insertion-inserted.png` from the wireframe and embed them here.
-> Per ADR-0035 every state in the table needs a visual; both states above are declared in
-> the wireframe and neither has been captured yet.
+> **Captured for Task 3 (#50).** Per ADR-0035 every state in the table needs a visual;
+> both states declared in the wireframe are captured below (quick-pick open, inserted).
+
+![Quick-pick listing headings with 1-based line numbers](vis-review-comment-insertion-quickpick.png)
+
+![Review marker inserted with cursor positioned after the marker text](vis-review-comment-insertion-inserted.png)
 
 ### Invariants
 

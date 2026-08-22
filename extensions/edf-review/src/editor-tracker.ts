@@ -27,7 +27,16 @@ export type Resolution =
  * onto `context.subscriptions`.
  */
 export function createEditorTracker(context: vscode.ExtensionContext): EditorTracker {
-  throw new Error('not implemented');
+  let last: vscode.TextEditor | undefined;
+
+  const disposable = vscode.window.onDidChangeActiveTextEditor((editor) => {
+    if (editor && editor.document.languageId === 'markdown') {
+      last = editor;
+    }
+  });
+  context.subscriptions.push(disposable);
+
+  return { last: () => last };
 }
 
 /**
@@ -38,5 +47,22 @@ export function createEditorTracker(context: vscode.ExtensionContext): EditorTra
  * 3. Return `none` with a reason naming which step failed.
  */
 export function resolveTarget(tracker: EditorTracker): Resolution {
-  throw new Error('not implemented');
+  const tracked = tracker.last();
+  if (tracked && !tracked.document.isClosed) {
+    return { kind: 'tracked', editor: tracked };
+  }
+
+  const visible = vscode.window.visibleTextEditors.filter(
+    (editor) => editor.document.languageId === 'markdown'
+  );
+  if (visible.length === 1) {
+    return { kind: 'visible', editor: visible[0] };
+  }
+
+  const reason = tracked
+    ? 'tracked markdown editor is closed'
+    : visible.length === 0
+      ? 'no markdown editor is focused or visible'
+      : `${visible.length} visible markdown editors; cannot disambiguate`;
+  return { kind: 'none', reason };
 }
