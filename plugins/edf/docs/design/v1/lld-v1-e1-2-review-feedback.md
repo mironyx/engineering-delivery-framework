@@ -326,6 +326,7 @@ sequenceDiagram
     actor Reviewer as LLD Reviewer
     participant Cmd as Review Comment Command
     participant Tracker as Editor Tracker
+    participant Tabs as Preview Tab
     participant Editor as Source Editor
     participant Log as EDF Review Channel
 
@@ -341,6 +342,13 @@ sequenceDiagram
         Tracker-->>Cmd: Unresolved
         Cmd->>Log: Reason no document resolved
         Cmd-->>Reviewer: No source document found for this preview
+    end
+    Cmd->>Tabs: correctForPreviewTab — focused tab is markdown preview?
+    alt Preview title disagrees & unique basename match
+        Cmd->>Editor: Open matching source (preview, preserveFocus)
+        Tabs-->>Cmd: Re-targeted editor
+    else Title matches, or ambiguous, or not a preview
+        Note over Cmd,Tabs: Correction skipped — tracker result stands;<br/>log ambiguity when basename match is not unique
     end
     Cmd->>Editor: Extract headings
     alt No headings
@@ -360,8 +368,10 @@ sequenceDiagram
 **Walkthrough.** The three-way resolution is the section's substance. The obvious
 implementation — read `activeTextEditor` — returns `undefined` in exactly the situation the
 feature exists to serve. The tracker therefore records the last focused markdown editor
-*continuously*, and the fallback chain ends in an explicit, logged failure rather than a
-silent no-op. The two cancel paths (Escape, no headings) are specified to leave the document
+*continuously*. A hybrid correction step (`correctForPreviewTab`, 0.5) then re-targets when
+the focused preview's tab title contradicts the tracked editor, and the fallback chain ends
+in an explicit, logged failure rather than a silent no-op. The two cancel paths (Escape, no
+headings) are specified to leave the document
 byte-identical, which is what makes them testable.
 
 ### Structural Overview
