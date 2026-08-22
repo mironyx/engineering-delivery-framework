@@ -32,8 +32,9 @@ export function activate(context: vscode.ExtensionContext) {
 /**
  * Insert a `[Review]` marker under a heading chosen from a quick-pick.
  *
- * Orchestration only (LLD §2.3 Part B): resolve the target, extract headings,
- * quick-pick, single-edit insertion, cursor placement, focus.
+ * Orchestration only (LLD §2.3 Part B): resolve the target (0.6 title-first +
+ * MRU stack), extract headings, quick-pick, single-edit insertion, cursor
+ * placement, focus.
  */
 /** A quick-pick item carrying the 0-based heading line the marker is inserted under. */
 type HeadingPickItem = vscode.QuickPickItem & { line: number };
@@ -88,7 +89,11 @@ export async function insertReviewComment(
   tracker: EditorTracker,
   log: (message: string) => void
 ): Promise<void> {
-  const res = resolveTarget(tracker);
+  const res = await resolveTarget(
+    tracker,
+    vscode.window.tabGroups.activeTabGroup?.activeTab,
+    log
+  );
   if (res.kind === 'none') {
     log(res.reason);
     await vscode.window.showInformationMessage(NO_DOCUMENT_MSG);

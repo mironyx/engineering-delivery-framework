@@ -139,7 +139,7 @@ afterEach(() => {
 describe('insertReviewComment — quick-pick (Issue #50, LLD §2.3)', () => {
   it('lists ## and ### headings with 1-based line numbers', async () => {
     const { editor } = await openMarkdownEditor(MARKDOWN_WITH_HEADINGS);
-    const tracker: EditorTracker = { last: () => editor };
+    const tracker: EditorTracker = { recent: () => [editor], last: () => editor };
     const logCalls: string[] = [];
 
     const quickPick = stubQuickPick<HeadingPickItem>(() => undefined);
@@ -170,7 +170,7 @@ describe('insertReviewComment — quick-pick (Issue #50, LLD §2.3)', () => {
   it('shows the no-headings message and makes no edit for a document without headings', async () => {
     const content = 'Just prose with no headings.\n- a list item\n';
     const { doc, editor } = await openMarkdownEditor(content);
-    const tracker: EditorTracker = { last: () => editor };
+    const tracker: EditorTracker = { recent: () => [editor], last: () => editor };
     const logCalls: string[] = [];
 
     const info = stubInformationMessage();
@@ -199,7 +199,7 @@ describe('insertReviewComment — quick-pick (Issue #50, LLD §2.3)', () => {
 
   it('leaves the document byte-identical and unedited when the quick-pick is dismissed', async () => {
     const { doc, editor } = await openMarkdownEditor(MARKDOWN_WITH_HEADINGS);
-    const tracker: EditorTracker = { last: () => editor };
+    const tracker: EditorTracker = { recent: () => [editor], last: () => editor };
     const logCalls: string[] = [];
 
     const info = stubInformationMessage();
@@ -227,7 +227,7 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
   it('inserts the marker on a new line after the selected heading', async () => {
     const content = ['# Title', '', '## Section One', 'Some prose here.', ''].join('\n');
     const { doc, editor } = await openMarkdownEditor(content);
-    const tracker: EditorTracker = { last: () => editor };
+    const tracker: EditorTracker = { recent: () => [editor], last: () => editor };
     const logCalls: string[] = [];
 
     const quickPick = stubQuickPick<HeadingPickItem>((items) =>
@@ -261,7 +261,7 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       ''
     ].join('\n');
     const { doc, editor } = await openMarkdownEditor(content);
-    const tracker: EditorTracker = { last: () => editor };
+    const tracker: EditorTracker = { recent: () => [editor], last: () => editor };
 
     const quickPick = stubQuickPick<HeadingPickItem>((items) =>
       items.find((item) => item.label.includes('Section One'))
@@ -292,7 +292,7 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
 
   it('applies the insertion as a single edit (document.version increases by exactly 1)', async () => {
     const { doc, editor } = await openMarkdownEditor(MARKDOWN_WITH_HEADINGS);
-    const tracker: EditorTracker = { last: () => editor };
+    const tracker: EditorTracker = { recent: () => [editor], last: () => editor };
 
     const quickPick = stubQuickPick<HeadingPickItem>((items) =>
       items.find((item) => item.label.includes('Section One'))
@@ -317,7 +317,7 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
   it('focuses the editor with the cursor immediately after the marker text', async () => {
     const content = ['# Title', '', '## Section One', 'Some prose here.', ''].join('\n');
     const { editor } = await openMarkdownEditor(content);
-    const tracker: EditorTracker = { last: () => editor };
+    const tracker: EditorTracker = { recent: () => [editor], last: () => editor };
 
     const quickPick = stubQuickPick<HeadingPickItem>((items) =>
       items.find((item) => item.label.includes('Section One'))
@@ -349,7 +349,7 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
     // insert into a CRLF file produces a mixed line-ending edit.
     const content = ['# Title', '', '## Section One', 'Some prose here.', ''].join('\r\n');
     const { doc, editor } = await openMarkdownEditor(content);
-    const tracker: EditorTracker = { last: () => editor };
+    const tracker: EditorTracker = { recent: () => [editor], last: () => editor };
 
     const quickPick = stubQuickPick<HeadingPickItem>((items) =>
       items.find((item) => item.label.includes('Section One'))
@@ -403,7 +403,7 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       viewColumn: 1
     } as unknown as vscode.TextEditor;
 
-    const tracker: EditorTracker = { last: () => fakeEditor };
+    const tracker: EditorTracker = { recent: () => [fakeEditor], last: () => fakeEditor };
     const logCalls: string[] = [];
     const quickPick = stubQuickPick<HeadingPickItem>((items) => items[0]);
     const errorStub = stubErrorMessage();
@@ -431,7 +431,7 @@ describe('insertReviewComment — target resolution failure (Issue #50, LLD §2.
   it('shows the no-source-document message and logs the reason once when neither resolves', async () => {
     // beforeEach hid every visible editor, and the fake tracker has no last()
     // reference — neither the tracked nor the visible fallback can resolve.
-    const tracker: EditorTracker = { last: () => undefined };
+    const tracker: EditorTracker = { recent: () => [], last: () => undefined };
     const logCalls: string[] = [];
 
     const info = stubInformationMessage();

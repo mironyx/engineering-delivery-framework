@@ -6,12 +6,13 @@
   Task 3 of epic E1.2 (#30). Branch `feat/insert-review-command` in worktree
   `engineering-delivery-framework-feat-50-insert-review-command`.
 - **Approach chosen:** register `edf-review.insertReviewComment` per the LLD §2.3 Part B
-  decomposition. Three new/changed `src/` modules: `editor-tracker.ts` (continuous tracking
-  of the last focused markdown editor via `onDidChangeActiveTextEditor`, plus the three-way
-  `resolveTarget`), `log.ts` (an `EDF Review` output channel wrapper), and `extension.ts`
-  (command registration + the `insertReviewComment` orchestration: resolve → extract headings →
-  quick-pick → single-edit insertion with cursor placement/focus). The two pure modules from
-  #49 (`extractHeadings`, `findReviewInsertLine`/`REVIEW_MARKER`) are consumed unchanged.
+  decomposition. Three new/changed `src/` modules: `editor-tracker.ts` (bounded MRU stack of
+  markdown editors — deduped on focus, cap 5, closed documents pruned via
+  `onDidCloseTextDocument` — plus title-first + MRU `resolveTarget`), `log.ts` (an `EDF Review`
+  output channel wrapper), and `extension.ts` (command registration + the `insertReviewComment`
+  orchestration: resolve → extract headings → quick-pick → single-edit insertion with cursor
+  placement/focus). The two pure modules from #49 (`extractHeadings`,
+  `findReviewInsertLine`/`REVIEW_MARKER`) are consumed unchanged.
 - **LLD deviations:** (1) quick-pick label includes the `## `/`### ` level prefix
   (`'#'.repeat(h.level) + ' ' + h.text`) rather than the LLD Part B's literal `label = heading.text`
   — the wireframe (`vis-review-comment-insertion.html`) and the BDD "lists ## and ### headings"
@@ -20,7 +21,16 @@
   exported (LLD shows it module-private) so the integration specs can inject a deterministic
   tracker/log; same for the `NO_DOCUMENT_MSG`/`NO_HEADINGS_MSG` constants, which the LLD already
   says specs assert against. No behaviour change — the module's `main`-visible surface
-  (`activate`/`deactivate`) is unchanged.
+  (`activate`/`deactivate`) is unchanged. (3) `resolveTarget(tracker, activeTab, log)` threads a
+  `log` parameter beyond the LLD's `resolveTarget(tracker, activeTab)` signature to implement the
+  error-table row "focused preview title does not uniquely match → log the unresolved title to
+  `EDF Review`". (4) The markdown preview tab is detected by duck-typing
+  `viewType === 'markdown.preview'` on `tab.input` — `@types/vscode` 1.88 ships no
+  `TabInputWebviewPanel`, so the LLD's `TabInput.WebviewPanel` reference is matched structurally
+  at runtime. (5) The intermediate 0.5 `correctForPreviewTab` hybrid-correction step was
+  superseded by the 0.6 title-first + MRU redesign (LLD commit `a18503c`): resolution consults
+  the focused preview's tab title first, then the MRU stack, then the single-visible-editor
+  check — no standalone correction step.
 - **Pressure:** standard — ~130 source lines across 3 source files (2 new, 1 modified); 2 new
   test files. Under the Step 3c table this is the Standard track.
 
@@ -36,6 +46,17 @@
   registration surface is covered by the scaffold spec "exposes no command other than those
   declared in the manifest". An end-to-end `vscode.commands.executeCommand` test would exercise
   the real tracker (focus-dependent) and be non-deterministic in the shared host.
+- **Test-host event constraints (0.6):** the @vscode/test-electron host never fires
+  `onDidCloseTextDocument` (no close command closes an API-opened document — `closeActiveEditor`,
+  `closeAllEditors`, `closeAllGroups` all leave `isClosed === false`) and never re-presents an
+  already-focused editor (each `showTextDocument` mints a new `TextEditor`; `editor.show()` fires
+  `onDidChangeActiveTextEditor` with `undefined`; tab-switch commands fire nothing). The
+  tracker's dedupe and closed-document-prune branches are therefore exercised deterministically
+  by stubbing the two event sources and invoking the captured handlers directly
+  (`stubTrackerEvents` in `resolution.test.ts`) — the same monkey-patch pattern the `createLog`
+  spec uses for `createOutputChannel`. Real-host integration coverage is retained for the focus
+  path ("tracks the most recently focused markdown editor", "does not track non-markdown
+  editors").
 - **Evaluator verdict: PASS WITH WARNINGS** (Step 6b). All LLD §2.3 contract properties covered;
   warnings are the two delegated/structural gaps above. The evaluator wrote **5 adversarial
   tests** (above the note threshold) in `command-wiring.eval.test.ts` covering properties the
@@ -73,3 +94,4 @@
 | 6 | 2026-08-22T18:38:42Z | $0.00 | 0 in / 0 out | diag: diagnostics-exporter skipped (worktree, no .diagnostics); CodeScene/SonarQube MCP unavailable; tsc strict clean |
 | 6b | 2026-08-22T18:48:00Z | $0.00 | 0 in / 0 out | evaluator: PASS WITH WARNINGS — 5 adversarial tests written, all pass; AC5 filter delegated to native widget |
 | 8 | 2026-08-22T18:50:40Z | $0.00 | 0 in / 0 out | [PR #73](https://github.com/mironyx/engineering-delivery-framework/pull/73) |
+| 0.6 rework | 2026-08-22T23:47:00Z | $0.00 | 0 in / 0 out | LLD → 0.6 title-first + MRU (`a18503c`); tracker rewritten to bounded MRU stack, resolveTarget title-first; suite green 58 passing, 0 failing (4 new resolution specs: title-first, MRU walk, newest-closed fallback, closed-doc eviction) |

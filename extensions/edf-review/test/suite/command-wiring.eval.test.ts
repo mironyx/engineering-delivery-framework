@@ -177,8 +177,11 @@ describe('resolveTarget — tracked editor closed (Issue #50, LLD §2.3 error ta
     });
     const editor = await vscode.window.showTextDocument(doc);
 
-    const tracker: EditorTracker = { last: () => closedEditor() };
-    const resolution = resolveTarget(tracker);
+    const tracker: EditorTracker = {
+      recent: () => [closedEditor()],
+      last: () => closedEditor()
+    };
+    const resolution = await resolveTarget(tracker, undefined, () => {});
 
     assert.strictEqual(resolution.kind, 'visible');
     if (resolution.kind === 'visible') {
@@ -186,12 +189,15 @@ describe('resolveTarget — tracked editor closed (Issue #50, LLD §2.3 error ta
     }
   });
 
-  it("returns { kind: 'none' } naming the closed tracker when no visible editor resolves", () => {
+  it("returns { kind: 'none' } naming the closed tracker when no visible editor resolves", async () => {
     // beforeEach hid every visible editor; the tracked editor is closed, so the
     // failure reason must name the closed tracker rather than claim no editor
     // was ever focused (LLD §2.3: reason names which step failed).
-    const tracker: EditorTracker = { last: () => closedEditor() };
-    const resolution = resolveTarget(tracker);
+    const tracker: EditorTracker = {
+      recent: () => [closedEditor()],
+      last: () => closedEditor()
+    };
+    const resolution = await resolveTarget(tracker, undefined, () => {});
 
     assert.strictEqual(resolution.kind, 'none');
     if (resolution.kind === 'none') {
@@ -221,7 +227,10 @@ describe('insertReviewComment — editor.edit returns false (Issue #50, LLD §2.
       viewColumn: 1
     } as unknown as vscode.TextEditor;
 
-    const tracker: EditorTracker = { last: () => fakeEditor };
+    const tracker: EditorTracker = {
+      recent: () => [fakeEditor],
+      last: () => fakeEditor
+    };
     const logCalls: string[] = [];
 
     const quickPick = stubQuickPick<HeadingPickItem>((items) => items[0]);
