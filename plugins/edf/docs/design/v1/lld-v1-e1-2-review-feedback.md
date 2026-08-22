@@ -4,8 +4,8 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.4 |
-| Status | Revised v2 |
+| Version | 0.5 |
+| Status | Revised v3 |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Epic | [#30](https://github.com/mironyx/engineering-delivery-framework/issues/30) |
@@ -15,6 +15,15 @@
 | Epic id | `v1-e1-2` |
 
 ## Recent revisions
+
+**0.5 (2026-08-22).** Design revision to §2.3 target resolution: hybrid of the tracked-editor
+and the focused preview's tab title. The tracker alone re-points to whatever markdown editor
+was last focused, so previewing document A after editing document C resolves to C. A
+`correctForPreviewTab` step reads the active tab's label when the focused tab is the built-in
+markdown preview (`viewType === 'markdown.preview'`), strips the `Preview ` prefix, and
+re-targets to the unique open markdown document with that basename. Ambiguous (zero or
+multiple) basename matches leave the tracker result unchanged — the design prefers the
+tracker's best guess or a loud failure over a silent same-name guess. See §2.3.
 
 **0.4 (2026-08-22).** Post-implementation sync for Task 2 (#49). Confirmed §2.2 (pure
 modules) as built — signatures, `Heading`, `REVIEW_MARKER`, and the out-of-range
@@ -878,6 +887,23 @@ export function resolveTarget(tracker: EditorTracker): Resolution
   //    return { kind: 'visible' }.
   // 3. return { kind: 'none', reason } where reason names which step failed.
 
+export async function correctForPreviewTab(
+  activeTab: vscode.Tab | undefined,
+  res: Resolution
+): Promise<Resolution>
+  // Hybrid correction (see 0.5 revision): the tracker alone re-points to whatever markdown
+  // editor was last focused, so previewing A after editing C resolves to C. This step reads
+  // the focused preview tab's title and re-targets when it contradicts the tracker.
+  //   1. If res.kind === 'none', or activeTab is not the built-in markdown preview
+  //      (TabInput.WebviewPanel with viewType === 'markdown.preview'), return res unchanged.
+  //   2. name = activeTab.label with a leading "Preview " stripped. If empty, or equal to
+  //      res.editor.document's basename, return res unchanged.
+  //   3. matches = open markdown text documents whose basename === name. If matches.length
+  //      !== 1, return res unchanged (fail-safe: never guess on ambiguity).
+  //   4. editor = await window.showTextDocument(matches[0], { preview: true, preserveFocus: true })
+  //      — the preview stays focused; the source opens beside it for the insertion.
+  //   5. return { kind: 'tracked', editor }.
+
 // src/log.ts
 export function createLog(context: vscode.ExtensionContext): (message: string) => void
   // window.createOutputChannel('EDF Review'); returns an appendLine wrapper.
@@ -894,7 +920,8 @@ async function insertReviewComment(
 
 ```
 Command handler (src/extension.ts, orchestration only):
-- const res = resolveTarget(tracker)
+- let res = resolveTarget(tracker)
+- res = await correctForPreviewTab(window.tabGroups.activeTabGroup?.activeTab, res)
 - if res.kind === 'none' → log(res.reason); showInformationMessage(NO_DOCUMENT_MSG); return
 - const headings = extractHeadings(res.editor.document.getText())
 - if headings.length === 0 → showInformationMessage(NO_HEADINGS_MSG); return
@@ -929,11 +956,19 @@ Message constants (module level, so specs assert against the same string):
 > **Constraint:** `showQuickPick` returning `undefined` is the Escape path and must return
 > before any edit. Do not pre-apply an edit and undo it on cancel.
 
+> **Constraint (hybrid correction, 0.5):** `correctForPreviewTab` runs only when the *focused*
+> tab is the built-in markdown preview and the title disagrees with the tracker; it must never
+> guess on an ambiguous basename (fail-safe to the tracker or the loud none-path). The
+> `showTextDocument` step uses `{ preview: true, preserveFocus: true }` so the preview stays
+> on screen and the layout is not disrupted — matching `applyMarker`'s existing behaviour of
+> focusing the source editor at insertion time.
+
 #### Error handling
 
 | Case | Behaviour |
 |---|---|
 | No tracked and no single visible markdown editor | `NO_DOCUMENT_MSG` to the user, reason to `EDF Review` |
+| Focused preview title differs but basename match is ambiguous (zero or multiple open markdown docs) | Correction skipped; tracker/visible result stands. Log the ambiguity to `EDF Review` |
 | Tracked editor's document has since closed | Falls through to the visible-editor step |
 | Document has no `##`/`###` headings | `NO_HEADINGS_MSG`, no edit |
 | Quick-pick dismissed | Silent return, no edit, no log entry |
