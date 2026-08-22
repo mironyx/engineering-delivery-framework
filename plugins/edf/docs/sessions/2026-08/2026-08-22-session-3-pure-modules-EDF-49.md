@@ -20,7 +20,7 @@
 
 ## Concerns & Deferred Items
 
-- **Evaluator found a real defect (fixed, PR #49).** `findReviewInsertLine(lines, -1)` returned
+- **Evaluator found a real defect (fixed, PR #72).** `findReviewInsertLine(lines, -1)` returned
   `0` (not `-1`) when line 0 was a marker, because the forward walk started at
   `headingLine + 1 = 0` and advanced past the out-of-range input — violating the LLD §2.2
   Part B clause "an out-of-range `headingLine` returns `headingLine` unchanged". Fixed by
@@ -29,7 +29,7 @@
   follows line 0") now passes. Also added: `pure-modules.eval.test.ts` (Invariant 7 host-
   freedom read from source) and a nested-different-marker fence spec in `headings.test.ts` —
   both pass. Full host suite 29 passing.
-- **Dev-toolchain audit finding (deferred, PR #49).** `npm audit` on the extension reports 3
+- **Dev-toolchain audit finding (deferred, PR #72).** `npm audit` on the extension reports 3
   vulnerabilities (1 high) via `mocha@11.8.0 → serialize-javascript@6.0.2`. All are in the
   dev toolchain — the extension has **zero** production dependencies (`npm ls --omit=dev` is
   empty), so the prod-scoped audit gate (`--audit-level=high --omit=dev`) passes. The finding
@@ -56,3 +56,5 @@
 | 5 | 2026-08-22T13:13:22Z | $0.00 | 0 in / 0 out | green on attempt 1 — 25 host specs pass; tsc strict clean; audit: dev-only high (serialize-javascript via mocha, pre-existing) deferred |
 | 6 | 2026-08-22T13:14:08Z | $0.00 | 0 in / 0 out | diag pass — tsc strict clean; exporter/CodeScene/Sonar n/a in worktree |
 | 6b | 2026-08-22T13:23:32Z | $0.00 | 0 in / 0 out | evaluator: FAIL -> fix negative headingLine guard -> 29 host specs green; 3 adversarial tests added (2 pass, 1 now passes) |
+| 8 | 2026-08-22T13:27:22Z | $0.00 | 0 in / 0 out | [PR #72](https://github.com/mironyx/engineering-delivery-framework/pull/72) |
+| 9 | 2026-08-22T13:31:42Z | $0.00 | 0 in / 0 out | review clean — Agent Q (single, <150 lines): 0 findings; no kb rules; framework surface skipped |
