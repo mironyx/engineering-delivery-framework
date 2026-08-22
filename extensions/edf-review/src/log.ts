@@ -12,5 +12,7 @@ import * as vscode from 'vscode';
  * The channel is disposed via `context.subscriptions`.
  */
 export function createLog(context: vscode.ExtensionContext): (message: string) => void {
-  throw new Error('not implemented');
+  const channel = vscode.window.createOutputChannel('EDF Review');
+  context.subscriptions.push(channel);
+  return (message) => channel.appendLine(message);
 }
