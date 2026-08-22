@@ -140,6 +140,96 @@ class TestCreateFeaturePr:
         assert "Missing required argument" in result.stderr
 
 
+# ── review-package.sh ────────────────────────────────────────────────────────
+
+
+def _git_repo_with_change(tmp_path):
+    """Init a repo with one commit and one uncommitted modification."""
+    def run(*args):
+        subprocess.run(args, cwd=tmp_path, check=True, capture_output=True)
+
+    run("git", "init", "-q", ".")
+    run("git", "config", "user.email", "t@example.com")
+    run("git", "config", "user.name", "t")
+    target = tmp_path / "a.txt"
+    target.write_text("line1\nline2\nline3\n")
+    run("git", "add", "a.txt")
+    run("git", "commit", "-qm", "init")
+    target.write_text("line1\nCHANGED\nline3\nline4\n")
+    return tmp_path
+
+
+class TestReviewPackage:
+    def test_no_args_shows_usage(self):
+        result = _bash(BIN_DIR / "review-package.sh")
+        assert result.returncode == 1
+        assert "usage:" in result.stderr
+
+    def test_unknown_option(self):
+        result = _bash(BIN_DIR / "review-package.sh", "--bogus")
+        assert result.returncode == 1
+        assert "Unknown option" in result.stderr
+
+    def test_pr_requires_a_number(self):
+        result = _bash(BIN_DIR / "review-package.sh", "--pr", "abc")
+        assert result.returncode == 1
+        assert "expects a number" in result.stderr
+
+    def test_outside_git_repo_fails_clearly(self, tmp_path):
+        result = _bash(BIN_DIR / "review-package.sh", "--local", cwd=tmp_path)
+        assert result.returncode == 1
+        assert "git repository" in result.stderr.lower()
+
+    def test_empty_diff_exits_3(self, tmp_path):
+        _git_repo_with_change(tmp_path)
+        subprocess.run(["git", "checkout", "-q", "--", "a.txt"], cwd=tmp_path, check=True)
+        result = _bash(BIN_DIR / "review-package.sh", "--local", cwd=tmp_path)
+        assert result.returncode == 3
+        assert "empty" in result.stderr.lower()
+
+    def test_local_mode_writes_package_and_keeps_diff_off_stdout(self, tmp_path):
+        _git_repo_with_change(tmp_path)
+        result = _bash(BIN_DIR / "review-package.sh", "--local", cwd=tmp_path)
+        assert result.returncode == 0
+
+        # stdout carries the path and the numstat table — never the diff itself.
+        assert result.stdout.startswith("package: ")
+        assert "numstat:" in result.stdout
+        assert "2\t1\ta.txt" in result.stdout  # 2 added, 1 removed
+        assert "CHANGED" not in result.stdout
+
+        pkg = pathlib.Path(result.stdout.splitlines()[0].split("package: ", 1)[1])
+        assert pkg.is_file()
+        body = pkg.read_text()
+        assert "## Files changed" in body
+        assert "## Diff" in body
+        assert "+CHANGED" in body
+
+    def test_package_dir_is_self_ignoring(self, tmp_path):
+        _git_repo_with_change(tmp_path)
+        result = _bash(BIN_DIR / "review-package.sh", "--local", cwd=tmp_path)
+        assert result.returncode == 0
+        # The package must not show up as an untracked file: a self-ignoring
+        # .gitignore inside .edf/ keeps scratch out of `git status` without
+        # touching the project's tracked .gitignore.
+        status = subprocess.run(
+            ["git", "status", "--porcelain"], cwd=tmp_path,
+            capture_output=True, text=True, check=True,
+        )
+        assert ".edf" not in status.stdout
+
+    def test_out_flag_overrides_destination(self, tmp_path):
+        _git_repo_with_change(tmp_path)
+        dest = tmp_path / "custom.diff"
+        result = _bash(
+            BIN_DIR / "review-package.sh", "--local", "--out", "custom.diff",
+            cwd=tmp_path,
+        )
+        assert result.returncode == 0
+        assert dest.is_file()
+        assert "+CHANGED" in dest.read_text()
+
+
 # ── gh-project-status.sh ─────────────────────────────────────────────────────
 
 
