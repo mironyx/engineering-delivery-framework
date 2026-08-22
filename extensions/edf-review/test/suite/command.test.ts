@@ -102,6 +102,25 @@ function stubInformationMessage(): { messages: () => string[]; restore: () => vo
   };
 }
 
+/** Monkey-patch vscode.window.showErrorMessage and capture the messages. */
+function stubErrorMessage(): { calls: string[]; restore: () => void } {
+  const original = vscode.window.showErrorMessage;
+  const testWindow = vscode.window as unknown as {
+    showErrorMessage: typeof vscode.window.showErrorMessage;
+  };
+  const calls: string[] = [];
+  testWindow.showErrorMessage = ((message: string) => {
+    calls.push(message);
+    return Promise.resolve(undefined);
+  }) as unknown as typeof vscode.window.showErrorMessage;
+  return {
+    calls,
+    restore: () => {
+      testWindow.showErrorMessage = original;
+    }
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Specs
 // ---------------------------------------------------------------------------
@@ -322,6 +341,88 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       );
     } finally {
       quickPick.restore();
+    }
+  });
+
+  it('honors CRLF line endings when inserting the marker (review finding #73)', async () => {
+    // The marker line must match the document's line endings — a hard-coded LF
+    // insert into a CRLF file produces a mixed line-ending edit.
+    const content = ['# Title', '', '## Section One', 'Some prose here.', ''].join('\r\n');
+    const { doc, editor } = await openMarkdownEditor(content);
+    const tracker: EditorTracker = { last: () => editor };
+
+    const quickPick = stubQuickPick<HeadingPickItem>((items) =>
+      items.find((item) => item.label.includes('Section One'))
+    );
+    try {
+      await insertReviewComment(tracker, () => {});
+
+      const expected = [
+        '# Title',
+        '',
+        '## Section One',
+        REVIEW_MARKER,
+        'Some prose here.',
+        ''
+      ].join('\r\n');
+      assert.strictEqual(
+        doc.getText(),
+        expected,
+        'marker line must use the document\'s CRLF line endings'
+      );
+    } finally {
+      quickPick.restore();
+    }
+  });
+
+  it('fails explicitly instead of throwing when the heading is deleted while the quick-pick is open (review finding #73)', async () => {
+    // Stale-index guard: extractHeadings captures a line, the document shrinks
+    // before applyMarker re-reads it, and findReviewInsertLine returns the stale
+    // index unchanged. The command must log + show a message, never throw.
+    let reads = 0;
+    const fakeEditor = {
+      document: {
+        getText: () => {
+          reads += 1;
+          // First read (extractHeadings) still has the heading; the re-read in
+          // applyMarker sees the document after the heading was deleted.
+          return reads === 1
+            ? ['# Title', '', '## Section One', ''].join('\n')
+            : ['# Title'].join('\n');
+        },
+        eol: vscode.EndOfLine.LF
+      },
+      edit: async () => {
+        assert.fail('editor.edit must not be called when the heading is gone');
+        return true;
+      },
+      selection: {
+        anchor: { line: 0, character: 0 },
+        active: { line: 0, character: 0 }
+      },
+      viewColumn: 1
+    } as unknown as vscode.TextEditor;
+
+    const tracker: EditorTracker = { last: () => fakeEditor };
+    const logCalls: string[] = [];
+    const quickPick = stubQuickPick<HeadingPickItem>((items) => items[0]);
+    const errorStub = stubErrorMessage();
+    try {
+      await insertReviewComment(tracker, (m) => logCalls.push(m));
+
+      assert.deepStrictEqual(
+        logCalls,
+        ['selected heading no longer exists in the document'],
+        'the stale heading must be logged exactly once'
+      );
+      assert.deepStrictEqual(
+        errorStub.calls,
+        ['Selected heading no longer exists'],
+        `expected one error message, got ${JSON.stringify(errorStub.calls)}`
+      );
+    } finally {
+      quickPick.restore();
+      errorStub.restore();
     }
   });
 });

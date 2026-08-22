@@ -46,6 +46,15 @@ function toItems(headings: Heading[]): HeadingPickItem[] {
   }));
 }
 
+/**
+ * Insert a `[Review]` marker on the line after a heading — a single edit, cursor
+ * placement, then focus. The inserted newline honors the document's line endings
+ * so CRLF files do not gain a mixed line-ending edit.
+ *
+ * Justification: the `log` parameter diverges from the LLD decomposition signature
+ * `applyMarker(editor, headingLine)` to implement the LLD §2.3 error-table row
+ * "editor.edit returns false → log the failure; show a message".
+ */
 async function applyMarker(
   editor: vscode.TextEditor,
   headingLine: number,
@@ -53,8 +62,17 @@ async function applyMarker(
 ): Promise<void> {
   const lines = editor.document.getText().split(/\r?\n/);
   const at = findReviewInsertLine(lines, headingLine);
+  if (at + 1 > lines.length) {
+    // The selected heading was deleted while the quick-pick was open.
+    // findReviewInsertLine returns an out-of-range headingLine unchanged, so
+    // inserting at `at + 1` would throw an unhandled RangeError. Fail explicitly.
+    log('selected heading no longer exists in the document');
+    await vscode.window.showErrorMessage('Selected heading no longer exists');
+    return;
+  }
+  const newline = editor.document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
   const ok = await editor.edit((edit) =>
-    edit.insert(new vscode.Position(at + 1, 0), REVIEW_MARKER + '\n')
+    edit.insert(new vscode.Position(at + 1, 0), REVIEW_MARKER + newline)
   );
   if (!ok) {
     log('failed to insert review marker');
