@@ -4,8 +4,8 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.3 |
-| Status | Revised |
+| Version | 0.4 |
+| Status | Revised v2 |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Epic | [#30](https://github.com/mironyx/engineering-delivery-framework/issues/30) |
@@ -15,6 +15,11 @@
 | Epic id | `v1-e1-2` |
 
 ## Recent revisions
+
+**0.4 (2026-08-22).** Post-implementation sync for Task 2 (#49). Confirmed §2.2 (pure
+modules) as built — signatures, `Heading`, `REVIEW_MARKER`, and the out-of-range
+error-handling clause all match. Documented the evaluator-added `pure-modules.eval.test.ts`
+(Invariant 7 grep) and the same-marker-close fence semantics. See §2.2 Implementation notes.
 
 **0.3 (2026-08-22).** Post-implementation sync for Task 1 (#48). Backfilled the External
 Surfaces table with `glob` and `@types/node`; recorded the `main → ./out/src/extension.js`
@@ -777,7 +782,13 @@ extensions/edf-review/src/headings.ts            — create
 extensions/edf-review/src/review-insert.ts       — create
 extensions/edf-review/test/suite/headings.test.ts       — create
 extensions/edf-review/test/suite/review-insert.test.ts  — create
+extensions/edf-review/test/suite/pure-modules.eval.test.ts — create (evaluator-added, Issue #49)
 ```
+
+> **Implementation note (issue #49):** `pure-modules.eval.test.ts` was added by the
+> `edf:feature-evaluator` — it reads both source files and asserts they contain no `vscode`
+> import (Invariant 7), making the host-freedom guarantee a runnable check rather than a
+> reviewer assertion.
 
 #### Internal types
 
@@ -811,6 +822,12 @@ export function findReviewInsertLine(lines: string[], headingLine: number): numb
 > **Constraint:** the fenced-code guard is not optional. An LLD's Part B routinely contains
 > ` ```markdown ` blocks demonstrating heading syntax; without the guard the quick-pick
 > offers headings that are examples, and inserting under one corrupts a code block.
+
+> **Implementation note (issue #49):** the fence guard closes a fence only on the **same**
+> marker character — a `~~~` line inside an open ` ``` ` fence (or vice versa) is content,
+> not a close. The LLD's "tracks fenced-code state on ``` and ~~~" underspecified this;
+> different-marker runs stay inside the open fence. The evaluator's adversarial spec covers
+> the nested different-marker case.
 
 #### Error handling
 
