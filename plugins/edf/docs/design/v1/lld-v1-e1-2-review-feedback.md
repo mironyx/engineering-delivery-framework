@@ -896,7 +896,9 @@ export async function correctForPreviewTab(
   // the focused preview tab's title and re-targets when it contradicts the tracker.
   //   1. If res.kind === 'none', or activeTab is not the built-in markdown preview
   //      (TabInput.WebviewPanel with viewType === 'markdown.preview'), return res unchanged.
-  //   2. name = activeTab.label with a leading "Preview " stripped. If empty, or equal to
+  //   2. name = path.basename of activeTab.label with a leading "Preview " stripped
+  //      (basename comparison tolerates the configurable tab labelFormat short/medium/long,
+  //      where the label may be "Preview sub/dir/foo.md"). If empty, or equal to
   //      res.editor.document's basename, return res unchanged.
   //   3. matches = open markdown text documents whose basename === name. If matches.length
   //      !== 1, return res unchanged (fail-safe: never guess on ambiguity).
