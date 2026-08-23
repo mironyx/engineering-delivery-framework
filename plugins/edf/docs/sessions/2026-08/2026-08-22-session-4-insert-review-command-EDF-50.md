@@ -19,18 +19,17 @@
   both show the level marker, and it is the only field QuickPick matches on (case-insensitive),
   so without it a `##` vs `###` heading is indistinguishable. (2) `insertReviewComment` is
   exported (LLD shows it module-private) so the integration specs can inject a deterministic
-  tracker/log; same for the `NO_DOCUMENT_MSG`/`NO_HEADINGS_MSG` constants, which the LLD already
-  says specs assert against. No behaviour change — the module's `main`-visible surface
-  (`activate`/`deactivate`) is unchanged. (3) `resolveTarget(tracker, activeTab, log)` threads a
-  `log` parameter beyond the LLD's `resolveTarget(tracker, activeTab)` signature to implement the
-  error-table row "focused preview title does not uniquely match → log the unresolved title to
-  `EDF Review`". (4) The markdown preview tab is detected by duck-typing
-  `viewType === 'markdown.preview'` on `tab.input` — `@types/vscode` 1.88 ships no
-  `TabInputWebviewPanel`, so the LLD's `TabInput.WebviewPanel` reference is matched structurally
-  at runtime. (5) The intermediate 0.5 `correctForPreviewTab` hybrid-correction step was
-  superseded by the 0.6 title-first + MRU redesign (LLD commit `a18503c`): resolution consults
-  the focused preview's tab title first, then the MRU stack, then the single-visible-editor
-  check — no standalone correction step.
+  tracker/log; same for the message constants, which the LLD already says specs assert against.
+  No behaviour change — the module's `main`-visible surface (`activate`/`deactivate`) is
+  unchanged. (3) — 0.6 only, removed by 0.7: the intermediate design threaded a `log` parameter
+  beyond the LLD's `resolveTarget(tracker, activeTab)` signature; 0.7 restores the 2-param
+  signature and moves logging into the command handler (see the 0.7 section). (4) The markdown
+  preview tab is detected by duck-typing `viewType === 'markdown.preview'` on `tab.input` —
+  `@types/vscode` 1.88 ships no `TabInputWebviewPanel`, so the LLD's `TabInput.WebviewPanel`
+  reference is matched structurally at runtime. (5) The intermediate 0.5 `correctForPreviewTab`
+  hybrid-correction step was superseded by the 0.6 title-first + MRU redesign (LLD commit
+  `a18503c`); the 0.6 design was itself superseded by the coordinator's 0.7 never-guess revision
+  (LLD commit `a287750`) — see the 0.7 section below.
 - **Pressure:** standard — ~130 source lines across 3 source files (2 new, 1 modified); 2 new
   test files. Under the Step 3c table this is the Standard track.
 
@@ -105,6 +104,58 @@
   Design Conformance agent returned no findings (all implemented functions match the LLD 0.6
   designed list; every deviation is documented in the PR body).
 
+## 0.7 (never guess) revision — supersedes 0.6
+
+Coordinator's design revision applied exactly to PR #73 (spec: LLD `a287750` §2.3 and issue #50
+body). Rebased the branch onto `origin/main` (LLD 0.7) so the PR carries the authoritative spec.
+
+- **New chain, no fallbacks, never guess:** the focused markdown preview is the ONLY legitimate
+  trigger. `resolveTarget(tracker, activeTab)`:
+  1. `name = previewTitleName(activeTab)`; `!name` → `{ kind: 'none', reason: NO_PREVIEW_MSG }`
+  2. `matches = mruMatchesForName(tracker, name)` — still-open MRU entries whose document
+     basename equals the preview title's basename, in recency order
+  3. `matches.length === 1` → `showTextDocument(matches[0].document, { preview: true,
+     preserveFocus: true })` → `{ kind: 'resolved', editor }`
+  4. `matches.length === 0` → `{ kind: 'none', reason: NO_DOCUMENT_MSG }`
+  5. `matches.length > 1` → `showWarningMessage(AMBIGUOUS_MSG(name))` → `{ kind: 'none',
+     reason: AMBIGUOUS_MSG(name) }` — never guess on ambiguity
+- **`uniqueDocumentForName` → `mruMatchesForName`:** candidates now come from the bounded MRU
+  stack (cap 5, deduped on focus, pruned on close), not `workspace.textDocuments`. A document
+  evicted from the stack is not found (zero matches → `NO_DOCUMENT_MSG`). `Resolution` drops the
+  `'visible'` kind; the MRU-walk and single-visible-editor fallbacks are removed.
+- **Message constants** moved to `src/editor-tracker.ts` (where `resolveTarget` uses them):
+  `NO_PREVIEW_MSG`, `NO_DOCUMENT_MSG`, `AMBIGUOUS_MSG(name)`; `NO_HEADINGS_MSG` stays in
+  `extension.ts`. `extension.ts` no longer owns `NO_DOCUMENT_MSG` (the handler shows
+  `res.reason`).
+- **Handler:** on `kind === 'none'` → `log(res.reason)` then `showWarningMessage(res.reason)`
+  (one call site, reason is the user-facing string). `resolveTarget`'s 0.6 `log` param is
+  dropped — logging moved to the handler.
+- **Tests:** `resolution.test.ts` rewritten to the issue's five-spec BDD (unique title match →
+  resolved; non-preview tab → `NO_PREVIEW_MSG`; ambiguous basename → warn + stop; zero match →
+  `NO_DOCUMENT_MSG`; failure → reason logged to `EDF Review`). `mruMatchesForName` specs added.
+  `command-wiring.eval.test.ts` reworked: the removed `visible`/MRU-walk branches are replaced by
+  0.7 closed-entry properties (closed entry never shadows an open match; only matching entry
+  closed → `NO_DOCUMENT_MSG`), and the `editor.edit`-false spec's fake editor now carries a URI
+  matching a stubbed preview title (0.7 always reveals via `showTextDocument` on resolve).
+- **Test-host discovery:** `vscode.window.tabGroups` is a getter-only accessor — it cannot be
+  assigned (assignment throws "has only a getter"). It is overridden with
+  `Object.defineProperty(vscode.window, 'tabGroups', { value: …, configurable: true })` and
+  restored by re-applying the captured descriptor. Every insertion spec stubs the active tab to a
+  `markdown.preview` titled `Preview <basename>` matching the injected editor's file, because 0.7
+  never reaches the quick-pick without a focused preview.
+- **Deviations / quirks (documented, non-blocking):**
+  - `applyMarker` retains the pr-review #73 hardening (`log` param, stale-heading guard, EOL
+    honouring) — the 0.7 directive did not touch it, so the improvements from review finding #73
+    are preserved.
+  - **Ambiguous-case double message (spec-inherited):** the LLD's step 5
+    `showWarningMessage(AMBIGUOUS_MSG(name))` is implemented literally inside `resolveTarget`,
+    and the handler's none-branch also shows `showWarningMessage(res.reason)`. The ambiguous case
+    therefore surfaces the warning twice in the full handler path. No spec exercises the handler
+    with an ambiguous tracker, so the suite stays green; if the coordinator prefers the handler to
+    be the single message site, removing the inline step-5 call is a one-line change. The BDD
+    "warns to close the wrong document" is asserted at the `resolveTarget` level (one call), which
+    is where the coordinator's step-6 test placement locates it.
+
 ## Cost checkpoints
 
 | Step | Timestamp | Cost (cumulative) | Tokens (cumulative) | Note |
@@ -119,3 +170,6 @@
 | 0.6 rework | 2026-08-22T23:47:00Z | $0.00 | 0 in / 0 out | LLD → 0.6 title-first + MRU (`a18503c`); tracker rewritten to bounded MRU stack, resolveTarget title-first; suite green 58 passing, 0 failing (4 new resolution specs: title-first, MRU walk, newest-closed fallback, closed-doc eviction) |
 | 9 (re-run) | 2026-08-23T00:00:00Z | $0.00 | 0 in / 0 out | [pr-review re-run](https://github.com/mironyx/engineering-delivery-framework/pull/73#issuecomment-5383239946) — 285 src diff lines → 2 agents; 0 blockers, 3 warnings (all deferred, see Concerns) |
 | 10 | 2026-08-23T00:01:00Z | $0.00 | 0 in / 0 out | CI reconciled synchronously — `gh pr checks 73` reports no checks (no Actions workflows); external Comprehension Check not awaited per task; PR #73 head `82f9862` reports 0.6 code; suite 58 passing |
+| 0.7 rework | 2026-08-23T17:50:00Z | $0.00 | 0 in / 0 out | coordinator 0.7 never-guess revision applied exactly — rebased onto LLD `a287750`; `uniqueDocumentForName`→`mruMatchesForName`, `Resolution` drops `visible`, `resolveTarget` 2-param never-guess chain, handler logs+shows `res.reason`; resolution.test.ts rewritten to the 5-spec BDD; eval reworked for removed branches; `tabGroups` stub via `defineProperty`; suite green 58 passing, 0 failing |
+| 9 (re-run, 0.7) | 2026-08-23T17:55:00Z | $0.00 | 0 in / 0 out | `edf:pr-review` re-run on PR #73 (0.7 head, force-pushed); source diff line count recomputed |
+| 10 (0.7) | 2026-08-23T17:56:00Z | $0.00 | 0 in / 0 out | CI reconciled — `gh pr checks 73` reports no checks; PR #73 head re-confirmed after `--force-with-lease`; suite 58 passing |
