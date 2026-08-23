@@ -4,8 +4,8 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.7 |
-| Status | Revised v5 |
+| Version | 0.8 |
+| Status | Revised v6 |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Epic | [#30](https://github.com/mironyx/engineering-delivery-framework/issues/30) |
@@ -15,6 +15,14 @@
 | Epic id | `v1-e1-2` |
 
 ## Recent revisions
+
+**0.8 (2026-08-23).** §2.3 cold-start and zero-match cases closed: `createEditorTracker` seeds
+the MRU stack from `visibleTextEditors` at activation, so a command run right after the
+extension activates finds an editor that was opened before activation (the tracker otherwise
+starts empty). The zero-match message is reworded from the dead-end "No source document found
+for this preview" to an instruction to open the original file — the reachable cases are the
+original `.md` editor being closed (with or without a restart) while the preview stays open,
+not just eviction from the bounded stack. See §2.3.
 
 **0.7 (2026-08-23).** §2.3 target resolution simplified (supersedes the 0.6 fallback chain):
 the focused preview is the only legitimate trigger. No preview → stop with guidance; a preview
@@ -343,7 +351,7 @@ sequenceDiagram
     participant Editor as Source Editor
     participant Log as EDF Review Channel
 
-    Note over Tracker: Maintains a bounded MRU stack of markdown editors<br/>on focus (dedup, cap 5); prunes closed documents
+    Note over Tracker: Bounded MRU stack of markdown editors (dedup, cap 5)<br/>seeded from visibleTextEditors at activation;<br/>prunes closed documents
     Reviewer->>Cmd: EDF - Insert Review Comment
     Cmd->>Tabs: Read focused tab
     Note over Cmd,Tabs: Enforcement — activeTextEditor is undefined while<br/>a webview holds focus. The focused preview is<br/>the only legitimate trigger
@@ -355,8 +363,8 @@ sequenceDiagram
         alt Exactly one tracked editor matches
             Cmd->>Editor: Open matching source (preview, preserveFocus)
         else Zero tracked editors match
-            Cmd->>Log: Reason — not in the bounded stack
-            Cmd-->>Reviewer: No source document found for this preview
+            Cmd->>Log: Reason — no open document matches the title
+            Cmd-->>Reviewer: Open the original .md file in VS Code, then retry
         else Multiple tracked editors share the basename
             Cmd-->>Reviewer: Warning — close the wrong one, then retry
             Cmd->>Log: Reason ambiguous basename
@@ -381,11 +389,14 @@ sequenceDiagram
 `activeTextEditor` — returns `undefined` in exactly the situation the feature exists to serve:
 a webview holds focus. The focused markdown preview is therefore the only legitimate trigger.
 Its tab title ("Preview &lt;name&gt;") is the anchor: no preview → stop with guidance; a preview
-title is looked up in the tracker's bounded markdown-only MRU stack. Exactly one match
-resolves; zero (the document fell off the bounded stack) and multiple (two documents share the
-basename) both stop — the former with the no-source-document message, the latter with a warning
-to close the wrong one. Resolution never guesses. The two cancel paths (Escape, no headings)
-leave the document byte-identical, which is what makes them testable.
+title is looked up in the tracker's bounded markdown-only MRU stack, which is seeded from the
+editors open at activation so a fresh activation doesn't start empty. Exactly one match
+resolves; zero and multiple (two documents share the basename) both stop — the former tells
+the user to open the original file (the reachable cases are the source editor being closed —
+with or without a restart — while the preview stays open, or eviction from the bounded stack),
+the latter with a warning to close the wrong one. Resolution never guesses. The two cancel
+paths (Escape, no headings) leave the document byte-identical, which is what makes them
+testable.
 
 ### Structural Overview
 
@@ -450,10 +461,10 @@ classDiagram
 ### Acceptance Criteria
 
 - [ ] "EDF: Insert Review Comment" appears in the command palette
-- [ ] Resolves only when the focused tab is the markdown preview and the preview title (`Preview <name>`) uniquely matches a tracked open markdown editor in the bounded MRU stack (deduped on focus, cap 5, prunes closed documents)
+- [ ] Resolves only when the focused tab is the markdown preview and the preview title (`Preview <name>`) uniquely matches a tracked open markdown editor in the bounded MRU stack (seeded from `visibleTextEditors` at activation, deduped on focus, cap 5, prunes closed documents)
 - [ ] Stops with guidance when no markdown preview is focused — resolution never guesses
 - [ ] Shows a warning asking to close the wrong document when two tracked editors share the preview title's basename, then stops
-- [ ] Never targets an editor that does not match the preview title; a zero-match stop shows "No source document found for this preview" and logs why
+- [ ] Never targets an editor that does not match the preview title; a zero-match stop tells the user to open the original markdown file and logs why
 - [ ] Quick-pick lists `##`/`###` headings with line numbers, filtering case-insensitively
 - [ ] Enter inserts `> **[Review]:** ` after the heading, or after existing markers
 - [ ] The editor gains focus with the cursor immediately after the marker text
@@ -468,7 +479,7 @@ describe('insertReviewComment — target resolution', () => {
   it('resolves to the document named by the focused preview tab title when it uniquely matches a tracked editor');
   it('stops with guidance when the focused tab is not a markdown preview');
   it('warns to close the wrong document when two tracked editors share the basename, then stops');
-  it('stops with the no-source-document message when no tracked editor matches');
+  it('tells the user to open the original markdown file when no tracked editor matches');
   it('logs the reason to the EDF Review channel when resolution fails');
 });
 
@@ -907,10 +918,13 @@ export function createEditorTracker(
   context: vscode.ExtensionContext,
   cap = 5
 ): EditorTracker
-  // Subscribes to window.onDidChangeActiveTextEditor; when editor?.document.languageId
-  // === 'markdown', move that editor to the FRONT of the stack (dedupe), evict the tail
-  // beyond cap. Also subscribes to window.onDidCloseTextDocument to prune entries whose
-  // document closed. Push both disposables onto context.subscriptions.
+  // Seeds the stack from window.visibleTextEditors at creation (markdown editors already
+  // open when the extension activates), so a command run right after activation finds an
+  // editor that was opened before the extension was alive. Then subscribes to
+  // window.onDidChangeActiveTextEditor; when editor?.document.languageId === 'markdown',
+  // move that editor to the FRONT of the stack (dedupe), evict the tail beyond cap. Also
+  // subscribes to window.onDidCloseTextDocument to prune entries whose document closed.
+  // Push all disposables onto context.subscriptions.
 
 export function previewTitleName(activeTab: vscode.Tab | undefined): string | undefined
   // If activeTab is the built-in markdown preview (TabInput.WebviewPanel with viewType
@@ -976,7 +990,7 @@ Command handler (src/extension.ts, orchestration only):
 
 Message constants (module level, so specs assert against the same string):
 - NO_PREVIEW_MSG   = 'Run this command while the markdown preview is focused'
-- NO_DOCUMENT_MSG  = 'No source document found for this preview'
+- NO_DOCUMENT_MSG  = 'Open the original markdown file in VS Code, then retry'
 - AMBIGUOUS_MSG(n) = `Two documents named ${n} are open — close the one you don't want, then retry`
 - NO_HEADINGS_MSG  = 'No section headings found in this document'
 ```
@@ -992,14 +1006,16 @@ Message constants (module level, so specs assert against the same string):
 > **Constraint:** `showQuickPick` returning `undefined` is the Escape path and must return
 > before any edit. Do not pre-apply an edit and undo it on cancel.
 
-> **Constraint (title-only + MRU lookup, 0.7):** the focused preview is the only legitimate
+> **Constraint (title-only + MRU lookup, 0.8):** the focused preview is the only legitimate
 > trigger; resolution never guesses. No preview → stop with `NO_PREVIEW_MSG`; a non-unique
 > basename (multiple tracked editors) → `AMBIGUOUS_MSG(name)` warning and stop. Candidates come
-> from the bounded markdown-only MRU stack (cap 5, deduped on focus, tail evicted, pruned on
-> close); a document evicted from the stack is not found (zero → `NO_DOCUMENT_MSG`). The
-> resolved branch opens with `{ preview: true, preserveFocus: true }` so the preview stays on
-> screen — matching `applyMarker`'s existing behaviour of focusing the source editor at
-> insertion time.
+> from the bounded markdown-only MRU stack (seeded from `visibleTextEditors` at activation,
+> cap 5, deduped on focus, tail evicted, pruned on close). Zero match → `NO_DOCUMENT_MSG`,
+> which instructs the user to open the original file — the reachable causes are the source
+> editor being closed (with or without a restart) while the preview stays open, or eviction
+> from the bounded stack; the file is never silently assumed. The resolved branch opens with
+> `{ preview: true, preserveFocus: true }` so the preview stays on screen — matching
+> `applyMarker`'s existing behaviour of focusing the source editor at insertion time.
 
 #### Error handling
 
@@ -1008,7 +1024,7 @@ Message constants (module level, so specs assert against the same string):
 | Focused tab is not a markdown preview | `NO_PREVIEW_MSG` to the user, reason to `EDF Review` — no guessing |
 | Preview title matches exactly one tracked editor | Resolved; editor opened with `{ preview: true, preserveFocus: true }` |
 | Preview title matches multiple tracked editors (same basename) | `AMBIGUOUS_MSG(name)` warning to the user, reason to `EDF Review` — stop, no guess |
-| Preview title matches zero tracked editors (document evicted from the bounded stack) | `NO_DOCUMENT_MSG` to the user, reason to `EDF Review` |
+| Preview title matches zero tracked editors (original file closed, or evicted from the bounded stack) | `NO_DOCUMENT_MSG` to the user (open the original file), reason to `EDF Review` |
 | Document has no `##`/`###` headings | `NO_HEADINGS_MSG`, no edit |
 | Quick-pick dismissed | Silent return, no edit, no log entry |
 | `editor.edit` returns `false` | Log the failure; show a message. Do not retry |
