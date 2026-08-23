@@ -4,8 +4,8 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.6 |
-| Status | Revised v4 |
+| Version | 0.7 |
+| Status | Revised v5 |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Epic | [#30](https://github.com/mironyx/engineering-delivery-framework/issues/30) |
@@ -15,6 +15,12 @@
 | Epic id | `v1-e1-2` |
 
 ## Recent revisions
+
+**0.7 (2026-08-23).** §2.3 target resolution simplified (supersedes the 0.6 fallback chain):
+the focused preview is the only legitimate trigger. No preview → stop with guidance; a preview
+title is looked up in the bounded markdown-only MRU stack. Exactly one match resolves; zero and
+multiple both stop — multiple shows a warning to close the wrong document. The 0.6 recency-stack
+walk and single-visible-editor fallback are removed; resolution never guesses. See §2.3.
 
 **0.6 (2026-08-23).** §2.3 target resolution restructured (supersedes the 0.5 correction-step
 framing): the tracker becomes a bounded **MRU stack** of markdown editors, and the focused
@@ -339,19 +345,22 @@ sequenceDiagram
 
     Note over Tracker: Maintains a bounded MRU stack of markdown editors<br/>on focus (dedup, cap 5); prunes closed documents
     Reviewer->>Cmd: EDF - Insert Review Comment
-    Cmd->>Tracker: resolveTarget(tracker, activeTab)
-    Note over Cmd,Tracker: Enforcement — activeTextEditor is undefined<br/>while a webview holds focus. That is the<br/>normal case here, not an error
-    alt Preview tab title uniquely names an open markdown doc
-        Cmd->>Editor: Open matching source (preview, preserveFocus)
-        Tabs-->>Cmd: That document (title-first)
-    else MRU stack has an open markdown editor
-        Tracker-->>Cmd: Most recent open markdown editor
-    else Exactly one visible markdown editor
-        Tracker-->>Cmd: That editor
-    else Neither
-        Tracker-->>Cmd: Unresolved
-        Cmd->>Log: Reason no document resolved
-        Cmd-->>Reviewer: No source document found for this preview
+    Cmd->>Tabs: Read focused tab
+    Note over Cmd,Tabs: Enforcement — activeTextEditor is undefined while<br/>a webview holds focus. The focused preview is<br/>the only legitimate trigger
+    alt Not a markdown preview
+        Cmd-->>Reviewer: Stop — run this while the preview is focused
+        Cmd->>Log: Reason no preview focused
+    else Preview tab title "Preview &lt;name&gt;"
+        Cmd->>Tracker: mruMatchesForName(tracker, name)
+        alt Exactly one tracked editor matches
+            Cmd->>Editor: Open matching source (preview, preserveFocus)
+        else Zero tracked editors match
+            Cmd->>Log: Reason — not in the bounded stack
+            Cmd-->>Reviewer: No source document found for this preview
+        else Multiple tracked editors share the basename
+            Cmd-->>Reviewer: Warning — close the wrong one, then retry
+            Cmd->>Log: Reason ambiguous basename
+        end
     end
     Cmd->>Editor: Extract headings
     alt No headings
@@ -369,13 +378,14 @@ sequenceDiagram
 ```
 
 **Walkthrough.** Resolution is the section's substance. The obvious implementation — read
-`activeTextEditor` — returns `undefined` in exactly the situation the feature exists to serve.
-The tracker therefore maintains a bounded MRU stack of markdown editors, recorded on focus.
-When a preview holds focus, its tab title resolves directly (title-first) when it uniquely
-names an open markdown document; the recency stack, then the single-visible-editor check, are
-the fallbacks. The chain ends in an explicit, logged failure rather than a silent no-op. The
-two cancel paths (Escape, no headings) are specified to leave the document
-byte-identical, which is what makes them testable.
+`activeTextEditor` — returns `undefined` in exactly the situation the feature exists to serve:
+a webview holds focus. The focused markdown preview is therefore the only legitimate trigger.
+Its tab title ("Preview &lt;name&gt;") is the anchor: no preview → stop with guidance; a preview
+title is looked up in the tracker's bounded markdown-only MRU stack. Exactly one match
+resolves; zero (the document fell off the bounded stack) and multiple (two documents share the
+basename) both stop — the former with the no-source-document message, the latter with a warning
+to close the wrong one. Resolution never guesses. The two cancel paths (Escape, no headings)
+leave the document byte-identical, which is what makes them testable.
 
 ### Structural Overview
 
@@ -429,7 +439,7 @@ classDiagram
 
 | # | Invariant | Verification |
 |---|---|---|
-| 12 | Resolution never throws — every path returns an editor or reports a failure | integration test with no editor open asserts the message, not an exception |
+| 12 | Resolution never throws, and never targets an editor that does not match the preview title's basename | integration test with no preview focused asserts the guidance message, not an exception; a resolving test asserts `path.basename(target.uri.fsPath) === previewTitleName` |
 | 13 | Every resolution failure produces exactly one `EDF Review` log entry | integration test asserts channel content after a failed invocation |
 | 14 | Escape leaves the document byte-identical | integration test compares `document.getText()` before and after |
 | 15 | An empty-heading document produces a message and no edit | integration test asserts message shown and text unchanged |
@@ -440,9 +450,10 @@ classDiagram
 ### Acceptance Criteria
 
 - [ ] "EDF: Insert Review Comment" appears in the command palette
-- [ ] Target resolves via the tracked most-recently-focused markdown editor
-- [ ] Falls back to a single visible markdown editor
-- [ ] Shows "No source document found for this preview" when neither resolves, and logs why
+- [ ] Resolves only when the focused tab is the markdown preview and the preview title (`Preview <name>`) uniquely matches a tracked open markdown editor in the bounded MRU stack (deduped on focus, cap 5, prunes closed documents)
+- [ ] Stops with guidance when no markdown preview is focused — resolution never guesses
+- [ ] Shows a warning asking to close the wrong document when two tracked editors share the preview title's basename, then stops
+- [ ] Never targets an editor that does not match the preview title; a zero-match stop shows "No source document found for this preview" and logs why
 - [ ] Quick-pick lists `##`/`###` headings with line numbers, filtering case-insensitively
 - [ ] Enter inserts `> **[Review]:** ` after the heading, or after existing markers
 - [ ] The editor gains focus with the cursor immediately after the marker text
@@ -454,9 +465,10 @@ classDiagram
 
 ```ts
 describe('insertReviewComment — target resolution', () => {
-  it('uses the most recently focused markdown editor when a webview holds focus');
-  it('falls back to the single visible markdown editor');
-  it('shows the no-source-document message when neither resolves');
+  it('resolves to the document named by the focused preview tab title when it uniquely matches a tracked editor');
+  it('stops with guidance when the focused tab is not a markdown preview');
+  it('warns to close the wrong document when two tracked editors share the basename, then stops');
+  it('stops with the no-source-document message when no tracked editor matches');
   it('logs the reason to the EDF Review channel when resolution fails');
 });
 
@@ -883,8 +895,7 @@ export interface EditorTracker {
 }
 
 export type Resolution =
-  | { kind: 'tracked';  editor: vscode.TextEditor }
-  | { kind: 'visible';  editor: vscode.TextEditor }
+  | { kind: 'resolved'; editor: vscode.TextEditor }
   | { kind: 'none';     reason: string };
 ```
 
@@ -907,25 +918,26 @@ export function previewTitleName(activeTab: vscode.Tab | undefined): string | un
   // (basename tolerates labelFormat short/medium/long, e.g. "Preview sub/dir/foo.md").
   // Otherwise return undefined.
 
-export function uniqueDocumentForName(name: string): vscode.TextDocument | undefined
-  // Exactly one open markdown text document whose basename === name, else undefined.
+export function mruMatchesForName(
+  tracker: EditorTracker,
+  name: string
+): readonly vscode.TextEditor[]
+  // Still-open MRU entries whose document's basename === name, in recency order.
 
 export async function resolveTarget(
   tracker: EditorTracker,
   activeTab: vscode.Tab | undefined
 ): Promise<Resolution>
-  // Title-first (strongest — the previewed doc is what the reviewer means):
-  //   1. name = previewTitleName(activeTab); if name:
-  //        doc = uniqueDocumentForName(name)
-  //        if doc → { kind: 'tracked', editor } for
-  //                  await window.showTextDocument(doc, { preview: true, preserveFocus: true })
-  //        else → log "title did not uniquely match an open markdown document (<name>)" to
-  //               the EDF Review channel; fall through (never guess on ambiguity)
-  //  MRU stack fallback:
-  //   2. first entry of tracker.recent() whose document is still open → { kind: 'tracked' }
-  //   3. window.visibleTextEditors filtered to languageId 'markdown' — if exactly one,
-  //      return { kind: 'visible' }.
-  //   4. return { kind: 'none', reason } where reason names which step failed.
+  // The focused preview is the only legitimate trigger — activeTextEditor is undefined
+  // while a webview holds focus, which is the normal case here, not an error.
+  //   1. name = previewTitleName(activeTab); if !name → { kind: 'none', reason: NO_PREVIEW_MSG }
+  //   2. matches = mruMatchesForName(tracker, name)
+  //   3. if matches.length === 1 → { kind: 'resolved', editor } for
+  //        await window.showTextDocument(matches[0].document,
+  //        { preview: true, preserveFocus: true })
+  //   4. if matches.length === 0 → { kind: 'none', reason: NO_DOCUMENT_MSG }
+  //   5. if matches.length > 1 → await window.showWarningMessage(AMBIGUOUS_MSG(name));
+  //        { kind: 'none', reason: AMBIGUOUS_MSG(name) }  // never guess on ambiguity
 
 // src/log.ts
 export function createLog(context: vscode.ExtensionContext): (message: string) => void
@@ -944,7 +956,7 @@ async function insertReviewComment(
 ```
 Command handler (src/extension.ts, orchestration only):
 - const res = await resolveTarget(tracker, window.tabGroups.activeTabGroup?.activeTab)
-- if res.kind === 'none' → log(res.reason); showInformationMessage(NO_DOCUMENT_MSG); return
+- if res.kind === 'none' → log(res.reason); showWarningMessage(res.reason); return
 - const headings = extractHeadings(res.editor.document.getText())
 - if headings.length === 0 → showInformationMessage(NO_HEADINGS_MSG); return
 - const picked = await window.showQuickPick(toItems(headings), { placeHolder, matchOnDetail: false })
@@ -963,7 +975,9 @@ Command handler (src/extension.ts, orchestration only):
       await window.showTextDocument(editor.document, editor.viewColumn, false)
 
 Message constants (module level, so specs assert against the same string):
+- NO_PREVIEW_MSG   = 'Run this command while the markdown preview is focused'
 - NO_DOCUMENT_MSG  = 'No source document found for this preview'
+- AMBIGUOUS_MSG(n) = `Two documents named ${n} are open — close the one you don't want, then retry`
 - NO_HEADINGS_MSG  = 'No section headings found in this document'
 ```
 
@@ -978,20 +992,23 @@ Message constants (module level, so specs assert against the same string):
 > **Constraint:** `showQuickPick` returning `undefined` is the Escape path and must return
 > before any edit. Do not pre-apply an edit and undo it on cancel.
 
-> **Constraint (title-first + MRU, 0.6):** resolution never guesses on an ambiguous basename —
-> a preview tab title that does not uniquely name an open markdown document falls through to
-> the recency stack. The MRU stack is markdown-only, deduped on focus, and bounded (cap 5,
-> tail evicted). The `showTextDocument` step uses `{ preview: true, preserveFocus: true }` so
-> the preview stays on screen and the layout is not disrupted — matching `applyMarker`'s
-> existing behaviour of focusing the source editor at insertion time.
+> **Constraint (title-only + MRU lookup, 0.7):** the focused preview is the only legitimate
+> trigger; resolution never guesses. No preview → stop with `NO_PREVIEW_MSG`; a non-unique
+> basename (multiple tracked editors) → `AMBIGUOUS_MSG(name)` warning and stop. Candidates come
+> from the bounded markdown-only MRU stack (cap 5, deduped on focus, tail evicted, pruned on
+> close); a document evicted from the stack is not found (zero → `NO_DOCUMENT_MSG`). The
+> resolved branch opens with `{ preview: true, preserveFocus: true }` so the preview stays on
+> screen — matching `applyMarker`'s existing behaviour of focusing the source editor at
+> insertion time.
 
 #### Error handling
 
 | Case | Behaviour |
 |---|---|
-| No title match, no MRU entry open, and no single visible markdown editor | `NO_DOCUMENT_MSG` to the user, reason to `EDF Review` |
-| Focused preview title does not uniquely match an open markdown document (zero or multiple) | Falls through to the MRU stack; log the unresolved title to `EDF Review` |
-| Newest MRU entry's document has since closed | Walks to the next-most-recent entry whose document is open |
+| Focused tab is not a markdown preview | `NO_PREVIEW_MSG` to the user, reason to `EDF Review` — no guessing |
+| Preview title matches exactly one tracked editor | Resolved; editor opened with `{ preview: true, preserveFocus: true }` |
+| Preview title matches multiple tracked editors (same basename) | `AMBIGUOUS_MSG(name)` warning to the user, reason to `EDF Review` — stop, no guess |
+| Preview title matches zero tracked editors (document evicted from the bounded stack) | `NO_DOCUMENT_MSG` to the user, reason to `EDF Review` |
 | Document has no `##`/`###` headings | `NO_HEADINGS_MSG`, no edit |
 | Quick-pick dismissed | Silent return, no edit, no log entry |
 | `editor.edit` returns `false` | Log the failure; show a message. Do not retry |
@@ -1234,7 +1251,7 @@ Replace the "No preview script injection" row and add:
 **Stories:** 2.1 (ACs 1, 3, 4, 5, 6, 8)
 **HLD reference:** [C6](v1-design.md#c6-in-flow-review-feedback), [Flow 3](v1-design.md#flow-3-review-comment-insertion-with-target-resolution-trust-boundary)
 
-**What:** Register `edf-review.insertReviewComment`; add the editor tracker and three-way
+**What:** Register `edf-review.insertReviewComment`; add the editor tracker and title-anchored
 target resolution, the `EDF Review` output channel, the quick-pick, single-edit insertion,
 cursor placement and focus. Integration specs under the test host. Capture the two
 wireframe screenshots per ADR-0035.
