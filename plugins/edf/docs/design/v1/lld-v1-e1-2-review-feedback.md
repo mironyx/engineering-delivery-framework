@@ -4,8 +4,9 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.8 |
-| Status | Revised v6 |
+| Version | 0.9 |
+| Status | Revised v7 |
+| Revised | 2026-08-24 | Issue #50 |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Epic | [#30](https://github.com/mironyx/engineering-delivery-framework/issues/30) |
@@ -15,6 +16,14 @@
 | Epic id | `v1-e1-2` |
 
 ## Recent revisions
+
+**0.9 (2026-08-24).** §2.3 internal decomposition synced to the shipped implementation
+(`edf:lld-sync`, issue #50): `toItems` labels carry the `##`/`###` level prefix (the field the
+quick-pick matches on, per the PR's documented deviation), and `applyMarker`'s decomposition
+reflects the hardened form — a `log` parameter (the "editor.edit returns false" error-table row),
+a stale-heading guard (fail explicitly rather than throw a RangeError), an EOL-honouring newline
+(CRLF documents must not gain a mixed line-ending edit), and an end-of-document separator for
+files whose final line is the heading with no trailing newline. See §2.3.
 
 **0.8 (2026-08-23).** §2.3 cold-start and zero-match cases closed: `createEditorTracker` seeds
 the MRU stack from `visibleTextEditors` at activation, so a command run right after the
@@ -977,15 +986,19 @@ Command handler (src/extension.ts, orchestration only):
 - if headings.length === 0 → showInformationMessage(NO_HEADINGS_MSG); return
 - const picked = await window.showQuickPick(toItems(headings), { placeHolder, matchOnDetail: false })
 - if (!picked) return                      // Escape — true no-op, no edit applied
-- await applyMarker(res.editor, picked.line)
+- await applyMarker(res.editor, picked.line, log)
 
   Private helpers (each ≤ 20 lines):
   - toItems(headings: Heading[]): QuickPickItem & { line: number }[]
-      label = heading.text, description = `line ${heading.line + 1}`   // 1-based for display
-  - applyMarker(editor: vscode.TextEditor, headingLine: number): Promise<void>
+      label = '#'.repeat(heading.level) + ' ' + heading.text   // level prefix is the match field
+      description = `line ${heading.line + 1}`   // 1-based for display
+  - applyMarker(editor: vscode.TextEditor, headingLine: number, log): Promise<void>
       const lines = editor.document.getText().split(/\r?\n/)
       const at = findReviewInsertLine(lines, headingLine)
-      await editor.edit(b => b.insert(new vscode.Position(at + 1, 0), REVIEW_MARKER + '\n'))
+      if (at + 1 > lines.length) → log('selected heading no longer exists'); showErrorMessage; return
+      const newline = editor.document.eol === CRLF ? '\r\n' : '\n'
+      const separator = at + 1 === lines.length ? newline : ''   // no trailing newline → own line
+      await editor.edit(b => b.insert(new vscode.Position(at + 1, 0), separator + REVIEW_MARKER + newline))
       const pos = new vscode.Position(at + 1, REVIEW_MARKER.length)
       editor.selection = new vscode.Selection(pos, pos)
       await window.showTextDocument(editor.document, editor.viewColumn, false)
@@ -996,6 +1009,15 @@ Message constants (module level, so specs assert against the same string):
 - AMBIGUOUS_MSG(n) = `Two documents named ${n} are open — close the one you don't want, then retry`
 - NO_HEADINGS_MSG  = 'No section headings found in this document'
 ```
+
+> **Implementation note (issue #50):** `applyMarker` ships hardened beyond the original
+> decomposition. It takes a `log` parameter to implement the error-table row "editor.edit
+> returns false → log the failure; show a message". A stale-heading guard fails explicitly
+> when the selected heading was deleted while the quick-pick was open (the alternative is an
+> unhandled RangeError from `Position(at + 1, 0)`). The inserted newline honours
+> `editor.document.eol`, and when the heading (or last consecutive marker) is the document's
+> final line with no trailing newline, a separator newline is prepended so the marker lands on
+> its own line instead of being glued onto the heading text.
 
 > **Constraint:** exactly one `editor.edit` call. Invariant 16 asserts `document.version`
 > increases by 1 — two edits would also produce correct text while making the undo stack

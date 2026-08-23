@@ -44,6 +44,15 @@ to catch in code review.
 - `"use client"` on a file that imports server-only modules → **block**.
 - `process.env.NEXT_PUBLIC_*` accessed in server-only code (leaks to client bundle) → **warn**.
 - `getServerSideProps` in the App Router (wrong paradigm) → **warn**.
+
+### VS Code (edf-review extension)
+- Hard-coded `'\n'` inserted into a document whose EOL is CRLF → mixed line endings (VS Code
+  flags "Mixed line endings"; noisy git diff). Severity: **warn**. Fix: insert `'\r\n'` when
+  `editor.document.eol === vscode.EndOfLine.CRLF`. (Finding #73 on PR #73.)
+- A positional heading line index captured before a modal UI (quick-pick) and re-used after it
+  with no version guard → stale-target insert or an unhandled RangeError if the heading is
+  deleted while the pick is open. Severity: **warn**. Fix: re-read the document after the pick
+  and fail explicitly when the heading is gone. (Finding #73 on PR #73.)
 -->
 
 ## Secrets / env

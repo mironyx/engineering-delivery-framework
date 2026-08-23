@@ -8,7 +8,7 @@ entries:
     lld: lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-command-wiring
     issue: 50
     files: []
-    status: Approved
+    status: Revised
     lld_revision: r1
     # Story 2.1 — primary section is command wiring and target resolution.
     # Also satisfied in part by
