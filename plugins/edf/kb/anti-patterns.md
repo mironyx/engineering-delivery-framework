@@ -13,6 +13,8 @@ Each entry should state:
 
 ## General
 
+- **Fallback accretion — a decision chain whose fallback branches have no reachable triggering scenario.** A command or function resolves its target through N fallback branches, each added defensively ("just in case") rather than for an input state that actually occurs. Detected by: an `else`/fallback branch whose author cannot name the concrete state that reaches it, or answers "if it somehow happens". Fix: cut the branch and let the case fail loudly with a message — a wrong-target silent resolution is worse than a stop. Severity: **warn**.
+
 <!-- e.g.
 - **DRY violation — duplicate service/query logic.** A new loader, service, or helper
   implements data-fetching or business logic that already exists in another module.

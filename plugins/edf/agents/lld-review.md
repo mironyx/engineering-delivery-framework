@@ -218,6 +218,11 @@ If no findings: "No issues found. LLD is well-designed and complete."
   answer — but there are designs that don't acknowledge their costs.
 - **Prefer simplicity.** The burden of proof is on complexity. Flag abstractions
   that don't earn their keep.
+- **Necessity gate.** For every alternative/fallback branch in a behavioural flow or
+  decision chain, the design must name the concrete input state that reaches it. A
+  branch with no reachable triggering scenario is defensive-only — a Tier 1 finding,
+  with the fix being to cut the branch and let the case fail loudly instead of
+  resolving to a wrong target.
 - **Be specific about alternatives.** Every Tier 1 finding must name what a simpler
   or better-aligned design would look like, even if in one sentence.
 - **Don't rewrite the LLD.** State findings; the parent skill applies fixes.

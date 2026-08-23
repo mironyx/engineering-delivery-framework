@@ -258,6 +258,7 @@ After producing the draft LLD (or each LLD in epic mode), run a critical re-read
 
 Be adversarial. The goal is to find the gaps a future `/feature` run will fall into, not to pat yourself on the back.
 
+- **Necessity gate — every branch names a reachable scenario.** For every `alt`/`else`/fallback/alternative branch in a behavioural flow or decision chain, name the concrete input state that reaches it. A branch whose triggering scenario cannot be named is defensive-only — remove it and let that case fail loudly rather than resolve to a wrong target. Fallback chains accrete during design discussion; each branch makes the behaviour less predictable and costs tests, and "cover everything just in case" is what turns a three-branch chain into a ten-branch one.
 - **Acceptance ↔ BDD ↔ Invariant coverage.** Does every Acceptance Criterion map to at least one BDD spec? Does every Invariant have a `Verification` method that is *executable* (test, type check, grep, lint) — not "code review" or "manual check"?
 - **Internal decomposition is concrete.** For every non-trivial route or component, is every function/class/helper named with a signature? "Service does X" is a failure — name `serviceFn(ctx, params): Promise<T>` and its private helpers.
 - **Type contracts match the DB.** For any type referencing a DB column or enum, did I confirm the LLD type matches the canonical DB-types source in this project (e.g. generated types from the DB schema, ORM-generated types, or hand-authored DB type modules)? Mismatches cause casts and workarounds downstream.
