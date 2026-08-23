@@ -174,3 +174,168 @@ body). Rebased the branch onto `origin/main` (LLD 0.7) so the PR carries the aut
 | 9 (re-run, 0.7) | 2026-08-23T18:00:00Z | $0.00 | 0 in / 0 out | [pr-review re-run](https://github.com/mironyx/engineering-delivery-framework/pull/73#issuecomment-5387620050) — 267 src diff lines → 2 agents (Quality + Design Conformance); 0 blockers, 5 warns: W1 marker-glue off-by-one → FIXED (`02ca524`), W2 AMBIGUOUS_MSG double-show → accepted (spec-inherited), W3 cold-start empty MRU stack → open (spec deviation, deferred to coordinator), W4 test-host helper duplication → accepted (follow-up), W5 `applyMarker` Justification gap → FIXED (`02ca524`) |
 | 10 (0.7) | 2026-08-23T18:01:00Z | $0.00 | 0 in / 0 out | CI reconciled — `gh pr checks 73` reports no checks (no Actions workflows); PR #73 head `02ca524` after `--force-with-lease`, MERGEABLE, OPEN; suite 59 passing, 0 failing (+1 no-trailing-newline regression test for W1); cost checkpoint EDF-50 $0.00 / 0 tokens |
 | 0.8 delta | 2026-08-23T18:20:00Z | $0.00 | 0 in / 0 out | LLD 0.8 (main `57f8dee`, approved by maintainer): `createEditorTracker` seeds the bounded MRU stack from `visibleTextEditors` at activation (markdown-only, cap applies) so a first command run after lazy activation finds an editor opened before the extension was alive; `NO_DOCUMENT_MSG` reworded to `Open the original markdown file in VS Code, then retry` (reachable zero-match cases are a closed source editor or eviction — not a dead end). 2 new seed specs; rebased onto `57f8dee`; suite 61 passing, 0 failing |
+
+## Work completed
+
+Final state delivered by PR #73 (head `6ccb834`): the `edf-review.insertReviewComment` command
+with the LLD 0.8 never-guess target resolution and the `EDF Review` output channel.
+
+- **Command + orchestration** (`extensions/edf-review/src/extension.ts`): `activate` registers
+  `edf-review.insertReviewComment`; `insertReviewComment(tracker, log)` runs the
+  resolve → extract-headings → quick-pick → single-edit pipeline; `applyMarker` ships the review
+  hardening (log param, stale-heading guard, EOL-honouring newline, end-of-document separator).
+- **Target resolution** (`extensions/edf-review/src/editor-tracker.ts`): `createEditorTracker`
+  maintains a bounded MRU stack of markdown editors (cap 5, deduped on focus, pruned on close),
+  **seeded from `visibleTextEditors` at activation** (LLD 0.8); `resolveTarget(tracker, activeTab)`
+  resolves the focused markdown preview's title to exactly one open basename match, else stops
+  with `NO_PREVIEW_MSG` / `NO_DOCUMENT_MSG` / `AMBIGUOUS_MSG` — never guesses.
+- **Output channel** (`extensions/edf-review/src/log.ts`): `EDF Review` output channel wrapper;
+  `createLog` injectable for specs.
+- **Tests** (61 passing, 0 failing in the @vscode/test-electron host): `resolution.test.ts`
+  (5-spec BDD + seed specs), `command.test.ts` (insertion incl. no-trailing-newline + CRLF +
+  stale-heading regressions), `command-wiring.eval.test.ts` (5 evaluator adversarial specs),
+  scaffold spec. No E2E (n/a per kb); `tsc --noEmit` strict clean.
+- **Docs:** LLD synced to 0.9 (§2.3 decomposition + Implementation note); coverage manifest
+  entry flipped to Revised; `kb/anti-patterns.md` gained a VS Code section.
+- **PR:** https://github.com/mironyx/engineering-delivery-framework/pull/73
+
+## Decisions made
+
+- **Never guess (LLD 0.7, coordinator-approved):** the focused markdown preview is the ONLY
+  trigger; ambiguous basenames warn and stop rather than guessing. Adopted exactly per LLD
+  `a287750`.
+- **Cold-start seed (LLD 0.8, maintainer-approved):** the tracker seeds its MRU stack from
+  `visibleTextEditors` at activation (markdown-only, cap applies), so a first command run after
+  lazy activation resolves an editor already open before the extension loaded.
+- **Zero-match message reword (LLD 0.8):** `NO_DOCUMENT_MSG` is "Open the original markdown file
+  in VS Code, then retry" — the reachable zero-match cases (closed source editor, evicted from
+  the MRU) are a prompt to act, not a dead end.
+- **Quick-pick label carries the level prefix** (`'#'.repeat(h.level) + ' ' + h.text`): the LLD
+  Part B said `label = heading.text`, but the wireframe and the "lists ## and ### headings" BDD
+  both show the level marker, and it is the only field QuickPick matches on — without it `##` vs
+  `###` headings are indistinguishable. Synced back into the LLD (0.9).
+- **`applyMarker` hardening retained** across the 0.6→0.7→0.8 rewrites: the `log` parameter (to
+  implement the LLD §2.3 "editor.edit returns false" error-table row), the stale-heading guard
+  (fail explicitly rather than throw a RangeError when the document shrank while the pick was
+  open), the EOL-honouring newline (CRLF documents must not gain a mixed line-ending edit), and
+  the end-of-document separator (heading as final line with no trailing newline must not glue the
+  marker onto the heading text).
+- **Ambiguous double-show is spec-inherited:** LLD step 5 shows the warning inside
+  `resolveTarget` and the handler's none-branch shows `res.reason` again, so the ambiguous case
+  surfaces twice in the full path. No spec exercises the handler with an ambiguous tracker;
+  removing the inline step-5 call is a one-line change if a future coordinator prefers a single
+  message site.
+- **Test-host constraints worked around:** `vscode.window.tabGroups` is getter-only → stubbed via
+  `Object.defineProperty` and restored by re-applying the captured descriptor; the host never
+  fires `onDidCloseTextDocument` → the tracker's prune branch is exercised by stubbing the event
+  sources and invoking the captured handlers directly.
+
+## Review feedback addressed
+
+- **Finding #73 (edf:pr-review, 0 blockers / 3 warns) — all fixed:**
+  1. CRLF mixed line endings in `applyMarker` → inserted newline honours `editor.document.eol`;
+     regression test added.
+  2. Stale heading index → `applyMarker` guards `at + 1 > lines.length`, logs "selected heading
+     no longer exists in the document" + `showErrorMessage`; regression test added.
+  3. `applyMarker` signature divergence (log param) → documented in a `Justification:` comment
+     and the PR body Design deviations.
+- **0.7 re-review (0 blockers / 5 warns):**
+  - W1 marker-glue off-by-one → **fixed** (`02ca524`) with an end-of-document separator; added
+    the no-trailing-newline regression test.
+  - W2 AMBIGUOUS_MSG double-show → accepted, spec-inherited (see Decisions).
+  - W3 cold-start empty MRU stack → **resolved by LLD 0.8** (seed from `visibleTextEditors`).
+  - W4 test-helper duplication → accepted, deferred (a shared helper module is a refactor, not a
+    correctness fix).
+  - W5 `applyMarker` Justification gap → **fixed** (`02ca524`) with an expanded comment.
+- **0.8 delta:** the two review bugs (mixed line endings, stale heading index) are the basis of
+  the new "VS Code (edf-review extension)" section in `kb/anti-patterns.md`.
+
+## LLD Sync report
+
+`edf:lld-sync 50` — target: `docs/design/v1/lld-v1-e1-2-review-feedback.md` (§2.3 command-wiring),
+coverage manifest `coverage-v1-e1-2.yaml`, kb.
+
+### Corrections (spec was wrong)
+
+- §2.3 `toItems` quick-pick label: LLD said `label = heading.text`; built emits
+  `'#'.repeat(heading.level) + ' ' + heading.text` — the level prefix is the only field the
+  quick-pick matches on (case-insensitive), and without it `##` vs `###` headings are
+  indistinguishable. The deviation was documented in the PR body but never captured in the LLD.
+- §2.3 `applyMarker` internal decomposition: LLD said `applyMarker(editor, headingLine)` inserting
+  `REVIEW_MARKER + '\n'`; built ships `applyMarker(editor, headingLine, log)` with (a) a
+  stale-heading guard that logs + shows an error + returns instead of throwing a RangeError, (b)
+  an EOL-honouring newline (`'\r\n'` when `document.eol === CRLF` — a hard-coded `'\n'` produced
+  a mixed line-ending edit on CRLF markdown), and (c) an end-of-document separator when the
+  heading is the final line and the file has no trailing newline (otherwise the marker glues onto
+  the heading text).
+
+### Additions (not in spec)
+
+- §2.3 Implementation note callout (issue #50) added below the message constants documenting the
+  three `applyMarker` divergences and their rationale (the "editor.edit returns false" error-table
+  row; fail-closed on a stale heading; EOL + separator for line-ending hygiene).
+
+### Omissions (in spec but not built)
+
+- None. The case-insensitive quick-pick filter AC is delegated to the native VS Code QuickPick
+  matching (a host-side re-implementation would be brittle and add no contract value); the two
+  ADR-0035 wireframe PNGs are captured in the PR.
+
+### Confirmations (notable)
+
+- The LLD 0.8 never-guess resolution chain was built exactly as specified: single-preview-title
+  trigger; `mruMatchesForName` by basename over the seeded, capped MRU stack; 0 matches →
+  `NO_DOCUMENT_MSG`, 1 → resolve via `showTextDocument(doc, { preview: true, preserveFocus: true })`,
+  >1 → `AMBIGUOUS_MSG` warn + stop, no preview → `NO_PREVIEW_MSG`. Message constants match the
+  LLD verbatim.
+- The ambiguous double-show is a faithful implementation of LLD step 5, including its
+  double-display quirk (see Decisions).
+
+### Knowledge base
+
+- `kb/anti-patterns.md`: added "### VS Code (edf-review extension)" with two patterns from review
+  finding #73 — mixed line endings (insert `'\r\n'` when `document.eol === CRLF`) and a
+  positional heading index captured before a modal UI and re-used after it without a version
+  guard (re-read the document and fail explicitly).
+
+### LLD updated
+
+File: `docs/design/v1/lld-v1-e1-2-review-feedback.md` §2.3
+Version: 0.8 → 0.9 (Status Revised v6 → Revised v7; Document Control `Revised` row added)
+
+## Cost retrospective
+
+All 13 `## Cost checkpoints` rows report `$0.00 / 0 tokens` (cumulative). Prometheus cost
+telemetry was unavailable for this feature — the extension host never emitted the checkpoint
+metrics the EDF cost pipeline reads, so there is no data-backed breakdown of where spend accrued.
+The final query (`query-feature-cost.py --issue 50 --pr 73 --stage final`) returned
+`$0.0000 / 0 in / 0 out`, time-to-PR 38 min, and applied `ai-cost-final:0.0000` +
+`input/output-tokens-final:0` to issue #50 and PR #73.
+
+- **Cost drivers (qualitative):** the visible cost drivers were context turns and review cycles,
+  not tokens — the target-resolution contract moved three times while the branch was open
+  (0.6 title-first + MRU → 0.7 never-guess → 0.8 seed + message reword), each requiring a rebase,
+  a test rewrite, and a pr-review re-run (3 review rounds on PR #73). The only code-level fix
+  cycle (W1 marker-glue off-by-one) was caught in re-review, not by the host.
+- **Improvement actions:**
+  1. Keep the LLD resolution design frozen once a branch is open; each 0.x redesign cost a full
+     test-suite rewrite. The final never-guess shape (0.7) and its seed (0.8) should have been
+     settled before implementation started.
+  2. Add no-trailing-newline + CRLF insert cases to the test-author contract checklist — both
+     were review-caught, not test-author-caught (the evaluator's process feedback about the
+     error-table gap covers the mechanics; line-ending hygiene deserves its own row).
+  3. The new `kb/anti-patterns.md` VS Code section lands these two review-caught bugs so the next
+     extension PR is checked for them up front.
+
+## Next steps
+
+- **Deferred from review (accepted):** W4 test-helper duplication — extract a shared
+  stub/settle helper module in the extension test suite (refactor, not correctness); optional
+  follow-up.
+- **Ambiguous double-show:** if the coordinator prefers a single message site for the AMBIGUOUS
+  case, remove the inline step-5 `showWarningMessage` in `resolveTarget` (one-line change).
+- **Suggested next board item:** the remaining Wave 3 tasks of epic E1.2 (#30) are
+  [#51 v1-e1-2: vsix packaging, install verification and recorded security review] and
+  [#63 v1-e1-2: diagram click-through navigation via previewScripts overlay]. #51 is the natural
+  next pick (packaging is the gate for installing and verifying the shipped artifact); #63
+  completes the previewScripts overlay story. Both are `kind:task` and currently open.
