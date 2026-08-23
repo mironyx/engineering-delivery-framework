@@ -50,9 +50,14 @@ function toItems(headings: Heading[]): HeadingPickItem[] {
  * placement, then focus. The inserted newline honors the document's line endings
  * so CRLF files do not gain a mixed line-ending edit.
  *
- * Justification: the `log` parameter diverges from the LLD decomposition signature
- * `applyMarker(editor, headingLine)` to implement the LLD §2.3 error-table row
- * "editor.edit returns false → log the failure; show a message".
+ * Justification: diverges from the LLD decomposition signature
+ * `applyMarker(editor, headingLine)` in three ways, all documented:
+ *  - a `log` parameter to implement the LLD §2.3 error-table row "editor.edit
+ *    returns false → log the failure; show a message";
+ *  - a stale-heading guard (review finding #73): if the selected heading was
+ *    deleted while the quick-pick was open, fail explicitly rather than throw;
+ *  - an EOL-honouring newline (review finding #73): CRLF documents must not gain
+ *    a mixed line-ending edit.
  */
 async function applyMarker(
   editor: vscode.TextEditor,
@@ -70,8 +75,13 @@ async function applyMarker(
     return;
   }
   const newline = editor.document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+  // When the heading (or last consecutive marker) is the document's final line and
+  // the file has no trailing newline, `at + 1 === lines.length` and Position(at + 1, 0)
+  // is end-of-document — prepend the newline so the marker lands on its own line
+  // instead of being glued onto the heading text (review finding #73 re-review).
+  const separator = at + 1 === lines.length ? newline : '';
   const ok = await editor.edit((edit) =>
-    edit.insert(new vscode.Position(at + 1, 0), REVIEW_MARKER + newline)
+    edit.insert(new vscode.Position(at + 1, 0), separator + REVIEW_MARKER + newline)
   );
   if (!ok) {
     log('failed to insert review marker');

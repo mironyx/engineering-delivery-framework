@@ -554,6 +554,38 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
     }
   });
 
+  it('places the marker on its own line when the heading is the final line without a trailing newline (review finding #73 re-review)', async () => {
+    // A file that ends with the heading and no trailing newline: `at + 1 ===
+    // lines.length`, so Position(at + 1, 0) is end-of-document and a bare insert
+    // would glue the marker onto the heading. The separator must keep it on its
+    // own line.
+    const content = ['# Title', '', '## Section One'].join('\n');
+    const fixture = await fileMarkdownFixture(content);
+    const tracker: EditorTracker = {
+      recent: () => [fixture.editor],
+      last: () => fixture.editor
+    };
+
+    const tab = stubActiveTab(previewTab(`Preview ${fixture.base}`));
+    const quickPick = stubQuickPick<HeadingPickItem>((items) =>
+      items.find((item) => item.label.includes('Section One'))
+    );
+    try {
+      await insertReviewComment(tracker, () => {});
+
+      const expected = ['# Title', '', '## Section One', REVIEW_MARKER, ''].join('\n');
+      assert.strictEqual(
+        fixture.doc.getText(),
+        expected,
+        'marker must land on its own line, never glued onto the heading'
+      );
+    } finally {
+      tab.restore();
+      quickPick.restore();
+      await fixture.cleanup();
+    }
+  });
+
   it('fails explicitly instead of throwing when the heading is deleted while the quick-pick is open (review finding #73)', async () => {
     // Stale-index guard: extractHeadings captures a line, the document shrinks
     // before applyMarker re-reads it, and findReviewInsertLine returns the stale
