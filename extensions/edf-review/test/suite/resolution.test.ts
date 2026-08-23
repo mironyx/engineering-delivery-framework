@@ -4,7 +4,7 @@
  * Integration specs for src/editor-tracker.ts (createEditorTracker,
  * previewTitleName, mruMatchesForName, resolveTarget, NO_PREVIEW_MSG /
  * NO_DOCUMENT_MSG / AMBIGUOUS_MSG) and src/log.ts (createLog) — LLD §2.3
- * (Command wiring and target resolution, 0.7 never-guess), Invariants 12-13 and
+ * (Command wiring and target resolution, 0.8 never-guess), Invariants 12-13 and
  * the issue's target-resolution BDD block.
  *
  * These specs run inside the VS Code test host launched by @vscode/test-electron
@@ -366,6 +366,55 @@ describe('createEditorTracker (Issue #50, LLD §2.3)', () => {
     );
   });
 
+  it('seeds the MRU stack from markdown editors already visible at creation (LLD 0.8)', async () => {
+    // Activation is lazy (empty activationEvents, fires on the first command), so
+    // a command run right after activation must find an editor opened before the
+    // extension was alive — the tracker seeds from visibleTextEditors (LLD 0.8).
+    const context = freshContext();
+    const md = await openMarkdownEditor('# Title\n## Section One\n');
+    const plainDoc = await vscode.workspace.openTextDocument({
+      content: 'plain text only',
+      language: 'plaintext'
+    });
+    // Open the plaintext editor side-by-side so the markdown editor stays visible;
+    // the seed must include the markdown one and exclude the plaintext one.
+    await vscode.window.showTextDocument(plainDoc, vscode.ViewColumn.Beside);
+    await settle();
+
+    const tracker = createEditorTracker(context);
+
+    assert.ok(
+      tracker.recent().includes(md.editor),
+      'a markdown editor open before activation must be seeded into the MRU stack'
+    );
+    assert.ok(
+      tracker.recent().every((editor) => editor.document.languageId === 'markdown'),
+      'no non-markdown editor may be seeded'
+    );
+  });
+
+  it('caps the seeded stack like the focus stack (LLD 0.8)', async () => {
+    const context = freshContext();
+    const docs: vscode.TextDocument[] = [];
+    docs.push(
+      await vscode.workspace.openTextDocument({ content: '# One\n', language: 'markdown' })
+    );
+    docs.push(
+      await vscode.workspace.openTextDocument({ content: '# Two\n', language: 'markdown' })
+    );
+    await vscode.window.showTextDocument(docs[0]);
+    await vscode.window.showTextDocument(docs[1], vscode.ViewColumn.Beside);
+    await settle();
+
+    assert.ok(
+      vscode.window.visibleTextEditors.length >= 2,
+      'precondition: both markdown editors are visible so the seed sees them'
+    );
+
+    const tracker = createEditorTracker(context, 1);
+    assert.strictEqual(tracker.recent().length, 1, 'the seed respects the cap');
+  });
+
   it('dedupes on refocus, moving the editor to the front', async () => {
     const events = stubTrackerEvents();
     const context = freshContext();
@@ -423,7 +472,7 @@ describe('createEditorTracker (Issue #50, LLD §2.3)', () => {
   });
 });
 
-describe('resolveTarget — issue #50 BDD (LLD §2.3 0.7, never guess)', () => {
+describe('resolveTarget — issue #50 BDD (LLD §2.3 0.8, never guess)', () => {
   it('resolves to the document named by the focused preview tab title when it uniquely matches a tracked editor', async () => {
     const dir = makeTempDir();
     const opened: vscode.TextDocument[] = [];
@@ -510,9 +559,11 @@ describe('resolveTarget — issue #50 BDD (LLD §2.3 0.7, never guess)', () => {
     }
   });
 
-  it('stops with the no-source-document message when no tracked editor matches', async () => {
-    // Zero matches — the document was never tracked or was evicted from the
-    // bounded stack → NO_DOCUMENT_MSG, never guess (LLD §2.3 0.7 step 4).
+  it('tells the user to open the original markdown file when no tracked editor matches', async () => {
+    // Zero matches — the document was never tracked, was evicted from the
+    // bounded stack, or its editor closed while the preview stayed open →
+    // NO_DOCUMENT_MSG tells the user to open the original file; never guess
+    // (LLD §2.3 0.8 step 4).
     const empty: EditorTracker = { recent: () => [], last: () => undefined };
     const emptyResolution = await resolveTarget(empty, previewTab('Preview foo.md'));
     assert.strictEqual(emptyResolution.kind, 'none');

@@ -280,9 +280,10 @@ describe('resolveTarget — closed tracked entry (Issue #50, LLD §2.3 0.7)', ()
     }
   });
 
-  it('stops with the no-source-document message when the only matching tracked entry is closed (never targets a closed document)', async () => {
-    // LLD §2.3 0.7 error-table row: a closed/evicted tracked editor is not a
-    // candidate — zero matches → NO_DOCUMENT_MSG, never a stale-target guess.
+  it('tells the user to open the original markdown file when the only matching tracked entry is closed (never targets a closed document)', async () => {
+    // LLD §2.3 0.7 error-table row (0.8 message): a closed/evicted tracked editor
+    // is not a candidate — zero matches → NO_DOCUMENT_MSG telling the user to
+    // open the original file, never a stale-target guess.
     const tracker: EditorTracker = {
       recent: () => [closedEditor()],
       last: () => closedEditor()

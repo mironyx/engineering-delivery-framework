@@ -1,13 +1,14 @@
 /**
  * Editor tracker and target resolution — extension host.
  *
- * LLD v1-e1-2 §2.3 (0.7, never guess): the focused markdown preview is the ONLY
+ * LLD v1-e1-2 §2.3 (0.8, never guess): the focused markdown preview is the ONLY
  * legitimate trigger — `activeTextEditor` is undefined while a webview holds
  * focus, which is the normal case here, not an error. The tracker keeps a
- * bounded MRU stack of markdown editors (deduped on focus, cap 5, closed
- * documents pruned), and `resolveTarget` resolves the preview's tab title to the
- * tracked editor whose basename uniquely matches — stopping with guidance when
- * there is no preview, no match, or an ambiguous match.
+ * bounded MRU stack of markdown editors (seeded from `visibleTextEditors` at
+ * activation, deduped on focus, cap 5, closed documents pruned), and
+ * `resolveTarget` resolves the preview's tab title to the tracked editor whose
+ * basename uniquely matches — stopping with guidance when there is no preview,
+ * no match, or an ambiguous match.
  */
 import * as vscode from 'vscode';
 import * as path from 'path';
@@ -27,23 +28,35 @@ export type Resolution =
 
 /** Shown when the focused tab is not the built-in markdown preview. */
 export const NO_PREVIEW_MSG = 'Run this command while the markdown preview is focused';
-/** Shown when the preview title matches zero tracked open editors. */
-export const NO_DOCUMENT_MSG = 'No source document found for this preview';
+/**
+ * Shown when the preview title matches zero tracked open editors — the source
+ * editor was closed (with or without a restart) while the preview stayed open,
+ * or it fell off the bounded stack. The user's action is to open the original
+ * file and retry (LLD 0.8 — the old "no source document found" was a dead end).
+ */
+export const NO_DOCUMENT_MSG = 'Open the original markdown file in VS Code, then retry';
 /** Shown when the preview title matches multiple tracked editors (same basename). */
 export const AMBIGUOUS_MSG = (name: string): string =>
   `Two documents named ${name} are open — close the one you don't want, then retry`;
 
 /**
  * Create an editor tracker. Maintains a bounded MRU stack of markdown editors:
- * on focus the editor moves to the front (deduped), the tail beyond `cap` is
- * evicted, and entries whose document closes are pruned. Both disposables are
- * pushed onto `context.subscriptions`.
+ * seeded from the markdown editors already visible at activation, then on focus
+ * the editor moves to the front (deduped), the tail beyond `cap` is evicted, and
+ * entries whose document closes are pruned. All disposables are pushed onto
+ * `context.subscriptions`.
  */
 export function createEditorTracker(
   context: vscode.ExtensionContext,
   cap = 5
 ): EditorTracker {
-  const recent: vscode.TextEditor[] = [];
+  // Seed with what is already open at activation (LLD 0.8): activation is lazy
+  // (empty activationEvents, fires on the first command run), so without this a
+  // command run right after activation would find an empty stack even though the
+  // markdown file is open and on screen. Cap applies to the seed.
+  const recent: vscode.TextEditor[] = vscode.window.visibleTextEditors
+    .filter((editor) => editor.document.languageId === 'markdown')
+    .slice(0, cap);
 
   const focusDisposable = vscode.window.onDidChangeActiveTextEditor((editor) => {
     if (!editor || editor.document.languageId !== 'markdown') {
@@ -110,7 +123,8 @@ export function mruMatchesForName(
  *   1. No preview tab → stop with NO_PREVIEW_MSG.
  *   2. Preview title's basename → still-open tracked editors that match.
  *   3. Exactly one match → reveal via showTextDocument and resolve to it.
- *   4. Zero matches → stop with NO_DOCUMENT_MSG (evicted from the bounded stack).
+ *   4. Zero matches → stop with NO_DOCUMENT_MSG — the source editor was closed
+ *      or evicted; tell the user to open the original file.
  *   5. More than one match (same basename) → warn to close the wrong one, then
  *      stop with AMBIGUOUS_MSG — never guess.
  */
