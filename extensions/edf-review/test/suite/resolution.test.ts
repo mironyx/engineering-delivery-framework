@@ -2,9 +2,10 @@
  * Issue #50 (v1-e1-2): editor tracker, target resolution and output channel.
  *
  * Integration specs for src/editor-tracker.ts (createEditorTracker,
- * previewTitleName, uniqueDocumentForName, resolveTarget) and src/log.ts
- * (createLog) — LLD §2.3 (Command wiring and target resolution, 0.6 title-first
- * + MRU), Invariants 12-13 and the issue's target-resolution BDD block.
+ * previewTitleName, mruMatchesForName, resolveTarget, NO_PREVIEW_MSG /
+ * NO_DOCUMENT_MSG / AMBIGUOUS_MSG) and src/log.ts (createLog) — LLD §2.3
+ * (Command wiring and target resolution, 0.7 never-guess), Invariants 12-13 and
+ * the issue's target-resolution BDD block.
  *
  * These specs run inside the VS Code test host launched by @vscode/test-electron
  * (test/runTest.ts) and are discovered by the Mocha bootstrap's star-star glob
@@ -23,11 +24,15 @@ import * as path from 'path';
 import {
   createEditorTracker,
   previewTitleName,
-  uniqueDocumentForName,
+  mruMatchesForName,
   resolveTarget,
+  NO_PREVIEW_MSG,
+  NO_DOCUMENT_MSG,
+  AMBIGUOUS_MSG,
   EditorTracker
 } from '../../src/editor-tracker';
 import { createLog } from '../../src/log';
+import { insertReviewComment } from '../../src/extension';
 
 // ---------------------------------------------------------------------------
 // Test-host helpers
@@ -99,6 +104,48 @@ function stubOutputChannel(): {
     captured: () => state,
     restore: () => {
       testWindow.createOutputChannel = original;
+    }
+  };
+}
+
+/** Monkey-patch vscode.window.showWarningMessage and capture the messages. */
+function stubWarningMessage(): { calls: string[]; restore: () => void } {
+  const original = vscode.window.showWarningMessage;
+  const testWindow = vscode.window as unknown as {
+    showWarningMessage: typeof vscode.window.showWarningMessage;
+  };
+  const calls: string[] = [];
+  testWindow.showWarningMessage = ((message: string) => {
+    calls.push(message);
+    return Promise.resolve(undefined);
+  }) as unknown as typeof vscode.window.showWarningMessage;
+  return {
+    calls,
+    restore: () => {
+      testWindow.showWarningMessage = original;
+    }
+  };
+}
+
+/** A quick-pick item carrying the 0-based heading line. */
+type HeadingPickItem = vscode.QuickPickItem & { line: number };
+
+/**
+ * Fail-guard for the EDF Review channel log spec: resolution-failure must stop
+ * before the quick-pick, so a real showQuickPick would hang the shared host.
+ */
+function stubQuickPick(): { restore: () => void } {
+  const original = vscode.window.showQuickPick;
+  const testWindow = vscode.window as unknown as {
+    showQuickPick: typeof vscode.window.showQuickPick;
+  };
+  testWindow.showQuickPick = ((_items: readonly HeadingPickItem[]) => {
+    assert.fail('showQuickPick must not be called when resolution fails');
+    return Promise.resolve(undefined);
+  }) as unknown as typeof vscode.window.showQuickPick;
+  return {
+    restore: () => {
+      testWindow.showQuickPick = original;
     }
   };
 }
@@ -376,8 +423,8 @@ describe('createEditorTracker (Issue #50, LLD §2.3)', () => {
   });
 });
 
-describe('resolveTarget (Issue #50, LLD §2.3 0.6 title-first + MRU)', () => {
-  it('resolves directly from the preview tab title when it uniquely names an open markdown document', async () => {
+describe('resolveTarget — issue #50 BDD (LLD §2.3 0.7, never guess)', () => {
+  it('resolves to the document named by the focused preview tab title when it uniquely matches a tracked editor', async () => {
     const dir = makeTempDir();
     const opened: vscode.TextDocument[] = [];
     try {
@@ -388,46 +435,50 @@ describe('resolveTarget (Issue #50, LLD §2.3 0.6 title-first + MRU)', () => {
       const targetPath = path.join(dir, 'sub', 'dir', base);
       writeMarkdownFile(targetPath);
       opened.push(await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath)));
+      const editor = await vscode.window.showTextDocument(opened[0]);
 
-      // The tracker is empty — the preview title alone must resolve (title-first).
-      const tracker: EditorTracker = { recent: () => [], last: () => undefined };
-      const logged: string[] = [];
-      const resolution = await resolveTarget(
-        tracker,
-        previewTab(`Preview sub/dir/${base}`),
-        (m) => logged.push(m)
-      );
+      const tracker: EditorTracker = { recent: () => [editor], last: () => editor };
+      const resolution = await resolveTarget(tracker, previewTab(`Preview sub/dir/${base}`));
 
-      assert.strictEqual(resolution.kind, 'tracked');
-      if (resolution.kind === 'tracked') {
+      assert.strictEqual(resolution.kind, 'resolved');
+      if (resolution.kind === 'resolved') {
         assert.strictEqual(
           resolution.editor.document.uri.fsPath.toLowerCase(),
           targetPath.toLowerCase(),
           'the command must re-target to the document the preview title names'
         );
       }
-      assert.strictEqual(logged.length, 0, 'a direct title match is not a failure');
     } finally {
       await cleanupTempDir(dir, opened);
     }
   });
 
-  it("returns { kind: 'tracked' } from the MRU stack when no preview tab is focused", async () => {
-    const { editor } = await openMarkdownEditor('# Title\n## Section One\n');
-    const tracker: EditorTracker = { recent: () => [editor], last: () => editor };
-    const resolution = await resolveTarget(tracker, undefined, () => {});
+  it('stops with guidance when the focused tab is not a markdown preview', async () => {
+    // No preview focused → stop with NO_PREVIEW_MSG. Resolution never guesses,
+    // so an empty tracker must NOT fall back to anything else (LLD §2.3 0.7).
+    const tracker: EditorTracker = { recent: () => [], last: () => undefined };
 
-    assert.strictEqual(resolution.kind, 'tracked');
-    if (resolution.kind === 'tracked') {
-      assert.strictEqual(resolution.editor, editor);
+    const noTab = await resolveTarget(tracker, undefined);
+    assert.strictEqual(noTab.kind, 'none');
+    if (noTab.kind === 'none') {
+      assert.strictEqual(noTab.reason, NO_PREVIEW_MSG);
+    }
+
+    const textTab = { label: 'foo.md', input: {} } as unknown as vscode.Tab;
+    const notPreview = await resolveTarget(tracker, textTab);
+    assert.strictEqual(notPreview.kind, 'none');
+    if (notPreview.kind === 'none') {
+      assert.strictEqual(notPreview.reason, NO_PREVIEW_MSG);
     }
   });
 
-  it('falls through to the MRU stack when the preview title is ambiguous and logs the unresolved title', async () => {
+  it('warns to close the wrong document when two tracked editors share the basename, then stops', async () => {
     const dir = makeTempDir();
     const opened: vscode.TextDocument[] = [];
+    const warning = stubWarningMessage();
     try {
-      // Two open documents share the basename the preview title names — never guess.
+      // Two tracked open documents share the basename the preview title names —
+      // never guess on ambiguity (LLD §2.3 0.7 step 5).
       writeMarkdownFile(path.join(dir, 'one', 'foo.md'));
       writeMarkdownFile(path.join(dir, 'two', 'foo.md'));
       opened.push(
@@ -436,72 +487,79 @@ describe('resolveTarget (Issue #50, LLD §2.3 0.6 title-first + MRU)', () => {
       opened.push(
         await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(dir, 'two', 'foo.md')))
       );
+      const editorA = await vscode.window.showTextDocument(opened[0]);
+      const editorB = await vscode.window.showTextDocument(opened[1]);
 
-      const { editor } = await openMarkdownEditor('# A\n## One\n');
-      const tracker: EditorTracker = { recent: () => [editor], last: () => editor };
-      const logged: string[] = [];
-      const resolution = await resolveTarget(
-        tracker,
-        previewTab('Preview foo.md'),
-        (m) => logged.push(m)
-      );
+      const tracker: EditorTracker = {
+        recent: () => [editorA, editorB],
+        last: () => editorA
+      };
+      const resolution = await resolveTarget(tracker, previewTab('Preview foo.md'));
 
-      assert.strictEqual(resolution.kind, 'tracked');
-      if (resolution.kind === 'tracked') {
-        assert.strictEqual(resolution.editor, editor);
+      assert.strictEqual(resolution.kind, 'none', 'an ambiguous match must stop, never guess');
+      if (resolution.kind === 'none') {
+        assert.strictEqual(resolution.reason, AMBIGUOUS_MSG('foo.md'));
       }
-      assert.strictEqual(logged.length, 1, 'the unresolved title must be logged to EDF Review');
-      assert.match(logged[0], /did not uniquely match an open markdown document \(foo\.md\)/);
+      assert.ok(
+        warning.calls.includes(AMBIGUOUS_MSG('foo.md')),
+        `must warn the user to close the wrong document, got: ${JSON.stringify(warning.calls)}`
+      );
     } finally {
+      warning.restore();
       await cleanupTempDir(dir, opened);
     }
   });
 
-  it('falls to the next-most-recent open editor when the newest MRU entry is closed', async () => {
-    const { editor } = await openMarkdownEditor('# A\n## One\n');
-    const tracker: EditorTracker = {
-      recent: () => [closedEditor(), editor],
-      last: () => closedEditor()
-    };
-    const resolution = await resolveTarget(tracker, undefined, () => {});
-
-    assert.strictEqual(resolution.kind, 'tracked');
-    if (resolution.kind === 'tracked') {
-      assert.strictEqual(resolution.editor, editor);
+  it('stops with the no-source-document message when no tracked editor matches', async () => {
+    // Zero matches — the document was never tracked or was evicted from the
+    // bounded stack → NO_DOCUMENT_MSG, never guess (LLD §2.3 0.7 step 4).
+    const empty: EditorTracker = { recent: () => [], last: () => undefined };
+    const emptyResolution = await resolveTarget(empty, previewTab('Preview foo.md'));
+    assert.strictEqual(emptyResolution.kind, 'none');
+    if (emptyResolution.kind === 'none') {
+      assert.strictEqual(emptyResolution.reason, NO_DOCUMENT_MSG);
     }
-  });
 
-  it("falls back to { kind: 'visible' } when the stack has no open editor and exactly one markdown editor is visible", async () => {
+    // A tracked open editor with a different basename is equally a zero match.
     const { editor } = await openMarkdownEditor('# Title\n## Section One\n');
-    const tracker: EditorTracker = {
-      recent: () => [closedEditor()],
-      last: () => closedEditor()
-    };
-    const resolution = await resolveTarget(tracker, undefined, () => {});
-
-    assert.strictEqual(resolution.kind, 'visible');
-    if (resolution.kind === 'visible') {
-      assert.strictEqual(resolution.editor, editor);
+    const other: EditorTracker = { recent: () => [editor], last: () => editor };
+    const otherResolution = await resolveTarget(other, previewTab('Preview bar.md'));
+    assert.strictEqual(otherResolution.kind, 'none');
+    if (otherResolution.kind === 'none') {
+      assert.strictEqual(otherResolution.reason, NO_DOCUMENT_MSG);
     }
   });
 
-  it("returns { kind: 'none' } with a non-empty reason when neither resolves", async () => {
-    // beforeEach hid every visible editor; with an empty stack and no preview,
-    // resolution must fail explicitly — never throw (LLD §2.3 Invariant 12).
+  it('logs the reason to the EDF Review channel when resolution fails', async () => {
+    // Resolution failure is surfaced by the command handler: the reason is both
+    // logged to `EDF Review` and shown to the user. In the shared host the
+    // active tab is never a markdown preview, so resolution stops with
+    // NO_PREVIEW_MSG before any quick-pick (never guesses).
     const tracker: EditorTracker = { recent: () => [], last: () => undefined };
-    const resolution = await resolveTarget(tracker, undefined, () => {});
+    const logCalls: string[] = [];
+    const warning = stubWarningMessage();
+    const quickPick = stubQuickPick();
+    try {
+      await insertReviewComment(tracker, (m) => logCalls.push(m));
 
-    assert.strictEqual(resolution.kind, 'none');
-    if (resolution.kind === 'none') {
-      assert.ok(
-        resolution.reason.length > 0,
-        'reason must name which resolution step failed'
+      assert.deepStrictEqual(
+        logCalls,
+        [NO_PREVIEW_MSG],
+        'the failing resolution reason must be logged to the EDF Review channel'
       );
+      assert.deepStrictEqual(
+        warning.calls,
+        [NO_PREVIEW_MSG],
+        'the user must see the same reason as a warning'
+      );
+    } finally {
+      warning.restore();
+      quickPick.restore();
     }
   });
 });
 
-describe('previewTitleName and uniqueDocumentForName (Issue #50, LLD §2.3 0.6 helpers)', () => {
+describe('previewTitleName (Issue #50, LLD §2.3 0.7 helper)', () => {
   it('previewTitleName strips the "Preview " prefix and returns the basename for the markdown preview tab', () => {
     assert.strictEqual(previewTitleName(previewTab('Preview foo.md')), 'foo.md');
     assert.strictEqual(previewTitleName(previewTab('Preview sub/dir/foo.md')), 'foo.md');
@@ -512,21 +570,51 @@ describe('previewTitleName and uniqueDocumentForName (Issue #50, LLD §2.3 0.6 h
     assert.strictEqual(previewTitleName(textTab), undefined);
     assert.strictEqual(previewTitleName(undefined), undefined);
   });
+});
 
-  it('uniqueDocumentForName returns the unique open markdown document with that basename', async () => {
+describe('mruMatchesForName (Issue #50, LLD §2.3 0.7 helper)', () => {
+  it('returns still-open tracked editors whose basename matches, in recency order', async () => {
     const dir = makeTempDir();
     const opened: vscode.TextDocument[] = [];
     try {
       const base = uniqueMarkdownBase();
-      const filePath = path.join(dir, base);
-      writeMarkdownFile(filePath);
-      opened.push(await vscode.workspace.openTextDocument(vscode.Uri.file(filePath)));
-
-      assert.strictEqual(
-        uniqueDocumentForName(base)?.uri.fsPath.toLowerCase(),
-        filePath.toLowerCase()
+      writeMarkdownFile(path.join(dir, 'one', base));
+      writeMarkdownFile(path.join(dir, 'two', base));
+      opened.push(
+        await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(dir, 'one', base)))
       );
-      assert.strictEqual(uniqueDocumentForName('bar.md'), undefined);
+      opened.push(
+        await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(dir, 'two', base)))
+      );
+      const editorA = await vscode.window.showTextDocument(opened[0]);
+      const editorB = await vscode.window.showTextDocument(opened[1]);
+
+      const tracker: EditorTracker = { recent: () => [editorB, editorA], last: () => editorB };
+      const matches = mruMatchesForName(tracker, base);
+
+      assert.deepStrictEqual(matches, [editorB, editorA], 'matches keep MRU recency order');
+    } finally {
+      await cleanupTempDir(dir, opened);
+    }
+  });
+
+  it('excludes closed entries and non-matching basenames', async () => {
+    const dir = makeTempDir();
+    const opened: vscode.TextDocument[] = [];
+    try {
+      const base = uniqueMarkdownBase();
+      writeMarkdownFile(path.join(dir, base));
+      opened.push(await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(dir, base))));
+      const editorA = await vscode.window.showTextDocument(opened[0]);
+
+      // A closed entry shares the basename but isClosed short-circuits before its
+      // URI is read — the closed editor must never be offered as a match.
+      const tracker: EditorTracker = {
+        recent: () => [closedEditor(), editorA],
+        last: () => closedEditor()
+      };
+      assert.deepStrictEqual(mruMatchesForName(tracker, base), [editorA]);
+      assert.deepStrictEqual(mruMatchesForName(tracker, 'bar.md'), []);
     } finally {
       await cleanupTempDir(dir, opened);
     }

@@ -14,23 +14,31 @@
  *    `readFile`, `fetch`, `child_process` over the source tree. No spec asserts
  *    this, so a regression that adds e.g. a `workspace.fs` read into the command
  *    path would ship silently.
- * 3. LLD §2.3 error-handling table row: "Tracked editor's document has since
- *    closed → falls through to the visible-editor step". resolution.test.ts
- *    covers tracked-open and no-tracked, but not the tracked-but-closed branch.
- * 4. Same table, the failure half of that branch: a closed tracked editor with no
- *    visible markdown editor resolves to `none` with a reason that names the
- *    closed tracker — and the `editor.edit` returning `false` row: "Log the
- *    failure; show a message. Do not retry".
+ * 3. LLD §2.3 0.7 error-handling row: a closed tracked editor is not a
+ *    candidate — "never targets an editor that does not match the preview
+ *    title". resolution.test.ts covers open-matches, zero-matches and
+ *    ambiguous-matches, but not the closed-entry-shadows-open-entry branch.
+ * 4. Same table, the failure half: when the only basename-matching tracked
+ *    entry is closed, resolution stops with NO_DOCUMENT_MSG — it does not
+ *    target a closed document. And the `editor.edit` returning `false` row:
+ *    "Log the failure; show a message. Do not retry" — no cursor move, no
+ *    refocus.
  *
- * The stubs (showQuickPick/showErrorMessage/showTextDocument and the fake
- * tracker/editor) match the dependency-injection pattern command.test.ts uses.
+ * The stubs (showQuickPick/showErrorMessage/showTextDocument, the active-tab
+ * stub and the fake tracker/editor) match the dependency-injection pattern
+ * command.test.ts uses.
  */
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as assert from 'assert';
 import { insertReviewComment } from '../../src/extension';
-import { EditorTracker, resolveTarget } from '../../src/editor-tracker';
+import {
+  EditorTracker,
+  resolveTarget,
+  NO_DOCUMENT_MSG
+} from '../../src/editor-tracker';
 
 const EXTENSION_ID = 'mironyx.edf-review';
 const COMMAND_ID = 'edf-review.insertReviewComment';
@@ -45,6 +53,32 @@ async function settle(ms = 150): Promise<void> {
 
 /** Minimal QuickPickItem-shaped item carrying the 0-based line. */
 type HeadingPickItem = vscode.QuickPickItem & { line: number };
+
+/** A focused built-in markdown preview tab titled `label`. */
+function previewTab(label: string): vscode.Tab {
+  return { label, input: { viewType: 'markdown.preview' } } as unknown as vscode.Tab;
+}
+
+/**
+ * Stub the window's active tab so insertReviewComment sees a focused preview.
+ * `vscode.window.tabGroups` is a getter-only accessor, so it is overridden with
+ * `Object.defineProperty` and restored by re-applying the captured descriptor.
+ */
+function stubActiveTab(tab: vscode.Tab | undefined): { restore: () => void } {
+  const descriptor = Object.getOwnPropertyDescriptor(vscode.window, 'tabGroups');
+  Object.defineProperty(vscode.window, 'tabGroups', {
+    value: { activeTabGroup: { activeTab: tab } },
+    configurable: true,
+    writable: true
+  });
+  return {
+    restore: () => {
+      if (descriptor) {
+        Object.defineProperty(vscode.window, 'tabGroups', descriptor);
+      }
+    }
+  };
+}
 
 function stubQuickPick<T extends vscode.QuickPickItem>(
   pick: (items: T[]) => T | undefined
@@ -83,7 +117,13 @@ function stubErrorMessage(): { calls: string[]; restore: () => void } {
   };
 }
 
-function stubShowTextDocument(): { calls: () => number; restore: () => void } {
+/**
+ * Monkey-patch vscode.window.showTextDocument and count calls. `result` is what
+ * resolution's reveal returns — 0.7 always reveals via showTextDocument on the
+ * resolved branch, so the stub must hand back a usable editor rather than
+ * undefined.
+ */
+function stubShowTextDocument(result: unknown): { calls: () => number; restore: () => void } {
   const original = vscode.window.showTextDocument;
   const testWindow = vscode.window as unknown as {
     showTextDocument: typeof vscode.window.showTextDocument;
@@ -91,7 +131,7 @@ function stubShowTextDocument(): { calls: () => number; restore: () => void } {
   const state = { value: 0 };
   testWindow.showTextDocument = (() => {
     state.value += 1;
-    return Promise.resolve(undefined);
+    return Promise.resolve(result);
   }) as unknown as typeof vscode.window.showTextDocument;
   return {
     calls: () => state.value,
@@ -101,9 +141,50 @@ function stubShowTextDocument(): { calls: () => number; restore: () => void } {
   };
 }
 
-/** A fake closed TextEditor — resolveTarget only reads document.isClosed on it. */
+/** A fake closed TextEditor — resolution only reads document.isClosed on it. */
 function closedEditor(): vscode.TextEditor {
   return { document: { isClosed: true } } as unknown as vscode.TextEditor;
+}
+
+/** Create a throwaway dir for file-backed markdown documents. */
+function makeTempDir(): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'edf-review-eval-'));
+}
+
+/** Write a markdown file (creating parent dirs) so it can be opened by URI. */
+function writeMarkdownFile(filePath: string): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, '# Title\n## Section One\n', 'utf8');
+}
+
+/** A basename unique to this test run — a leaked doc can never make matching ambiguous. */
+let uniqueCounter = 0;
+function uniqueMarkdownBase(): string {
+  uniqueCounter += 1;
+  return `doc-${process.pid}-${uniqueCounter}.md`;
+}
+
+/** Close every opened doc (releasing the file handles VS Code holds) and remove the temp dir. */
+async function cleanupTempDir(
+  dir: string,
+  opened: readonly vscode.TextDocument[]
+): Promise<void> {
+  for (const doc of opened) {
+    if (!doc.isClosed) {
+      try {
+        await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: false });
+      } catch {
+        // The document may already have been closed by a previous step.
+      }
+    }
+  }
+  await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+  await settle();
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {
+    // Best-effort cleanup; a leftover temp dir cannot affect resolution.
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -166,57 +247,66 @@ describe('extension — no reads beyond the open document (LLD §2.3 Invariant 1
   });
 });
 
-describe('resolveTarget — tracked editor closed (Issue #50, LLD §2.3 error table)', () => {
-  it('falls through to the single visible markdown editor when the tracked editor is closed', async () => {
-    // LLD error-handling row: "Tracked editor's document has since closed →
-    // falls through to the visible-editor step". The tracked editor is fake and
-    // closed; the one real visible markdown editor must resolve.
-    const doc = await vscode.workspace.openTextDocument({
-      content: '# Title\n## Section One\n',
-      language: 'markdown'
-    });
-    const editor = await vscode.window.showTextDocument(doc);
+describe('resolveTarget — closed tracked entry (Issue #50, LLD §2.3 0.7)', () => {
+  it('resolves the still-open tracked editor when an older closed entry shares the basename', async () => {
+    // A closed entry must never win: mruMatchesForName skips closed documents
+    // before its URI is read, so an older closed entry sharing the preview
+    // title's basename cannot shadow the real open editor (0.7, never guess).
+    const dir = makeTempDir();
+    const opened: vscode.TextDocument[] = [];
+    try {
+      const base = uniqueMarkdownBase();
+      const filePath = path.join(dir, base);
+      writeMarkdownFile(filePath);
+      opened.push(await vscode.workspace.openTextDocument(vscode.Uri.file(filePath)));
+      const editor = await vscode.window.showTextDocument(opened[0]);
 
-    const tracker: EditorTracker = {
-      recent: () => [closedEditor()],
-      last: () => closedEditor()
-    };
-    const resolution = await resolveTarget(tracker, undefined, () => {});
+      const tracker: EditorTracker = {
+        recent: () => [closedEditor(), editor],
+        last: () => closedEditor()
+      };
+      const resolution = await resolveTarget(tracker, previewTab(`Preview ${base}`));
 
-    assert.strictEqual(resolution.kind, 'visible');
-    if (resolution.kind === 'visible') {
-      assert.strictEqual(resolution.editor, editor);
+      assert.strictEqual(resolution.kind, 'resolved');
+      if (resolution.kind === 'resolved') {
+        assert.strictEqual(
+          resolution.editor.document.uri.fsPath.toLowerCase(),
+          filePath.toLowerCase(),
+          'the closed entry must not shadow the open editor that matches the preview title'
+        );
+      }
+    } finally {
+      await cleanupTempDir(dir, opened);
     }
   });
 
-  it("returns { kind: 'none' } naming the closed tracker when no visible editor resolves", async () => {
-    // beforeEach hid every visible editor; the tracked editor is closed, so the
-    // failure reason must name the closed tracker rather than claim no editor
-    // was ever focused (LLD §2.3: reason names which step failed).
+  it('stops with the no-source-document message when the only matching tracked entry is closed (never targets a closed document)', async () => {
+    // LLD §2.3 0.7 error-table row: a closed/evicted tracked editor is not a
+    // candidate — zero matches → NO_DOCUMENT_MSG, never a stale-target guess.
     const tracker: EditorTracker = {
       recent: () => [closedEditor()],
       last: () => closedEditor()
     };
-    const resolution = await resolveTarget(tracker, undefined, () => {});
+    const resolution = await resolveTarget(tracker, previewTab('Preview foo.md'));
 
     assert.strictEqual(resolution.kind, 'none');
     if (resolution.kind === 'none') {
-      assert.ok(
-        /closed/.test(resolution.reason),
-        `reason must name the closed tracked editor, got: ${resolution.reason}`
-      );
+      assert.strictEqual(resolution.reason, NO_DOCUMENT_MSG);
     }
   });
 });
 
 describe('insertReviewComment — editor.edit returns false (Issue #50, LLD §2.3 error table)', () => {
-  it('logs the failure, shows an error message and does not move the cursor or refocus', async () => {
+  it('logs the failure, shows an error message and does not refocus when editor.edit returns false', async () => {
     // LLD error-handling row: "editor.edit returns false → Log the failure; show
     // a message. Do not retry". A fake editor whose edit() returns false is
     // injected through the tracker; the command must fail explicitly rather than
-    // silently treating the failed edit as a success.
+    // silently treating the failed edit as a success. The fake's document URI
+    // matches the stubbed preview title so the 0.7 chain resolves to it first.
     const fakeEditor = {
       document: {
+        uri: vscode.Uri.file(path.join('C:/__edf_fixture__', 'fake-eval-edit.md')),
+        isClosed: false,
         getText: () => ['# Title', '', '## Section One', ''].join('\n')
       },
       edit: async () => false,
@@ -233,9 +323,10 @@ describe('insertReviewComment — editor.edit returns false (Issue #50, LLD §2.
     };
     const logCalls: string[] = [];
 
+    const tab = stubActiveTab(previewTab('Preview fake-eval-edit.md'));
     const quickPick = stubQuickPick<HeadingPickItem>((items) => items[0]);
     const errorStub = stubErrorMessage();
-    const textDocStub = stubShowTextDocument();
+    const textDocStub = stubShowTextDocument(fakeEditor);
     try {
       await insertReviewComment(tracker, (m) => logCalls.push(m));
 
@@ -256,10 +347,11 @@ describe('insertReviewComment — editor.edit returns false (Issue #50, LLD §2.
       );
       assert.strictEqual(
         textDocStub.calls(),
-        0,
-        'the editor must not be refocused when the edit fails'
+        1,
+        'the only showTextDocument call is resolution\'s reveal — applyMarker must not refocus on a failed edit'
       );
     } finally {
+      tab.restore();
       quickPick.restore();
       errorStub.restore();
       textDocStub.restore();

@@ -1,12 +1,13 @@
 /**
  * Editor tracker and target resolution — extension host.
  *
- * LLD v1-e1-2 §2.3 (0.6, title-first + MRU): identifies which document the
- * reviewer meant when a webview holds focus and `activeTextEditor` is
- * `undefined`. The tracker keeps a bounded MRU stack of markdown editors
- * (deduped on focus, cap 5, closed documents pruned), and `resolveTarget`
- * resolves title-first from the focused preview's tab title before walking that
- * stack, then the single-visible-editor check, then an explicit, logged failure.
+ * LLD v1-e1-2 §2.3 (0.7, never guess): the focused markdown preview is the ONLY
+ * legitimate trigger — `activeTextEditor` is undefined while a webview holds
+ * focus, which is the normal case here, not an error. The tracker keeps a
+ * bounded MRU stack of markdown editors (deduped on focus, cap 5, closed
+ * documents pruned), and `resolveTarget` resolves the preview's tab title to the
+ * tracked editor whose basename uniquely matches — stopping with guidance when
+ * there is no preview, no match, or an ambiguous match.
  */
 import * as vscode from 'vscode';
 import * as path from 'path';
@@ -21,9 +22,16 @@ export interface EditorTracker {
 
 /** Result of resolving the target document for a review comment. */
 export type Resolution =
-  | { kind: 'tracked'; editor: vscode.TextEditor }
-  | { kind: 'visible'; editor: vscode.TextEditor }
+  | { kind: 'resolved'; editor: vscode.TextEditor }
   | { kind: 'none'; reason: string };
+
+/** Shown when the focused tab is not the built-in markdown preview. */
+export const NO_PREVIEW_MSG = 'Run this command while the markdown preview is focused';
+/** Shown when the preview title matches zero tracked open editors. */
+export const NO_DOCUMENT_MSG = 'No source document found for this preview';
+/** Shown when the preview title matches multiple tracked editors (same basename). */
+export const AMBIGUOUS_MSG = (name: string): string =>
+  `Two documents named ${name} are open — close the one you don't want, then retry`;
 
 /**
  * Create an editor tracker. Maintains a bounded MRU stack of markdown editors:
@@ -83,69 +91,49 @@ export function previewTitleName(activeTab: vscode.Tab | undefined): string | un
 }
 
 /**
- * The unique open markdown text document whose basename equals `name`, or
- * undefined when zero or multiple match — never guess on ambiguity.
+ * Still-open MRU entries whose document's basename equals `name`, in recency
+ * order. A document evicted from the bounded stack (or closed) is not found.
  */
-export function uniqueDocumentForName(name: string): vscode.TextDocument | undefined {
-  const matches = vscode.workspace.textDocuments.filter(
-    (doc) => doc.languageId === 'markdown' && path.basename(doc.uri.fsPath) === name
+export function mruMatchesForName(
+  tracker: EditorTracker,
+  name: string
+): readonly vscode.TextEditor[] {
+  return tracker.recent().filter(
+    (editor) => !editor.document.isClosed && path.basename(editor.document.uri.fsPath) === name
   );
-  return matches.length === 1 ? matches[0] : undefined;
 }
 
 /**
- * Resolve the target editor for a review comment.
+ * Resolve the target editor for a review comment — never guess (LLD 0.7).
  *
- * Title-first (strongest — the previewed document is what the reviewer means):
- *   1. previewTitleName(activeTab) → uniqueDocumentForName(name) → reveal via
- *      showTextDocument and re-target; an ambiguous (zero/multiple) basename logs
- *      the unresolved title and falls through.
- *   2. First entry of tracker.recent() whose document is still open → tracked.
- *   3. Exactly one visible markdown editor → visible.
- *   4. { kind: 'none', reason } naming which step failed.
- *
- * Justification: the `log` parameter diverges from the LLD decomposition signature
- * `resolveTarget(tracker, activeTab)` to implement the LLD §2.3 error-table row
- * "focused preview title does not uniquely match → log the unresolved title to
- * `EDF Review`".
+ * The focused preview is the only legitimate trigger:
+ *   1. No preview tab → stop with NO_PREVIEW_MSG.
+ *   2. Preview title's basename → still-open tracked editors that match.
+ *   3. Exactly one match → reveal via showTextDocument and resolve to it.
+ *   4. Zero matches → stop with NO_DOCUMENT_MSG (evicted from the bounded stack).
+ *   5. More than one match (same basename) → warn to close the wrong one, then
+ *      stop with AMBIGUOUS_MSG — never guess.
  */
 export async function resolveTarget(
   tracker: EditorTracker,
-  activeTab: vscode.Tab | undefined,
-  log: (message: string) => void
+  activeTab: vscode.Tab | undefined
 ): Promise<Resolution> {
   const name = previewTitleName(activeTab);
-  if (name) {
-    const doc = uniqueDocumentForName(name);
-    if (doc) {
-      const editor = await vscode.window.showTextDocument(doc, {
-        preview: true,
-        preserveFocus: true
-      });
-      return { kind: 'tracked', editor };
-    }
-    log(`preview tab title did not uniquely match an open markdown document (${name})`);
+  if (!name) {
+    return { kind: 'none', reason: NO_PREVIEW_MSG };
   }
 
-  for (const editor of tracker.recent()) {
-    if (!editor.document.isClosed) {
-      return { kind: 'tracked', editor };
-    }
+  const matches = mruMatchesForName(tracker, name);
+  if (matches.length === 1) {
+    const editor = await vscode.window.showTextDocument(matches[0].document, {
+      preview: true,
+      preserveFocus: true
+    });
+    return { kind: 'resolved', editor };
   }
-
-  const visible = vscode.window.visibleTextEditors.filter(
-    (editor) => editor.document.languageId === 'markdown'
-  );
-  if (visible.length === 1) {
-    return { kind: 'visible', editor: visible[0] };
+  if (matches.length === 0) {
+    return { kind: 'none', reason: NO_DOCUMENT_MSG };
   }
-
-  const closedCount = tracker.recent().filter((entry) => entry.document.isClosed).length;
-  const reason =
-    closedCount > 0
-      ? `${closedCount} recent markdown editor${closedCount === 1 ? '' : 's'} closed; no single visible markdown editor resolves`
-      : visible.length === 0
-        ? 'no markdown editor matches the focused preview title, the recency stack, or the visible editors'
-        : `${visible.length} visible markdown editors; cannot disambiguate`;
-  return { kind: 'none', reason };
+  await vscode.window.showWarningMessage(AMBIGUOUS_MSG(name));
+  return { kind: 'none', reason: AMBIGUOUS_MSG(name) };
 }
