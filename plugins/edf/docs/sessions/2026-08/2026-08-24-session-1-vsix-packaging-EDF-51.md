@@ -57,3 +57,4 @@
 | 4L | 2026-08-24T00:05:58Z | $0.00 | 0 in / 0 out | packaging implemented + 4 specs; vsix emitted, out/test excluded (deviation), install verified, parity launch PASS |
 | 5 | 2026-08-24T00:06:11Z | $0.00 | 0 in / 0 out | green on attempt 1 — 65 tests in extension host (61+4); tsc strict clean; npm audit 3 devDep vulns deferred; no E2E (n/a per kb) |
 | 6 | 2026-08-24T00:06:32Z | $0.00 | 0 in / 0 out | diag pass — no src/ files changed (packaging = config+docs); tsc strict clean; markdown lint matches repo baseline |
+| 8 | 2026-08-24T00:09:46Z | $0.00 | 0 in / 0 out | [PR #74](https://github.com/mironyx/engineering-delivery-framework/pull/74) — Design deviations appended |
