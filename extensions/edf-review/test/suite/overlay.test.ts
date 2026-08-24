@@ -624,6 +624,30 @@ describe('resolveAndValidateHref (Issue #63, LLD §2.5 Part B)', () => {
     assert.strictEqual(seam(win).resolveAndValidateHref(ESCAPE_HREF), null);
     assert.strictEqual(seam(win).resolveAndValidateHref('../../../../skills/lld/template.md'), null);
   });
+
+  it('bounds a document outside docs/design/ to the workspace folder (fallback design-root)', () => {
+    // pr-review #75 finding: the fallback (no `/docs/design/` marker) must
+    // derive the workspace folder (drive + top-level folder on Windows), not
+    // degenerate to the drive root. A document at /C:/proj/plugins/edf/docs/
+    // must accept a path inside /C:/proj and reject one that escapes it.
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+      url: 'file:///C:/proj/plugins/edf/docs/lld.md',
+      runScripts: 'outside-only'
+    });
+    const win = dom.window as unknown as OverlayWindow;
+    win.eval(fs.readFileSync(OVERLAY_SOURCE, 'utf8'));
+    const resolve = seam(win).resolveAndValidateHref;
+    assert.strictEqual(
+      resolve('../skills/lld/template.md'),
+      '../skills/lld/template.md',
+      'a path inside the workspace folder is accepted'
+    );
+    assert.strictEqual(
+      resolve('../../../../etc/passwd'),
+      null,
+      'a path escaping the workspace folder is rejected'
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

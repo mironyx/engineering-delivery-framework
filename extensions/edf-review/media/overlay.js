@@ -1,4 +1,4 @@
-/* EDF Review diagram click-through overlay (preview webview). No network, no dynamic code. */
+/* EDF Review diagram click-through overlay (preview webview). */
 (function () {
   'use strict';
   var SEL = 'svg[id^="mermaid"]';
@@ -10,7 +10,7 @@
     var m = p.indexOf('/docs/design/');
     if (m !== -1) return p.slice(0, m);
     var s = p.split('/').filter(Boolean);
-    return /^[A-Za-z]:/.test(p) ? '/' + s.slice(0, 2).join('/') : '/' + (s[0] || '');
+    return /^[A-Za-z]:$/.test(s[0] || '') ? '/' + s.slice(0, 2).join('/') : '/' + (s[0] || '');
   }
 
   function resolveAndValidateHref(href) {
@@ -126,6 +126,7 @@
   function reportError(err) {
     try {
       var msg = err && err.message ? err.message : String(err);
+      console.error('[edf-review]', msg);
       var api = window.acquireVsCodeApi && window.acquireVsCodeApi();
       if (api && api.postMessage) {
         api.postMessage({ type: 'edf-overlay-error', message: msg });
