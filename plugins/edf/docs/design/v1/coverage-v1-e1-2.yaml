@@ -32,8 +32,13 @@ entries:
   - req: REQ-vscode-extension-review-feedback-diagram-click-through-overlay
     lld: lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-overlay
     issue: 63
-    files: []
-    status: Approved
+    files:
+      - extensions/edf-review/media/overlay.js
+      - extensions/edf-review/src/overlay-bridge.ts
+      - extensions/edf-review/src/log.ts
+      - extensions/edf-review/src/extension.ts
+      - extensions/edf-review/package.json
+    status: Revised
     lld_revision: r2
     # Story 2.3 — folded into this epic 2026-08-16 (was standalone issue #63; the
     # productionisation task for the throwaway edf-diagram-click-poc prototype).
