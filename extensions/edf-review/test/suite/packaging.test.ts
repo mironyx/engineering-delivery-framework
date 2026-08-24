@@ -9,6 +9,14 @@
  * rest of the suite — `__dirname` is the compiled `out/test/suite/`, so
  * `path.join(__dirname, '../../../.vscodeignore')` resolves to
  * extensions/edf-review/.vscodeignore.
+ *
+ * TODO(#51): these specs assert the .vscodeignore contract text, not the emitted
+ * .vsix — the LLD §2.4 BDD spec "emits a vsix with no packaging errors" has no
+ * automated counterpart. That AC, and shipped-content drift (e.g. a map emitted
+ * outside out/, or vsce's default-ignore list growing), rests on the recorded
+ * manual `unzip -l` / install run in the EDF-51 session log. Consider running
+ * `vsce package` in-suite and inspecting the artefact when the test host can
+ * tolerate the build cost. (pr-review #74 warn — deferred, non-blocking.)
  */
 import * as path from 'path';
 import * as fs from 'fs';

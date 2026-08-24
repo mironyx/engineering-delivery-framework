@@ -48,6 +48,12 @@
   errors (460 in the LLD, 45 in the root README). My new `README.md` is lint-clean; the security
   review and session log carry only MD013/MD060, the same categories the LLD and EDF-48/49/50
   session logs carry. Not a green gate in this repo.
+- **pr-review warn (deferred): the packaging specs assert the `.vscodeignore` text, not the
+  emitted `.vsix`.** The `packaging` suite reads `.vscodeignore` via `readFileSync` +
+  `startsWith`/`endsWith` heuristics, so the LLD §2.4 BDD spec "emits a vsix with no packaging
+  errors" has no automated counterpart — that AC, and shipped-content drift, rest on the
+  recorded manual `unzip -l` / install run. Non-blocking; TODO recorded in
+  `packaging.test.ts` header. (PR #74 review.)
 
 ## Cost checkpoints
 
@@ -58,3 +64,4 @@
 | 5 | 2026-08-24T00:06:11Z | $0.00 | 0 in / 0 out | green on attempt 1 — 65 tests in extension host (61+4); tsc strict clean; npm audit 3 devDep vulns deferred; no E2E (n/a per kb) |
 | 6 | 2026-08-24T00:06:32Z | $0.00 | 0 in / 0 out | diag pass — no src/ files changed (packaging = config+docs); tsc strict clean; markdown lint matches repo baseline |
 | 8 | 2026-08-24T00:09:46Z | $0.00 | 0 in / 0 out | [PR #74](https://github.com/mironyx/engineering-delivery-framework/pull/74) — Design deviations appended |
+| 9 | 2026-08-24T00:20:36Z | $0.00 | 0 in / 0 out | pr-review #74 — 0 blockers, 1 warn (packaging specs assert `.vscodeignore` text, not the emitted `.vsix`) deferred with TODO in `packaging.test.ts` + session-log note; [review comment](https://github.com/mironyx/engineering-delivery-framework/pull/74#issuecomment-5389330908) |
