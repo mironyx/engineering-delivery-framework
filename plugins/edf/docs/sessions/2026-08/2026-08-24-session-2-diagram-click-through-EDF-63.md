@@ -16,6 +16,8 @@
 | 6 | 2026-08-24T09:51:45Z | $0.00 | 0 in / 0 out | diag skipped — .diagnostics/ absent (worktree); CodeScene + SonarQube MCP not connected in session |
 | 6b | 2026-08-24T10:00:32Z | $0.00 | 0 in / 0 out | evaluator: PASS WITH WARNINGS — 2 adversarial tests (observer wiring, scroll wiring) pass; Inv 25/26 remain build gates |
 | 8 | 2026-08-24T10:04:55Z | $0.00 | 0 in / 0 out | [PR #75](https://github.com/mironyx/engineering-delivery-framework/pull/75) |
+| 9 | 2026-08-24T10:22:04Z | $0.00 | 0 in / 0 out | review clean after 3 warn fixes (designRootOf regex, console.error, jsdom bump); re-review [] |
+| 10 | 2026-08-24T10:22:17Z | $0.00 | 0 in / 0 out | report done — PR #75 open; CI N/A (no checks on branch) |
 
 ## Concerns & Deferred Items
 - **Design-root derivation (webview).** The LLD §2.5 constraint says `resolveAndValidateHref` must "reuse the exact containment logic ADR-0039 fixes", but the webview has no file access (Invariant 28) and no webview→host channel (ADR-0038), so it cannot read `kb/file-map.md`'s declared per-project `design-root`. The implementation derives design-root from the preview document's own URI: EDF design docs live at `<design-root>/docs/design/<version>/` (ADR-0036), so the design-root is the path above the `docs/design` subtree; the fallback (no `docs/design` marker) bounds containment to the workspace top-level folder. This matches the fixture the test-author pinned (`plugins/edf` from `.../docs/design/v1/lld.md`). A drift risk: a project whose LLDs live outside `docs/design/` gets the more permissive fallback. Recorded for `/lld-sync`.
