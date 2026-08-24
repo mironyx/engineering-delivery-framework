@@ -59,13 +59,23 @@ describe('extension scaffold — manifest invariants (evaluator)', () => {
     assert.strictEqual(readManifest().version, '0.2.0');
   });
 
-  it('leaves no media/ directory in the extension tree', () => {
-    // LLD §2.1 Invariant 3 first half: media/ does not exist. Its absence is
-    // what lets a reader of the shipped .vsix confirm nothing is injected.
+  it('keeps the media/ directory scoped to the overlay script only', () => {
+    // LLD §2.1 Invariant 3 first half is superseded by Task 5 (§2.5, issue #63):
+    // media/ now exists but must carry only the single injected overlay script.
+    // Hidden tool-artifact directories (e.g. `.sonar` from a scanner) are not
+    // preview resources and are excluded from the scope check.
     const mediaDir = path.join(__dirname, '../../../media');
     assert.ok(
-      !fs.existsSync(mediaDir),
-      'media/ must not exist in the extension tree'
+      fs.existsSync(mediaDir),
+      'media/ must exist in the extension tree after Task 5'
+    );
+    const entries = fs
+      .readdirSync(mediaDir)
+      .filter((entry) => !entry.startsWith('.'));
+    assert.deepStrictEqual(
+      entries,
+      ['overlay.js'],
+      'media/ must contain only overlay.js — scoped preview-script injection'
     );
   });
 
@@ -73,9 +83,12 @@ describe('extension scaffold — manifest invariants (evaluator)', () => {
     // LLD §2.1 Part B constraint: title "Insert Review Comment" with category
     // "EDF" — VS Code renders this as "EDF: Insert Review Comment"; a title
     // that repeats the category renders "EDF: EDF: Insert Review Comment".
+    // Task 5 adds the overlay-log command, so the palette command is found by
+    // id rather than by position.
     const commands = readManifest().contributes?.commands ?? [];
-    assert.strictEqual(commands.length, 1, 'exactly one command must be declared');
-    assert.strictEqual(commands[0].category, 'EDF');
-    assert.strictEqual(commands[0].title, 'Insert Review Comment');
+    const palette = commands.find((c) => c.command === 'edf-review.insertReviewComment');
+    assert.ok(palette, 'insertReviewComment must be declared');
+    assert.strictEqual(palette.category, 'EDF');
+    assert.strictEqual(palette.title, 'Insert Review Comment');
   });
 });

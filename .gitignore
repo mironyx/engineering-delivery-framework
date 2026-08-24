@@ -4,6 +4,7 @@ __pycache__/
 
 .diagnostics
 .vs
+.sonar/
 
 # Repo-root docs/ — plugin docs live under plugins/edf/docs/
 /docs/

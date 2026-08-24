@@ -7,12 +7,23 @@
  */
 import * as vscode from 'vscode';
 
+/** One `EDF Review` channel per extension context, shared across consumers. */
+const channelByContext = new WeakMap<
+  vscode.ExtensionContext,
+  vscode.OutputChannel
+>();
+
 /**
- * Create the `EDF Review` output channel and return an `appendLine` wrapper.
- * The channel is disposed via `context.subscriptions`.
+ * Create (or reuse) the `EDF Review` output channel and return an `appendLine`
+ * wrapper. The channel is disposed via `context.subscriptions`. §2.5's overlay
+ * relay reuses the same channel (§2.3's Logger) rather than opening a second.
  */
 export function createLog(context: vscode.ExtensionContext): (message: string) => void {
-  const channel = vscode.window.createOutputChannel('EDF Review');
-  context.subscriptions.push(channel);
+  let channel = channelByContext.get(context);
+  if (!channel) {
+    channel = vscode.window.createOutputChannel('EDF Review');
+    channelByContext.set(context, channel);
+    context.subscriptions.push(channel);
+  }
   return (message) => channel.appendLine(message);
 }

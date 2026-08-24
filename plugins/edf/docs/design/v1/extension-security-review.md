@@ -17,14 +17,16 @@ One row per property, with the evidence that established it — no bare assertio
 | **No file reads beyond the open document** | `grep -rnE 'workspace\.fs\|readFile' extensions/edf-review/out/src/` → no hits (exit 1). The only text the extension reads is the open document's `TextDocument` content passed into the pure modules. | PASS |
 | **No network calls** | `grep -rnE 'fetch\|https?\.\|axios' extensions/edf-review/out/src/` → no hits (exit 1). | PASS |
 | **No process execution** | `grep -rnE 'child_process\|exec\|spawn' extensions/edf-review/out/src/` → no hits (exit 1). | PASS |
-| **No preview script injection** | `contributes` declares only `commands` (verified: `Object.keys(contributes) === ['commands']`); `media/` is absent from the extension tree and from the `.vsix` file listing. | PASS |
+| **Preview script injection is scoped to the overlay only** | `jq '.contributes.markdown.previewScripts' package.json` → `["./media/overlay.js"]`; `media/overlay.js` read end to end — single-purpose diagram overlay, no other injected surface. | PASS |
+| **Overlay script performs no file reads, network calls, or dynamic evaluation** | `grep -rnE 'readFile\|fetch\|XMLHttpRequest\|eval\(\|new Function\|import\(' extensions/edf-review/media/overlay.js` → no hits (exit 1). The overlay only reads SVG `href` attributes and sets overlay anchor `href`s; it never reads file content, calls the network, or evaluates a string. | PASS |
+| **Overlay hrefs are containment-checked before use** | read `resolveAndValidateHref` — a resolved href outside `design-root` (e.g. a `../../../..` escape from a document in `plugins/edf/docs/design/v1/`) returns `null` and no overlay is created; fragments and in-root paths pass. | PASS |
 | **Shipped artefact matches reviewed source** | The `.vsix` carries exactly the compiled `out/src/*.js` listed below; each file is byte-identical to the `out/` the 65-test Dev-Host suite ran against (`diff -r` clean) and to the installed extension at `~/.vscode/extensions/mironyx.edf-review-0.2.0/out/src/`. | PASS |
 
-> **Amended by Task 5 (§2.5, issue #63).** The "No preview script injection" property holds at
-> the point Task 4 runs (Task 5 has not landed in execution order). Task 5 re-adds
-> `contributes.markdown.previewScripts` and a `media/overlay.js`, so it **replaces this row** and
-> adds the three preview-script properties it introduces. A reader after Task 5 should not find a
-> "no injection" claim next to a `media/overlay.js` in the same tree.
+> **Amended by Task 5 (§2.5, issue #63).** Task 5 re-added `contributes.markdown.previewScripts`
+> and `media/overlay.js`, so the pre-Task-5 "no preview script injection" property is **replaced**
+> by the three preview-script properties above. The file listing and manifest contract below
+> describe the `edf-review-0.2.0.vsix` as Task 4 shipped it — a re-packaged artefact after
+> Task 5 carries the overlay surface (`media/overlay.js` and the compiled `out/src/overlay-bridge.js`).
 
 ## Shipped artefact file listing
 
