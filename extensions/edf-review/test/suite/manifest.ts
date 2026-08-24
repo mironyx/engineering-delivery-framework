@@ -18,6 +18,7 @@ export interface Manifest {
   description?: string;
   version?: string;
   activationEvents?: string[];
+  scripts?: Record<string, string>;
   contributes?: {
     commands?: Array<{ command: string; title?: string; category?: string }>;
     [key: string]: unknown;
