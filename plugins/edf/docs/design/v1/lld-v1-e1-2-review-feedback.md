@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.0 |
-| Status | Revised v8 |
-| Revised | 2026-08-24 | Issue #51 |
+| Version | 1.1 |
+| Status | Revised v9 |
+| Revised | 2026-08-24 | Issue #63 |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Epic | [#30](https://github.com/mironyx/engineering-delivery-framework/issues/30) |
@@ -16,6 +16,14 @@
 | Epic id | `v1-e1-2` |
 
 ## Recent revisions
+
+**1.1 (2026-08-24).** §2.5 synced to the shipped overlay implementation (`edf:lld-sync`,
+issue #63): the manifest table gains the `edf-review.overlayLog` command (+ `commandPalette`
+hide) — required by the scaffold "no undeclared command" invariant; the overlay-bridge relay
+comment corrected to the measured reality (the built-in markdown preview drops unknown
+previewScript postMessage types, so the command is a best-effort hook); the design-root
+containment constraint annotated with the webview's `docs/design/`-derived design-root (no
+file access); the error-handling section notes `reportError`'s `console.error` observability.
 
 **1.0 (2026-08-24).** §2.4 synced to the shipped packaging implementation (`edf:lld-sync`,
 issue #51): the `.vscodeignore` block gains `out/test/**` — #48's tsconfig (`rootDir: "."`,
@@ -1172,12 +1180,20 @@ extensions/edf-review/
 |---|---|---|
 | `contributes.markdown.previewScripts` | absent | `["./media/overlay.js"]` |
 | `contributes.markdown.previewStyles` | absent | unchanged — no CSS needed; overlay anchors are positioned inline |
+| `contributes.commands` | `[insertReviewComment]` | `[insertReviewComment, edf-review.overlayLog]` — the overlay-log command is hidden from the palette via `contributes.commandPalette` with `when: false` |
+| `contributes.commandPalette` | absent | `[{ command: "edf-review.overlayLog", when: "false" }]` |
+
+> **Implementation note (issue #63):** the manifest table originally listed only
+> `markdown.previewScripts`. The scaffold invariant "no registered `edf-review.*` command is
+> undeclared" (`scaffold.test.ts`) forces any command `overlay-bridge.ts` registers to be
+> declared, so `edf-review.overlayLog` is added to `contributes.commands` (hidden via
+> `commandPalette`).
 
 > **Constraint:** `activationEvents` stays `[]`. `previewScripts` is a static declarative
 > contribution VS Code injects into every preview regardless of extension-host activation
-> state — it does not need `onMarkdownPreview` back. `overlay-bridge.ts`'s log relay uses
-> `commands.registerCommand`'s existing activation path (auto-generated `onCommand:` from
-> Task 1/3), triggered by the webview's `postMessage`, not by a dedicated activation event.
+> state — it does not need `onMarkdownPreview` back. `overlay-bridge.ts`'s log relay registers
+> the `edf-review.overlayLog` command; declaring it in `contributes.commands` gives it the
+> auto-generated `onCommand:` activation while `activationEvents` stays empty.
 
 #### Function signatures
 
@@ -1202,12 +1218,22 @@ function removeStaleOverlays(): void
 
 // src/overlay-bridge.ts
 export function createOverlayLog(context: vscode.ExtensionContext): OverlayLog
-  // Registers a window.addEventListener('message', …) bridge is not available from the
-  // extension host side; instead subscribes to the webview panel's onDidReceiveMessage
-  // equivalent exposed by the built-in markdown preview, per VS Code's previewScripts
-  // postMessage convention. Writes each relayed error to the EDF Review output channel
-  // (shared with §2.3's Logger).
+  // Registers the edf-review.overlayLog command and returns { log, handleMessage }.
+  // handleMessage coerces a relayed value to a line and writes it to the EDF Review
+  // output channel (shared with §2.3's Logger via the per-context channel cache in
+  // log.ts). Never throws on malformed input.
 ```
+
+> **Implementation note (issue #63):** the original comment assumed the built-in markdown
+> preview exposes an `onDidReceiveMessage`-equivalent for previewScript messages. Measured
+> against `vscode@main` and the pinned `1.88.0` `preview.ts`, its `onDidReceiveMessage`
+> handler processes a fixed message set (`cacheImageSizes`, `revealLine`, `didClick`,
+> `openLink`, `showPreviewSecuritySelector`, `previewStyleLoadError`) and drops
+> `{ type: 'edf-overlay-error' }` — there is no generic command relay. The relay is therefore
+> best-effort: the overlay still catches and swallows (never crashes, Invariant 27) and posts
+> the message; the bridge registers the command as the designed hook. Both halves are covered
+> by tests; a live end-to-end relay may not fire until VS Code exposes a
+> previewScript→extension-host channel.
 
 > **Constraint:** neither `resolveAndValidateHref` nor any function in `overlay.js` calls
 > `fetch`, `XMLHttpRequest`, `eval`, `new Function`, or `import()`. Invariant 28 checks this
@@ -1220,6 +1246,15 @@ export function createOverlayLog(context: vscode.ExtensionContext): OverlayLog
 > §2.1–§2.4's convention accepts could be silently dropped by the overlay, or worse, a link
 > the convention would reject could be overlaid anyway.
 
+> **Implementation note (issue #63):** the webview has no file access (Invariant 28) and no
+> webview→host channel, so `resolveAndValidateHref` cannot read `kb/file-map.md`'s declared
+> per-project `design-root`. It derives design-root from the preview document's own URI: EDF
+> design docs live at `<design-root>/docs/design/<version>/` (ADR-0036), so the design-root is
+> the path above the `docs/design` subtree; the fallback (no `docs/design` marker) bounds
+> containment to the workspace top-level folder (drive + first folder on Windows). The
+> resolved-path `startsWith(root)` check is ADR-0039's exact rule. A project whose LLDs live
+> outside `docs/design/` gets the more permissive fallback.
+
 #### Error handling
 
 A thrown error inside `observeMermaidContainers`, `createOverlaysFor`, or the mutation
@@ -1227,6 +1262,9 @@ callback is caught at the top-level `try/catch` the script installs around its o
 point, `postMessage`d to the extension host with `{ type: 'edf-overlay-error', message }`,
 and swallowed — the webview must keep functioning (Invariant 27). `overlay-bridge.ts` never
 throws; a malformed message is logged as-is rather than re-parsed defensively.
+
+> **Implementation note (issue #63):** `reportError` also writes `console.error('[edf-review]',
+> msg)` so a failed postMessage relay is never fully silent (pr-review #75 finding).
 
 #### Security review update (amends Task 4's document)
 

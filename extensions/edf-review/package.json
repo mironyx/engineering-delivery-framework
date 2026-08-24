@@ -16,8 +16,24 @@
         "command": "edf-review.insertReviewComment",
         "title": "Insert Review Comment",
         "category": "EDF"
+      },
+      {
+        "command": "edf-review.overlayLog",
+        "title": "Log Overlay Error",
+        "category": "EDF"
       }
-    ]
+    ],
+    "commandPalette": [
+      {
+        "command": "edf-review.overlayLog",
+        "when": "false"
+      }
+    ],
+    "markdown": {
+      "previewScripts": [
+        "./media/overlay.js"
+      ]
+    }
   },
   "scripts": {
     "compile": "tsc -p ./",
@@ -27,12 +43,14 @@
     "package": "vsce package"
   },
   "devDependencies": {
+    "@types/jsdom": "^27.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.19.0",
     "@types/vscode": "^1.88.0",
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.9.2",
     "glob": "^13.0.0",
+    "jsdom": "^27.4.0",
     "mocha": "^11.8.0",
     "typescript": "^5.9.3"
   }

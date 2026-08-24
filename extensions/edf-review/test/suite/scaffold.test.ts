@@ -67,26 +67,38 @@ describe('extension scaffold', () => {
     );
   });
 
-  it('contributes no markdown preview script', () => {
+  it('declares the overlay preview script and the overlay-log command (LLD §2.5)', () => {
     const manifest = readManifest();
     const contributes = manifest.contributes ?? {};
 
-    // LLD §2.1 Invariant 6: the manifest declares no contribution other than
-    // commands.
-    assert.deepStrictEqual(
-      Object.keys(contributes),
-      ['commands'],
-      'contributes must declare no key other than commands'
+    // Task 5 (§2.5, issue #63) supersedes LLD §2.1 Invariants 3/6: the manifest
+    // now contributes markdown.previewScripts (the diagram overlay) alongside
+    // the commands. The overlay-log command is hidden from the palette.
+    assert.ok(
+      Array.isArray(contributes.commands),
+      'contributes.commands must remain an array'
+    );
+    const commandIds = (contributes.commands as Array<{ command: string }>).map(
+      (c) => c.command
+    );
+    assert.ok(
+      commandIds.includes('edf-review.overlayLog'),
+      'contributes.commands must declare edf-review.overlayLog'
     );
 
-    // LLD §2.1 Invariant 3: markdown.previewScripts is absent. Either the
-    // markdown contribution does not exist, or it declares no previewScripts.
-    const markdown = contributes['markdown'] as
-      | { previewScripts?: unknown }
-      | undefined;
-    assert.ok(
-      markdown === undefined || !('previewScripts' in markdown),
-      'contributes.markdown must not declare a previewScripts entry'
+    const markdown = (contributes['markdown'] ?? {}) as { previewScripts?: unknown };
+    assert.deepStrictEqual(
+      markdown.previewScripts,
+      ['./media/overlay.js'],
+      'contributes.markdown.previewScripts must declare the overlay script'
     );
+
+    // The overlay-log command is a relay hook, not a user-facing palette action.
+    const palette = (contributes['commandPalette'] ?? []) as Array<{
+      command: string;
+      when?: string;
+    }>;
+    const hidden = palette.find((entry) => entry.command === 'edf-review.overlayLog');
+    assert.strictEqual(hidden?.when, 'false', 'edf-review.overlayLog must be hidden from the palette');
   });
 });

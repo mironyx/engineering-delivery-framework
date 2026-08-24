@@ -10,6 +10,7 @@
 import * as vscode from 'vscode';
 import { EditorTracker, createEditorTracker, resolveTarget } from './editor-tracker';
 import { createLog } from './log';
+import { createOverlayLog } from './overlay-bridge';
 import { Heading, extractHeadings } from './headings';
 import { REVIEW_MARKER, findReviewInsertLine } from './review-insert';
 
@@ -19,6 +20,8 @@ export const NO_HEADINGS_MSG = 'No section headings found in this document';
 export function activate(context: vscode.ExtensionContext) {
   const tracker = createEditorTracker(context);
   const log = createLog(context);
+  // §2.5: registers edf-review.overlayLog and reuses the same EDF Review channel.
+  createOverlayLog(context);
 
   context.subscriptions.push(
     vscode.commands.registerCommand('edf-review.insertReviewComment', () =>
