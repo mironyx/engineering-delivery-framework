@@ -22,7 +22,7 @@ entries:
     lld: lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-packaging-security
     issue: 51
     files: []
-    status: Approved
+    status: Revised
     lld_revision: r1
     # Story 2.2 — primary section is packaging, install verification and the
     # recorded security review. The test-framework half of the story is carried by
