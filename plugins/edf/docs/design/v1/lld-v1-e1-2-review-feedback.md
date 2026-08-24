@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.9 |
-| Status | Revised v7 |
-| Revised | 2026-08-24 | Issue #50 |
+| Version | 1.0 |
+| Status | Revised v8 |
+| Revised | 2026-08-24 | Issue #51 |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Epic | [#30](https://github.com/mironyx/engineering-delivery-framework/issues/30) |
@@ -16,6 +16,16 @@
 | Epic id | `v1-e1-2` |
 
 ## Recent revisions
+
+**1.0 (2026-08-24).** §2.4 synced to the shipped packaging implementation (`edf:lld-sync`,
+issue #51): the `.vscodeignore` block gains `out/test/**` — #48's tsconfig (`rootDir: "."`,
+`include: ["src/**/*", "test/**/*"]`) compiles the tests into `out/test/`, so the literal block
+shipped the compiled test files in the `.vsix` (43 KB artefact); excluding them leaves `out/src/`
+(the `main` entry) shipping, preserving the §2.4 Constraint. Resolved the §2.1
+`test/`-in-`.vscodeignore` deferral (exclude both `test/**` sources and `out/test/**` compiled
+output). Recorded the Invariant 19 verification boundary: the `packaging` suite asserts the
+ignore-contract text, while `vsce package` emission and shipped-content checks are manual
+(`unzip -l` + install run, recorded in the security review and the EDF-51 session log).
 
 **0.9 (2026-08-24).** §2.3 internal decomposition synced to the shipped implementation
 (`edf:lld-sync`, issue #50): `toItems` labels carry the `##`/`###` level prefix (the field the
@@ -763,7 +773,8 @@ extensions/edf-review/
 > title/category) plus `manifest.ts` — 8 specs total. The `.vscodeignore` still excludes only
 > `src/`, `tsconfig.json`, `node_modules/`, `.vscode/` — `test/` was not added as the spec's
 > file-structure line called for. _(deferred → #51: the packaging task's shipped-artefact
-> file listing should confirm whether `test/` must be excluded.)_
+> file listing should confirm whether `test/` must be excluded — resolved in #51: yes — both
+> `test/**` sources and `out/test/**` compiled output are excluded and asserted, see §2.4.)_
 
 #### Manifest changes
 
@@ -1073,11 +1084,20 @@ plugins/edf/docs/design/v1/extension-security-review.md — create; the recorded
 .vscode/**
 src/**
 test/**
+out/test/**
 out/**/*.map
 tsconfig.json
 .vscodeignore
 node_modules/**
 ```
+
+> **Implementation note (issue #51):** `out/test/**` is an addition beyond the literal block.
+> #48's tsconfig (`rootDir: "."`, `include: ["src/**/*", "test/**/*"]`) compiles the tests into
+> `out/test/`, so the literal block shipped the compiled test files in the `.vsix` (first
+> `vsce package`: 43 KB artefact). Excluding `out/test/**` leaves `out/src/` — the `main` entry
+> — shipping, so the Constraint below still holds. This also resolves the §2.1 `test/` deferral:
+> both `test/**` (sources) and `out/test/**` (compiled tests) are excluded and asserted by
+> `packaging.test.ts`.
 
 > **Constraint:** `out/**` must **not** be excluded — it holds the compiled `main` entry
 > point. Excluding it produces a `.vsix` that installs and then fails to activate, which is
@@ -1122,6 +1142,13 @@ One row per property, each with the evidence that established it, not a bare ass
 
 `vsce package` failures are build failures. Install verification is manual and its outcome is
 recorded in the security review document.
+
+> **Implementation note (issue #51):** the BDD spec "emits a vsix with no packaging errors"
+> (Invariant 19) is verified manually — `vsce package` exit 0, the `unzip -l` shipped-content
+> listing, and the install/parity run — recorded in the security review and the EDF-51 session
+> log. The committed `packaging.test.ts` suite asserts the `.vscodeignore` contract text and the
+> manifest invariants (Invariants 20-21) rather than executing `vsce package`, so it cannot
+> catch vsce semantic drift; automating that is deferred.
 
 <a id="LLD-v1-e1-2-overlay"></a>
 

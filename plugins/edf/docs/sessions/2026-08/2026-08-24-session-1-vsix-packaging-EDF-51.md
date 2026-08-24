@@ -66,3 +66,109 @@
 | 8 | 2026-08-24T00:09:46Z | $0.00 | 0 in / 0 out | [PR #74](https://github.com/mironyx/engineering-delivery-framework/pull/74) — Design deviations appended |
 | 9 | 2026-08-24T00:20:36Z | $0.00 | 0 in / 0 out | pr-review #74 — 0 blockers, 1 warn (packaging specs assert `.vscodeignore` text, not the emitted `.vsix`) deferred with TODO in `packaging.test.ts` + session-log note; [review comment](https://github.com/mironyx/engineering-delivery-framework/pull/74#issuecomment-5389330908) |
 | 10 | 2026-08-24T00:21:36Z | $0.00 | 0 in / 0 out | CI reconcile — no GitHub Actions workflows in repo (0 workflow runs, 0 check-runs); sole check "Comprehension Check" (app.mironyx.dev) is an external app `pending` on human input, not a build. Verification is local: 65 tests in extension host, tsc strict clean, `vsce package` exit 0, install + parity PASS |
+
+## Work completed
+
+[PR #74](https://github.com/mironyx/engineering-delivery-framework/pull/74) — "v1-e1-2: vsix
+packaging, install verification and recorded security review" (#51), squash-merged.
+
+- `.vscodeignore` — excludes `.vscode/`, `src/`, `test/`, `out/test/`, `out/**/*.map`,
+  `tsconfig.json`, `.vscodeignore`, `node_modules/`; `out/` (the compiled `main` entry) ships.
+- `README.md` — created; minimal install instructions (`npm install && npm run package` →
+  `code --install-extension edf-review-<version>.vsix`), lint-clean.
+- `test/suite/packaging.test.ts` — 4 new packaging specs (excludes sources/tests/config/maps;
+  ships `out/`; no marketplace listing metadata; `package` script present). `manifest.ts`
+  gains an optional `scripts` field.
+- Emitted `edf-review-0.2.0.vsix` (10.2 KB, 9 files), installed via `code --install-extension`
+  into a normal window, verified parity with the Dev-Host build (byte-identical `out/src` via
+  `diff -r`, plus a throwaway `@vscode/test-electron` launch against the installed extension:
+  3/3 parity specs pass).
+- `plugins/edf/docs/design/v1/extension-security-review.md` — committed security review: one
+  row per guaranteed property with evidence grepped against the shipped `out/src`, the shipped
+  artefact's file listing, and the manifest contract; install verification outcome recorded.
+
+Verification: 65 tests in the extension host (61 prior + 4 new), tsc strict clean, `vsce
+package` exit 0, `unzip -l` shipped-content listing, install + parity PASS.
+
+## Decisions made
+
+- **`out/test/**` deviation (beyond the LLD §2.4 literal block).** #48's tsconfig
+  (`rootDir: "."`) compiles tests into `out/test/`, so the literal `.vscodeignore` block
+  shipped the compiled test files (43 KB artefact). Adding `out/test/**` leaves `out/src/`
+  (the `main` entry) shipping — the §2.4 Constraint still holds. Backfilled into the LLD by
+  this `edf:lld-sync` run.
+- **`test/`-in-`.vscodeignore` deferral resolved (yes).** The §2.1 note deferred the decision;
+  the shipped-artefact listing confirms both `test/**` sources and `out/test/**` compiled
+  output must be excluded. Asserted by the packaging spec.
+- **Security review covers what ships, not `src/`.** Grep evidence was run against the
+  compiled `out/src/` inside the `.vsix`, and the shipped file listing is recorded in the
+  review — per the LLD's "what ships" constraint.
+- **`package` script already present.** Added in #48's manifest rewrite; verified, not re-added.
+
+## Review feedback addressed
+
+- **pr-review #74** — 0 blockers, 1 non-blocking warn: the packaging specs assert the
+  `.vscodeignore` text (`readFileSync` + `startsWith`/`endsWith`) rather than running
+  `vsce package` and inspecting the emitted `.vsix`, so the LLD §2.4 BDD spec "emits a vsix
+  with no packaging errors" has no automated counterpart. **Deferred** — TODO added to the
+  `packaging.test.ts` header docblock and recorded in `## Concerns & Deferred Items`;
+  shipped-content verification stays manual (`unzip -l` + install run, recorded in the
+  security review and session log). No blocker rework, so no pr-review re-run.
+- **`npm audit` (3 devDependency vulns in `serialize-javascript`)** — pre-existing from #48,
+  not shipped (`node_modules/` excluded); deferred and surfaced in the PR body.
+
+## LLD Sync report
+
+## LLD Sync — Issue #51: v1-e1-2: vsix packaging, install verification and recorded security review
+
+### Corrections (spec was wrong)
+- §2.4 Part B `.vscodeignore` contents block: the literal block (`test/**`, no `out/test/**`)
+  → built block adds `out/test/**`. #48's tsconfig (`rootDir: "."`) compiles the tests into
+  `out/test/`, so the literal block shipped the compiled test files in the `.vsix` (first
+  `vsce package`: 43 KB artefact). With `out/test/**` excluded the artefact carries only
+  `out/src/` (10 KB); `out/**` as a whole still ships, so the §2.4 Constraint holds.
+
+### Additions (not in spec)
+- `out/test/**` line in the `.vscodeignore` contents block, with an Implementation-note
+  callout recording the concrete reason.
+- Implementation-note callout in §2.4 Error handling recording the Invariant 19 verification
+  boundary (the `packaging` suite asserts the ignore-contract text; `vsce package` emission
+  and shipped-content checks are manual, automating deferred).
+
+### Omissions (in spec but not built)
+- BDD spec "emits a vsix with no packaging errors" (Invariant 19) — no automated counterpart;
+  verified manually and recorded (deferred).
+
+### Confirmations (notable)
+- §2.4 Constraint (`out/**` not excluded; `out/src/extension.js` is `main`) — implemented and
+  asserted.
+- Scripts block (`package: "vsce package"`) — present (added in #48, verified).
+- Manifest metadata constraint (no icon/galleryBanner/categories) — asserted (Invariant 20).
+- Security review document shape — one row per property with evidence, shipped artefact
+  listing recorded; Task 5 (§2.5) amendment note retained.
+
+### LLD updated
+File: plugins/edf/docs/design/v1/lld-v1-e1-2-review-feedback.md §2.4 Part B (+ §2.1 deferral
+note, Document Control)
+Version: 0.9 → 1.0
+
+## Cost retrospective
+
+- **Cost summary:** PR-creation cost $0.0000 (PR body `Usage`) vs final total $0.0000
+  (`ai-cost-final`). Delta $0.0000 — no measurable post-PR rework spend (the pr-review warn
+  was deferred, not fixed; no fix cycle).
+- **Cost drivers:** none measurable — the cost monitor records $0.00 across every checkpoint
+  row (3c, 4L, 5, 6, 8, 9, 10). The feature is config + docs + tests (0 source lines), Light
+  track; the dominant effort was the manual build/install/parity verification loop, which the
+  monitor does not bill.
+- **Improvement actions:** packaging verification is manual by design (`vsce package` +
+  `unzip -l` + install). The pr-review warn suggests automating shipped-content assertions; if
+  packaging work recurs, revisit running `vsce package` inside the test suite.
+
+## Next steps
+
+- Task 5 (§2.5) — diagram click-through overlay — is the remaining open epic item; it amends
+  the security review's "no preview script injection" row in place (LLD §2.5 Part B).
+- Optional: revisit automating the "emits a vsix" BDD spec (pr-review warn; TODO in
+  `packaging.test.ts` header).
+- Suggested next board item: `gh issue list --label kind:task --state open --limit 3`.
