@@ -24,6 +24,7 @@ import * as path from 'path';
 import {
   createEditorTracker,
   previewTitleName,
+  editorTabName,
   mruMatchesForName,
   resolveTarget,
   NO_PREVIEW_MSG,
@@ -581,6 +582,32 @@ describe('resolveTarget — issue #50 BDD (LLD §2.3 0.8, never guess)', () => {
     }
   });
 
+  it('resolves to the document when the active tab is the markdown source editor (split layout)', async () => {
+    // The real-world split layout: the active tab is the source editor while
+    // the preview sits beside it. The editor's filename is as legitimate a name
+    // source as the preview title (LLD 0.9 — "there is a name — find in MRU").
+    const dir = makeTempDir();
+    const opened: vscode.TextDocument[] = [];
+    try {
+      const base = uniqueMarkdownBase();
+      const targetPath = path.join(dir, base);
+      writeMarkdownFile(targetPath);
+      opened.push(await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath)));
+      const editor = await vscode.window.showTextDocument(opened[0]);
+
+      const tracker: EditorTracker = { recent: () => [editor], last: () => editor };
+      const sourceTab = {
+        label: base,
+        input: { uri: vscode.Uri.file(targetPath) }
+      } as unknown as vscode.Tab;
+      const resolution = await resolveTarget(tracker, sourceTab);
+
+      assert.strictEqual(resolution.kind, 'resolved');
+    } finally {
+      await cleanupTempDir(dir, opened);
+    }
+  });
+
   it('logs the reason to the EDF Review channel when resolution fails', async () => {
     // Resolution failure is surfaced by the command handler: the reason is both
     // logged to `EDF Review` and shown to the user. In the shared host the
@@ -620,6 +647,25 @@ describe('previewTitleName (Issue #50, LLD §2.3 0.7 helper)', () => {
     const textTab = { label: 'foo.md', input: {} } as unknown as vscode.Tab;
     assert.strictEqual(previewTitleName(textTab), undefined);
     assert.strictEqual(previewTitleName(undefined), undefined);
+  });
+});
+
+describe('editorTabName (LLD 0.9 — a focused markdown editor is a name source)', () => {
+  it('returns the basename for a focused markdown source-editor tab', () => {
+    const tab = {
+      label: 'foo.md',
+      input: { uri: vscode.Uri.file('/repo/docs/design/v1/foo.md') }
+    } as unknown as vscode.Tab;
+    assert.strictEqual(editorTabName(tab), 'foo.md');
+  });
+
+  it('returns undefined for a non-markdown tab or no tab', () => {
+    const txt = {
+      label: 'bar.txt',
+      input: { uri: vscode.Uri.file('/repo/bar.txt') }
+    } as unknown as vscode.Tab;
+    assert.strictEqual(editorTabName(txt), undefined);
+    assert.strictEqual(editorTabName(undefined), undefined);
   });
 });
 

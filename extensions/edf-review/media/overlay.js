@@ -1,4 +1,3 @@
-/* EDF Review diagram click-through overlay (preview webview). */
 (function () {
   'use strict';
   var SEL = 'svg[id^="mermaid"]';

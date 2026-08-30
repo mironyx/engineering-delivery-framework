@@ -8,7 +8,8 @@ npm ci
 npm run compile
 npm run package
 
-VSIX=$(ls edf-review-*.vsix | head -1)
+# Version-sort so a stale older .vsix in the dir never shadows the new build.
+VSIX=$(ls edf-review-*.vsix | sort -V | tail -1)
 # Ship a copy inside the plugin package so plugin installs carry the artifact
 # into the plugin cache (~/.claude/plugins/cache/mironyx/edf/<version>/artifacts/).
 mkdir -p ../../plugins/edf/artifacts

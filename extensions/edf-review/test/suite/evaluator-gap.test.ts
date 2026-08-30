@@ -52,11 +52,11 @@ describe('extension scaffold — manifest invariants (evaluator)', () => {
     }
   });
 
-  it('bumps the manifest version to 0.2.0', () => {
-    // Issue: "package.json — manifest rewrite; version 0.2.0".
-    // Pinned to the exact version because 0.2.0 IS issue #48's acceptance
-    // criterion; the next issue to bump the version updates this spec with it.
-    assert.strictEqual(readManifest().version, '0.2.0');
+  it('bumps the manifest version to 0.2.2', () => {
+    // Issue: "package.json — manifest rewrite; version 0.2.0", bumped to 0.2.1
+    // when the diagram click-through overlay shipped (issue #63), and to 0.2.2
+    // for the active-markdown-editor resolution fix (LLD 0.9).
+    assert.strictEqual(readManifest().version, '0.2.2');
   });
 
   it('keeps the media/ directory scoped to the overlay script only', () => {

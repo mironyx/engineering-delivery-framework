@@ -104,6 +104,21 @@ export function previewTitleName(activeTab: vscode.Tab | undefined): string | un
 }
 
 /**
+ * The basename of a focused markdown source-editor tab, when the active tab is a
+ * markdown file editor (TabInput.Text); undefined otherwise. In a real split
+ * layout the active tab is usually the source editor while the preview sits
+ * beside it — both legitimately name the target (LLD 0.9, maintainer's
+ * "there is a name — find in MRU"). Returns undefined for non-markdown tabs.
+ */
+export function editorTabName(activeTab: vscode.Tab | undefined): string | undefined {
+  const uri = (activeTab?.input as { uri?: vscode.Uri } | undefined)?.uri;
+  if (!uri || path.extname(uri.fsPath).toLowerCase() !== '.md') {
+    return undefined;
+  }
+  return path.basename(uri.fsPath);
+}
+
+/**
  * Still-open MRU entries whose document's basename equals `name`, in recency
  * order. A document evicted from the bounded stack (or closed) is not found.
  */
@@ -119,9 +134,12 @@ export function mruMatchesForName(
 /**
  * Resolve the target editor for a review comment — never guess (LLD 0.7).
  *
- * The focused preview is the only legitimate trigger:
- *   1. No preview tab → stop with NO_PREVIEW_MSG.
- *   2. Preview title's basename → still-open tracked editors that match.
+ * The active tab names the target: the focused markdown preview's title, or a
+ * focused markdown source editor (the common split-layout case — the active
+ * tab is the editor while the preview sits beside it). Either yields a name;
+ * anything else stops:
+ *   1. No name from the active tab → stop with NO_PREVIEW_MSG.
+ *   2. Name → still-open tracked editors whose basename matches.
  *   3. Exactly one match → reveal via showTextDocument and resolve to it.
  *   4. Zero matches → stop with NO_DOCUMENT_MSG — the source editor was closed
  *      or evicted; tell the user to open the original file.
@@ -132,7 +150,7 @@ export async function resolveTarget(
   tracker: EditorTracker,
   activeTab: vscode.Tab | undefined
 ): Promise<Resolution> {
-  const name = previewTitleName(activeTab);
+  const name = previewTitleName(activeTab) ?? editorTabName(activeTab);
   if (!name) {
     return { kind: 'none', reason: NO_PREVIEW_MSG };
   }

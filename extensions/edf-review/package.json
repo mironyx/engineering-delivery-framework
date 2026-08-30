@@ -2,7 +2,7 @@
   "name": "edf-review",
   "displayName": "EDF Review",
   "description": "Insert `[Review]` markers into markdown documents from a command-palette quick-pick.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "mironyx",
   "license": "MIT",
   "engines": {
