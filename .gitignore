@@ -16,4 +16,7 @@ __pycache__/
 node_modules/
 out/
 .vscode-test/
+# VSIX artifacts ship WITH the plugin via plugins/edf/artifacts/ — they must be
+# committed, so ignore stray build outputs but keep the artifacts dir tracked.
 *.vsix
+!plugins/edf/artifacts/
