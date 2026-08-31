@@ -1,151 +1,138 @@
+// PROTOTYPE — not production code.
+//
+// Hypothesis under test: VS Code's built-in markdown preview click handler
+// (media/index.js in markdown-language-features) only opens a link when the
+// clicked element's tagName === "A" (checked case-sensitively). An SVG <a>
+// reports tagName "a" (SVG is case-sensitive XML), so it never matches and
+// clicks on Mermaid diagram links do nothing.
+//
+// This script does not talk to any extension host and defines no new
+// message channel. It only creates real HTML <a> elements, positioned over
+// each SVG <a>'s clickable area, carrying the same href. If the hypothesis
+// is right, the *existing* built-in click handler picks up these HTML
+// anchors on its own and opens the file — proving a small previewScripts-only
+// extension is enough, with no custom webview and no extension-host code.
+
 (function () {
-  'use strict';
-  var SEL = 'svg[id^="mermaid"]';
-  var bySource = new WeakMap();
-  var sources = [];
-  var rafBusy = false;
+  var OVERLAY_MARK = "data-edf-poc-overlay";
+  var container = null;
 
-  function designRootOf(p) {
-    var m = p.indexOf('/docs/design/');
-    if (m !== -1) return p.slice(0, m);
-    var s = p.split('/').filter(Boolean);
-    return /^[A-Za-z]:$/.test(s[0] || '') ? '/' + s.slice(0, 2).join('/') : '/' + (s[0] || '');
+  function ensureContainer() {
+    if (container && document.body.contains(container)) return container;
+    container = document.createElement("div");
+    container.id = "edf-poc-overlay-container";
+    container.style.position = "absolute";
+    container.style.top = "0";
+    container.style.left = "0";
+    container.style.width = "0";
+    container.style.height = "0";
+    container.style.zIndex = "9999";
+    document.body.appendChild(container);
+    return container;
   }
 
-  function resolveAndValidateHref(href) {
-    if (!href) return null;
-    var h = String(href).trim();
-    if (!h) return null;
-    if (h.charAt(0) === '#') return h;
-    if (/^[a-z][a-z0-9+.-]*:/i.test(h)) return null;
-    var base, r;
-    try {
-      base = new URL(document.baseURI);
-      r = new URL(h, base);
-    } catch (e) { return null; }
-    if (r.origin !== base.origin) return null;
-    var root = designRootOf(base.pathname);
-    var rp = r.pathname;
-    if (rp !== root && rp.indexOf(root + '/') !== 0) return null;
-    return h;
+  function injectStyle() {
+    var s = document.getElementById("edf-ov-style");
+    if (s) return;
+    s = document.createElement("style");
+    s.id = "edf-ov-style";
+    s.textContent = "svg a{cursor:pointer}svg a text{text-decoration:underline}";
+    document.head.appendChild(s);
   }
 
-  function place(overlay, el) {
-    var rc = el.getBoundingClientRect();
-    overlay.style.position = 'absolute';
-    overlay.style.left = (rc.left + (window.scrollX || 0)) + 'px';
-    overlay.style.top = (rc.top + (window.scrollY || 0)) + 'px';
-    overlay.style.width = rc.width + 'px';
-    overlay.style.height = rc.height + 'px';
-  }
-
-  function createOverlaysFor(svg) {
-    if (!svg || !svg.querySelectorAll) return;
-    var as = svg.querySelectorAll('a[href], a[xlink\\:href]');
-    for (var i = 0; i < as.length; i++) {
-      var a = as[i];
-      var href = a.getAttribute('href') || a.getAttribute('xlink:href');
-      if (!href) continue;
-      var v = resolveAndValidateHref(href);
-      if (v === null) continue;
-      var ex = bySource.get(a);
-      if (ex) { place(ex, a); continue; }
-      var o = document.createElement('a');
-      o.className = 'edf-review-overlay';
-      o.setAttribute('href', v);
-      place(o, a);
-      document.body.appendChild(o);
-      bySource.set(a, o);
-      sources.push(a);
-    }
-  }
-
-  function removeStaleOverlays() {
-    sources = sources.filter(function (s) {
-      if (s.isConnected) return true;
-      var o = bySource.get(s);
-      if (o && o.parentNode) o.parentNode.removeChild(o);
-      bySource.delete(s);
-      return false;
+  function findSvgAnchors() {
+    // Mermaid emits either href or xlink:href depending on version.
+    var nodes = document.querySelectorAll("svg a");
+    return Array.prototype.filter.call(nodes, function (a) {
+      return (
+        a.getAttribute("href") || a.getAttributeNS("http://www.w3.org/1999/xlink", "href")
+      );
     });
   }
 
-  function repositionAll() {
-    for (var i = 0; i < sources.length; i++) {
-      var s = sources[i];
-      if (s.isConnected) {
-        var o = bySource.get(s);
-        if (o) place(o, s);
+  function positionOverlay(overlay, svgAnchor) {
+    var rect = svgAnchor.getBoundingClientRect();
+    overlay.style.position = "fixed";
+    overlay.style.left = rect.left + "px";
+    overlay.style.top = rect.top + "px";
+    overlay.style.width = Math.max(rect.width, 1) + "px";
+    overlay.style.height = Math.max(rect.height, 1) + "px";
+  }
+
+  function rescan() {
+    var c = ensureContainer();
+    var svgAnchors = findSvgAnchors();
+    var live = new Set();
+
+    svgAnchors.forEach(function (svgAnchor) {
+      var href =
+        svgAnchor.getAttribute("href") ||
+        svgAnchor.getAttributeNS("http://www.w3.org/1999/xlink", "href");
+      if (!href) return;
+      // Security: never put a scheme-bearing href (javascript:, data:, ...) on
+      // a real HTML anchor. Relative paths and #fragments — the only targets
+      // diagrams and the probe use — have no scheme and pass through.
+      if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return;
+
+      // svgAnchor.isConnected guards against a stale reference surviving on
+      // an old node after the preview replaces the SVG wholesale (Mermaid
+      // re-renders diagrams outright rather than patching them in place).
+      var overlay =
+        svgAnchor.isConnected && svgAnchor[OVERLAY_MARK] && c.contains(svgAnchor[OVERLAY_MARK])
+          ? svgAnchor[OVERLAY_MARK]
+          : null;
+      if (!overlay) {
+        overlay = document.createElement("a");
+        overlay.setAttribute(OVERLAY_MARK, "1");
+        overlay.style.display = "block";
+        overlay.style.background = "transparent";
+        overlay.style.cursor = "pointer";
+        c.appendChild(overlay);
+        svgAnchor[OVERLAY_MARK] = overlay;
       }
-    }
-  }
 
-  function observeMermaidContainers() {
-    if (typeof window.MutationObserver === 'undefined') {
-      throw new Error('MutationObserver unavailable');
-    }
-    var ob = new window.MutationObserver(function (ms) {
-      try {
-        for (var i = 0; i < ms.length; i++) {
-          var rec = ms[i];
-          for (var j = 0; j < rec.addedNodes.length; j++) {
-            var n = rec.addedNodes[j];
-            if (n.nodeType !== 1) continue;
-            if (n.matches && n.matches(SEL)) createOverlaysFor(n);
-            var nested = n.querySelectorAll ? n.querySelectorAll(SEL) : null;
-            for (var k = 0; nested && k < nested.length; k++) createOverlaysFor(nested[k]);
-          }
-          var stale = false;
-          for (var r = 0; r < rec.removedNodes.length; r++) {
-            var rn = rec.removedNodes[r];
-            if (rn.nodeType !== 1) continue;
-            if (rn.matches && rn.matches(SEL)) stale = true;
-            else if (rn.querySelector && rn.querySelector(SEL)) stale = true;
-          }
-          if (stale) removeStaleOverlays();
-        }
-      } catch (e) { reportError(e); }
+      overlay.href = href;
+      positionOverlay(overlay, svgAnchor);
+      live.add(overlay);
     });
-    ob.observe(document.body, { childList: true, subtree: true });
-    var ex = document.querySelectorAll(SEL);
-    for (var e = 0; e < ex.length; e++) createOverlaysFor(ex[e]);
-  }
 
-  function scheduleReposition() {
-    if (rafBusy) return;
-    rafBusy = true;
-    var raf = window.requestAnimationFrame ||
-      function (cb) { return window.setTimeout(cb, 16); };
-    raf(function () {
-      rafBusy = false;
-      try { repositionAll(); } catch (e) { reportError(e); }
+    // Remove overlays whose SVG anchor is gone or was replaced — otherwise
+    // every diagram re-render (edit-while-previewing, scroll-triggered
+    // Mermaid re-layout) leaks a stale, invisible click-trap at the old
+    // position.
+    Array.prototype.slice.call(c.children).forEach(function (child) {
+      if (!live.has(child)) c.removeChild(child);
     });
   }
 
-  function reportError(err) {
-    try {
-      var msg = err && err.message ? err.message : String(err);
-      console.error('[edf-review]', msg);
-      var api = window.acquireVsCodeApi && window.acquireVsCodeApi();
-      if (api && api.postMessage) {
-        api.postMessage({ type: 'edf-overlay-error', message: msg });
-      }
-    } catch (e2) { /* swallow — keep the webview alive */ }
+  var busy = false;
+  function scheduleRescan() {
+    if (busy) return;
+    busy = true;
+    requestAnimationFrame(function () {
+      busy = false;
+      rescan();
+    });
   }
 
-  window.addEventListener('scroll', scheduleReposition, true);
-  window.addEventListener('resize', scheduleReposition, true);
+  window.addEventListener("load", scheduleRescan);
+  window.addEventListener("resize", scheduleRescan);
+  window.addEventListener("scroll", scheduleRescan, true);
+  // Dispatched by the built-in preview script after it patches in new
+  // content (e.g. on document edit while the preview is open).
+  window.addEventListener("vscode.markdown.updateContent", scheduleRescan);
 
-  window.__edfOverlay = {
-    resolveAndValidateHref: resolveAndValidateHref,
-    createOverlaysFor: createOverlaysFor,
-    removeStaleOverlays: removeStaleOverlays,
-    observeMermaidContainers: observeMermaidContainers
-  };
+  var observer = new MutationObserver(scheduleRescan);
+  observer.observe(document.body || document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
 
-  try {
-    observeMermaidContainers();
-  } catch (err) {
-    reportError(err);
+  injectStyle();
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scheduleRescan);
+  } else {
+    scheduleRescan();
   }
 })();

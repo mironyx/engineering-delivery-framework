@@ -1,2 +1,4 @@
 {
+  "markdown.preview.openMarkdownLinks": "inEditor",
+  "markdown.links.openLocation": "beside"
 }

@@ -18,7 +18,13 @@ import { glob } from 'glob';
 export function run(): Promise<void> {
   const mocha = new Mocha({
     ui: 'bdd',
-    color: true
+    color: true,
+    // The 2000ms default is tight for a cold Electron test host: opening and
+    // splitting editors (openTextDocument + showTextDocument, ViewColumn.Beside)
+    // can exceed it under load, which surfaces as a flaky per-test timeout
+    // rather than a real failure. 10s keeps the assertion-level waits (waitFor,
+    // settle) authoritative.
+    timeout: 10000
   });
 
   const testsRoot = path.resolve(__dirname, '..');

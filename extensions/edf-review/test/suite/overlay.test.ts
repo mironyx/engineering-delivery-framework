@@ -19,10 +19,11 @@
  *    stubs the rest of the suite uses (no HTTP, so the repo's respx rule does
  *    not apply).
  *
- * The overlay fixture mirrors ADR-0039 R1's resolution table: an LLD at
- * plugins/edf/docs/design/v1/lld.md whose design-root is plugins/edf/. So
- * `../../../skills/lld/template.md` resolves inside design-root (accepted) and
- * `../../../../../etc/passwd` escapes it (rejected).
+ * The overlay fixture mirrors the preview document at
+ * plugins/edf/docs/design/v1/lld.md. Containment is origin-only (user decision):
+ * any document-relative href that stays on the `file://` origin is accepted —
+ * `../../../skills/lld/template.md` (inside the repo) and `../../../../../etc/passwd`
+ * (traversing above it) alike — and only hrefs with an explicit scheme are rejected.
  *
  * These specs are written test-first against the LLD contract. The current
  * media/overlay.js and src/overlay-bridge.ts are stubs that throw
@@ -48,19 +49,16 @@ const OVERLAY_SOURCE = path.join(__dirname, '../../../media/overlay.js');
 /** The fixture preview document — an LLD at the same location ADR-0039 R1 resolves from. */
 const PREVIEW_URL = 'file:///C:/proj/plugins/edf/docs/design/v1/lld.md';
 
-/** The containment boundary for the fixture: ADR-0039's `plugins/edf` module root. */
-const DESIGN_ROOT = 'file:///C:/proj/plugins/edf/';
-
-/** Resolves to file:///C:/proj/plugins/edf/skills/lld/template.md — inside design-root. */
+/** Resolves to file:///C:/proj/plugins/edf/skills/lld/template.md — same origin. */
 const INSIDE_HREF = '../../../skills/lld/template.md';
 
-/** Resolves to file:///C:/proj/etc/passwd — escapes design-root. */
+/** Traverses above the repo — still the same origin, accepted under origin-only containment. */
 const ESCAPE_HREF = '../../../../../etc/passwd';
 
-/** Resolves to file:///C:/proj/plugins/ — above design-root. */
+/** Traverses above the repo — still the same origin, accepted under origin-only containment. */
 const ESCAPE_HREF2 = '../../../..';
 
-/** A fragment link — passes through unchanged, never leaves design-root. */
+/** A fragment link — passes through unchanged. */
 const FRAGMENT_HREF = '#LLD-v1-e1-2-overlay';
 
 /** The message shape the overlay posts and the bridge relays. */
@@ -197,9 +195,9 @@ function stubRect(el: Element, r: { left: number; top: number; width: number; he
   (el as unknown as { getBoundingClientRect: () => unknown }).getBoundingClientRect = () => rect;
 }
 
-/** The overlays appended to the preview body (SVG anchors live inside svg, so `body > a` excludes them). */
+/** The overlays — HTML anchors in the #edf-review-overlays container (SVG anchors live inside svg, so tag/source excludes them). */
 function bodyOverlays(doc: Document): HTMLAnchorElement[] {
-  return Array.from(doc.querySelectorAll('body > a')) as unknown as HTMLAnchorElement[];
+  return Array.from(doc.querySelectorAll('#edf-review-overlays > a')) as unknown as HTMLAnchorElement[];
 }
 
 // ---------------------------------------------------------------------------
@@ -310,7 +308,7 @@ describe('overlay creation (Issue #63, LLD §2.5)', () => {
     // t.tagName === "A"; an SVG anchor reports lowercase "a", so the overlay
     // must be a real HTML anchor the existing handler recognises.
     assert.strictEqual(overlay.tagName, 'A', 'overlay is a real HTML anchor');
-    assert.strictEqual(overlay.style.position, 'absolute', 'overlay is absolutely positioned');
+    assert.strictEqual(overlay.style.position, 'fixed', 'overlay is fixed-positioned (viewport-relative, per the working prototype)');
     assert.strictEqual(overlay.style.left, '10px', 'overlay sits at the first anchor left edge');
     assert.strictEqual(overlay.style.top, '20px', 'overlay sits at the first anchor top edge');
     assert.strictEqual(overlay.style.width, '100px', 'overlay spans the first anchor width');
@@ -334,19 +332,19 @@ describe('overlay creation (Issue #63, LLD §2.5)', () => {
     );
   });
 
-  it('rejects a resolved href outside design-root, creating no overlay', () => {
+  it('accepts a resolved href anywhere on the same origin, creating the overlay', () => {
     const { win } = loadOverlay();
-    // Invariant 23: an escaping `../../..` href resolves above design-root and
-    // must produce no overlay.
-    assert.strictEqual(seam(win).resolveAndValidateHref(ESCAPE_HREF2), null, 'resolving above design-root is rejected');
-    assert.strictEqual(seam(win).resolveAndValidateHref(ESCAPE_HREF), null, 'escaping design-root is rejected');
+    // Origin-only containment (user decision): an escaping `../../..` href stays
+    // on the `file://` origin, so it is accepted, not rejected.
+    assert.strictEqual(seam(win).resolveAndValidateHref(ESCAPE_HREF2), ESCAPE_HREF2, 'a same-origin path is accepted');
+    assert.strictEqual(seam(win).resolveAndValidateHref(ESCAPE_HREF), ESCAPE_HREF, 'a same-origin path is accepted');
 
     const { svg, anchor } = mermaidSvg(win, { href: ESCAPE_HREF });
     win.document.body.appendChild(svg);
     stubRect(anchor, { left: 0, top: 0, width: 50, height: 30 });
 
     assert.doesNotThrow(() => seam(win).createOverlaysFor(svg));
-    assert.strictEqual(bodyOverlays(win.document).length, 0, 'no overlay is created for a rejected href');
+    assert.strictEqual(bodyOverlays(win.document).length, 1, 'an overlay is created for a same-origin href');
   });
 
   it('supports flowchart, classDiagram and stateDiagram-v2 click targets and both link forms', () => {
@@ -485,7 +483,7 @@ describe('overlay click-through (Issue #63, LLD §2.5)', () => {
     });
     overlay.dispatchEvent(click);
     assert.ok(win.document.body.contains(overlay), 'the preview document stays live after the click');
-    assert.strictEqual(win.document.querySelectorAll('body > a').length, 1, 'the overlay is not torn down');
+    assert.strictEqual(win.document.querySelectorAll('#edf-review-overlays > a').length, 1, 'the overlay is not torn down');
   });
 });
 
@@ -608,7 +606,7 @@ describe('resolveAndValidateHref (Issue #63, LLD §2.5 Part B)', () => {
     }
   });
 
-  it('accepts a document-relative path that resolves inside design-root, returning the original href', () => {
+  it('accepts a document-relative path on the same origin, returning the original href', () => {
     const { win } = loadOverlay();
     assert.strictEqual(seam(win).resolveAndValidateHref(INSIDE_HREF), INSIDE_HREF);
   });
@@ -618,18 +616,21 @@ describe('resolveAndValidateHref (Issue #63, LLD §2.5 Part B)', () => {
     assert.strictEqual(seam(win).resolveAndValidateHref('./template.md'), './template.md');
   });
 
-  it('rejects a document-relative path that escapes design-root', () => {
+  it('accepts a document-relative path that escapes the repo subtree (origin-only containment)', () => {
     const { win } = loadOverlay();
-    assert.strictEqual(seam(win).resolveAndValidateHref(ESCAPE_HREF2), null, 'resolving above design-root is rejected');
-    assert.strictEqual(seam(win).resolveAndValidateHref(ESCAPE_HREF), null);
-    assert.strictEqual(seam(win).resolveAndValidateHref('../../../../skills/lld/template.md'), null);
+    // Origin-only containment: paths that traverse above the repo stay on the
+    // `file://` origin and are accepted, returning the original href unchanged.
+    assert.strictEqual(seam(win).resolveAndValidateHref(ESCAPE_HREF2), ESCAPE_HREF2, 'a same-origin path is accepted');
+    assert.strictEqual(seam(win).resolveAndValidateHref(ESCAPE_HREF), ESCAPE_HREF);
+    assert.strictEqual(
+      seam(win).resolveAndValidateHref('../../../../skills/lld/template.md'),
+      '../../../../skills/lld/template.md'
+    );
   });
 
-  it('bounds a document outside docs/design/ to the workspace folder (fallback design-root)', () => {
-    // pr-review #75 finding: the fallback (no `/docs/design/` marker) must
-    // derive the workspace folder (drive + top-level folder on Windows), not
-    // degenerate to the drive root. A document at /C:/proj/plugins/edf/docs/
-    // must accept a path inside /C:/proj and reject one that escapes it.
+  it('applies the same origin-only rule to a document outside docs/design/', () => {
+    // A document at /C:/proj/plugins/edf/docs/ shares the `file://` origin;
+    // both paths resolve and are accepted regardless of where they land.
     const dom = new JSDOM('<!doctype html><html><body></body></html>', {
       url: 'file:///C:/proj/plugins/edf/docs/lld.md',
       runScripts: 'outside-only'
@@ -640,12 +641,12 @@ describe('resolveAndValidateHref (Issue #63, LLD §2.5 Part B)', () => {
     assert.strictEqual(
       resolve('../skills/lld/template.md'),
       '../skills/lld/template.md',
-      'a path inside the workspace folder is accepted'
+      'a path inside the repo is accepted'
     );
     assert.strictEqual(
       resolve('../../../../etc/passwd'),
-      null,
-      'a path escaping the workspace folder is rejected'
+      '../../../../etc/passwd',
+      'a same-origin path is accepted under origin-only containment'
     );
   });
 });
@@ -690,7 +691,7 @@ describe('overlay mutation-callback perf (Issue #63, LLD §2.5 Invariant 26)', (
 
     // Invariant 26 budgets the mutation callback at under 1ms per invocation.
     // jsdom's DOM is far slower than a real webview, so a hard p95 < 1ms assert
-    // here would be flaky noise. Measure the pure containment check and assert
+    // here would be flaky noise. Measure the pure resolution check and assert
     // the path completes; the 1ms budget itself is a real-browser/build-time
     // gate (Invariant 26 verification), not reproducible under jsdom.
     const pure = seam(win).resolveAndValidateHref;
@@ -699,7 +700,7 @@ describe('overlay mutation-callback perf (Issue #63, LLD §2.5 Invariant 26)', (
       pure(INSIDE_HREF);
     }
     const pureMeanMs = (performance.now() - pureStart) / 50;
-    assert.ok(Number.isFinite(pureMeanMs), 'the containment check runs 50 times without error');
+    assert.ok(Number.isFinite(pureMeanMs), 'the resolution check runs 50 times without error');
 
     // The DOM path the observer callback drives must also complete and stay
     // bounded: 20 distinct re-renders each produce one overlay, no stacking.
@@ -735,7 +736,7 @@ describe('overlay wiring (evaluator, Issue #63)', () => {
     // DOM mutations. The sibling specs call createOverlaysFor directly, so a
     // regression that drops the observer registration or the initial scan loop
     // would pass every other spec in this file.
-    const { dom, win } = makeOverlayDom();
+    const { win } = makeOverlayDom();
     const doc = win.document;
 
     // (a) Initial scan — the diagram is present before the script loads.

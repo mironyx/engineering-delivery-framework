@@ -86,11 +86,13 @@ describe('extension scaffold', () => {
       'contributes.commands must declare edf-review.overlayLog'
     );
 
-    const markdown = (contributes['markdown'] ?? {}) as { previewScripts?: unknown };
+    // markdown-language-features reads the DOT-KEY `contributes['markdown.previewScripts']`
+    // (resolvePreviewScripts in markdownExtensions.ts) — a nested `"markdown": { ... }`
+    // object is never read, so the script silently fails to inject.
     assert.deepStrictEqual(
-      markdown.previewScripts,
+      contributes['markdown.previewScripts'],
       ['./media/overlay.js'],
-      'contributes.markdown.previewScripts must declare the overlay script'
+      'contributes["markdown.previewScripts"] (dot-key) must declare the overlay script'
     );
 
     // The overlay-log command is a relay hook, not a user-facing palette action.

@@ -26,6 +26,7 @@ import {
   previewTitleName,
   editorTabName,
   mruMatchesForName,
+  visibleMarkdownEditorsNamed,
   resolveTarget,
   NO_PREVIEW_MSG,
   NO_DOCUMENT_MSG,
@@ -124,29 +125,6 @@ function stubWarningMessage(): { calls: string[]; restore: () => void } {
     calls,
     restore: () => {
       testWindow.showWarningMessage = original;
-    }
-  };
-}
-
-/** A quick-pick item carrying the 0-based heading line. */
-type HeadingPickItem = vscode.QuickPickItem & { line: number };
-
-/**
- * Fail-guard for the EDF Review channel log spec: resolution-failure must stop
- * before the quick-pick, so a real showQuickPick would hang the shared host.
- */
-function stubQuickPick(): { restore: () => void } {
-  const original = vscode.window.showQuickPick;
-  const testWindow = vscode.window as unknown as {
-    showQuickPick: typeof vscode.window.showQuickPick;
-  };
-  testWindow.showQuickPick = ((_items: readonly HeadingPickItem[]) => {
-    assert.fail('showQuickPick must not be called when resolution fails');
-    return Promise.resolve(undefined);
-  }) as unknown as typeof vscode.window.showQuickPick;
-  return {
-    restore: () => {
-      testWindow.showQuickPick = original;
     }
   };
 }
@@ -443,6 +421,54 @@ describe('createEditorTracker (Issue #50, LLD §2.3)', () => {
     }
   });
 
+  it('dedupes by document, not editor object — two views of one file are one entry', async () => {
+    // showTextDocument mints a fresh TextEditor per view; focusing a second view
+    // of the SAME document must not create a duplicate MRU entry (which would
+    // trip the AMBIGUOUS guard on a single open file).
+    const events = stubTrackerEvents();
+    const context = freshContext();
+    const tracker = createEditorTracker(context);
+    try {
+      const doc = markdownDoc();
+      const editorA = markdownEditorFor(doc);
+      const editorB = markdownEditorFor(doc); // a second editor object for the same document
+
+      events.focus(editorA);
+      events.focus(editorB);
+      assert.strictEqual(
+        tracker.recent().length,
+        1,
+        'two editor objects for one document collapse to a single MRU entry'
+      );
+      assert.strictEqual(tracker.last(), editorB, 'the most recent view of the document wins');
+    } finally {
+      events.restore();
+    }
+  });
+
+  it('seeds one entry per document when the same file is open in two views', async () => {
+    const context = freshContext();
+    const doc = await vscode.workspace.openTextDocument({
+      content: '# One\n## Section One\n',
+      language: 'markdown'
+    });
+    await vscode.window.showTextDocument(doc);
+    await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+    await settle();
+
+    assert.ok(
+      vscode.window.visibleTextEditors.filter((e) => e.document === doc).length >= 2,
+      'precondition: the same document is visible in two editors'
+    );
+
+    const tracker = createEditorTracker(context);
+    assert.strictEqual(
+      tracker.recent().filter((e) => e.document === doc).length,
+      1,
+      'the seed collapses multiple views of one document into a single entry'
+    );
+  });
+
   it('evicts a closed-document entry from the MRU stack', async () => {
     const events = stubTrackerEvents();
     const context = freshContext();
@@ -582,6 +608,63 @@ describe('resolveTarget — issue #50 BDD (LLD §2.3 0.8, never guess)', () => {
     }
   });
 
+  it('resolves to a visible untracked editor via the live fallback (Issue #63 — no close-and-reopen)', async () => {
+    // An editor opened without ever gaining focus (e.g. a diagram click link that
+    // opens with preserveFocus) never enters the MRU stack. The reviewer must not
+    // be told to close and reopen the file to "refresh" a tracker that missed it:
+    // with zero tracked matches, resolution falls back to the visible editor set.
+    const dir = makeTempDir();
+    const opened: vscode.TextDocument[] = [];
+    try {
+      const base = uniqueMarkdownBase();
+      const targetPath = path.join(dir, base);
+      writeMarkdownFile(targetPath);
+      opened.push(await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath)));
+      await vscode.window.showTextDocument(opened[0]);
+
+      const empty: EditorTracker = { recent: () => [], last: () => undefined };
+      const resolution = await resolveTarget(empty, previewTab(`Preview ${base}`));
+
+      assert.strictEqual(resolution.kind, 'resolved');
+      if (resolution.kind === 'resolved') {
+        assert.strictEqual(
+          resolution.editor.document.uri.fsPath.toLowerCase(),
+          targetPath.toLowerCase(),
+          'the live visible-editor scan must resolve the open source editor'
+        );
+      }
+    } finally {
+      await cleanupTempDir(dir, opened);
+    }
+  });
+
+  it('visibleMarkdownEditorsNamed dedupes one file open in two views', async () => {
+    const dir = makeTempDir();
+    const opened: vscode.TextDocument[] = [];
+    try {
+      const base = uniqueMarkdownBase();
+      const targetPath = path.join(dir, base);
+      writeMarkdownFile(targetPath);
+      opened.push(await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath)));
+      await vscode.window.showTextDocument(opened[0]);
+      await vscode.window.showTextDocument(opened[0], vscode.ViewColumn.Beside);
+      await settle();
+
+      assert.ok(
+        vscode.window.visibleTextEditors.filter((e) => e.document === opened[0]).length >= 2,
+        'precondition: the same file is visible in two editors'
+      );
+      const matches = visibleMarkdownEditorsNamed(base);
+      assert.strictEqual(
+        matches.length,
+        1,
+        'two views of one document collapse to a single live match (no false ambiguity)'
+      );
+    } finally {
+      await cleanupTempDir(dir, opened);
+    }
+  });
+
   it('resolves to the document when the active tab is the markdown source editor (split layout)', async () => {
     // The real-world split layout: the active tab is the source editor while
     // the preview sits beside it. The editor's filename is as legitimate a name
@@ -612,11 +695,10 @@ describe('resolveTarget — issue #50 BDD (LLD §2.3 0.8, never guess)', () => {
     // Resolution failure is surfaced by the command handler: the reason is both
     // logged to `EDF Review` and shown to the user. In the shared host the
     // active tab is never a markdown preview, so resolution stops with
-    // NO_PREVIEW_MSG before any quick-pick (never guesses).
+    // NO_PREVIEW_MSG before any insertion (never guesses).
     const tracker: EditorTracker = { recent: () => [], last: () => undefined };
     const logCalls: string[] = [];
     const warning = stubWarningMessage();
-    const quickPick = stubQuickPick();
     try {
       await insertReviewComment(tracker, (m) => logCalls.push(m));
 
@@ -632,7 +714,6 @@ describe('resolveTarget — issue #50 BDD (LLD §2.3 0.8, never guess)', () => {
       );
     } finally {
       warning.restore();
-      quickPick.restore();
     }
   });
 });
@@ -641,6 +722,14 @@ describe('previewTitleName (Issue #50, LLD §2.3 0.7 helper)', () => {
   it('previewTitleName strips the "Preview " prefix and returns the basename for the markdown preview tab', () => {
     assert.strictEqual(previewTitleName(previewTab('Preview foo.md')), 'foo.md');
     assert.strictEqual(previewTitleName(previewTab('Preview sub/dir/foo.md')), 'foo.md');
+  });
+
+  it('accepts the mainThreadWebview-prefixed viewType this build reports on preview tabs', () => {
+    const tab = {
+      label: 'Preview foo.md',
+      input: { viewType: 'mainThreadWebview-markdown.preview' }
+    } as unknown as vscode.Tab;
+    assert.strictEqual(previewTitleName(tab), 'foo.md');
   });
 
   it('previewTitleName returns undefined for a non-preview tab', () => {

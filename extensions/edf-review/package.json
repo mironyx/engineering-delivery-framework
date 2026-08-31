@@ -1,8 +1,8 @@
 {
   "name": "edf-review",
   "displayName": "EDF Review",
-  "description": "Insert `[Review]` markers into markdown documents from a command-palette quick-pick.",
-  "version": "0.2.2",
+  "description": "Insert `[Review]` markers below the line selected in the markdown preview.",
+  "version": "0.2.10",
   "publisher": "mironyx",
   "license": "MIT",
   "engines": {
@@ -29,11 +29,9 @@
         "when": "false"
       }
     ],
-    "markdown": {
-      "previewScripts": [
-        "./media/overlay.js"
-      ]
-    }
+    "markdown.previewScripts": [
+      "./media/overlay.js"
+    ]
   },
   "scripts": {
     "compile": "tsc -p ./",

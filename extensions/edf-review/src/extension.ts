@@ -1,21 +1,16 @@
 /**
  * EDF Review — VSCode Extension Host
  *
- * LLD v1-e1-2 §2.3: registers `edf-review.insertReviewComment` and solves the
- * command's one hard problem — identifying which document the reviewer meant
- * when a webview holds focus and `activeTextEditor` is `undefined`. Target
- * resolution goes through the editor tracker (§2.3); heading extraction and
- * the insertion point come from the pure modules built in #49.
+ * Registers `edf-review.insertReviewComment`. When a webview holds focus,
+ * `activeTextEditor` is undefined, so the command resolves the intended markdown
+ * document through the editor tracker (editor-tracker.ts), then picks the
+ * insertion line from where the reviewer clicked (see `insertionLineFor`).
  */
 import * as vscode from 'vscode';
 import { EditorTracker, createEditorTracker, resolveTarget } from './editor-tracker';
 import { createLog } from './log';
 import { createOverlayLog } from './overlay-bridge';
-import { Heading, extractHeadings } from './headings';
 import { REVIEW_MARKER, findReviewInsertLine } from './review-insert';
-
-/** Shown when the resolved document has no `##`/`###` headings. */
-export const NO_HEADINGS_MSG = 'No section headings found in this document';
 
 export function activate(context: vscode.ExtensionContext) {
   const tracker = createEditorTracker(context);
@@ -31,57 +26,22 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 /**
- * Insert a `[Review]` marker under a heading chosen from a quick-pick.
- *
- * Orchestration only (LLD §2.3 Part B): resolve the target (0.7, never guess —
- * the focused markdown preview must uniquely name a tracked editor), extract
- * headings, quick-pick, single-edit insertion, cursor placement, focus.
- */
-/** A quick-pick item carrying the 0-based heading line the marker is inserted under. */
-type HeadingPickItem = vscode.QuickPickItem & { line: number };
-
-function toItems(headings: Heading[]): HeadingPickItem[] {
-  return headings.map((heading) => ({
-    label: '#'.repeat(heading.level) + ' ' + heading.text,
-    description: `line ${heading.line + 1}`, // 1-based — what the editor gutter shows
-    line: heading.line
-  }));
-}
-
-/**
- * Insert a `[Review]` marker on the line after a heading — a single edit, cursor
+ * Insert a `[Review]` marker on the line after `line` — a single edit, cursor
  * placement, then focus. The inserted newline honors the document's line endings
  * so CRLF files do not gain a mixed line-ending edit.
- *
- * Justification: diverges from the LLD decomposition signature
- * `applyMarker(editor, headingLine)` in three ways, all documented:
- *  - a `log` parameter to implement the LLD §2.3 error-table row "editor.edit
- *    returns false → log the failure; show a message";
- *  - a stale-heading guard (review finding #73): if the selected heading was
- *    deleted while the quick-pick was open, fail explicitly rather than throw;
- *  - an EOL-honouring newline (review finding #73): CRLF documents must not gain
- *    a mixed line-ending edit.
  */
-async function applyMarker(
+export async function applyMarker(
   editor: vscode.TextEditor,
-  headingLine: number,
+  line: number,
   log: (message: string) => void
 ): Promise<void> {
   const lines = editor.document.getText().split(/\r?\n/);
-  const at = findReviewInsertLine(lines, headingLine);
-  if (at + 1 > lines.length) {
-    // The selected heading was deleted while the quick-pick was open.
-    // findReviewInsertLine returns an out-of-range headingLine unchanged, so
-    // inserting at `at + 1` would throw an unhandled RangeError. Fail explicitly.
-    log('selected heading no longer exists in the document');
-    await vscode.window.showErrorMessage('Selected heading no longer exists');
-    return;
-  }
+  const at = findReviewInsertLine(lines, line);
   const newline = editor.document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
-  // When the heading (or last consecutive marker) is the document's final line and
-  // the file has no trailing newline, `at + 1 === lines.length` and Position(at + 1, 0)
-  // is end-of-document — prepend the newline so the marker lands on its own line
-  // instead of being glued onto the heading text (review finding #73 re-review).
+  // When the target line (or the last consecutive marker) is the document's final
+  // line and the file has no trailing newline, `at + 1 === lines.length` and
+  // Position(at + 1, 0) is end-of-document — prepend the newline so the marker
+  // lands on its own line instead of being glued onto the text above it.
   const separator = at + 1 === lines.length ? newline : '';
   const ok = await editor.edit((edit) =>
     edit.insert(new vscode.Position(at + 1, 0), separator + REVIEW_MARKER + newline)
@@ -96,6 +56,42 @@ async function applyMarker(
   await vscode.window.showTextDocument(editor.document, editor.viewColumn, false);
 }
 
+/**
+ * The line below which a marker is inserted.
+ *
+ * Two flows, discriminated by which editor holds focus:
+ *  - A text editor focused and it is the resolved source → the cursor line is
+ *    authoritative (plain "insert below where my cursor is" flow).
+ *  - No text editor focused (the markdown preview webview holds focus) → the
+ *    reviewer just clicked a line in the preview. The built-in preview has
+ *    already scrolled the source editor so the clicked line sits at the TOP of
+ *    its viewport (`markdown.preview.scrollEditorWithPreview`, default on; the
+ *    `revealLine` handler uses `TextEditorRevealType.AtTop`), so the top-visible
+ *    line IS the clicked line. This deliberately does NOT read the source
+ *    selection: a single preview click never moves the source cursor in this
+ *    build (`markdown.preview.markEditorSelection` only adds a CSS class), so
+ *    the selection would be a stale cursor — the bug that put markers at the
+ *    end of the file.
+ *
+ * Falls back to the cursor line when the editor has no visible range.
+ */
+export function insertionLineFor(
+  editor: vscode.TextEditor,
+  focusedEditor: vscode.TextEditor | undefined
+): number {
+  if (focusedEditor && focusedEditor.document.uri.toString() === editor.document.uri.toString()) {
+    return editor.selection.active.line;
+  }
+  const ranges = editor.visibleRanges;
+  const top = ranges && ranges.length > 0 ? ranges[0].start.line : undefined;
+  return typeof top === 'number' ? top : editor.selection.active.line;
+}
+
+/**
+ * Insert a `[Review]` marker below the line the reviewer means — the clicked
+ * preview line when the preview holds focus, else the source cursor line (no
+ * quick-pick, per review feedback).
+ */
 export async function insertReviewComment(
   tracker: EditorTracker,
   log: (message: string) => void
@@ -107,21 +103,8 @@ export async function insertReviewComment(
     return;
   }
 
-  const headings = extractHeadings(res.editor.document.getText());
-  if (headings.length === 0) {
-    await vscode.window.showInformationMessage(NO_HEADINGS_MSG);
-    return;
-  }
-
-  const picked = await vscode.window.showQuickPick(toItems(headings), {
-    placeHolder: 'Select the section to insert a review comment under',
-    matchOnDetail: false
-  });
-  if (!picked) {
-    return; // Escape — true no-op, no edit applied
-  }
-
-  await applyMarker(res.editor, picked.line, log);
+  const line = insertionLineFor(res.editor, vscode.window.activeTextEditor);
+  await applyMarker(res.editor, line, log);
 }
 
 export function deactivate() {}

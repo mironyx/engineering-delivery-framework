@@ -1,33 +1,33 @@
 /**
  * Issue #50 (v1-e1-2): Insert Review Comment command wiring.
  *
- * Integration specs for src/extension.ts — insertReviewComment and
- * NO_HEADINGS_MSG — and the heading extraction it drives (src/headings.ts).
- * LLD §2.3 (Command wiring and target resolution, 0.7 never-guess) Invariants
- * 14-17 and the issue's quick-pick/insertion BDD blocks.
+ * Integration specs for src/extension.ts — insertReviewComment / insertionLineFor
+ * — and the review-marker insertion it drives (src/review-insert.ts). LLD §2.3
+ * (Command wiring and target resolution, 0.7 never-guess) Invariants 14-17,
+ * reworked per review feedback: there is no heading quick-pick. The insertion
+ * line comes from `insertionLineFor`, which discriminates two flows:
+ *   - a text editor focused and it is the resolved source → the cursor line;
+ *   - no text editor focused (the preview webview holds focus) → the
+ *     top-visible source line, i.e. the line the preview click scrolled to the
+ *     top of the source viewport. The source SELECTION is deliberately NOT used
+ *     here — a single preview click never moves it in this VS Code build.
  *
  * The handler is called directly with an injected fake EditorTracker and a
  * capturing log (dependency injection) so every branch is deterministic in the
  * shared host. 0.7 makes the focused markdown preview the ONLY resolution
- * trigger, so tests that must reach the quick-pick stub the active tab to be a
+ * trigger, so tests that must reach insertion stub the active tab to be a
  * markdown preview titled `Preview <basename>` whose basename matches the
- * injected editor's file, and the quick-pick is driven by monkey-patching
- * vscode.window.showQuickPick — the standard VS Code extension-testing pattern
- * for UI surfaces with no read-back API. No HTTP is involved, so the repo's
- * respx/MSW rule does not apply.
+ * injected editor's file. No HTTP is involved, so the repo's respx/MSW rule
+ * does not apply.
  */
 import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { insertReviewComment, NO_HEADINGS_MSG } from '../../src/extension';
+import { applyMarker, insertReviewComment, insertionLineFor } from '../../src/extension';
 import { EditorTracker, NO_PREVIEW_MSG } from '../../src/editor-tracker';
-import { extractHeadings } from '../../src/headings';
 import { REVIEW_MARKER } from '../../src/review-insert';
-
-/** A quick-pick item as toItems builds it: the display item plus the 0-based line. */
-type HeadingPickItem = vscode.QuickPickItem & { line: number };
 
 /** Shared fixture: a markdown document with one ## and one ### heading. */
 const MARKDOWN_WITH_HEADINGS = [
@@ -56,7 +56,7 @@ function previewTab(label: string): vscode.Tab {
 /**
  * Stub the window's active tab so insertReviewComment sees a focused markdown
  * preview. 0.7 never guesses — without a preview tab the handler stops with
- * NO_PREVIEW_MSG before any quick-pick, so every insertion spec pins it.
+ * NO_PREVIEW_MSG before any insertion, so every insertion spec pins it.
  * `vscode.window.tabGroups` is a getter-only accessor, so it is overridden with
  * `Object.defineProperty` and restored by re-applying the captured descriptor.
  */
@@ -72,53 +72,6 @@ function stubActiveTab(tab: vscode.Tab | undefined): { restore: () => void } {
       if (descriptor) {
         Object.defineProperty(vscode.window, 'tabGroups', descriptor);
       }
-    }
-  };
-}
-
-/** Monkey-patch vscode.window.showQuickPick and capture the items offered. */
-function stubQuickPick<T extends vscode.QuickPickItem>(
-  pick: (items: T[]) => T | undefined
-): { items: () => T[]; restore: () => void } {
-  const original = vscode.window.showQuickPick;
-  const testWindow = vscode.window as unknown as {
-    showQuickPick: typeof vscode.window.showQuickPick;
-  };
-  const captured: { value: T[] } = { value: [] };
-  testWindow.showQuickPick = ((
-    items: readonly T[],
-    _options?: vscode.QuickPickOptions,
-    _token?: vscode.CancellationToken
-  ) => {
-    captured.value = items.slice();
-    return Promise.resolve(pick(items.slice()));
-  }) as unknown as typeof vscode.window.showQuickPick;
-  return {
-    items: () => captured.value,
-    restore: () => {
-      testWindow.showQuickPick = original;
-    }
-  };
-}
-
-/** Monkey-patch vscode.window.showInformationMessage and capture the messages. */
-function stubInformationMessage(): { messages: () => string[]; restore: () => void } {
-  const original = vscode.window.showInformationMessage;
-  const testWindow = vscode.window as unknown as {
-    showInformationMessage: typeof vscode.window.showInformationMessage;
-  };
-  const captured: { value: string[] } = { value: [] };
-  testWindow.showInformationMessage = ((
-    message: string,
-    ..._rest: unknown[]
-  ) => {
-    captured.value.push(message);
-    return Promise.resolve(undefined);
-  }) as unknown as typeof vscode.window.showInformationMessage;
-  return {
-    messages: () => captured.value,
-    restore: () => {
-      testWindow.showInformationMessage = original;
     }
   };
 }
@@ -157,29 +110,6 @@ function stubWarningMessage(): { calls: string[]; restore: () => void } {
     calls,
     restore: () => {
       testWindow.showWarningMessage = original;
-    }
-  };
-}
-
-/**
- * Monkey-patch vscode.window.showTextDocument and count calls. `result` is what
- * resolution's reveal returns — the stale-heading spec's fake editor is not on
- * disk, so the real showTextDocument would try to open a nonexistent file.
- */
-function stubShowTextDocument(result: unknown): { calls: () => number; restore: () => void } {
-  const original = vscode.window.showTextDocument;
-  const testWindow = vscode.window as unknown as {
-    showTextDocument: typeof vscode.window.showTextDocument;
-  };
-  const state = { value: 0 };
-  testWindow.showTextDocument = (() => {
-    state.value += 1;
-    return Promise.resolve(result);
-  }) as unknown as typeof vscode.window.showTextDocument;
-  return {
-    calls: () => state.value,
-    restore: () => {
-      testWindow.showTextDocument = original;
     }
   };
 }
@@ -252,6 +182,39 @@ async function fileMarkdownFixture(content: string): Promise<{
   };
 }
 
+/**
+ * Move the fixture editor's selection onto `line`. Used to stand in for a cursor
+ * the user actually placed in the source editor — the source-focused flow
+ * (`insertionLineFor` uses the cursor line when a text editor holds focus).
+ */
+function selectLine(editor: vscode.TextEditor, line: number): void {
+  const pos = new vscode.Position(line, 0);
+  editor.selection = new vscode.Selection(pos, pos);
+}
+
+/**
+ * Stub vscode.window.activeTextEditor so the insertion-line discriminator sees
+ * a chosen focused editor (undefined = the preview webview holds focus).
+ */
+function stubActiveTextEditor(editor: vscode.TextEditor | undefined): { restore: () => void } {
+  const descriptor = Object.getOwnPropertyDescriptor(vscode.window, 'activeTextEditor');
+  Object.defineProperty(vscode.window, 'activeTextEditor', {
+    value: editor,
+    configurable: true,
+    writable: true
+  });
+  return {
+    restore: () => {
+      if (descriptor) {
+        Object.defineProperty(vscode.window, 'activeTextEditor', descriptor);
+      }
+    }
+  };
+}
+
+/** Index of the `## Section One` heading in every insertion fixture below. */
+const SECTION_ONE_LINE = 2;
+
 // ---------------------------------------------------------------------------
 // Specs
 // ---------------------------------------------------------------------------
@@ -267,113 +230,8 @@ afterEach(() => {
   vscode.window.visibleTextEditors.forEach((editor) => editor.hide());
 });
 
-describe('insertReviewComment — quick-pick (Issue #50, LLD §2.3)', () => {
-  it('lists ## and ### headings with 1-based line numbers', async () => {
-    const fixture = await fileMarkdownFixture(MARKDOWN_WITH_HEADINGS);
-    const tracker: EditorTracker = {
-      recent: () => [fixture.editor],
-      last: () => fixture.editor
-    };
-    const logCalls: string[] = [];
-
-    const tab = stubActiveTab(previewTab(`Preview ${fixture.base}`));
-    const quickPick = stubQuickPick<HeadingPickItem>(() => undefined);
-    try {
-      await insertReviewComment(tracker, (m) => logCalls.push(m));
-
-      const items = quickPick.items();
-      assert.strictEqual(items.length, 2, 'only ## and ### headings are offered');
-
-      // LLD §2.3: labels carry the level prefix; description is the 1-based
-      // line number (heading.line + 1) that the editor gutter shows.
-      assert.strictEqual(items[0].label, '## Section One', 'label carries the ## level prefix');
-      assert.strictEqual(items[0].description, 'line 3', 'line number is 1-based');
-      assert.strictEqual(items[1].label, '### Sub Section', 'label carries the ### level prefix');
-      assert.strictEqual(items[1].description, 'line 5', 'line number is 1-based');
-
-      // Cross-check against the pure extractor: every heading it finds is offered.
-      assert.strictEqual(
-        items.length,
-        extractHeadings(fixture.editor.document.getText()).length
-      );
-      assert.strictEqual(logCalls.length, 0, 'listing headings is not a failure');
-    } finally {
-      tab.restore();
-      quickPick.restore();
-      await fixture.cleanup();
-    }
-  });
-
-  it('shows the no-headings message and makes no edit for a document without headings', async () => {
-    const content = 'Just prose with no headings.\n- a list item\n';
-    const fixture = await fileMarkdownFixture(content);
-    const tracker: EditorTracker = {
-      recent: () => [fixture.editor],
-      last: () => fixture.editor
-    };
-    const logCalls: string[] = [];
-
-    const tab = stubActiveTab(previewTab(`Preview ${fixture.base}`));
-    const info = stubInformationMessage();
-    const quickPick = stubQuickPick<HeadingPickItem>(() => {
-      assert.fail('showQuickPick must not be called when there are no headings');
-      return undefined;
-    });
-    try {
-      const beforeText = fixture.doc.getText();
-      const beforeVersion = fixture.doc.version;
-
-      await insertReviewComment(tracker, (m) => logCalls.push(m));
-
-      assert.ok(
-        info.messages().includes(NO_HEADINGS_MSG),
-        `expected the no-headings message, got: ${JSON.stringify(info.messages())}`
-      );
-      assert.strictEqual(fixture.doc.getText(), beforeText, 'document must be byte-identical');
-      assert.strictEqual(fixture.doc.version, beforeVersion, 'document must not be edited');
-      assert.strictEqual(logCalls.length, 0, 'a no-headings document is not a resolution failure');
-    } finally {
-      tab.restore();
-      info.restore();
-      quickPick.restore();
-      await fixture.cleanup();
-    }
-  });
-
-  it('leaves the document byte-identical and unedited when the quick-pick is dismissed', async () => {
-    const fixture = await fileMarkdownFixture(MARKDOWN_WITH_HEADINGS);
-    const tracker: EditorTracker = {
-      recent: () => [fixture.editor],
-      last: () => fixture.editor
-    };
-    const logCalls: string[] = [];
-
-    const tab = stubActiveTab(previewTab(`Preview ${fixture.base}`));
-    const info = stubInformationMessage();
-    const quickPick = stubQuickPick<HeadingPickItem>(() => undefined); // Escape
-    try {
-      const beforeText = fixture.doc.getText();
-      const beforeVersion = fixture.doc.version;
-
-      await insertReviewComment(tracker, (m) => logCalls.push(m));
-
-      // LLD §2.3 Invariant 14: Escape leaves the document byte-identical — the
-      // command must return before applying any edit, never edit-then-undo.
-      assert.strictEqual(fixture.doc.getText(), beforeText, 'Escape must leave the document byte-identical');
-      assert.strictEqual(fixture.doc.version, beforeVersion, 'Escape must not apply an edit');
-      assert.strictEqual(logCalls.length, 0, 'Escape must not log (silent no-op)');
-      assert.strictEqual(info.messages().length, 0, 'Escape must not show a message');
-    } finally {
-      tab.restore();
-      info.restore();
-      quickPick.restore();
-      await fixture.cleanup();
-    }
-  });
-});
-
-describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
-  it('inserts the marker on a new line after the selected heading', async () => {
+describe('insertReviewComment — insertion below the selected line (Issue #50, LLD §2.3)', () => {
+  it('inserts the marker on a new line after the selected line', async () => {
     const content = ['# Title', '', '## Section One', 'Some prose here.', ''].join('\n');
     const fixture = await fileMarkdownFixture(content);
     const tracker: EditorTracker = {
@@ -382,10 +240,8 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
     };
     const logCalls: string[] = [];
 
+    selectLine(fixture.editor, SECTION_ONE_LINE);
     const tab = stubActiveTab(previewTab(`Preview ${fixture.base}`));
-    const quickPick = stubQuickPick<HeadingPickItem>((items) =>
-      items.find((item) => item.label.includes('Section One'))
-    );
     try {
       await insertReviewComment(tracker, (m) => logCalls.push(m));
 
@@ -397,11 +253,10 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
         'Some prose here.',
         ''
       ].join('\n');
-      assert.strictEqual(fixture.doc.getText(), expected, 'marker goes on the line after the heading');
+      assert.strictEqual(fixture.doc.getText(), expected, 'marker goes on the line after the selected line');
       assert.strictEqual(logCalls.length, 0, 'a successful insertion is not a failure');
     } finally {
       tab.restore();
-      quickPick.restore();
       await fixture.cleanup();
     }
   });
@@ -421,10 +276,8 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       last: () => fixture.editor
     };
 
+    selectLine(fixture.editor, SECTION_ONE_LINE);
     const tab = stubActiveTab(previewTab(`Preview ${fixture.base}`));
-    const quickPick = stubQuickPick<HeadingPickItem>((items) =>
-      items.find((item) => item.label.includes('Section One'))
-    );
     try {
       await insertReviewComment(tracker, () => {});
 
@@ -446,7 +299,6 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       );
     } finally {
       tab.restore();
-      quickPick.restore();
       await fixture.cleanup();
     }
   });
@@ -458,10 +310,8 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       last: () => fixture.editor
     };
 
+    selectLine(fixture.editor, SECTION_ONE_LINE);
     const tab = stubActiveTab(previewTab(`Preview ${fixture.base}`));
-    const quickPick = stubQuickPick<HeadingPickItem>((items) =>
-      items.find((item) => item.label.includes('Section One'))
-    );
     try {
       const versionBefore = fixture.doc.version;
 
@@ -476,7 +326,6 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       );
     } finally {
       tab.restore();
-      quickPick.restore();
       await fixture.cleanup();
     }
   });
@@ -489,10 +338,8 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       last: () => fixture.editor
     };
 
+    selectLine(fixture.editor, SECTION_ONE_LINE);
     const tab = stubActiveTab(previewTab(`Preview ${fixture.base}`));
-    const quickPick = stubQuickPick<HeadingPickItem>((items) =>
-      items.find((item) => item.label.includes('Section One'))
-    );
     try {
       await insertReviewComment(tracker, () => {});
 
@@ -512,7 +359,6 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       );
     } finally {
       tab.restore();
-      quickPick.restore();
       await fixture.cleanup();
     }
   });
@@ -527,10 +373,8 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       last: () => fixture.editor
     };
 
+    selectLine(fixture.editor, SECTION_ONE_LINE);
     const tab = stubActiveTab(previewTab(`Preview ${fixture.base}`));
-    const quickPick = stubQuickPick<HeadingPickItem>((items) =>
-      items.find((item) => item.label.includes('Section One'))
-    );
     try {
       await insertReviewComment(tracker, () => {});
 
@@ -549,16 +393,14 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       );
     } finally {
       tab.restore();
-      quickPick.restore();
       await fixture.cleanup();
     }
   });
 
-  it('places the marker on its own line when the heading is the final line without a trailing newline (review finding #73 re-review)', async () => {
-    // A file that ends with the heading and no trailing newline: `at + 1 ===
+  it('places the marker on its own line when the selected line is the final line without a trailing newline (review finding #73 re-review)', async () => {
+    // A file that ends with the selected line and no trailing newline: `at + 1 ===
     // lines.length`, so Position(at + 1, 0) is end-of-document and a bare insert
-    // would glue the marker onto the heading. The separator must keep it on its
-    // own line.
+    // would glue the marker onto it. The separator must keep it on its own line.
     const content = ['# Title', '', '## Section One'].join('\n');
     const fixture = await fileMarkdownFixture(content);
     const tracker: EditorTracker = {
@@ -566,10 +408,8 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       last: () => fixture.editor
     };
 
+    selectLine(fixture.editor, SECTION_ONE_LINE);
     const tab = stubActiveTab(previewTab(`Preview ${fixture.base}`));
-    const quickPick = stubQuickPick<HeadingPickItem>((items) =>
-      items.find((item) => item.label.includes('Section One'))
-    );
     try {
       await insertReviewComment(tracker, () => {});
 
@@ -577,70 +417,158 @@ describe('insertReviewComment — insertion (Issue #50, LLD §2.3)', () => {
       assert.strictEqual(
         fixture.doc.getText(),
         expected,
-        'marker must land on its own line, never glued onto the heading'
+        'marker must land on its own line, never glued onto the line above'
       );
     } finally {
       tab.restore();
-      quickPick.restore();
       await fixture.cleanup();
     }
   });
 
-  it('fails explicitly instead of throwing when the heading is deleted while the quick-pick is open (review finding #73)', async () => {
-    // Stale-index guard: extractHeadings captures a line, the document shrinks
-    // before applyMarker re-reads it, and findReviewInsertLine returns the stale
-    // index unchanged. The command must log + show a message, never throw.
-    let reads = 0;
+  it('logs and shows a message when editor.edit returns false (LLD §2.3 error table)', async () => {
+    // The failure path is tested against applyMarker directly: routing through
+    // resolveTarget's showTextDocument would need a registered document, and its
+    // fresh editor instance would carry a working edit — the stub would never run.
+    const logCalls: string[] = [];
     const fakeEditor = {
       document: {
-        // mruMatchesForName reads the basename to match the stubbed preview title.
-        uri: vscode.Uri.file(path.join('C:/__edf_fixture__', 'fake-heading.md')),
+        uri: vscode.Uri.file(path.join('C:/__edf_fixture__', 'fake-fail.md')),
         isClosed: false,
-        getText: () => {
-          reads += 1;
-          // First read (extractHeadings) still has the heading; the re-read in
-          // applyMarker sees the document after the heading was deleted.
-          return reads === 1
-            ? ['# Title', '', '## Section One', ''].join('\n')
-            : ['# Title'].join('\n');
-        },
+        getText: () => ['# Title', '', '## Section One', ''].join('\n'),
         eol: vscode.EndOfLine.LF
       },
-      edit: async () => {
-        assert.fail('editor.edit must not be called when the heading is gone');
-        return true;
-      },
+      edit: async () => false,
       selection: {
-        anchor: { line: 0, character: 0 },
-        active: { line: 0, character: 0 }
+        anchor: { line: 2, character: 0 },
+        active: { line: 2, character: 0 }
       },
       viewColumn: 1
     } as unknown as vscode.TextEditor;
 
-    const tracker: EditorTracker = { recent: () => [fakeEditor], last: () => fakeEditor };
-    const logCalls: string[] = [];
-    const tab = stubActiveTab(previewTab('Preview fake-heading.md'));
-    const quickPick = stubQuickPick<HeadingPickItem>((items) => items[0]);
     const errorStub = stubErrorMessage();
-    const textDocStub = stubShowTextDocument(fakeEditor);
     try {
-      await insertReviewComment(tracker, (m) => logCalls.push(m));
+      await applyMarker(fakeEditor, SECTION_ONE_LINE, (m) => logCalls.push(m));
 
       assert.deepStrictEqual(
         logCalls,
-        ['selected heading no longer exists in the document'],
-        'the stale heading must be logged exactly once'
+        ['failed to insert review marker'],
+        'an edit failure must be logged exactly once'
       );
       assert.deepStrictEqual(
         errorStub.calls,
-        ['Selected heading no longer exists'],
+        ['Failed to insert review marker'],
         `expected one error message, got ${JSON.stringify(errorStub.calls)}`
       );
     } finally {
-      tab.restore();
-      quickPick.restore();
       errorStub.restore();
-      textDocStub.restore();
+    }
+  });
+});
+
+describe('insertionLineFor — which line gets the marker (Issue #63, review feedback)', () => {
+  const uri = vscode.Uri.file(path.join('C:/__edf_fixture__', 'flow.md'));
+  const target = (
+    visibleTop: number | undefined,
+    cursorLine: number
+  ): vscode.TextEditor =>
+    ({
+      document: { uri },
+      selection: {
+        anchor: { line: cursorLine, character: 0 },
+        active: { line: cursorLine, character: 0 }
+      },
+      visibleRanges:
+        typeof visibleTop === 'number'
+          ? [
+              {
+                start: { line: visibleTop, character: 0 },
+                end: { line: visibleTop + 20, character: 0 }
+              }
+            ]
+          : undefined
+    }) as unknown as vscode.TextEditor;
+
+  it('uses the top-visible line when no text editor holds focus (preview focused) — NOT the stale cursor', () => {
+    // The reviewer clicked a line that scrolled the source so its top is line 40;
+    // the cursor is stale at line 90 (the old bug put the marker at the end).
+    const editor = target(40, 90);
+    assert.strictEqual(insertionLineFor(editor, undefined), 40);
+  });
+
+  it('uses the cursor line when the focused editor is the resolved source', () => {
+    const editor = target(0, 3);
+    const focused = { document: { uri } } as unknown as vscode.TextEditor;
+    assert.strictEqual(insertionLineFor(editor, focused), 3);
+  });
+
+  it('ignores a focused editor that is a different document (preview path still applies)', () => {
+    const editor = target(7, 50);
+    const other = {
+      document: { uri: vscode.Uri.file(path.join('C:/__edf_fixture__', 'other.md')) }
+    } as unknown as vscode.TextEditor;
+    assert.strictEqual(insertionLineFor(editor, other), 7);
+  });
+
+  it('falls back to the cursor line when the editor has no visible range', () => {
+    const editor = target(undefined, 12);
+    assert.strictEqual(insertionLineFor(editor, undefined), 12);
+  });
+});
+
+describe('insertReviewComment — preview holds focus (Issue #63: marker below the clicked line, not the stale cursor)', () => {
+  it('inserts below the top-visible source line, never below a stale end-of-file cursor', async () => {
+    // Long document so the source can actually scroll. The test host's editor
+    // has a tall viewport and its revealRange(AtTop) settles a few lines short
+    // of the target (observed: 40→35, 200→195), so the top-visible line is read
+    // at runtime rather than pinned to the reveal target — the discriminator the
+    // spec guards is "marker below the line the click scrolled to the top of the
+    // viewport, NOT below a stale cursor". The reviewer's cursor is left stale
+    // at line 350 (the original bug put the marker at the end of the file).
+    const lines = Array.from({ length: 400 }, (_, i) =>
+      i === 0 ? '# Title' : i === 399 ? '' : `Line ${i}`
+    );
+    const fixture = await fileMarkdownFixture(lines.join('\n'));
+    selectLine(fixture.editor, 350);
+    fixture.editor.revealRange(new vscode.Range(200, 0, 200, 0), vscode.TextEditorRevealType.AtTop);
+    await settle();
+    const top = fixture.editor.visibleRanges[0]?.start.line;
+    assert.ok(
+      typeof top === 'number' && top >= 100 && top < 300,
+      `revealRange(200) must scroll the source near line 200, got top-visible ${top}`
+    );
+
+    const tracker: EditorTracker = { recent: () => [fixture.editor], last: () => fixture.editor };
+    const tab = stubActiveTab(previewTab(`Preview ${fixture.base}`));
+    const noEditor = stubActiveTextEditor(undefined);
+    try {
+      await insertReviewComment(tracker, () => {});
+
+      const after = fixture.doc.getText().split(/\r?\n/);
+      assert.strictEqual(
+        after[top + 1],
+        REVIEW_MARKER,
+        `marker goes below the top-visible (clicked) line ${top}, never the stale cursor`
+      );
+      assert.strictEqual(
+        after[top + 2],
+        `Line ${top + 1}`,
+        'the source line below the marker is intact'
+      );
+      assert.strictEqual(
+        fixture.editor.visibleRanges[0]?.start.line,
+        top,
+        'insertion must not scroll the source (the top read is the line the marker used)'
+      );
+      assert.strictEqual(after[351], 'Line 350', 'the stale-cursor line is left untouched');
+      assert.strictEqual(
+        after.length,
+        lines.length + 1,
+        'exactly one line (the marker) is inserted'
+      );
+    } finally {
+      tab.restore();
+      noEditor.restore();
+      await fixture.cleanup();
     }
   });
 });
@@ -654,10 +582,6 @@ describe('insertReviewComment — target resolution failure (Issue #50, LLD §2.
     const logCalls: string[] = [];
 
     const warning = stubWarningMessage();
-    const quickPick = stubQuickPick<HeadingPickItem>(() => {
-      assert.fail('showQuickPick must not be called when no document resolves');
-      return undefined;
-    });
     try {
       await insertReviewComment(tracker, (m) => logCalls.push(m));
 
@@ -673,7 +597,6 @@ describe('insertReviewComment — target resolution failure (Issue #50, LLD §2.
       );
     } finally {
       warning.restore();
-      quickPick.restore();
     }
   });
 });

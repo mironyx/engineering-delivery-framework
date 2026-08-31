@@ -52,11 +52,17 @@ describe('extension scaffold — manifest invariants (evaluator)', () => {
     }
   });
 
-  it('bumps the manifest version to 0.2.2', () => {
+  it('bumps the manifest version to 0.2.10', () => {
     // Issue: "package.json — manifest rewrite; version 0.2.0", bumped to 0.2.1
-    // when the diagram click-through overlay shipped (issue #63), and to 0.2.2
-    // for the active-markdown-editor resolution fix (LLD 0.9).
-    assert.strictEqual(readManifest().version, '0.2.2');
+    // when the diagram click-through overlay shipped (issue #63), to 0.2.2 for
+    // the active-markdown-editor resolution fix (LLD 0.9), to 0.2.3 for the
+    // manifest dot-key (previewScripts) injection fix, to 0.2.4 for the
+    // prototype-mechanism overlay rewrite (fixed positioning, origin-only
+    // containment), to 0.2.9 for the selection-based insert (no quick-pick),
+    // and to 0.2.10 for the top-visible-line insertion fix (Issue #63 review
+    // feedback: markers landed at the end of the file) plus the live
+    // visible-editor resolution fallback (no more close-and-reopen).
+    assert.strictEqual(readManifest().version, '0.2.10');
   });
 
   it('keeps the media/ directory scoped to the overlay script only', () => {

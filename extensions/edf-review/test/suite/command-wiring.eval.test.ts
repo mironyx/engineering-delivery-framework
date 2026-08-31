@@ -24,9 +24,9 @@
  *    "Log the failure; show a message. Do not retry" — no cursor move, no
  *    refocus.
  *
- * The stubs (showQuickPick/showErrorMessage/showTextDocument, the active-tab
- * stub and the fake tracker/editor) match the dependency-injection pattern
- * command.test.ts uses.
+ * The stubs (showErrorMessage/showTextDocument, the active-tab stub and the
+ * fake tracker/editor) match the dependency-injection pattern command.test.ts
+ * uses.
  */
 import * as vscode from 'vscode';
 import * as fs from 'fs';
@@ -51,9 +51,6 @@ async function settle(ms = 150): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Minimal QuickPickItem-shaped item carrying the 0-based line. */
-type HeadingPickItem = vscode.QuickPickItem & { line: number };
-
 /** A focused built-in markdown preview tab titled `label`. */
 function previewTab(label: string): vscode.Tab {
   return { label, input: { viewType: 'markdown.preview' } } as unknown as vscode.Tab;
@@ -76,25 +73,6 @@ function stubActiveTab(tab: vscode.Tab | undefined): { restore: () => void } {
       if (descriptor) {
         Object.defineProperty(vscode.window, 'tabGroups', descriptor);
       }
-    }
-  };
-}
-
-function stubQuickPick<T extends vscode.QuickPickItem>(
-  pick: (items: T[]) => T | undefined
-): { restore: () => void } {
-  const original = vscode.window.showQuickPick;
-  const testWindow = vscode.window as unknown as {
-    showQuickPick: typeof vscode.window.showQuickPick;
-  };
-  testWindow.showQuickPick = ((
-    items: readonly T[],
-    _options?: vscode.QuickPickOptions,
-    _token?: vscode.CancellationToken
-  ) => Promise.resolve(pick(items.slice()))) as unknown as typeof vscode.window.showQuickPick;
-  return {
-    restore: () => {
-      testWindow.showQuickPick = original;
     }
   };
 }
@@ -325,7 +303,6 @@ describe('insertReviewComment — editor.edit returns false (Issue #50, LLD §2.
     const logCalls: string[] = [];
 
     const tab = stubActiveTab(previewTab('Preview fake-eval-edit.md'));
-    const quickPick = stubQuickPick<HeadingPickItem>((items) => items[0]);
     const errorStub = stubErrorMessage();
     const textDocStub = stubShowTextDocument(fakeEditor);
     try {
@@ -353,7 +330,6 @@ describe('insertReviewComment — editor.edit returns false (Issue #50, LLD §2.
       );
     } finally {
       tab.restore();
-      quickPick.restore();
       errorStub.restore();
       textDocStub.restore();
     }
