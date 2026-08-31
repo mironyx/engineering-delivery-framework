@@ -4,16 +4,17 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.5 |
+| Version | 1.6 |
 | Status | Draft — Complete |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
-| Last updated | 2026-08-16 |
+| Last updated | 2026-08-31 |
 
 ## Change Log
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.6 | 2026-08-31 | LS / Claude | **Reconciles Story 2.1 with the shipped interaction.** The quick-pick heading selection described by Story 2.1 was removed during implementation in favour of a line-based insert (no quick-pick, shipped edf-review 0.2.9/0.2.10). Story 2.1's ACs now describe the line-based interaction and record that marker placement under preview focus is a **known open defect** (the marker can land at the end of the file) with the robust fix deferred — see [ADR-0040](../adr/0040-review-comment-insertion-interaction.md). The REQ anchor keeps its `-quick-pick-` slug (ADR-0026 stable IDs); the anchor is historical, the story is not. Design Principle 5 and the Story 2.1 code-review AC updated to match. Diagram click-through (Story 2.3) and target resolution are unchanged and correct. |
 | 1.5 | 2026-08-16 | LS / Claude | **Formalises the "Reopened 2026-08-16" entry as Story 2.3**, folded into Epic 2 (#30) rather than a new epic — the maintainer wants one extension, not two. Added REQ anchor `REQ-vscode-extension-review-feedback-diagram-click-through-overlay` and a full AC list from the carried-forward requirements the reopened entry already listed. Issue #60 (GitHub cross-origin iframe finding) closes against this revision — its finding is fully captured in Design Principle 3/Story 1.6 AC1 (v1.4) and now also in Story 2.3's Notes; no further action needed on #60. Issue #63 becomes Story 2.3's implementing task. See `v1-design.md` v1.4 (C9/C2.9) and `lld-v1-e1-2-review-feedback.md` §2.5. |
 | 1.4 | 2026-08-16 | LS / Claude | **Post-Gate-2 correction (issue #47's measured finding), reviewed against #47's conformance report rather than as a separate gate.** Design Principle 3 and Story 1.6 AC1 claimed diagram links "resolve natively in GitHub and VSCode without any extension" — measured false in both renderers, for different reasons: GitHub renders Mermaid inside a cross-origin sandboxed iframe (`viewscreen.githubusercontent.com`), so a relative href resolves against that iframe's origin and 404s — structurally unfixable by anything this project controls. VSCode's built-in preview click handler only recognises `tagName === "A"`; an SVG `<a>` reports lowercase `"a"` and never matches, so native clicks also do nothing — but a throwaway prototype (2026-08-15) confirmed a `markdown.previewScripts`-only extension overlaying real HTML anchors on the SVG click targets makes the *existing* built-in handler open them, no extension-host code or custom webview required. This satisfies the reopening condition the "Deferred from V1" table set for "Click opens source file in adjacent column" — moved out of that table below. GitHub navigability is not reopened by anything; it is now explicitly out of scope, permanently, in "What We Are NOT Building". |
 | 0.1 | 2026-08-01 | LS / Claude | Initial draft — epics, stories, roles |
@@ -115,10 +116,10 @@ already built.
 4. **Convention over configuration** — The `classDef` palette, diagram type selection rules,
    and annotation placement are defined once in the template and skill instructions. No
    per-project or per-team customisation in V1.
-5. **Thin extension surface** — The VSCode extension does one thing in V1: quick-pick
-   section selection and `[Review]` comment insertion. No code analysis, no diagram
-   generation, no bidirectional sync. Complexity lives in the LLD generation, not the
-   extension.
+5. **Thin extension surface** — The VSCode extension does one thing in V1: line-based
+   `[Review]` comment insertion (the original quick-pick was removed — ADR-0040). No
+   code analysis, no diagram generation, no bidirectional sync. Complexity lives in the
+   LLD generation, not the extension.
 6. **Template and skill co-versioned** — Template changes (`lld/template.md`) and skill
    instruction changes (`lld/SKILL.md`) must stay in lockstep. Every template feature must
    have a corresponding generation rule in the skill.
@@ -459,63 +460,76 @@ Future, which depends on this finding.
 ## Epic 2: VSCode Extension — Review Feedback [Priority: Medium]
 
 Closes the preview→source round-trip for adding review comments. When a reviewer
-identifies an issue in the diagram preview, they can insert a `[Review]` marker under
-the relevant LLD section heading without hunting through the source editor. This is the
+identifies an issue in the diagram preview, they can insert a `[Review]` marker below
+the line they are reviewing — the clicked preview line when the preview holds focus,
+else the source cursor line — without hunting through the source editor. This is the
 only V1 story requiring extension code — hover-to-peek and click-to-open (the stories
 that needed a preview↔host communication channel) moved to V2/Future after a spike found
 the assumed channel does not exist in the public VS Code API (ADR-0038's rejection note).
-This epic depends on Epic 1 only for the document structure (`##`/`###` headings) it
-scans, not for any diagram link format.
+The original quick-pick interaction (select a heading, insert under it) was removed during
+implementation in favour of this line-based insert; marker placement under preview focus
+is a known open defect, recorded in [ADR-0040](../adr/0040-review-comment-insertion-interaction.md).
+This epic depends on Epic 1 only for diagram link format — the `##`/`###` heading scan of
+the original design is gone with the quick-pick.
 
 <a id="REQ-vscode-extension-review-feedback-quick-pick-insert-review-comment"></a>
 
-### Story 2.1: Quick-pick section → insert `[Review]` comment
+> **Anchor note (2026-08-31).** This anchor slug keeps its `-quick-pick-` form because
+> ADR-0026 stable IDs forbid renaming a referenced anchor. The story is no longer a
+> quick-pick — see the title below and [ADR-0040](../adr/0040-review-comment-insertion-interaction.md).
+
+### Story 2.1: Insert `[Review]` comment below the line being reviewed
 
 **As an** LLD Reviewer,
-**I want to** invoke a command from the markdown preview that shows a quick-pick list of
-LLD Part A section headings, and on selection inserts a `> **[Review]:** ` template under
-that heading in the source editor with focus switched for typing,
-**so that** I can add review feedback without manually finding the corresponding line in
-the source markdown or breaking my review flow.
+**I want to** invoke a command from the markdown preview that inserts a
+`> **[Review]:** ` template below the line I am reviewing — the clicked preview line
+when the preview holds focus, else my cursor line in the source editor — with focus
+switched for typing,
+**so that** I can add review feedback without manually finding the corresponding line
+in the source markdown or breaking my review flow.
+
+> **Open defect (recorded, not hidden).** Marker placement under preview focus is
+> **unreliable**: a single preview click does not scroll the source editor in this
+> build, so the inferred line can be the end of the file. The robust fix (overlay
+> `data-line` capture bridged to the extension host) is deferred until a confirmed
+> preview→host channel exists. See [ADR-0040](../adr/0040-review-comment-insertion-interaction.md).
 
 **Acceptance Criteria:**
 
 - Given the command is invoked while the markdown preview panel has focus (not a text
-  editor), when the extension resolves the target document, then it uses the most
-  recently focused markdown text editor — tracked via
-  `vscode.window.onDidChangeActiveTextEditor` before the preview took focus, since
-  `vscode.window.activeTextEditor` is `undefined` while a webview holds focus — falling
-  back to the single markdown editor in `vscode.window.visibleTextEditors` if no
-  tracked reference exists, and showing an information message "No source document
-  found for this preview" if neither resolves.
-- Given the target document is resolved, when the reviewer invokes "EDF: Insert Review
-  Comment" from the command palette (Ctrl+Shift+P), then a quick-pick list appears
-  showing all `##` and `###` headings extracted from that document, each annotated
-  with its line number.
-- Given the quick-pick list is open, when the reviewer types in the filter input,
-  then the heading list filters in real-time to matching entries (case-insensitive
-  substring match).
-- Given the reviewer selects a heading from the quick-pick and presses Enter, then a
-  `> **[Review]:** ` template followed by a space is inserted on a new line
-  immediately after the selected heading's line in the resolved source editor.
+  editor), when the extension resolves the target document, then it resolves the
+  document named by the focused preview tab title through the bounded MRU stack of
+  tracked markdown editors (`vscode.window.onDidChangeActiveTextEditor`, seeded from
+  `visibleTextEditors` at activation, since `vscode.window.activeTextEditor` is
+  `undefined` while a webview holds focus), **falling back to the live visible-editor
+  set** when the tracker holds no match — an editor opened without gaining focus is
+  still found, with no close-and-reopen required.
+- Given the target document cannot be resolved (no preview focused, zero matching
+  editors), when the command is invoked, then a VSCode message tells the reviewer to
+  open the original markdown file and retry — resolution never guesses.
+- Given the source editor holds focus when the reviewer invokes "EDF: Insert Review
+  Comment" from the command palette (Ctrl+Shift+P), then a `> **[Review]:** ` template
+  is inserted on a new line immediately below the cursor line in the resolved source
+  editor.
+- Given the markdown preview holds focus when the command is invoked, then the marker
+  is inserted below the preview's inferred clicked line — the top-visible line of the
+  resolved source editor.
+- Given the preview holds focus and the click-to-scroll assumption fails (the known
+  open defect above), then the marker MAY land at the wrong line — this is recorded,
+  not hidden, and the robust fix is deferred (ADR-0040).
 - Given the template is inserted, when the operation completes, then the resolved
   source editor gains focus with the cursor positioned at the character immediately
   after the inserted `> **[Review]:** ` text, ready for typing.
-- Given the quick-pick is open, when the reviewer presses Escape, then the
-  quick-pick dismisses and no changes are made to the document.
-- Given the resolved document has no `##` or `###` headings, when the command is
-  invoked, then a VSCode information message "No section headings found in this
-  document" is shown.
-- Given the document being previewed is not an LLD (no Part A / Part B structure),
-  when the command is invoked, then the quick-pick still shows all `##`/`###`
-  headings — the command works for any markdown document with headings.
-- Given a heading already has one or more `[Review]` markers directly beneath it,
-  when a new review comment is inserted, then the new template is inserted after the
-  existing markers, preserving their order.
+- Given a line already has one or more `[Review]` markers directly beneath it, when a
+  new review comment is inserted, then the new template is inserted after the existing
+  markers, preserving their order.
+- Given the document being reviewed is not an LLD, when the command is invoked, then
+  the insert still works — the command is line-based, so it works for any markdown
+  document.
 
 ### Visual Reference
 
-- [Review Comment Insertion wireframe](../design/v1/vis-review-comment-insertion.html) — quick-pick open and inserted states
+- [Review Comment Insertion wireframe](../design/v1/vis-review-comment-insertion.html) — inserted state only; the quick-pick open state is obsolete since the interaction is line-based (ADR-0040)
 
 ---
 
@@ -735,9 +749,11 @@ checklist item in SKILL.md must match the template conventions defined in Epic 1
   privileges — there is no manifest-level permission system, and `activationEvents`,
   `extensionKind`, or an empty `"scripts"` entry do not restrict runtime filesystem or
   network access. The V1 guarantee is enforced by code review, not by the manifest: the
-  extension's code is reviewed to confirm it performs only heading extraction,
-  quick-pick display, and text insertion into the resolved editor — no file reads
-  beyond the open document, no network calls, no process execution.
+  extension's code is reviewed to confirm it performs only line-based `[Review]`
+  insertion into the resolved editor — no file reads beyond the open document, no
+  network calls, no process execution. (The quick-pick's heading extraction is gone
+  from the command path; the orphaned `headings.ts` module is documented in
+  ADR-0040, not live code.)
 
 ### Performance
 
@@ -921,4 +937,4 @@ Carried-forward requirements (apply only if either feature above is reopened):
 | 1 | ~~Should F11 (graceful degradation) be verified against specific GitHub markdown renderer versions, or is "harmless dead link" behaviour sufficient as a general requirement?~~ **Resolved (2026-08-02).** | Superseded: with workspace-relative paths, links resolve to real files in GitHub rather than degrading to inert placeholders. | — | Verification is now Story 1.6's scope (renamed from "graceful degradation" to "verify diagram link resolution"). |
 | 2 | ~~What is the exact mechanism for the preview→extension communication channel for hover tooltips?~~ **Resolved (2026-08-02).** | The assumed `vscode.window.onDidReceivePreviewMessage` API could not be found in the public VS Code API (see ADR-0038's rejection note). | — | The question moves to V2/Future with the hover-tooltip entry in "Deferred from V1" — reopening needs a new spike, not an implementation choice. |
 | 3 | ~~Should the `classDef` palette colours be chosen now or deferred to implementation?~~ **Resolved.** | The palette hex values are already defined in `lld/template.md`. | error `#f7d6d6`, auth `#f7eed6`, external `#d6e8f7`, new `#d4f0d4`. | The glossary and Story 1.2 reference these as the canonical source of truth. |
-| 4 | ~~Does F13 (quick-pick → insert `[Review]`) need the section headings parsed from the markdown AST, or is a regex-based extraction of `##`/`###` headings sufficient?~~ **Resolved.** | Regex is simpler and sufficient for the LLD's predictable heading structure. | Regex chosen over AST parsing. | Story 2.1 (renumbered from 3.1 in v1.0) defaults to regex extraction. |
+| 4 | ~~Does F13 (quick-pick → insert `[Review]`) need the section headings parsed from the markdown AST, or is a regex-based extraction of `##`/`###` headings sufficient?~~ **Resolved.** | Regex is simpler and sufficient for the LLD's predictable heading structure. | Regex chosen over AST parsing. | ~~Story 2.1 (renumbered from 3.1 in v1.0) defaults to regex extraction.~~ **Moot (2026-08-31, ADR-0040):** the quick-pick was removed during implementation — the command is a line-based insert with no heading list, so `extractHeadings`/regex extraction is orphaned. The resolved answer records the historical decision only. |
