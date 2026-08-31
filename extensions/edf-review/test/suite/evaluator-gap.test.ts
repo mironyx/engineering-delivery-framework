@@ -61,8 +61,10 @@ describe('extension scaffold — manifest invariants (evaluator)', () => {
     // containment), to 0.2.9 for the selection-based insert (no quick-pick),
     // and to 0.2.10 for the top-visible-line insertion fix (Issue #63 review
     // feedback: markers landed at the end of the file) plus the live
-    // visible-editor resolution fallback (no more close-and-reopen).
-    assert.strictEqual(readManifest().version, '0.2.10');
+    // visible-editor resolution fallback (no more close-and-reopen), and to
+    // 0.2.11 to revert the overlay.js scheme-guard hardening that broke
+    // diagram click-through.
+    assert.strictEqual(readManifest().version, '0.2.11');
   });
 
   it('keeps the media/ directory scoped to the overlay script only', () => {

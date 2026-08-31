@@ -2,7 +2,7 @@
   "name": "edf-review",
   "displayName": "EDF Review",
   "description": "Insert `[Review]` markers below the line selected in the markdown preview.",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "publisher": "mironyx",
   "license": "MIT",
   "engines": {
