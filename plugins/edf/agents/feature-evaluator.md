@@ -6,7 +6,7 @@ description: >
   every contract property, and writes adversarial tests only for genuine gaps. Spawned
   by feature-core after /diag, before PR creation.
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: sonnet
+model: inherit
 ---
 
 # Feature Evaluator Agent

@@ -256,6 +256,46 @@ class TestGhProjectStatus:
         assert result.returncode != 0
         assert "git repository" in result.stderr.lower()
 
+    def test_loads_config_with_crlf_line_endings(self, tmp_path):
+        # Windows clones with core.autocrlf=true check project.env out as CRLF.
+        # A CRLF blank line reads as a key of "\r", which must be skipped rather
+        # than exported (previously: `export "="` aborted under set -euo pipefail).
+        subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+        config = tmp_path / ".github" / "project.env"
+        config.parent.mkdir()
+        config.write_bytes(
+            b"REPO=owner/repo\r\n"
+            b"PROJECT_NUMBER=4\r\n"
+            b"PROJECT_ID=PVT_abc\r\n"
+            b"FIELD_ID=PVTSSF_xyz\r\n"
+            b"\r\n"
+            b"STATUS_TODO=todo-id\r\n"
+            b"STATUS_BLOCKED=blocked-id\r\n"
+            b"STATUS_IN_PROGRESS=in-progress-id\r\n"
+            b"STATUS_DONE=done-id\r\n"
+        )
+        # Exercise just the config-loading loop so no gh call is made.
+        script = (
+            "set -euo pipefail; "
+            f"CONFIG_FILE={_to_msys2_path(config)}; "
+            "while IFS='=' read -r key value; do "
+            "key=$(echo \"$key\" | xargs); value=$(echo \"$value\" | xargs); "
+            "[[ \"$key\" =~ ^[[:space:]]*# ]] && continue; "
+            "[[ -z \"$key\" ]] && continue; "
+            "export \"$key=$value\"; "
+            "done < \"$CONFIG_FILE\"; "
+            "echo \"STATUS_DONE=$STATUS_DONE\""
+        )
+        result = subprocess.run(
+            [_BASH_EXE, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=tmp_path,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "STATUS_DONE=done-id" in result.stdout
+
 
 # ── run-python.sh ────────────────────────────────────────────────────────────
 

@@ -7,7 +7,7 @@ description: >
   reference resolution, and technology-free naming.
   Spawned by /kickoff after Step 2, before Gate 1.
 tools: Read, Glob, Grep, WebFetch, WebSearch
-model: sonnet
+model: inherit
 ---
 
 # HLD Review Agent

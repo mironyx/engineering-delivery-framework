@@ -6,7 +6,7 @@ description: >
   collection, or audit alignment between requirements, design documents, and source code.
   Also invoked via /drift-scan command.
 tools: Read, Glob, Grep
-model: sonnet
+model: inherit
 ---
 
 # Requirements ↔ Design Drift Scanner

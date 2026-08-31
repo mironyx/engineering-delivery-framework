@@ -17,7 +17,10 @@ VALID_AGENT_TOOLS = {"Read", "Write", "Edit", "MultiEdit", "Bash", "Glob", "Grep
                      "LSP", "Monitor", "BashOutput", "KillShell",
                      "mcp__plugin_playwright_playwright__*"}
 
-VALID_MODELS = {"haiku", "sonnet", "opus"}
+# Model aliases Claude Code accepts in agent frontmatter, plus "inherit" — which
+# resolves to the main conversation's model and is what every non-mechanical EDF
+# agent uses, so review depth tracks whatever the operator is running.
+VALID_MODELS = {"haiku", "sonnet", "opus", "fable", "inherit"}
 
 REQUIRED_AGENT_FIELDS = ["name", "description", "tools", "model"]
 
@@ -107,6 +110,26 @@ class TestAgentSchema:
             assert frontmatter["model"] in VALID_MODELS, (
                 f"Invalid model '{frontmatter['model']}' in {agent_path.stem}"
             )
+
+    def test_judgement_agents_inherit_the_session_model(self, agent_path):
+        # Convention: mechanical agents pin `haiku` for cost; every agent that
+        # exercises judgement uses `inherit`, so its depth tracks whatever model
+        # the operator is running. A hard `sonnet`/`opus` pin silently caps (or
+        # inflates) an agent regardless of the session's model — that is what
+        # `inherit` exists to prevent.
+        mechanical = {
+            "ci-probe", "diagnostics-checker", "gh-issue-manager",
+            "qa-contracts", "qa-coverage", "test-runner",
+        }
+        text = agent_path.read_text(encoding="utf-8")
+        frontmatter, _ = _parse_frontmatter(text)
+        if not frontmatter or "model" not in frontmatter:
+            return
+        expected = "haiku" if agent_path.stem in mechanical else "inherit"
+        assert frontmatter["model"] == expected, (
+            f"{agent_path.stem} pins model '{frontmatter['model']}', expected "
+            f"'{expected}'. Mechanical agents pin haiku; all others inherit."
+        )
 
     def test_tools_not_empty(self, agent_path):
         text = agent_path.read_text(encoding="utf-8")

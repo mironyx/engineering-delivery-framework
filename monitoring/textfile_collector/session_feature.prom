@@ -1,0 +1,6 @@
+# HELP claude_session_feature Maps Claude Code session ID to feature ID
+# TYPE claude_session_feature gauge
+claude_session_feature{session_id="7e181c5f-ef95-46e8-b60d-f6f61cfbc9da",feature_id="EDF-49"} 1
+claude_session_feature{session_id="7e181c5f-ef95-46e8-b60d-f6f61cfbc9da",feature_id="EDF-50"} 1
+claude_session_feature{session_id="7e181c5f-ef95-46e8-b60d-f6f61cfbc9da",feature_id="EDF-51"} 1
+claude_session_feature{session_id="7e181c5f-ef95-46e8-b60d-f6f61cfbc9da",feature_id="EDF-63"} 1

@@ -1,4 +1,8 @@
-src/
+.vscode/**
+src/**
+test/**
+out/test/**
+out/**/*.map
 tsconfig.json
-node_modules/
-.vscode/
+.vscodeignore
+node_modules/**

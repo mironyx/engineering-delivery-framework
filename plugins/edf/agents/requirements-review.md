@@ -5,7 +5,7 @@ description: >
   AC testability, cross-reference completeness, anchor presence, and internal consistency.
   Spawned by /requirements before Gate 1 and Gate 2.
 tools: Read, Glob, Grep, WebFetch, WebSearch
-model: sonnet
+model: inherit
 ---
 
 # Requirements Review Agent

@@ -4,8 +4,9 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.2 |
-| Status | Draft |
+| Version | 1.1 |
+| Status | Revised v9 |
+| Revised | 2026-08-24 | Issue #63 |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Epic | [#30](https://github.com/mironyx/engineering-delivery-framework/issues/30) |
@@ -15,6 +16,72 @@
 | Epic id | `v1-e1-2` |
 
 ## Recent revisions
+
+**1.1 (2026-08-24).** §2.5 synced to the shipped overlay implementation (`edf:lld-sync`,
+issue #63): the manifest table gains the `edf-review.overlayLog` command (+ `commandPalette`
+hide) — required by the scaffold "no undeclared command" invariant; the overlay-bridge relay
+comment corrected to the measured reality (the built-in markdown preview drops unknown
+previewScript postMessage types, so the command is a best-effort hook); the design-root
+containment constraint annotated with the webview's `docs/design/`-derived design-root (no
+file access); the error-handling section notes `reportError`'s `console.error` observability.
+
+**1.0 (2026-08-24).** §2.4 synced to the shipped packaging implementation (`edf:lld-sync`,
+issue #51): the `.vscodeignore` block gains `out/test/**` — #48's tsconfig (`rootDir: "."`,
+`include: ["src/**/*", "test/**/*"]`) compiles the tests into `out/test/`, so the literal block
+shipped the compiled test files in the `.vsix` (43 KB artefact); excluding them leaves `out/src/`
+(the `main` entry) shipping, preserving the §2.4 Constraint. Resolved the §2.1
+`test/`-in-`.vscodeignore` deferral (exclude both `test/**` sources and `out/test/**` compiled
+output). Recorded the Invariant 19 verification boundary: the `packaging` suite asserts the
+ignore-contract text, while `vsce package` emission and shipped-content checks are manual
+(`unzip -l` + install run, recorded in the security review and the EDF-51 session log).
+
+**0.9 (2026-08-24).** §2.3 internal decomposition synced to the shipped implementation
+(`edf:lld-sync`, issue #50): `toItems` labels carry the `##`/`###` level prefix (the field the
+quick-pick matches on, per the PR's documented deviation), and `applyMarker`'s decomposition
+reflects the hardened form — a `log` parameter (the "editor.edit returns false" error-table row),
+a stale-heading guard (fail explicitly rather than throw a RangeError), an EOL-honouring newline
+(CRLF documents must not gain a mixed line-ending edit), and an end-of-document separator for
+files whose final line is the heading with no trailing newline. See §2.3.
+
+**0.8 (2026-08-23).** §2.3 cold-start and zero-match cases closed: `createEditorTracker` seeds
+the MRU stack from `visibleTextEditors` at activation, so a command run right after the
+extension activates finds an editor that was opened before activation (the tracker otherwise
+starts empty). The zero-match message is reworded from the dead-end "No source document found
+for this preview" to an instruction to open the original file — the reachable cases are the
+original `.md` editor being closed (with or without a restart) while the preview stays open,
+not just eviction from the bounded stack. See §2.3.
+
+**0.7 (2026-08-23).** §2.3 target resolution simplified (supersedes the 0.6 fallback chain):
+the focused preview is the only legitimate trigger. No preview → stop with guidance; a preview
+title is looked up in the bounded markdown-only MRU stack. Exactly one match resolves; zero and
+multiple both stop — multiple shows a warning to close the wrong document. The 0.6 recency-stack
+walk and single-visible-editor fallback are removed; resolution never guesses. See §2.3.
+
+**0.6 (2026-08-23).** §2.3 target resolution restructured (supersedes the 0.5 correction-step
+framing): the tracker becomes a bounded **MRU stack** of markdown editors, and the focused
+preview's tab title resolves **directly** when it uniquely names an open markdown document —
+title-first, with the recency stack as fallback. The 0.5 `correctForPreviewTab` comparison
+step is folded into `resolveTarget`, which now takes the active tab. Ambiguous basename
+matches (zero or multiple) fall through to the stack rather than guessing. See §2.3.
+
+**0.5 (2026-08-22).** Design revision to §2.3 target resolution: hybrid of the tracked-editor
+and the focused preview's tab title. The tracker alone re-points to whatever markdown editor
+was last focused, so previewing document A after editing document C resolves to C. A
+`correctForPreviewTab` step reads the active tab's label when the focused tab is the built-in
+markdown preview (`viewType === 'markdown.preview'`), strips the `Preview ` prefix, and
+re-targets to the unique open markdown document with that basename. Ambiguous (zero or
+multiple) basename matches leave the tracker result unchanged — the design prefers the
+tracker's best guess or a loud failure over a silent same-name guess. See §2.3.
+
+**0.4 (2026-08-22).** Post-implementation sync for Task 2 (#49). Confirmed §2.2 (pure
+modules) as built — signatures, `Heading`, `REVIEW_MARKER`, and the out-of-range
+error-handling clause all match. Documented the evaluator-added `pure-modules.eval.test.ts`
+(Invariant 7 grep) and the same-marker-close fence semantics. See §2.2 Implementation notes.
+
+**0.3 (2026-08-22).** Post-implementation sync for Task 1 (#48). Backfilled the External
+Surfaces table with `glob` and `@types/node`; recorded the `main → ./out/src/extension.js`
+rootDir consequence; documented the extra test files and the `test/`-in-`.vscodeignore`
+deferral. See §2.1 Implementation notes.
 
 **0.2 (2026-08-16).** Folded Story 2.3 (diagram click-through overlay, formerly issue #63) in
 as §2.5/Task 5, on the maintainer's instruction that the extension stay one `.vsix`, not two.
@@ -307,21 +374,28 @@ sequenceDiagram
     actor Reviewer as LLD Reviewer
     participant Cmd as Review Comment Command
     participant Tracker as Editor Tracker
+    participant Tabs as Preview Tab
     participant Editor as Source Editor
     participant Log as EDF Review Channel
 
-    Note over Tracker: Records the last focused markdown editor<br/>continuously, before the preview takes focus
+    Note over Tracker: Bounded MRU stack of markdown editors (dedup, cap 5)<br/>seeded from visibleTextEditors at activation;<br/>prunes closed documents
     Reviewer->>Cmd: EDF - Insert Review Comment
-    Cmd->>Tracker: Resolve target document
-    Note over Cmd,Tracker: Enforcement — activeTextEditor is undefined<br/>while a webview holds focus. That is the<br/>normal case here, not an error
-    alt Tracked editor still open
-        Tracker-->>Cmd: Most recently focused markdown editor
-    else Exactly one visible markdown editor
-        Tracker-->>Cmd: That editor
-    else Neither
-        Tracker-->>Cmd: Unresolved
-        Cmd->>Log: Reason no document resolved
-        Cmd-->>Reviewer: No source document found for this preview
+    Cmd->>Tabs: Read focused tab
+    Note over Cmd,Tabs: Enforcement — activeTextEditor is undefined while<br/>a webview holds focus. The focused preview is<br/>the only legitimate trigger
+    alt Not a markdown preview
+        Cmd-->>Reviewer: Stop — run this while the preview is focused
+        Cmd->>Log: Reason no preview focused
+    else Preview tab title "Preview &lt;name&gt;"
+        Cmd->>Tracker: mruMatchesForName(tracker, name)
+        alt Exactly one tracked editor matches
+            Cmd->>Editor: Open matching source (preview, preserveFocus)
+        else Zero tracked editors match
+            Cmd->>Log: Reason — no open document matches the title
+            Cmd-->>Reviewer: Open the original .md file in VS Code, then retry
+        else Multiple tracked editors share the basename
+            Cmd-->>Reviewer: Warning — close the wrong one, then retry
+            Cmd->>Log: Reason ambiguous basename
+        end
     end
     Cmd->>Editor: Extract headings
     alt No headings
@@ -338,12 +412,18 @@ sequenceDiagram
     end
 ```
 
-**Walkthrough.** The three-way resolution is the section's substance. The obvious
-implementation — read `activeTextEditor` — returns `undefined` in exactly the situation the
-feature exists to serve. The tracker therefore records the last focused markdown editor
-*continuously*, and the fallback chain ends in an explicit, logged failure rather than a
-silent no-op. The two cancel paths (Escape, no headings) are specified to leave the document
-byte-identical, which is what makes them testable.
+**Walkthrough.** Resolution is the section's substance. The obvious implementation — read
+`activeTextEditor` — returns `undefined` in exactly the situation the feature exists to serve:
+a webview holds focus. The focused markdown preview is therefore the only legitimate trigger.
+Its tab title ("Preview &lt;name&gt;") is the anchor: no preview → stop with guidance; a preview
+title is looked up in the tracker's bounded markdown-only MRU stack, which is seeded from the
+editors open at activation so a fresh activation doesn't start empty. Exactly one match
+resolves; zero and multiple (two documents share the basename) both stop — the former tells
+the user to open the original file (the reachable cases are the source editor being closed —
+with or without a restart — while the preview stays open, or eviction from the bounded stack),
+the latter with a warning to close the wrong one. Resolution never guesses. The two cancel
+paths (Escape, no headings) leave the document byte-identical, which is what makes them
+testable.
 
 ### Structural Overview
 
@@ -388,16 +468,18 @@ classDiagram
 |---|---|---|---|---|
 | Review comment insertion | [vis-review-comment-insertion.html](vis-review-comment-insertion.html) | Quick-pick open, inserted | [REQ-…-quick-pick-insert-review-comment](../../requirements/v1-requirements.md#REQ-vscode-extension-review-feedback-quick-pick-insert-review-comment) | [C2.4](v1-design.md#c24-review-comment-command) |
 
-> **Screenshot capture is a T3 deliverable.** Capture `vis-review-comment-insertion-quickpick.png`
-> and `vis-review-comment-insertion-inserted.png` from the wireframe and embed them here.
-> Per ADR-0035 every state in the table needs a visual; both states above are declared in
-> the wireframe and neither has been captured yet.
+> **Captured for Task 3 (#50).** Per ADR-0035 every state in the table needs a visual;
+> both states declared in the wireframe are captured below (quick-pick open, inserted).
+
+![Quick-pick listing headings with 1-based line numbers](vis-review-comment-insertion-quickpick.png)
+
+![Review marker inserted with cursor positioned after the marker text](vis-review-comment-insertion-inserted.png)
 
 ### Invariants
 
 | # | Invariant | Verification |
 |---|---|---|
-| 12 | Resolution never throws — every path returns an editor or reports a failure | integration test with no editor open asserts the message, not an exception |
+| 12 | Resolution never throws, and never targets an editor that does not match the preview title's basename | integration test with no preview focused asserts the guidance message, not an exception; a resolving test asserts `path.basename(target.uri.fsPath) === previewTitleName` |
 | 13 | Every resolution failure produces exactly one `EDF Review` log entry | integration test asserts channel content after a failed invocation |
 | 14 | Escape leaves the document byte-identical | integration test compares `document.getText()` before and after |
 | 15 | An empty-heading document produces a message and no edit | integration test asserts message shown and text unchanged |
@@ -408,9 +490,10 @@ classDiagram
 ### Acceptance Criteria
 
 - [ ] "EDF: Insert Review Comment" appears in the command palette
-- [ ] Target resolves via the tracked most-recently-focused markdown editor
-- [ ] Falls back to a single visible markdown editor
-- [ ] Shows "No source document found for this preview" when neither resolves, and logs why
+- [ ] Resolves only when the focused tab is the markdown preview and the preview title (`Preview <name>`) uniquely matches a tracked open markdown editor in the bounded MRU stack (seeded from `visibleTextEditors` at activation, deduped on focus, cap 5, prunes closed documents)
+- [ ] Stops with guidance when no markdown preview is focused — resolution never guesses
+- [ ] Shows a warning asking to close the wrong document when two tracked editors share the preview title's basename, then stops
+- [ ] Never targets an editor that does not match the preview title; a zero-match stop tells the user to open the original markdown file and logs why
 - [ ] Quick-pick lists `##`/`###` headings with line numbers, filtering case-insensitively
 - [ ] Enter inserts `> **[Review]:** ` after the heading, or after existing markers
 - [ ] The editor gains focus with the cursor immediately after the marker text
@@ -422,9 +505,10 @@ classDiagram
 
 ```ts
 describe('insertReviewComment — target resolution', () => {
-  it('uses the most recently focused markdown editor when a webview holds focus');
-  it('falls back to the single visible markdown editor');
-  it('shows the no-source-document message when neither resolves');
+  it('resolves to the document named by the focused preview tab title when it uniquely matches a tracked editor');
+  it('stops with guidance when the focused tab is not a markdown preview');
+  it('warns to close the wrong document when two tracked editors share the basename, then stops');
+  it('tells the user to open the original markdown file when no tracked editor matches');
   it('logs the reason to the EDF Review channel when resolution fails');
 });
 
@@ -641,8 +725,10 @@ describe('overlay error handling', () => {
 | `@vscode/vsce` | `^3.9.2` | https://github.com/microsoft/vscode-vsce | Yes — version confirmed on npm | Yes |
 | `mocha` | `^11.8.0` | https://mochajs.org/ | Yes — version confirmed on npm | Yes |
 | `@types/mocha` | `^10.0.10` | https://www.npmjs.com/package/@types/mocha | Yes | Yes |
+| `@types/node` | `^20.19.0` | https://www.npmjs.com/package/@types/node | Yes — types `path`/`process`/`__dirname` in the harness files (extension host runs Node 20) | Yes |
 | `@types/vscode` | `^1.88.0` | https://code.visualstudio.com/api/references/vscode-api | Yes — matched to `engines.vscode` | No (already a devDep) |
 | `typescript` | `^5.9.3` | https://www.typescriptlang.org/ | Yes — 5.9.3 is the latest 5.x | No (already a devDep, `^5.3.0`) |
+| `glob` | `^13.0.0` | https://www.npmjs.com/package/glob | Yes — pinned to ^13: the 11.x line is deprecated on npm, and 13 dedupes with `@vscode/vsce`'s own glob | Yes |
 | VS Code extension API | `engines.vscode ^1.88.0` | https://code.visualstudio.com/api/references/vscode-api | Yes for the APIs listed below | No |
 
 > **On TypeScript.** npm `latest` is `7.0.2` (the native port). This design pins the `5.9`
@@ -675,12 +761,28 @@ describe('overlay error handling', () => {
 extensions/edf-review/
   package.json          — rewritten manifest (see below)
   tsconfig.json         — add "test" to include; keep strict
-  .vscodeignore         — exclude src, test, tsconfig, node_modules
+  .vscodeignore         — exclude src, tsconfig, node_modules (test/ not excluded — see note)
   src/extension.ts      — reduced to activate/deactivate
   test/runTest.ts       — create; launches the VSCode test host
   test/suite/index.ts   — create; Mocha bootstrap
+  test/suite/scaffold.test.ts       — create; scaffold invariants as real specs
+  test/suite/evaluator-gap.test.ts  — create; manifest invariants (feature-evaluator)
+  test/suite/manifest.ts            — create; manifest assertions shared by the specs
   media/                — DELETED (directory and preview.js)
 ```
+
+> **Implementation note (issue #48):** the tsconfig change (add `test` to `include`) forces
+> `rootDir` to the extension root, so the compiled `main` moves to `./out/src/extension.js`;
+> the manifest's `main` row reflects this — the LLD's `"test": "node ./out/test/runTest.js"`
+> script requires exactly this layout. The LLD named only `runTest.ts` and `suite/index.ts`;
+> the scaffold BDD block is implemented as real specs in `scaffold.test.ts`, and the
+> feature-evaluator added `evaluator-gap.test.ts` (manifest invariants: empty
+> `activationEvents`, `edf://`-free metadata, version 0.2.0, `media/` absence, command
+> title/category) plus `manifest.ts` — 8 specs total. The `.vscodeignore` still excludes only
+> `src/`, `tsconfig.json`, `node_modules/`, `.vscode/` — `test/` was not added as the spec's
+> file-structure line called for. _(deferred → #51: the packaging task's shipped-artefact
+> file listing should confirm whether `test/` must be excluded — resolved in #51: yes — both
+> `test/**` sources and `out/test/**` compiled output are excluded and asserted, see §2.4.)_
 
 #### Manifest changes
 
@@ -689,10 +791,11 @@ extensions/edf-review/
 | `displayName` | "EDF Review — Navigable LLD Diagrams" | "EDF Review" |
 | `description` | "Makes edf:// links in LLD diagrams interactive: hover shows code, click opens source files side-by-side…" | "Insert `[Review]` markers into markdown documents from a command-palette quick-pick." |
 | `version` | `0.1.0` | `0.2.0` |
+| `main` | `./out/extension.js` | `./out/src/extension.js` (rootDir consequence — see note below) |
 | `activationEvents` | `["onMarkdownPreview"]` | `[]` (see OQ2 consequence) |
 | `contributes` | `markdown.previewScripts` | `commands` only |
 | `scripts` | `compile`, `watch` | add `test`, `package`, `pretest` |
-| `devDependencies` | `@types/vscode`, `typescript` | add `@vscode/test-electron`, `@vscode/vsce`, `mocha`, `@types/mocha` |
+| `devDependencies` | `@types/vscode`, `typescript` | add `@vscode/test-electron`, `@vscode/vsce`, `mocha`, `@types/mocha`, `glob`, `@types/node` |
 
 ```jsonc
 "contributes": {
@@ -729,6 +832,12 @@ export function run(): Promise<void>
 > **Constraint:** `test/suite/index.ts` must **reject** its promise when `failures > 0`.
 > A bootstrap that resolves unconditionally reports a green run for a red suite, which is
 > worse than having no harness — it is the defect Invariant 5's negative case exists to catch.
+>
+> **Implementation note (issue #48):** the reject-on-failure path has no automated coverage —
+> asserting it needs a second host launch whose suite is deliberately failing, which
+> `@vscode/test-electron` does not model cleanly. Carried as `TODO(#48)` in
+> `test/suite/index.ts`; verified empirically during the issue (red suite exits 1 with
+> `Error: 1 tests failed.`).
 
 #### Error handling
 
@@ -748,7 +857,13 @@ extensions/edf-review/src/headings.ts            — create
 extensions/edf-review/src/review-insert.ts       — create
 extensions/edf-review/test/suite/headings.test.ts       — create
 extensions/edf-review/test/suite/review-insert.test.ts  — create
+extensions/edf-review/test/suite/pure-modules.eval.test.ts — create (evaluator-added, Issue #49)
 ```
+
+> **Implementation note (issue #49):** `pure-modules.eval.test.ts` was added by the
+> `edf:feature-evaluator` — it reads both source files and asserts they contain no `vscode`
+> import (Invariant 7), making the host-freedom guarantee a runnable check rather than a
+> reviewer assertion.
 
 #### Internal types
 
@@ -783,6 +898,12 @@ export function findReviewInsertLine(lines: string[], headingLine: number): numb
 > ` ```markdown ` blocks demonstrating heading syntax; without the guard the quick-pick
 > offers headings that are examples, and inserting under one corrupts a code block.
 
+> **Implementation note (issue #49):** the fence guard closes a fence only on the **same**
+> marker character — a `~~~` line inside an open ` ``` ` fence (or vice versa) is content,
+> not a close. The LLD's "tracks fenced-code state on ``` and ~~~" underspecified this;
+> different-marker runs stay inside the open fence. The evaluator's adversarial spec covers
+> the nested different-marker case.
+
 #### Error handling
 
 Neither function throws. A malformed document yields fewer headings, never an exception;
@@ -808,13 +929,14 @@ extensions/edf-review/test/suite/resolution.test.ts     — create (integration)
 
 ```ts
 export interface EditorTracker {
-  /** Most recently focused markdown editor, or undefined if none was ever focused. */
+  /** Markdown editors most-recently-focused first, deduped, bounded. */
+  recent(): readonly vscode.TextEditor[];
+  /** Most recently focused markdown editor, or undefined. */
   last(): vscode.TextEditor | undefined;
 }
 
 export type Resolution =
-  | { kind: 'tracked';  editor: vscode.TextEditor }
-  | { kind: 'visible';  editor: vscode.TextEditor }
+  | { kind: 'resolved'; editor: vscode.TextEditor }
   | { kind: 'none';     reason: string };
 ```
 
@@ -822,15 +944,44 @@ export type Resolution =
 
 ```ts
 // src/editor-tracker.ts
-export function createEditorTracker(context: vscode.ExtensionContext): EditorTracker
-  // Subscribes to window.onDidChangeActiveTextEditor; stores the editor when
-  // editor?.document.languageId === 'markdown'. Push the disposable onto context.subscriptions.
+export function createEditorTracker(
+  context: vscode.ExtensionContext,
+  cap = 5
+): EditorTracker
+  // Seeds the stack from window.visibleTextEditors at creation (markdown editors already
+  // open when the extension activates), so a command run right after activation finds an
+  // editor that was opened before the extension was alive. Then subscribes to
+  // window.onDidChangeActiveTextEditor; when editor?.document.languageId === 'markdown',
+  // move that editor to the FRONT of the stack (dedupe), evict the tail beyond cap. Also
+  // subscribes to window.onDidCloseTextDocument to prune entries whose document closed.
+  // Push all disposables onto context.subscriptions.
 
-export function resolveTarget(tracker: EditorTracker): Resolution
-  // 1. tracker.last() — if set AND its document is still open, return { kind: 'tracked' }.
-  // 2. window.visibleTextEditors filtered to languageId 'markdown' — if exactly one,
-  //    return { kind: 'visible' }.
-  // 3. return { kind: 'none', reason } where reason names which step failed.
+export function previewTitleName(activeTab: vscode.Tab | undefined): string | undefined
+  // If activeTab is the built-in markdown preview (TabInput.WebviewPanel with viewType
+  // === 'markdown.preview'), return path.basename of its label minus a leading "Preview "
+  // (basename tolerates labelFormat short/medium/long, e.g. "Preview sub/dir/foo.md").
+  // Otherwise return undefined.
+
+export function mruMatchesForName(
+  tracker: EditorTracker,
+  name: string
+): readonly vscode.TextEditor[]
+  // Still-open MRU entries whose document's basename === name, in recency order.
+
+export async function resolveTarget(
+  tracker: EditorTracker,
+  activeTab: vscode.Tab | undefined
+): Promise<Resolution>
+  // The focused preview is the only legitimate trigger — activeTextEditor is undefined
+  // while a webview holds focus, which is the normal case here, not an error.
+  //   1. name = previewTitleName(activeTab); if !name → { kind: 'none', reason: NO_PREVIEW_MSG }
+  //   2. matches = mruMatchesForName(tracker, name)
+  //   3. if matches.length === 1 → { kind: 'resolved', editor } for
+  //        await window.showTextDocument(matches[0].document,
+  //        { preview: true, preserveFocus: true })
+  //   4. if matches.length === 0 → { kind: 'none', reason: NO_DOCUMENT_MSG }
+  //   5. if matches.length > 1 → await window.showWarningMessage(AMBIGUOUS_MSG(name));
+  //        { kind: 'none', reason: AMBIGUOUS_MSG(name) }  // never guess on ambiguity
 
 // src/log.ts
 export function createLog(context: vscode.ExtensionContext): (message: string) => void
@@ -848,29 +999,44 @@ async function insertReviewComment(
 
 ```
 Command handler (src/extension.ts, orchestration only):
-- const res = resolveTarget(tracker)
-- if res.kind === 'none' → log(res.reason); showInformationMessage(NO_DOCUMENT_MSG); return
+- const res = await resolveTarget(tracker, window.tabGroups.activeTabGroup?.activeTab)
+- if res.kind === 'none' → log(res.reason); showWarningMessage(res.reason); return
 - const headings = extractHeadings(res.editor.document.getText())
 - if headings.length === 0 → showInformationMessage(NO_HEADINGS_MSG); return
 - const picked = await window.showQuickPick(toItems(headings), { placeHolder, matchOnDetail: false })
 - if (!picked) return                      // Escape — true no-op, no edit applied
-- await applyMarker(res.editor, picked.line)
+- await applyMarker(res.editor, picked.line, log)
 
   Private helpers (each ≤ 20 lines):
   - toItems(headings: Heading[]): QuickPickItem & { line: number }[]
-      label = heading.text, description = `line ${heading.line + 1}`   // 1-based for display
-  - applyMarker(editor: vscode.TextEditor, headingLine: number): Promise<void>
+      label = '#'.repeat(heading.level) + ' ' + heading.text   // level prefix is the match field
+      description = `line ${heading.line + 1}`   // 1-based for display
+  - applyMarker(editor: vscode.TextEditor, headingLine: number, log): Promise<void>
       const lines = editor.document.getText().split(/\r?\n/)
       const at = findReviewInsertLine(lines, headingLine)
-      await editor.edit(b => b.insert(new vscode.Position(at + 1, 0), REVIEW_MARKER + '\n'))
+      if (at + 1 > lines.length) → log('selected heading no longer exists'); showErrorMessage; return
+      const newline = editor.document.eol === CRLF ? '\r\n' : '\n'
+      const separator = at + 1 === lines.length ? newline : ''   // no trailing newline → own line
+      await editor.edit(b => b.insert(new vscode.Position(at + 1, 0), separator + REVIEW_MARKER + newline))
       const pos = new vscode.Position(at + 1, REVIEW_MARKER.length)
       editor.selection = new vscode.Selection(pos, pos)
       await window.showTextDocument(editor.document, editor.viewColumn, false)
 
 Message constants (module level, so specs assert against the same string):
-- NO_DOCUMENT_MSG  = 'No source document found for this preview'
+- NO_PREVIEW_MSG   = 'Run this command while the markdown preview is focused'
+- NO_DOCUMENT_MSG  = 'Open the original markdown file in VS Code, then retry'
+- AMBIGUOUS_MSG(n) = `Two documents named ${n} are open — close the one you don't want, then retry`
 - NO_HEADINGS_MSG  = 'No section headings found in this document'
 ```
+
+> **Implementation note (issue #50):** `applyMarker` ships hardened beyond the original
+> decomposition. It takes a `log` parameter to implement the error-table row "editor.edit
+> returns false → log the failure; show a message". A stale-heading guard fails explicitly
+> when the selected heading was deleted while the quick-pick was open (the alternative is an
+> unhandled RangeError from `Position(at + 1, 0)`). The inserted newline honours
+> `editor.document.eol`, and when the heading (or last consecutive marker) is the document's
+> final line with no trailing newline, a separator newline is prepended so the marker lands on
+> its own line instead of being glued onto the heading text.
 
 > **Constraint:** exactly one `editor.edit` call. Invariant 16 asserts `document.version`
 > increases by 1 — two edits would also produce correct text while making the undo stack
@@ -883,12 +1049,25 @@ Message constants (module level, so specs assert against the same string):
 > **Constraint:** `showQuickPick` returning `undefined` is the Escape path and must return
 > before any edit. Do not pre-apply an edit and undo it on cancel.
 
+> **Constraint (title-only + MRU lookup, 0.8):** the focused preview is the only legitimate
+> trigger; resolution never guesses. No preview → stop with `NO_PREVIEW_MSG`; a non-unique
+> basename (multiple tracked editors) → `AMBIGUOUS_MSG(name)` warning and stop. Candidates come
+> from the bounded markdown-only MRU stack (seeded from `visibleTextEditors` at activation,
+> cap 5, deduped on focus, tail evicted, pruned on close). Zero match → `NO_DOCUMENT_MSG`,
+> which instructs the user to open the original file — the reachable causes are the source
+> editor being closed (with or without a restart) while the preview stays open, or eviction
+> from the bounded stack; the file is never silently assumed. The resolved branch opens with
+> `{ preview: true, preserveFocus: true }` so the preview stays on screen — matching
+> `applyMarker`'s existing behaviour of focusing the source editor at insertion time.
+
 #### Error handling
 
 | Case | Behaviour |
 |---|---|
-| No tracked and no single visible markdown editor | `NO_DOCUMENT_MSG` to the user, reason to `EDF Review` |
-| Tracked editor's document has since closed | Falls through to the visible-editor step |
+| Focused tab is not a markdown preview | `NO_PREVIEW_MSG` to the user, reason to `EDF Review` — no guessing |
+| Preview title matches exactly one tracked editor | Resolved; editor opened with `{ preview: true, preserveFocus: true }` |
+| Preview title matches multiple tracked editors (same basename) | `AMBIGUOUS_MSG(name)` warning to the user, reason to `EDF Review` — stop, no guess |
+| Preview title matches zero tracked editors (original file closed, or evicted from the bounded stack) | `NO_DOCUMENT_MSG` to the user (open the original file), reason to `EDF Review` |
 | Document has no `##`/`###` headings | `NO_HEADINGS_MSG`, no edit |
 | Quick-pick dismissed | Silent return, no edit, no log entry |
 | `editor.edit` returns `false` | Log the failure; show a message. Do not retry |
@@ -913,11 +1092,20 @@ plugins/edf/docs/design/v1/extension-security-review.md — create; the recorded
 .vscode/**
 src/**
 test/**
+out/test/**
 out/**/*.map
 tsconfig.json
 .vscodeignore
 node_modules/**
 ```
+
+> **Implementation note (issue #51):** `out/test/**` is an addition beyond the literal block.
+> #48's tsconfig (`rootDir: "."`, `include: ["src/**/*", "test/**/*"]`) compiles the tests into
+> `out/test/`, so the literal block shipped the compiled test files in the `.vsix` (first
+> `vsce package`: 43 KB artefact). Excluding `out/test/**` leaves `out/src/` — the `main` entry
+> — shipping, so the Constraint below still holds. This also resolves the §2.1 `test/` deferral:
+> both `test/**` (sources) and `out/test/**` (compiled tests) are excluded and asserted by
+> `packaging.test.ts`.
 
 > **Constraint:** `out/**` must **not** be excluded — it holds the compiled `main` entry
 > point. Excluding it produces a `.vsix` that installs and then fails to activate, which is
@@ -963,6 +1151,13 @@ One row per property, each with the evidence that established it, not a bare ass
 `vsce package` failures are build failures. Install verification is manual and its outcome is
 recorded in the security review document.
 
+> **Implementation note (issue #51):** the BDD spec "emits a vsix with no packaging errors"
+> (Invariant 19) is verified manually — `vsce package` exit 0, the `unzip -l` shipped-content
+> listing, and the install/parity run — recorded in the security review and the EDF-51 session
+> log. The committed `packaging.test.ts` suite asserts the `.vscodeignore` contract text and the
+> manifest invariants (Invariants 20-21) rather than executing `vsce package`, so it cannot
+> catch vsce semantic drift; automating that is deferred.
+
 <a id="LLD-v1-e1-2-overlay"></a>
 
 ## 2.5 Diagram click-through overlay — Implementation
@@ -985,12 +1180,20 @@ extensions/edf-review/
 |---|---|---|
 | `contributes.markdown.previewScripts` | absent | `["./media/overlay.js"]` |
 | `contributes.markdown.previewStyles` | absent | unchanged — no CSS needed; overlay anchors are positioned inline |
+| `contributes.commands` | `[insertReviewComment]` | `[insertReviewComment, edf-review.overlayLog]` — the overlay-log command is hidden from the palette via `contributes.commandPalette` with `when: false` |
+| `contributes.commandPalette` | absent | `[{ command: "edf-review.overlayLog", when: "false" }]` |
+
+> **Implementation note (issue #63):** the manifest table originally listed only
+> `markdown.previewScripts`. The scaffold invariant "no registered `edf-review.*` command is
+> undeclared" (`scaffold.test.ts`) forces any command `overlay-bridge.ts` registers to be
+> declared, so `edf-review.overlayLog` is added to `contributes.commands` (hidden via
+> `commandPalette`).
 
 > **Constraint:** `activationEvents` stays `[]`. `previewScripts` is a static declarative
 > contribution VS Code injects into every preview regardless of extension-host activation
-> state — it does not need `onMarkdownPreview` back. `overlay-bridge.ts`'s log relay uses
-> `commands.registerCommand`'s existing activation path (auto-generated `onCommand:` from
-> Task 1/3), triggered by the webview's `postMessage`, not by a dedicated activation event.
+> state — it does not need `onMarkdownPreview` back. `overlay-bridge.ts`'s log relay registers
+> the `edf-review.overlayLog` command; declaring it in `contributes.commands` gives it the
+> auto-generated `onCommand:` activation while `activationEvents` stays empty.
 
 #### Function signatures
 
@@ -1015,12 +1218,22 @@ function removeStaleOverlays(): void
 
 // src/overlay-bridge.ts
 export function createOverlayLog(context: vscode.ExtensionContext): OverlayLog
-  // Registers a window.addEventListener('message', …) bridge is not available from the
-  // extension host side; instead subscribes to the webview panel's onDidReceiveMessage
-  // equivalent exposed by the built-in markdown preview, per VS Code's previewScripts
-  // postMessage convention. Writes each relayed error to the EDF Review output channel
-  // (shared with §2.3's Logger).
+  // Registers the edf-review.overlayLog command and returns { log, handleMessage }.
+  // handleMessage coerces a relayed value to a line and writes it to the EDF Review
+  // output channel (shared with §2.3's Logger via the per-context channel cache in
+  // log.ts). Never throws on malformed input.
 ```
+
+> **Implementation note (issue #63):** the original comment assumed the built-in markdown
+> preview exposes an `onDidReceiveMessage`-equivalent for previewScript messages. Measured
+> against `vscode@main` and the pinned `1.88.0` `preview.ts`, its `onDidReceiveMessage`
+> handler processes a fixed message set (`cacheImageSizes`, `revealLine`, `didClick`,
+> `openLink`, `showPreviewSecuritySelector`, `previewStyleLoadError`) and drops
+> `{ type: 'edf-overlay-error' }` — there is no generic command relay. The relay is therefore
+> best-effort: the overlay still catches and swallows (never crashes, Invariant 27) and posts
+> the message; the bridge registers the command as the designed hook. Both halves are covered
+> by tests; a live end-to-end relay may not fire until VS Code exposes a
+> previewScript→extension-host channel.
 
 > **Constraint:** neither `resolveAndValidateHref` nor any function in `overlay.js` calls
 > `fetch`, `XMLHttpRequest`, `eval`, `new Function`, or `import()`. Invariant 28 checks this
@@ -1033,6 +1246,15 @@ export function createOverlayLog(context: vscode.ExtensionContext): OverlayLog
 > §2.1–§2.4's convention accepts could be silently dropped by the overlay, or worse, a link
 > the convention would reject could be overlaid anyway.
 
+> **Implementation note (issue #63):** the webview has no file access (Invariant 28) and no
+> webview→host channel, so `resolveAndValidateHref` cannot read `kb/file-map.md`'s declared
+> per-project `design-root`. It derives design-root from the preview document's own URI: EDF
+> design docs live at `<design-root>/docs/design/<version>/` (ADR-0036), so the design-root is
+> the path above the `docs/design` subtree; the fallback (no `docs/design` marker) bounds
+> containment to the workspace top-level folder (drive + first folder on Windows). The
+> resolved-path `startsWith(root)` check is ADR-0039's exact rule. A project whose LLDs live
+> outside `docs/design/` gets the more permissive fallback.
+
 #### Error handling
 
 A thrown error inside `observeMermaidContainers`, `createOverlaysFor`, or the mutation
@@ -1040,6 +1262,9 @@ callback is caught at the top-level `try/catch` the script installs around its o
 point, `postMessage`d to the extension host with `{ type: 'edf-overlay-error', message }`,
 and swallowed — the webview must keep functioning (Invariant 27). `overlay-bridge.ts` never
 throws; a malformed message is logged as-is rather than re-parsed defensively.
+
+> **Implementation note (issue #63):** `reportError` also writes `console.error('[edf-review]',
+> msg)` so a failed postMessage relay is never fully silent (pr-review #75 finding).
 
 #### Security review update (amends Task 4's document)
 
@@ -1131,7 +1356,7 @@ Replace the "No preview script injection" row and add:
 **Stories:** 2.1 (ACs 1, 3, 4, 5, 6, 8)
 **HLD reference:** [C6](v1-design.md#c6-in-flow-review-feedback), [Flow 3](v1-design.md#flow-3-review-comment-insertion-with-target-resolution-trust-boundary)
 
-**What:** Register `edf-review.insertReviewComment`; add the editor tracker and three-way
+**What:** Register `edf-review.insertReviewComment`; add the editor tracker and title-anchored
 target resolution, the `EDF Review` output channel, the quick-pick, single-edit insertion,
 cursor placement and focus. Integration specs under the test host. Capture the two
 wireframe screenshots per ADR-0035.

@@ -52,12 +52,13 @@ fi
 
 # Source config (only allows simple KEY=VALUE lines)
 while IFS='=' read -r key value; do
+  # Strip whitespace first — also strips \r from CRLF line endings, so a CRLF
+  # blank line reads as empty rather than as a key of "\r".
+  key=$(echo "$key" | xargs)
+  value=$(echo "$value" | xargs)
   # Skip comments and blank lines
   [[ "$key" =~ ^[[:space:]]*# ]] && continue
   [[ -z "$key" ]] && continue
-  # Strip whitespace
-  key=$(echo "$key" | xargs)
-  value=$(echo "$value" | xargs)
   export "$key=$value"
 done < "$CONFIG_FILE"
 

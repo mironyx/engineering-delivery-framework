@@ -45,12 +45,26 @@ Skill files under `plugins/edf/skills/` are markdown with YAML frontmatter. Key 
 
 ## Agent files
 
-Agent .md files under `plugins/edf/agents/` use frontmatter with `model` pins:
+Agent .md files under `plugins/edf/agents/` use frontmatter with a `model` field. There are
+exactly two valid values, and `tests/test_agent_schema.py` enforces the split:
 
-- Mechanical agents (`ci-probe`, `diagnostics-checker`, `gh-issue-manager`, `test-runner`)
-  pin `model: haiku` to keep cost low.
+- **Mechanical agents** (`ci-probe`, `diagnostics-checker`, `gh-issue-manager`,
+  `qa-contracts`, `qa-coverage`, `test-runner`) pin `model: haiku` to keep cost low. They
+  execute pre-assembled commands and string substitution — no judgement to preserve.
+- **Every other agent** uses `model: inherit`, so its depth tracks whatever model the
+  operator is running. Never pin a judgement agent to a specific alias: a hard `sonnet`
+  pin caps a reviewer at Sonnet even in an Opus session, and a hard `opus` pin bills Opus
+  even in a cheap one.
 - The `haiku` label resolves via the calling environment — it is a model name, not an
   agent type. No `haiku` agent type needs to be registered.
+
+**Model resolution order** (highest wins), per the Claude Code subagent docs:
+`CLAUDE_CODE_SUBAGENT_MODEL` env var → the per-invocation `model` parameter on the `Agent`
+call → the agent definition's frontmatter → the main conversation's model. A skill that
+passes `model:` at the spawn site therefore overrides `inherit` — see the `**Model:**`
+directives in `architect`, `kickoff`, `requirements`, `discovery`, `bug`,
+`refactor-architect`, and `frontend-architect`, which deliberately force Opus for design
+work.
 
 ## Tests
 
