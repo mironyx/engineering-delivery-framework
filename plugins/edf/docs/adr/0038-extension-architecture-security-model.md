@@ -53,6 +53,13 @@ command-palette action presents a filterable quick-pick of document headings and
 review-feedback marker into the source editor (exact marker format and insertion-point
 rules are owned by [Story 3.1](../../requirements/v1-requirements.md#story-31-quick-pick-section--insert-review-comment), not this ADR).
 
+> **Superseded in part (2026-08-31) — the quick-pick is not what shipped.** The interaction
+> described in this paragraph was removed during implementation: the command is now a
+> **line-based insert** with no heading list, and that inference is itself unreliable
+> (markers can land at the end of the file). See [ADR-0040](0040-review-comment-insertion-interaction.md),
+> which records the decision and the measured finding. This ADR remains rejected and
+> unopened; the note exists so a reader of this Context paragraph is not misled.
+
 This ADR records the extension's architecture — the communication channel between the
 preview webview and the extension host, the security boundary for path resolution, the
 minimum permissions, and the V1 distribution model.
