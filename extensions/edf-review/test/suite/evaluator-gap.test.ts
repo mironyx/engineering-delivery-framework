@@ -63,8 +63,9 @@ describe('extension scaffold — manifest invariants (evaluator)', () => {
     // feedback: markers landed at the end of the file) plus the live
     // visible-editor resolution fallback (no more close-and-reopen), and to
     // 0.2.11 to revert the overlay.js scheme-guard hardening that broke
-    // diagram click-through.
-    assert.strictEqual(readManifest().version, '0.2.11');
+    // diagram click-through, and to 0.2.12 to make clickable diagram areas
+    // LOOK clickable (underline + link colour on the node label).
+    assert.strictEqual(readManifest().version, '0.2.12');
   });
 
   it('keeps the media/ directory scoped to the overlay script only', () => {

@@ -36,7 +36,15 @@
     if (s) return;
     s = document.createElement("style");
     s.id = "edf-ov-style";
-    s.textContent = "svg a{cursor:pointer}svg a text{text-decoration:underline}";
+    // Clickable diagram areas must LOOK clickable: the transparent overlay <a>
+    // provides the pointer cursor, but the affordance (underline + link colour
+    // on the node label) is drawn on the SVG underneath, so it must be styled
+    // directly. Mermaid emits the label as <text>/<tspan> or, in newer
+    // versions, inside <foreignObject> — cover all three.
+    s.textContent =
+      "svg a,svg a *{cursor:pointer}" +
+      "svg a text,svg a tspan,svg a foreignObject{text-decoration:underline!important;text-underline-offset:2px}" +
+      "svg a:hover text,svg a:hover tspan,svg a:hover foreignObject{color:var(--vscode-textLink-foreground,#2aa1e2)}";
     document.head.appendChild(s);
   }
 

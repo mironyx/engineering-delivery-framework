@@ -10,12 +10,12 @@ A pre-built `.vsix` ships inside the EDF plugin package, so installing the plugi
 the plugin cache:
 
 ```bash
-code --install-extension ~/.claude/plugins/cache/mironyx/edf/<plugin-version>/artifacts/edf-review-0.2.11.vsix
+code --install-extension ~/.claude/plugins/cache/mironyx/edf/<plugin-version>/artifacts/edf-review-0.2.12.vsix
 ```
 
-(On Windows the path is `%USERPROFILE%\.claude\plugins\cache\mironyx\edf\<plugin-version>\artifacts\edf-review-0.2.11.vsix`.)
+(On Windows the path is `%USERPROFILE%\.claude\plugins\cache\mironyx\edf\<plugin-version>\artifacts\edf-review-0.2.12.vsix`.)
 
-The artifact is also committed in the repo at `plugins/edf/artifacts/edf-review-0.2.11.vsix`.
+The artifact is also committed in the repo at `plugins/edf/artifacts/edf-review-0.2.12.vsix`.
 
 Reload VS Code. `EDF: Insert Review Comment` appears in the command palette, and diagram
 links in markdown previews become clickable.
