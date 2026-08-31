@@ -230,3 +230,178 @@ fix: add necessity gate to LLD self-critique and review agents (#5"
 - 4 agent spawn(s) — each re-sends full diff to subagent
 
 ---
+
+## Compact snapshot — 12:11 (turn ~1952, session 7e181c5f)
+**Feature:** EDF-50 (cont)
+
+### Files touched
+- `.claude-plugin/plugin.json` — edited ×13
+- `.issue50.body.md` — created
+- `README.md` — created+edited
+- `agents/lld-review.md` — edited ×1
+- `bin/gh-project-status.sh` — edited ×1
+- `build-vsix.sh` — created+edited
+- `command-wiring.eval.test.ts` — edited ×4
+- `command.test.ts` — created+edited
+- `docs/design/v1/click-through-probe.md` — created+edited
+- `docs/design/v1/lld-v1-e1-2-review-feedback.md` — edited ×49
+- `docs/sessions/2026-08/2026-08-22-session-2-scaffold-harness-EDF-48.md` — created
+- `docs/sessions/2026-08/2026-08-24-team-48-49-50-51-63-vscode-review-feedback.md` — created
+- `evaluator-gap.test.ts` — edited ×4
+- `index.ts` — edited ×1
+- `kb/anti-patterns.md` — edited ×1
+- `marketplace.json` — edited ×12
+- `overlay.js` — created+edited
+- `overlay.test.ts` — edited ×10
+- `package.json` — created+edited
+- `readme.md` — created+edited
+- `resolution.test.ts` — edited ×9
+- `scaffold.test.ts` — edited ×1
+- `settings.json` — edited ×4
+- `skills/lld/SKILL.md` — edited ×1
+- `src/editor-tracker.ts` — edited ×8
+- `src/extension.ts` — edited ×9
+- `target-resolution-diagram.html` — created+edited
+- `tests/test_shell_scripts.py` — edited ×2
+
+### Key milestones
+- tests ×4 — last: 440 passed
+- lint ×1 — last: issues
+- git commit: "docs: session log and LLD sync for EDF-48 scaffold harness
+
+Co-Authored-By: Clau"
+- git commit: "$(cat <<'EOF'
+fix: gh-project-status.sh config load aborts on CRLF blank line
+
+O"
+- git commit: "$(cat <<'EOF'
+docs(design): lld 0.5 — hybrid preview-tab title target resolution"
+- git commit: "$(cat <<'EOF'
+docs(design): lld 0.5 — basename comparison in correctForPreviewTa"
+- git commit: "$(cat <<'EOF'
+docs(design): lld 0.5 — sequence diagram shows correctForPreviewTa"
+- git commit: "$(cat <<'EOF'
+docs(design): lld 0.6 — title-first resolution with MRU markdown s"
+- git commit: "$(cat <<'EOF'
+docs(design): lld 0.7 — title-anchored target resolution, never gu"
+- git commit: "$(cat <<'EOF'
+fix: add necessity gate to LLD self-critique and review agents (#5"
+- git commit: "docs(design): lld 0.8 — seed tracker at activation, open-original-file zero-matc"
+- git commit: "build: ship edf-review 0.2.0 vsix and build script"
+- git commit: "build: ship edf-review 0.2.1 vsix with diagram click-through overlay"
+- git commit: "docs: team session log — epic #30 V1 E1.2 review feedback"
+- git commit: "docs: extension readme — committed vsix install + build script"
+- git commit: "build: ship edf-review vsix inside plugin package (plugin 0.10.46)"
+- git commit: "build: ship edf-review vsix inside plugin package (plugin 0.10.46)"
+- git commit: "fix(edf-review): accept active markdown editor as target name source (0.2.2, plu"
+- git commit: "$(cat <<'EOF'
+fix(edf-review): WIP — top-visible-line insert + live visible-edit"
+- git commit: "$(cat <<'EOF'
+fix(edf-review): harden overlay scheme guard against whitespace-by"
+- git push ×4
+
+### Agent spawns (cost drivers)
+- Implement issue #49 — heading/review-insert pure modules ×1
+- Implement issue #50 — Insert Review Comment command ×1
+- Implement issue #51 — vsix packaging and security review ×1
+- Implement issue #63 — diagram click-through overlay ×1
+
+### Context drivers
+- test run ×4 — each run loads full test suite into context
+- 4 agent spawn(s) — each re-sends full diff to subagent
+
+---
+
+## Compact snapshot — 13:43 (turn ~2187, session 7e181c5f)
+**Feature:** EDF-50 (cont)
+
+### Files touched
+- `.claude-plugin/plugin.json` — edited ×15
+- `.gitignore` — edited ×2
+- `.issue50.body.md` — created
+- `README.md` — created+edited
+- `agents/lld-review.md` — edited ×1
+- `bin/gh-project-status.sh` — edited ×1
+- `build-vsix.sh` — created+edited
+- `command-wiring.eval.test.ts` — edited ×4
+- `command.test.ts` — created+edited
+- `docs/adr/0038-extension-architecture-security-model.md` — edited ×1
+- `docs/adr/0040-review-comment-insertion-interaction.md` — created
+- `docs/design/v1/click-through-probe.md` — created+edited
+- `docs/design/v1/lld-v1-e1-2-review-feedback.md` — edited ×55
+- `docs/design/v1/v1-design.md` — edited ×4
+- `docs/requirements/v1-requirements.md` — edited ×5
+- `docs/sessions/2026-08/2026-08-22-session-2-scaffold-harness-EDF-48.md` — created
+- `docs/sessions/2026-08/2026-08-24-team-48-49-50-51-63-vscode-review-feedback.md` — created
+- `evaluator-gap.test.ts` — edited ×6
+- `index.ts` — edited ×1
+- `kb/anti-patterns.md` — edited ×1
+- `marketplace.json` — edited ×14
+- `overlay.js` — created+edited
+- `overlay.test.ts` — edited ×10
+- `package.json` — created+edited
+- `readme.md` — created+edited
+- `resolution.test.ts` — edited ×9
+- `scaffold.test.ts` — edited ×1
+- `settings.json` — edited ×4
+- `skills/lld/SKILL.md` — edited ×1
+- `src/editor-tracker.ts` — edited ×8
+- `src/extension.ts` — edited ×9
+- `target-resolution-diagram.html` — created+edited
+- `tests/test_shell_scripts.py` — edited ×2
+
+### Key milestones
+- tests ×4 — last: 440 passed
+- lint ×1 — last: issues
+- git commit: "docs: session log and LLD sync for EDF-48 scaffold harness
+
+Co-Authored-By: Clau"
+- git commit: "$(cat <<'EOF'
+fix: gh-project-status.sh config load aborts on CRLF blank line
+
+O"
+- git commit: "$(cat <<'EOF'
+docs(design): lld 0.5 — hybrid preview-tab title target resolution"
+- git commit: "$(cat <<'EOF'
+docs(design): lld 0.5 — basename comparison in correctForPreviewTa"
+- git commit: "$(cat <<'EOF'
+docs(design): lld 0.5 — sequence diagram shows correctForPreviewTa"
+- git commit: "$(cat <<'EOF'
+docs(design): lld 0.6 — title-first resolution with MRU markdown s"
+- git commit: "$(cat <<'EOF'
+docs(design): lld 0.7 — title-anchored target resolution, never gu"
+- git commit: "$(cat <<'EOF'
+fix: add necessity gate to LLD self-critique and review agents (#5"
+- git commit: "docs(design): lld 0.8 — seed tracker at activation, open-original-file zero-matc"
+- git commit: "build: ship edf-review 0.2.0 vsix and build script"
+- git commit: "build: ship edf-review 0.2.1 vsix with diagram click-through overlay"
+- git commit: "docs: team session log — epic #30 V1 E1.2 review feedback"
+- git commit: "docs: extension readme — committed vsix install + build script"
+- git commit: "build: ship edf-review vsix inside plugin package (plugin 0.10.46)"
+- git commit: "build: ship edf-review vsix inside plugin package (plugin 0.10.46)"
+- git commit: "fix(edf-review): accept active markdown editor as target name source (0.2.2, plu"
+- git commit: "$(cat <<'EOF'
+fix(edf-review): WIP — top-visible-line insert + live visible-edit"
+- git commit: "$(cat <<'EOF'
+fix(edf-review): harden overlay scheme guard against whitespace-by"
+- git commit: "$(cat <<'EOF'
+fix(edf-review): revert overlay scheme-guard hardening — restore d"
+- git commit: "$(cat <<'EOF'
+build(edf-review): ship 0.2.11 vsix in artifacts + fix gitignore t"
+- git commit: "$(cat <<'EOF'
+fix(edf-review): make clickable diagram areas look clickable + shi"
+- git commit: "$(cat <<'EOF'
+fix(edf-review): make clickable diagram areas look clickable + shi"
+- git push ×4
+
+### Agent spawns (cost drivers)
+- Implement issue #49 — heading/review-insert pure modules ×1
+- Implement issue #50 — Insert Review Comment command ×1
+- Implement issue #51 — vsix packaging and security review ×1
+- Implement issue #63 — diagram click-through overlay ×1
+
+### Context drivers
+- test run ×4 — each run loads full test suite into context
+- 4 agent spawn(s) — each re-sends full diff to subagent
+
+---
