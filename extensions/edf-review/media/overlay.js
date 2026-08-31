@@ -65,13 +65,18 @@
     var live = new Set();
 
     svgAnchors.forEach(function (svgAnchor) {
-      var href =
+      var raw =
         svgAnchor.getAttribute("href") ||
         svgAnchor.getAttributeNS("http://www.w3.org/1999/xlink", "href");
-      if (!href) return;
-      // Security: never put a scheme-bearing href (javascript:, data:, ...) on
-      // a real HTML anchor. Relative paths and #fragments — the only targets
-      // diagrams and the probe use — have no scheme and pass through.
+      if (!raw) return;
+      // Security: never put a scheme-bearing href (javascript:, data:, file:,
+      // ...) on a real HTML anchor. Trim before the check — the WHATWG URL
+      // parser strips leading whitespace before resolving, so a
+      // " javascript:alert(1)" href would otherwise bypass the scheme guard and
+      // still execute. Absolute paths are rejected too: the only legitimate
+      // diagram-click targets are document-relative source paths.
+      var href = String(raw).trim();
+      if (!href || href.charAt(0) === "/" || href.charAt(0) === "\\") return;
       if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return;
 
       // svgAnchor.isConnected guards against a stale reference surviving on
