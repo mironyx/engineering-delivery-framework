@@ -98,6 +98,9 @@ git add <specific-files>
 git commit -m "docs: design health patch for #<issue> — <summary>"
 ```
 
+Review-mode patches commit in place on the current branch — no worktree/PR.
+That isolation is part of the creation flow (Step 1a) only.
+
 **Stop after the report (and any approved patches).** Do not proceed to the creation process.
 
 ---
@@ -184,6 +187,34 @@ Execute these steps sequentially.
    - If the issue contains **multiple stories** (i.e. the decomposition assessment in Step 2b will produce ≥ 2 task issues), the issue must carry the `epic` label. If it does not, flag this in the Step 2 summary table under a "Label fix needed" column and correct it before producing any artefacts — use `gh issue edit <number> --add-label "epic" --remove-label "kind:task"` and update the title to `epic: <name>` format.
    - If the issue is a single-task item, it should carry `kind:task` and have a `## Parent epic` section. If no parent epic exists, flag it and ask the user whether to create one or proceed without.
    - **Never enrich a multi-story issue without first fixing its label.** Enriching a `kind:task` issue with story tables creates the exact structural inconsistency this check is designed to prevent.
+
+### Step 1a: Isolate work in a docs worktree
+
+Create a dedicated worktree and branch **before producing any artefacts**, so the
+run never touches the working tree you started from — any in-progress work or
+untracked files there stay untouched.
+
+```bash
+SLUG=<scope-slug>   # from the plan filename or epic set, e.g. "e11-e17"
+REPO=$(basename "$(git rev-parse --show-toplevel)")
+git worktree add "../${REPO}-docs-$SLUG" -b docs/$SLUG main
+cd "../${REPO}-docs-$SLUG"
+```
+
+Verify you are in the worktree, not the main repo — sub-agent sessions can inherit
+the caller's CWD, and a wrong directory silently corrupts commits and the PR:
+
+```bash
+git rev-parse --show-toplevel | xargs basename
+# must print "<REPO>-docs-<slug>"; if it prints the plain repo name, re-cd and re-verify
+```
+
+Base on local `main` (not `origin/main`) so a committed-but-unpushed plan is
+included. If the plan file itself is **uncommitted**, flag it now — it cannot be
+part of the PR; the user should commit it first or accept it stays out of scope.
+
+If the user cancels at the Step 2 gate, clean up before stopping:
+`git worktree remove "../${REPO}-docs-$SLUG"` and `cd` back to the main repo.
 
 ### Step 2: Analyse and present overview
 
@@ -467,7 +498,49 @@ After all in-scope epics are processed, summarise:
 - Any open questions or ambiguities found during design
 - Suggested next step: human reviews the artefacts, then `edf:feature` or `edf:feature-team` implements
 
-**Stop here.** The user reviews all artefacts before implementation begins.
+If the batch produced no artefacts (every item already covered), remove the
+worktree and stop — there is nothing to PR.
+
+### Step 8: Push and create the PR
+
+Push the worktree branch and open a single docs PR covering the whole batch:
+
+```bash
+git push -u origin docs/$SLUG
+gh pr create --base main --head docs/$SLUG \
+  --title "docs: architect <scope> — <summary>" \
+  --body "<see below>"
+```
+
+PR body: the scope (epics processed), a table of artefacts produced (epic →
+ADR/LLD/manifest/issues), a link to the session log, and a note that this is a
+docs-only PR (no production code, no test expectations). If two epics' tasks
+touch the same files, call out the merge order.
+
+Do **not** use `bin/create-feature-pr.sh` here — it is shaped for feature PRs
+(requires an issue number and test counts, embeds cost tracking) and does not
+fit a docs batch.
+
+### Step 9: Merge the PR (confirmation gate)
+
+Show the PR URL and **wait for explicit user go-ahead before merging.** Merging
+is shared-state and hard to reverse — never merge without approval.
+
+On approval:
+
+```bash
+gh pr merge <number> --squash --delete-branch
+```
+
+### Step 10: Clean up the worktree
+
+```bash
+git worktree remove "../${REPO}-docs-$SLUG"
+git branch -D docs/$SLUG   # tip not an ancestor of main (squash merge), so -D
+```
+
+Then `cd` back to the main repo directory. Final line: "Artefacts merged
+to main; worktree removed."
 
 ## Guidelines
 

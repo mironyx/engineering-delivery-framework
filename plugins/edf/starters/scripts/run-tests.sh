@@ -16,14 +16,14 @@ fi
 LANG="$1"; shift
 
 case "$LANG" in
-    ts) exec "$SCRIPT_DIR/typescript/run-tests.sh" "$@" ;;
-    p)  exec "$SCRIPT_DIR/python/run-tests.sh" "$@" ;;
+    ts) exec bash "$SCRIPT_DIR/typescript/run-tests.sh" "$@" ;;
+    p)  exec bash "$SCRIPT_DIR/python/run-tests.sh" "$@" ;;
     all)
         echo "=== TypeScript tests ==="
-        "$SCRIPT_DIR/typescript/run-tests.sh" "$@"; ts_rc=$?
+        bash "$SCRIPT_DIR/typescript/run-tests.sh" "$@"; ts_rc=$?
         echo ""
         echo "=== Python tests ==="
-        "$SCRIPT_DIR/python/run-tests.sh" "$@"; py_rc=$?
+        bash "$SCRIPT_DIR/python/run-tests.sh" "$@"; py_rc=$?
         if [ "$ts_rc" -ne 0 ] || [ "$py_rc" -ne 0 ]; then exit 1; fi
         exit 0
         ;;

@@ -162,10 +162,28 @@ def main() -> None:
     else:
         cost_data = "unavailable | unavailable"
 
-    # Append the row — no placeholders, fully materialised
-    row = f"| {args.step} | {timestamp} | {cost_data} | {args.note} |\n"
-    with open(session_log, "a", encoding="utf-8") as f:
-        f.write(row)
+    # Insert the row into the Cost checkpoints table. The log may have sections
+    # after the table (e.g. "## Cost retrospective"), so appending to EOF would
+    # land the row under the wrong heading.
+    row = f"| {args.step} | {timestamp} | {cost_data} | {args.note} |"
+    lines = session_log.read_text(encoding="utf-8").splitlines()
+    insert_at = len(lines)
+    found = False
+    for i, line in enumerate(lines):
+        if line.strip().startswith("## Cost checkpoints"):
+            found = True
+            insert_at = len(lines)
+            for j in range(i + 1, len(lines)):
+                if lines[j].strip().startswith("## "):
+                    insert_at = j
+                    break
+                if lines[j].strip():
+                    insert_at = j + 1
+            break
+    if not found:
+        print("Warning: no '## Cost checkpoints' heading found — appending to end", file=sys.stderr)
+    lines.insert(insert_at, row)
+    session_log.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     print(f"Checkpoint appended: step={args.step} timestamp={timestamp}")
 

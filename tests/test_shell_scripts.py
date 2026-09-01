@@ -15,6 +15,7 @@ import pytest
 
 BIN_DIR = pathlib.Path(__file__).resolve().parent.parent / "plugins" / "edf" / "bin"
 HOOKS_DIR = pathlib.Path(__file__).resolve().parent.parent / "plugins" / "edf" / "hooks"
+SCRIPTS_DIR = pathlib.Path(__file__).resolve().parent.parent / "plugins" / "edf" / "starters" / "scripts"
 
 # Git for Windows provides bash at this path (MSYS2/Cygwin-based).
 _BASH_EXE = shutil.which("bash") or "bash"
@@ -319,3 +320,43 @@ class TestOpenInEditor:
         # This should exit 0 even when neither code nor windsurf is installed
         result = _bash(HOOKS_DIR / "open-in-editor.sh")
         assert result.returncode == 0
+
+
+# ── starters run-audit.sh dispatcher ─────────────────────────────────────────
+
+
+class TestRunAuditDispatcher:
+    def test_dispatches_without_exec_bit_on_sub_scripts(self, tmp_path):
+        # Plugin-cache installs can strip the exec bit from sub-scripts. The
+        # dispatcher must invoke them via `bash`, not direct exec, so the audit
+        # gate works regardless. On platforms where chmod is honoured, this
+        # reproduces the cache bug; where it isn't, the bash-prefixed dispatch
+        # still passes.
+        workdir = tmp_path / "proj"
+        workdir.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=workdir, check=True)
+        for rel in ("typescript", "python"):
+            (tmp_path / rel).mkdir()
+        shutil.copy2(SCRIPTS_DIR / "run-audit.sh", tmp_path / "run-audit.sh")
+        shutil.copy2(SCRIPTS_DIR / "typescript" / "run-audit.sh", tmp_path / "typescript" / "run-audit.sh")
+        shutil.copy2(SCRIPTS_DIR / "python" / "run-audit.sh", tmp_path / "python" / "run-audit.sh")
+        for sub in (tmp_path / "typescript" / "run-audit.sh", tmp_path / "python" / "run-audit.sh"):
+            sub.chmod(0o644)
+        result = _bash(tmp_path / "run-audit.sh", "ts", cwd=workdir)
+        assert result.returncode == 0
+        assert "audit skipped" in result.stdout
+
+    def test_all_case_without_exec_bit(self, tmp_path):
+        workdir = tmp_path / "proj"
+        workdir.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=workdir, check=True)
+        for rel in ("typescript", "python"):
+            (tmp_path / rel).mkdir()
+        shutil.copy2(SCRIPTS_DIR / "run-audit.sh", tmp_path / "run-audit.sh")
+        shutil.copy2(SCRIPTS_DIR / "typescript" / "run-audit.sh", tmp_path / "typescript" / "run-audit.sh")
+        shutil.copy2(SCRIPTS_DIR / "python" / "run-audit.sh", tmp_path / "python" / "run-audit.sh")
+        for sub in (tmp_path / "typescript" / "run-audit.sh", tmp_path / "python" / "run-audit.sh"):
+            sub.chmod(0o644)
+        result = _bash(tmp_path / "run-audit.sh", "all", cwd=workdir)
+        assert result.returncode == 0
+        assert result.stdout.count("audit skipped") == 2
