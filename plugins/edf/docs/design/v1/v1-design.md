@@ -4,18 +4,19 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.4 |
-| Status | Reviewed — Gate 1 approved 2026-08-13; §C2.1/§C2.3 path-form amended 2026-08-14 (issue #45); §C4 navigation claim corrected 2026-08-16 (issue #47); C9/C2.9 added 2026-08-16 (issues #60, #63 folded into epic #30) |
+| Version | 1.5 |
+| Status | Reviewed — Gate 1 approved 2026-08-13; §C2.1/§C2.3 path-form amended 2026-08-14 (issue #45); §C4 navigation claim corrected 2026-08-16 (issue #47); C9/C2.9 added 2026-08-16 (issues #60, #63 folded into epic #30); §C2.4/§C6/Flow 3 reconciled 2026-08-31 (ADR-0040) |
 | Author | LS / Claude |
 | Created | 2026-08-01 |
-| Last updated | 2026-08-16 |
-| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.5) |
+| Last updated | 2026-08-31 |
+| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.6) |
 | Mode | Rewrite — supersedes v0.2 |
 
 ## Change Log
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.5 | 2026-08-31 | LS / Claude | **Reconciles the Review Comment Command (C2.4/C6/Flow 3) with the shipped interaction (ADR-0040).** The quick-pick heading selection described since v1.0 was removed during implementation in favour of a line-based insert. §C2.4's responsibilities now describe the line-based flow (resolve via MRU + live visible-editor fallback, no close-and-reopen; insert below cursor-or-top-visible line) and record the **known open defect**: under preview focus the inferred line is unreliable and markers can land at the end of the file, with the robust fix deferred. Flow 3's sequence diagram replaces the quick-pick/no-headings branches with the resolution-fallback and line-inference steps. No component or boundary changed — this corrects what was claimed, not what is built. |
 | 1.4 | 2026-08-16 | LS / Claude | **Fulfils the "future epic" the 1.3 entry deferred.** Added capability C9 and component C2.9 (Diagram Click-Through Overlay), covering Story 2.3 — the reopened "click opens source file" story from requirements v1.5. Folded into Epic 2 (#30) rather than a new epic, on the maintainer's instruction that the extension stay a single `.vsix`; issue #63 (the productionisation task) and #60 (the GitHub-iframe finding that made C4's claim narrower) both close against this revision. Corrected two claims C4/C2.4 made under the narrower 1.3 scope: C2.4's "does not resolve or open source files from diagram links — that moved to V2" no longer holds (C2.9 does exactly this, VSCode-only); the component diagram's "no preview script" note no longer holds (C2.9 reintroduces one, narrower in scope and budget than the deleted `edf://` version). See `lld-v1-e1-2-review-feedback.md` §2.5 for the implementation-level design. |
 | 1.3 | 2026-08-16 | LS / Claude | **Post-Gate-1 correction (issue #47's measured finding), reviewed against #47's conformance report rather than as a separate gate.** §C4 claimed diagram click navigation worked with no extension in either renderer; measured false in both. GitHub is structurally unfixable (cross-origin sandboxed iframe, confirmed 404). VSCode's native click also fails, but a thin `markdown.previewScripts` extension was confirmed working the same day — see requirements v1.4's "Reopened" entry, which pulls the previously-deferred "click opens source file" story back into scope for a future epic. No component or boundary changed; the corrected claim is narrower than what was asserted, not a redesign. |
 | 0.1 | 2026-08-01 | LS / Claude | Initial HLD — Levels 1–3 |
@@ -151,9 +152,11 @@ which determines whether a deferred V2 story is already delivered for free.
 
 When a reviewer spots an issue while reading the preview, they must locate the corresponding
 line in the markdown source by hand, scroll to it, and type a marker. This capability
-provides a command that extracts the document's headings, presents them as a filterable
-quick-pick, and inserts a `> **[Review]:** ` template under the chosen heading with the
-cursor positioned for typing.
+provides a command that inserts a `> **[Review]:** ` template below the line the reviewer
+means — the clicked preview line when the preview holds focus, else the source cursor line —
+with the cursor positioned for typing. (The original quick-pick heading selection was
+removed during implementation; marker placement under preview focus is a known open defect —
+ADR-0040.)
 
 The capability's difficulty is not insertion but *target resolution*: the command is invoked
 while the preview holds focus, and VSCode reports no active text editor in that state. The
@@ -396,22 +399,26 @@ an unparseable diagram wastes the author's attention on the wrong defect.
 ### C2.4: Review Comment Command
 
 **Purpose:** The entire VSCode extension in V1 — one command that inserts a `[Review]` marker
-under a chosen heading.
+below the line the reviewer means. The original quick-pick heading selection was removed
+during implementation (ADR-0040).
 
 **Responsibilities:**
 - Resolve the target document when invoked from a focused preview, where VSCode reports no
-  active text editor: prefer the most recently focused markdown editor, fall back to a single
-  visible markdown editor, and show an explicit message when neither resolves
-- Extract `##` and `###` headings with line numbers, by regex
-- Present a filterable quick-pick, with case-insensitive substring matching
-- Insert `> **[Review]:** ` after the selected heading, after any existing markers already
-  beneath it, preserving their order
-- Leave the document untouched when the reviewer cancels — dismissal is a true no-op
-- Report "No section headings found in this document" when the resolved document has none,
-  rather than presenting an empty quick-pick
+  active text editor: resolve the preview title through the bounded MRU stack of tracked
+  markdown editors, falling back to the live visible-editor set (an editor opened without
+  focus is still found — no close-and-reopen), and show an explicit message when neither
+  resolves — resolution never guesses
+- Insert `> **[Review]:** ` below the inferred line — the source cursor line when the source
+  editor is focused, else the top-visible line of the resolved editor — after any existing
+  markers already beneath it, preserving their order
 - Focus the source editor with the cursor positioned after the inserted text
 - Log resolution failures to an `EDF Review` output channel
-- Work on any markdown document with headings, not only LLDs
+- Work on any markdown document, not only LLDs
+
+**Known open defect (ADR-0040):** under preview focus the inferred line is unreliable — a
+single preview click does not scroll the source editor in this build, so the marker can land
+at the end of the file. The robust fix (overlay `data-line` capture bridged to the extension
+host) is deferred until a confirmed preview→host channel exists.
 
 **Non-responsibilities:**
 - Does not read any file other than the open document — this is the security boundary, and it
@@ -419,12 +426,12 @@ under a chosen heading.
 - Does not make network calls or execute processes
 - Does not inject a script into the markdown preview, and does not participate in diagram
   navigation in any way — that is C2.9's boundary, a separate manifest contribution point
-- Does not parse markdown into an AST — regex is sufficient for the heading structure
+- Does not present a heading quick-pick — the interaction is line-based (ADR-0040)
 - Does not resolve or open source files from diagram links — C2.9 does, and only in VSCode
 
-**Depends on:** VSCode extension API (`window.showQuickPick`,
+**Depends on:** VSCode extension API (`window.showTextDocument`,
 `window.onDidChangeActiveTextEditor`, `TextEditor.edit`). Notably it does **not** depend on
-C2.1's link format — it scans heading structure only, so Epics 1 and 2 are independent.
+C2.1's link format — it is line-based, so Epics 1 and 2 are independent.
 
 ---
 
@@ -677,46 +684,45 @@ sequenceDiagram
     participant Editor as Source Editor
     participant Log as EDF Review Channel
 
-    Note over Tracker: Records the last focused markdown editor<br/>continuously, before the preview takes focus
+    Note over Tracker: Bounded MRU stack of markdown editors (dedup, cap 5)<br/>seeded from visibleTextEditors at activation;<br/>prunes closed documents
     Reviewer->>Palette: "EDF: Insert Review Comment"
     Palette->>Cmd: Execute
     Cmd->>Cmd: Read activeTextEditor
     Note over Cmd: undefined — a webview holds focus.<br/>This is the normal case, not an error
-    Cmd->>Tracker: Resolve target document
-    alt Tracked editor exists
-        Tracker-->>Cmd: Most recently focused markdown editor
-    else Single visible markdown editor
-        Tracker-->>Cmd: That editor
-    else Neither
-        Tracker-->>Cmd: Unresolved
-        Cmd->>Log: Reason no document resolved
-        Cmd-->>Reviewer: "No source document found for this preview"
-    end
-    Cmd->>Editor: Extract ## and ### headings with line numbers
-    Editor-->>Cmd: Heading list
-    alt No headings found
-        Cmd-->>Reviewer: "No section headings found in this document"
-        Note over Editor: Document untouched
-    else Headings found
-        Cmd-->>Reviewer: Filterable quick-pick
-        alt Reviewer presses Escape
-            Cmd-->>Reviewer: Dismissed
-            Note over Editor: Document untouched — cancel is a true no-op
-        else Reviewer selects a heading
-            Note over Cmd: Insertion point is after any existing<br/>[Review] markers, preserving their order
-            Cmd->>Editor: Insert marker, focus, position cursor
-            Note over Reviewer,Editor: Preview stays open in its column
+    Cmd->>Tracker: Resolve target document (preview title → MRU)
+    alt Exactly one tracked editor matches
+        Tracker-->>Cmd: Resolved editor
+    else Zero tracked — check the live visible set
+        Cmd->>Editor: Visible editor with matching basename
+        alt Exactly one visible editor
+            Cmd->>Editor: Resolved (no close-and-reopen)
+        else Zero or multiple
+            Cmd->>Log: Reason no document resolved
+            Cmd-->>Reviewer: "Open the original markdown file in VS Code, then retry"
         end
+    else Multiple tracked editors share the basename
+        Cmd-->>Reviewer: Warning — close the wrong one, then retry
     end
+    Cmd->>Cmd: Infer insertion line (insertionLineFor)
+    Note over Cmd: Source editor focused → cursor line.<br/>Preview focused → top-visible line.
+    Cmd->>Editor: Insert `> **[Review]:** `, focus, position cursor
+    Note over Editor: Known open defect (ADR-0040): under preview focus the<br/>inferred line is unreliable — markers can land at EOF
+    Note over Reviewer,Editor: Preview stays open in its column
 ```
 
 **Walkthrough.** This is the only V1 flow where the system writes to a user's file, making it
 the trust boundary worth diagramming. The interesting property is that the obvious
 implementation — read `activeTextEditor` — returns `undefined` in exactly the situation the
-feature exists to serve, because a webview holds focus. Resolution is therefore a three-way
-decision with an explicit, logged failure rather than a silent no-op. The contracts to pin at
-Level 4 are the tracker's update trigger, the heading-extraction pattern, and the
-insertion-point rule relative to existing markers.
+feature exists to serve, because a webview holds focus. Resolution therefore resolves the
+preview tab title through the bounded MRU stack, falling back to the live visible-editor set
+so an editor opened without focus is still found — no close-and-reopen — with an explicit,
+logged failure rather than a silent no-op. The insertion line is inferred by
+`insertionLineFor`: the cursor line when the source editor is focused, else the top-visible
+line of the resolved editor. That inference is **unreliable under preview focus** (the
+marker can land at the end of the file) — a recorded open defect, not an assumption
+(ADR-0040). The contracts to pin at Level 4 are the tracker's update trigger and the
+insertion-point rule relative to existing markers; there is no heading-extraction pattern —
+the quick-pick and its heading scan are gone.
 
 ---
 

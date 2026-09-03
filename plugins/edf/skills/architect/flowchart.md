@@ -1,13 +1,14 @@
 # /architect — Process flowchart
 
-Visual overview of the batch design artefact generator. Reads a plan, analyses epics, produces ADRs/LLDs/issues/manifests, and commits each artefact. Agent spawns are purple, decisions are orange, human gates are red.
+Visual overview of the batch design artefact generator. Reads a plan, isolates work in a docs worktree, analyses epics, produces ADRs/LLDs/issues/manifests, commits each artefact, then pushes a docs PR and merges it after a confirmation gate. Agent spawns are purple, decisions are orange, human gates are red.
 
 ```mermaid
 flowchart TD
     START(["fa:fa-play /architect invoked"]) --> S1
 
-    S1["S1: Read plan, parse epic filter<br/>Check existing issues, design docs,<br/>issue structure (epic vs task labels)"]
-    S1 --> S2
+    S1["S1: Read plan, parse epic filter<br/>Check existing issues, design docs,<br/>issue structure (epic vs task labels)"] --> S1A
+
+    S1A["S1a: Create docs worktree<br/>git worktree add ../&lt;repo&gt;-docs-&lt;slug&gt;<br/>-b docs/&lt;slug&gt; main, verify CWD"] --> S2
 
     S2["S2: Analyse & present overview<br/>Artefact type, input sources,<br/>output paths, decomposition"] --> S2B
 
@@ -33,7 +34,16 @@ flowchart TD
 
     S6 --> S7["S7: Report<br/>Scope, artefacts, waves,<br/>parallelism refinements, next step"]
 
-    S7 --> DONE(["fa:fa-check Architect complete"])
+    S7 --> S8["S8: Push + create PR<br/>git push -u origin docs/&lt;slug&gt;,<br/>gh pr create (docs-only body)"]
+
+    S8 --> S9_GATE(["fa:fa-hand-o-right Confirm merge"])
+
+    S9_GATE -->|approved| S10["S10: Clean up<br/>gh pr merge --squash,<br/>worktree remove, cd back"]
+
+    S9_GATE -->|declined| S10_NOTE["PR left open for later merge"]
+
+    S10 --> DONE(["fa:fa-check Architect complete"])
+    S10_NOTE --> DONE
 
     %% ── Styles ──
     classDef startend fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
@@ -43,7 +53,7 @@ flowchart TD
     classDef human fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S1,S2,S2B,S3,S4_1,S4_4,S4_5,S5,S6,S7 process
+    class S1,S1A,S2,S2B,S3,S4_1,S4_4,S4_5,S5,S6,S7,S8,S10,S10_NOTE process
     class S4_2,S4_3 agent
-    class S2_GATE human
+    class S2_GATE,S9_GATE human
 ```

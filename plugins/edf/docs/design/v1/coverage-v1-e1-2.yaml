@@ -14,9 +14,13 @@ entries:
     status: Revised
     lld_revision: r1
     # Story 2.1 — primary section is command wiring and target resolution.
-    # Also satisfied in part by
-    # lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-pure-modules
-    # (ACs 2, 7, 9: heading extraction, no-headings message, insert-after-markers).
+    # NOTE (2026-08-31, ADR-0040): the REQ anchor keeps its historical
+    # "-quick-pick-" slug per ADR-0026 (stable IDs), but the interaction shipped as a
+    # LINE-BASED insert with no heading list — the quick-pick was removed during Task 3
+    # (#50). The pure-modules anchor (headings.ts) is now orphaned: extractHeadings is
+    # not in the command path. Insert-after-markers (findReviewInsertLine) remains live.
+    # Anchor field values are unchanged; this comment reconciles the entry with the
+    # shipped state.
 
   - req: REQ-vscode-extension-review-feedback-test-framework-local-packaging
     lld: lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-packaging-security

@@ -4,18 +4,32 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 1.1 |
-| Status | Revised v9 |
-| Revised | 2026-08-24 | Issue #63 |
+| Version | 1.2 |
+| Status | Revised v10 |
+| Revised | 2026-08-31 | Doc reconciliation (ADR-0040) |
 | Author | LS / Claude |
 | Created | 2026-08-13 |
 | Epic | [#30](https://github.com/mironyx/engineering-delivery-framework/issues/30) |
-| Parent | [v1-design.md](v1-design.md) (v1.4) |
-| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.5) |
+| Parent | [v1-design.md](v1-design.md) (v1.5) |
+| Requirements | [v1-requirements.md](../../requirements/v1-requirements.md) (v1.6) |
 | Implementation plan | [2026-08-13-v1-implementation-plan.md](../../plans/2026-08-13-v1-implementation-plan.md) |
 | Epic id | `v1-e1-2` |
 
 ## Recent revisions
+
+**1.2 (2026-08-31).** Design-document reconciliation (`/architect`, ADR-0040). §2.2 and §2.3
+are corrected to the shipped interaction: the command is a **line-based insert with no
+quick-pick**. §2.2 marks `extractHeadings` as orphaned — it is no longer invoked by the
+command path (only its own test file references it), which the section's "the command's only
+real logic" claim silently contradicted; the surviving pure modules are `REVIEW_MARKER` and
+`findReviewInsertLine`. §2.3 replaces the quick-pick sequence branch with the line-inference
+flow (`insertionLineFor`: cursor line when the source editor is focused, else top-visible
+line) and records the **known open defect** — under preview focus the inferred line is
+unreliable and markers can land at the end of the file, because a single preview click never
+moves the source cursor or scrolls the source editor in this build; the robust fix (overlay
+`data-line` capture bridged to the extension host) is deferred. Target resolution is updated
+to the shipped MRU + live visible-editor fallback (no close-and-reopen). See
+[ADR-0040](../../adr/0040-review-comment-insertion-interaction.md).
 
 **1.1 (2026-08-24).** §2.5 synced to the shipped overlay implementation (`edf:lld-sync`,
 issue #63): the manifest table gains the `edf-review.overlayLog` command (+ `commandPalette`
@@ -270,23 +284,29 @@ describe('test harness', () => {
 - [C2.7](v1-design.md#c27-extension-build-and-test-harness) — sufficient; this section adds file-level detail
 - [v1-design.md §Open Questions](v1-design.md#open-questions) — resolved above
 
-## 2.2 Heading extraction and insertion point
+## 2.2 Marker insertion point (pure modules)
 
-**Stories:** 2.1 (ACs 2, 7, 9)
+**Stories:** 2.1 (ACs 4, 7)
 **Layers:** BE — pure modules, no VSCode API.
 
 ### Purpose
 
-Two pure, unit-testable functions that carry the command's only real logic: which headings
-exist and where a new marker belongs. Keeping them free of the VSCode API is what allows
-them to be tested without a host.
+The pure string logic the command actually depends on: `REVIEW_MARKER` (the marker format)
+and `findReviewInsertLine` (where a new marker belongs relative to existing ones). Keeping
+them free of the VSCode API is what allows them to be tested without a host.
+
+> **Orphaned (ADR-0040):** `headings.ts` / `extractHeadings` — the quick-pick design's heading
+> scan — is **no longer invoked by the command path**. `extension.ts` imports only
+> `REVIEW_MARKER` and `findReviewInsertLine` from `review-insert.ts`. The module survives
+> with its test file until a removal decision is made; it is documented here as retained, not
+> live. Its invariants (8, 9) verify the module, not the command.
 
 ### Structural Overview
 
 ```mermaid
 classDiagram
     class Headings["src/headings.ts"] {
-        <<module>>
+        <<module — orphaned, not in command path>>
         +extractHeadings(text) Heading[]
     }
     class Insert["src/review-insert.ts"] {
@@ -299,7 +319,6 @@ classDiagram
         +insertReviewComment()
     }
 
-    Command --> Headings : uses
     Command --> Insert : uses
 
     click Headings href "#LLD-v1-e1-2-pure-modules" _self
@@ -307,42 +326,32 @@ classDiagram
     click Command href "#LLD-v1-e1-2-command-wiring" _self
 ```
 
-**When required:** met — this section introduces two new modules and a dependency edge from
-the command into both.
+**When required:** met — this section introduces the `review-insert.ts` module and the
+command's dependency edge into it. `headings.ts` predates the line-based interaction and is
+retained for reference only.
 
 ### Invariants
 
 | # | Invariant | Verification |
 |---|---|---|
 | 7 | `headings.ts` and `review-insert.ts` import nothing from `vscode` | `grep -L "from 'vscode'"` on both files; unit tests run without a host |
-| 8 | `extractHeadings` returns only `##` and `###` levels | unit test asserts `#`, `####`, `#####` excluded |
-| 9 | Line numbers returned are 0-based and match the source array index | unit test asserts `lines[h.line]` starts with the heading's hashes |
+| 8 | `extractHeadings` returns only `##` and `###` levels *(orphaned module — not in the command path)* | unit test asserts `#`, `####`, `#####` excluded |
+| 9 | Line numbers returned are 0-based and match the source array index *(orphaned module)* | unit test asserts `lines[h.line]` starts with the heading's hashes |
 | 10 | `REVIEW_MARKER` is exactly `> **[Review]:** ` including the trailing space | unit test asserts string equality and length |
 | 11 | A marker run is only consumed while lines start with the marker | unit test with a blank line and a prose line interrupting the run |
 
 ### Acceptance Criteria
 
-- [ ] `extractHeadings` returns `{ line, text, level }` for every `##`/`###` heading
-- [ ] `#`, `####` and deeper are excluded; ATX-close (`## Title ##`) is handled; text is trimmed
-- [ ] Headings inside fenced code blocks are **not** returned
 - [ ] `findReviewInsertLine` returns the heading line when no marker follows
 - [ ] It returns the last marker line when one or more consecutive markers follow
 - [ ] A blank or prose line terminates the marker run
-- [ ] Both modules are covered by passing Mocha specs
+- [ ] `REVIEW_MARKER` is exactly `> **[Review]:** ` with the trailing space
+- [ ] Both surviving modules are covered by passing Mocha specs
+- [ ] `extractHeadings` (orphaned) is not imported by the command path — a repo grep shows no `extension.ts` reference
 
 ### BDD Specs
 
 ```ts
-describe('extractHeadings', () => {
-  it('extracts ## and ### headings with 0-based line numbers');
-  it('ignores a single # title');
-  it('ignores #### and deeper headings');
-  it('strips leading hashes and trims heading text');
-  it('handles ATX-close headings');
-  it('ignores headings inside fenced code blocks');
-  it('returns an empty array for a document with no headings');
-});
-
 describe('findReviewInsertLine', () => {
   it('returns the heading line when no marker follows');
   it('returns the single marker line when one follows');
@@ -397,19 +406,11 @@ sequenceDiagram
             Cmd->>Log: Reason ambiguous basename
         end
     end
-    Cmd->>Editor: Extract headings
-    alt No headings
-        Cmd-->>Reviewer: No section headings found in this document
-        Note over Editor: Enforcement — document untouched,<br/>no empty quick-pick shown
-    else Headings found
-        Cmd-->>Reviewer: Filterable quick-pick
-        alt Escape
-            Note over Editor: Enforcement — cancel is a true no-op,<br/>no edit is applied
-        else Selection
-            Cmd->>Editor: Insert marker, focus, position cursor
-            Note over Reviewer,Editor: Preview stays open in its column
-        end
-    end
+    Cmd->>Editor: Infer insertion line (insertionLineFor)
+    Note over Cmd: Source editor focused → cursor line.<br/>Preview focused → top-visible line of the<br/>resolved editor.
+    Cmd->>Editor: Insert `> **[Review]:** ` after existing markers,<br/>focus, position cursor
+    Note over Reviewer,Editor: Known open defect (ADR-0040): under preview focus<br/>the inferred line is unreliable — a single preview click<br/>does not scroll the source editor, so the marker<br/>can land at the end of the file
+    Note over Reviewer,Editor: Preview stays open in its column
 ```
 
 **Walkthrough.** Resolution is the section's substance. The obvious implementation — read
@@ -418,12 +419,21 @@ a webview holds focus. The focused markdown preview is therefore the only legiti
 Its tab title ("Preview &lt;name&gt;") is the anchor: no preview → stop with guidance; a preview
 title is looked up in the tracker's bounded markdown-only MRU stack, which is seeded from the
 editors open at activation so a fresh activation doesn't start empty. Exactly one match
-resolves; zero and multiple (two documents share the basename) both stop — the former tells
-the user to open the original file (the reachable cases are the source editor being closed —
-with or without a restart — while the preview stays open, or eviction from the bounded stack),
-the latter with a warning to close the wrong one. Resolution never guesses. The two cancel
-paths (Escape, no headings) leave the document byte-identical, which is what makes them
-testable.
+resolves; zero matches fall back to the **live visible-editor set** — an editor opened
+without gaining focus is still found, so there is no close-and-reopen — and only when neither
+tracked nor visible editors match does resolution stop with guidance to open the original
+file. Multiple matches (two documents share the basename) stop with a warning. Resolution
+never guesses.
+
+There is **no heading list and no quick-pick** (ADR-0040). The insertion line is inferred by
+`insertionLineFor`: the source cursor line when the source editor is focused, else the
+top-visible line of the resolved editor. That inference is **unreliable under preview focus**
+— a single preview click never moves the source cursor in this build
+(`markdown.preview.markEditorSelection` is CSS-only) and does not scroll the source editor,
+so the top-visible line is stale and the marker can land at the end of the file. This is a
+recorded open defect, not an assumption; the robust fix (overlay `data-line` capture bridged
+to the extension host) is deferred. The marker-format contract is unchanged: `> **[Review]:** `
+inserted after any existing consecutive markers, preserving their order.
 
 ### Structural Overview
 
@@ -444,7 +454,7 @@ classDiagram
         +createLog() Logger
     }
     class Headings["src/headings.ts"] {
-        <<module>>
+        <<module — orphaned, not in command path>>
     }
     class Insert["src/review-insert.ts"] {
         <<module>>
@@ -452,7 +462,6 @@ classDiagram
 
     Command --> Tracker : resolves through
     Command --> Log : reports failures to
-    Command --> Headings : uses
     Command --> Insert : uses
 
     click Command href "#LLD-v1-e1-2-command-wiring" _self
@@ -466,12 +475,11 @@ classDiagram
 
 | Screen | Visual reference | States shown | REQ anchors | HLD component |
 |---|---|---|---|---|
-| Review comment insertion | [vis-review-comment-insertion.html](vis-review-comment-insertion.html) | Quick-pick open, inserted | [REQ-…-quick-pick-insert-review-comment](../../requirements/v1-requirements.md#REQ-vscode-extension-review-feedback-quick-pick-insert-review-comment) | [C2.4](v1-design.md#c24-review-comment-command) |
+| Review comment insertion | [vis-review-comment-insertion.html](vis-review-comment-insertion.html) | Inserted state only — the quick-pick open state is obsolete (ADR-0040) | [REQ-…-quick-pick-insert-review-comment](../../requirements/v1-requirements.md#REQ-vscode-extension-review-feedback-quick-pick-insert-review-comment) | [C2.4](v1-design.md#c24-review-comment-command) |
 
-> **Captured for Task 3 (#50).** Per ADR-0035 every state in the table needs a visual;
-> both states declared in the wireframe are captured below (quick-pick open, inserted).
-
-![Quick-pick listing headings with 1-based line numbers](vis-review-comment-insertion-quickpick.png)
+> **Captured for Task 3 (#50).** Per ADR-0035 every state in the table needs a visual. The
+> wireframe declared two states (quick-pick open, inserted); the quick-pick state no longer
+> exists — the interaction is line-based — so only the inserted state below is current.
 
 ![Review marker inserted with cursor positioned after the marker text](vis-review-comment-insertion-inserted.png)
 
@@ -481,8 +489,8 @@ classDiagram
 |---|---|---|
 | 12 | Resolution never throws, and never targets an editor that does not match the preview title's basename | integration test with no preview focused asserts the guidance message, not an exception; a resolving test asserts `path.basename(target.uri.fsPath) === previewTitleName` |
 | 13 | Every resolution failure produces exactly one `EDF Review` log entry | integration test asserts channel content after a failed invocation |
-| 14 | Escape leaves the document byte-identical | integration test compares `document.getText()` before and after |
-| 15 | An empty-heading document produces a message and no edit | integration test asserts message shown and text unchanged |
+| 14 | The insertion line is the source cursor line when the source editor is focused, else the top-visible line of the resolved editor | unit test on `insertionLineFor` with focused vs unfocused editor |
+| 15 | Under preview focus the inferred line is unreliable — markers can land at the end of the file; this is a recorded open defect, not an assumption | documented in ADR-0040; the test suite pins the *mechanism* (top-visible), not the outcome |
 | 16 | Insertion applies as a single edit | assert `document.version` increases by exactly 1 |
 | 17 | The cursor lands immediately after the marker text | assert `selection.active.character === REVIEW_MARKER.length` |
 | 18 | The extension reads no file other than the resolved open document | grep the tree for `workspace.fs`, `readFile`, `fetch`, `child_process`; assert none |
@@ -491,14 +499,14 @@ classDiagram
 
 - [ ] "EDF: Insert Review Comment" appears in the command palette
 - [ ] Resolves only when the focused tab is the markdown preview and the preview title (`Preview <name>`) uniquely matches a tracked open markdown editor in the bounded MRU stack (seeded from `visibleTextEditors` at activation, deduped on focus, cap 5, prunes closed documents)
+- [ ] A zero tracked-match falls back to the live visible-editor set — an editor opened without focus is still found, with no close-and-reopen
 - [ ] Stops with guidance when no markdown preview is focused — resolution never guesses
 - [ ] Shows a warning asking to close the wrong document when two tracked editors share the preview title's basename, then stops
-- [ ] Never targets an editor that does not match the preview title; a zero-match stop tells the user to open the original markdown file and logs why
-- [ ] Quick-pick lists `##`/`###` headings with line numbers, filtering case-insensitively
-- [ ] Enter inserts `> **[Review]:** ` after the heading, or after existing markers
+- [ ] Never targets an editor that does not match the preview title; when neither tracked nor visible editors match, tells the user to open the original markdown file and logs why
+- [ ] Inserting with the source editor focused places the marker below the cursor line
+- [ ] Inserting with the preview focused places the marker below the inferred line — the top-visible line of the resolved editor (known open defect: unreliable, markers can land at EOF — ADR-0040)
+- [ ] Inserting places `> **[Review]:** ` after any existing consecutive markers, preserving their order
 - [ ] The editor gains focus with the cursor immediately after the marker text
-- [ ] Escape dismisses with the document untouched
-- [ ] An empty-heading document shows "No section headings found in this document"
 - [ ] The command works on any markdown document, not only LLDs
 
 ### BDD Specs
@@ -506,21 +514,21 @@ classDiagram
 ```ts
 describe('insertReviewComment — target resolution', () => {
   it('resolves to the document named by the focused preview tab title when it uniquely matches a tracked editor');
+  it('falls back to the live visible-editor set when no tracked editor matches');
   it('stops with guidance when the focused tab is not a markdown preview');
   it('warns to close the wrong document when two tracked editors share the basename, then stops');
-  it('tells the user to open the original markdown file when no tracked editor matches');
+  it('tells the user to open the original markdown file when neither tracked nor visible editors match');
   it('logs the reason to the EDF Review channel when resolution fails');
 });
 
-describe('insertReviewComment — quick-pick', () => {
-  it('lists ## and ### headings with line numbers');
-  it('filters the list case-insensitively');
-  it('shows the no-headings message for a document without headings');
-  it('leaves the document untouched when dismissed with Escape');
+describe('insertReviewComment — insertion line (insertionLineFor)', () => {
+  it('uses the source cursor line when the source editor is focused');
+  it('uses the top-visible line of the resolved editor when the preview holds focus');
+  it('falls back to the cursor line when the editor has no visible range');
 });
 
 describe('insertReviewComment — insertion', () => {
-  it('inserts the marker on a new line after the selected heading');
+  it('inserts the marker on a new line below the inferred line');
   it('inserts after existing consecutive review markers, preserving order');
   it('applies the insertion as a single edit');
   it('focuses the editor with the cursor after the marker text');
@@ -738,10 +746,11 @@ describe('overlay error handling', () => {
 > feature. Raise it separately if wanted.
 
 > **API surfaces relied upon**, all long-stable and present in `@types/vscode ^1.88.0`:
-> `commands.registerCommand`, `window.showQuickPick`, `window.showInformationMessage`,
-> `window.onDidChangeActiveTextEditor`, `window.activeTextEditor`,
-> `window.visibleTextEditors`, `window.showTextDocument`, `window.createOutputChannel`,
-> `TextEditor.edit`, `Selection`, `Position`.
+> `commands.registerCommand`, `window.showWarningMessage`, `window.showErrorMessage`,
+> `window.onDidChangeActiveTextEditor`, `workspace.onDidCloseTextDocument`,
+> `window.activeTextEditor`, `window.visibleTextEditors`, `window.showTextDocument`,
+> `window.createOutputChannel`, `TextEditor.edit`, `Selection`, `Position`. (No
+> `window.showQuickPick` — the quick-pick was removed, ADR-0040.)
 >
 > **Not used, and their absence is the design:** `window.onDidReceivePreviewMessage` (does
 > not exist — see ADR-0038), `workspace.fs.*`, `child_process`, any network API. Invariant 18
@@ -789,7 +798,7 @@ extensions/edf-review/
 | Field | From | To |
 |---|---|---|
 | `displayName` | "EDF Review — Navigable LLD Diagrams" | "EDF Review" |
-| `description` | "Makes edf:// links in LLD diagrams interactive: hover shows code, click opens source files side-by-side…" | "Insert `[Review]` markers into markdown documents from a command-palette quick-pick." |
+| `description` | "Makes edf:// links in LLD diagrams interactive: hover shows code, click opens source files side-by-side…" | "Insert `[Review]` markers below the line selected in the markdown preview." |
 | `version` | `0.1.0` | `0.2.0` |
 | `main` | `./out/extension.js` | `./out/src/extension.js` (rootDir consequence — see note below) |
 | `activationEvents` | `["onMarkdownPreview"]` | `[]` (see OQ2 consequence) |
@@ -853,9 +862,9 @@ nothing yet.
 #### File structure
 
 ```
-extensions/edf-review/src/headings.ts            — create
+extensions/edf-review/src/headings.ts            — create (orphaned, see below)
 extensions/edf-review/src/review-insert.ts       — create
-extensions/edf-review/test/suite/headings.test.ts       — create
+extensions/edf-review/test/suite/headings.test.ts       — create (orphaned, see below)
 extensions/edf-review/test/suite/review-insert.test.ts  — create
 extensions/edf-review/test/suite/pure-modules.eval.test.ts — create (evaluator-added, Issue #49)
 ```
@@ -864,6 +873,11 @@ extensions/edf-review/test/suite/pure-modules.eval.test.ts — create (evaluator
 > `edf:feature-evaluator` — it reads both source files and asserts they contain no `vscode`
 > import (Invariant 7), making the host-freedom guarantee a runnable check rather than a
 > reviewer assertion.
+
+> **Orphaned module (ADR-0040):** `headings.ts` / `extractHeadings` is no longer invoked by
+> the command path — the quick-pick it served was removed during Task 3 (#50). The module and
+> its test file are retained pending a removal decision; the spec below documents them for the
+> historical interaction, not for live command wiring.
 
 #### Internal types
 
@@ -882,6 +896,7 @@ export interface Heading {
 export function extractHeadings(text: string): Heading[]
   // Splits on /\r?\n/. Tracks fenced-code state on ``` and ~~~ so headings inside
   // fences are skipped. Matches /^(#{2,3})\s+(.*?)(?:\s+#+)?\s*$/ outside fences.
+  // ORPHANED (ADR-0040): not in the command path; retained with its test file.
 
 // src/review-insert.ts
 export const REVIEW_MARKER = '> **[Review]:** ';   // trailing space is significant
@@ -895,8 +910,10 @@ export function findReviewInsertLine(lines: string[], headingLine: number): numb
 > to §2.3. Invariant 7 checks this by grep.
 
 > **Constraint:** the fenced-code guard is not optional. An LLD's Part B routinely contains
-> ` ```markdown ` blocks demonstrating heading syntax; without the guard the quick-pick
-> offers headings that are examples, and inserting under one corrupts a code block.
+> ` ```markdown ` blocks demonstrating heading syntax; without the guard `extractHeadings`
+> reports example-headings from fenced code blocks as real sections, corrupting any consumer
+> that inserts under them. The quick-pick that motivated this originally is gone (ADR-0040),
+> but the spec stays correct because the module is retained and could be re-invoked.
 
 > **Implementation note (issue #49):** the fence guard closes a fence only on the **same**
 > marker character — a `~~~` line inside an open ` ``` ` fence (or vice versa) is content,
@@ -960,7 +977,14 @@ export function previewTitleName(activeTab: vscode.Tab | undefined): string | un
   // If activeTab is the built-in markdown preview (TabInput.WebviewPanel with viewType
   // === 'markdown.preview'), return path.basename of its label minus a leading "Preview "
   // (basename tolerates labelFormat short/medium/long, e.g. "Preview sub/dir/foo.md").
-  // Otherwise return undefined.
+  // Otherwise return undefined. viewType is compared after stripping a
+  // "mainThreadWebview-" prefix (observed on this VS Code build) so the match
+  // survives builds that omit the prefix.
+
+export function editorTabName(activeTab: vscode.Tab | undefined): string | undefined
+  // The basename of a focused markdown SOURCE-editor tab (TabInput.Text), undefined for
+  // non-markdown tabs. In a real split layout the active tab is usually the source editor
+  // while the preview sits beside it — both legitimately name the target (0.9).
 
 export function mruMatchesForName(
   tracker: EditorTracker,
@@ -968,18 +992,28 @@ export function mruMatchesForName(
 ): readonly vscode.TextEditor[]
   // Still-open MRU entries whose document's basename === name, in recency order.
 
+export function visibleMarkdownEditorsNamed(name: string): readonly vscode.TextEditor[]
+  // Live window.visibleTextEditors scan for open markdown editors whose basename === name,
+  // deduped by document URI. The live-visible fallback (0.2.10): an editor opened WITHOUT
+  // gaining focus (a diagram click-link opening with preserveFocus) never entered the MRU
+  // stack, so resolveTarget consults this set before concluding "no document".
+
 export async function resolveTarget(
   tracker: EditorTracker,
   activeTab: vscode.Tab | undefined
 ): Promise<Resolution>
-  // The focused preview is the only legitimate trigger — activeTextEditor is undefined
-  // while a webview holds focus, which is the normal case here, not an error.
-  //   1. name = previewTitleName(activeTab); if !name → { kind: 'none', reason: NO_PREVIEW_MSG }
+  // The focused preview (or focused markdown source editor, 0.9) is the only legitimate
+  // trigger — activeTextEditor is undefined while a webview holds focus, which is the
+  // normal case here, not an error.
+  //   1. name = previewTitleName(activeTab) ?? editorTabName(activeTab); if !name →
+  //        { kind: 'none', reason: NO_PREVIEW_MSG }
   //   2. matches = mruMatchesForName(tracker, name)
   //   3. if matches.length === 1 → { kind: 'resolved', editor } for
   //        await window.showTextDocument(matches[0].document,
   //        { preview: true, preserveFocus: true })
-  //   4. if matches.length === 0 → { kind: 'none', reason: NO_DOCUMENT_MSG }
+  //   4. if matches.length === 0 → fall back to live = visibleMarkdownEditorsNamed(name);
+  //        live.length === 1 → resolved (no close-and-reopen); live.length > 1 →
+  //        AMBIGUOUS_MSG; else { kind: 'none', reason: NO_DOCUMENT_MSG }
   //   5. if matches.length > 1 → await window.showWarningMessage(AMBIGUOUS_MSG(name));
   //        { kind: 'none', reason: AMBIGUOUS_MSG(name) }  // never guess on ambiguity
 
@@ -993,6 +1027,24 @@ async function insertReviewComment(
   tracker: EditorTracker,
   log: (m: string) => void
 ): Promise<void>
+export function insertionLineFor(
+  editor: vscode.TextEditor,
+  focusedEditor: vscode.TextEditor | undefined
+): number
+  // Two flows (ADR-0040): a focused text editor matching the resolved document → the
+  // cursor line; otherwise the top-visible line (visibleRanges[0].start.line) on the
+  // assumption that a preview click scrolled the source editor to the top. KNOWN OPEN
+  // DEFECT: a single preview click does NOT scroll the source editor in this build, so
+  // the top-visible signal is stale — markers can land at the end of the file. Falls
+  // back to the cursor line when the editor has no visible range.
+export function applyMarker(
+  editor: vscode.TextEditor,
+  line: number,
+  log: (m: string) => void
+): Promise<void>
+  // Single editor.edit inserting REVIEW_MARKER below the last consecutive marker after
+  // `line` (findReviewInsertLine); EOL-honouring; end-of-document separator; cursor
+  // placement at marker end; then focus the source editor.
 ```
 
 #### Internal decomposition — `insertReviewComment`
@@ -1001,23 +1053,24 @@ async function insertReviewComment(
 Command handler (src/extension.ts, orchestration only):
 - const res = await resolveTarget(tracker, window.tabGroups.activeTabGroup?.activeTab)
 - if res.kind === 'none' → log(res.reason); showWarningMessage(res.reason); return
-- const headings = extractHeadings(res.editor.document.getText())
-- if headings.length === 0 → showInformationMessage(NO_HEADINGS_MSG); return
-- const picked = await window.showQuickPick(toItems(headings), { placeHolder, matchOnDetail: false })
-- if (!picked) return                      // Escape — true no-op, no edit applied
-- await applyMarker(res.editor, picked.line, log)
+- const line = insertionLineFor(res.editor, window.activeTextEditor)   // see insertionLineFor
+- await applyMarker(res.editor, line, log)
 
   Private helpers (each ≤ 20 lines):
-  - toItems(headings: Heading[]): QuickPickItem & { line: number }[]
-      label = '#'.repeat(heading.level) + ' ' + heading.text   // level prefix is the match field
-      description = `line ${heading.line + 1}`   // 1-based for display
-  - applyMarker(editor: vscode.TextEditor, headingLine: number, log): Promise<void>
+  - insertionLineFor(editor, focusedEditor): number   // exported, signature above
+      if focusedEditor && focusedEditor.document.uri === editor.document.uri
+        → editor.selection.active.line                          // source editor focused
+      else → editor.visibleRanges[0].start.line                 // preview focused: top-visible
+        // KNOWN OPEN DEFECT (ADR-0040): a single preview click does not scroll the source
+        // editor, so top-visible can be stale — often the end of the file.
+        // Falls back to the cursor line when the editor has no visible range.
+  - applyMarker(editor, at: number, log): Promise<void>   // exported, signature above
       const lines = editor.document.getText().split(/\r?\n/)
-      const at = findReviewInsertLine(lines, headingLine)
-      if (at + 1 > lines.length) → log('selected heading no longer exists'); showErrorMessage; return
+      const at = findReviewInsertLine(lines, at)
       const newline = editor.document.eol === CRLF ? '\r\n' : '\n'
       const separator = at + 1 === lines.length ? newline : ''   // no trailing newline → own line
-      await editor.edit(b => b.insert(new vscode.Position(at + 1, 0), separator + REVIEW_MARKER + newline))
+      const ok = await editor.edit(b => b.insert(new vscode.Position(at + 1, 0), separator + REVIEW_MARKER + newline))
+      if (!ok) → log('failed to insert review marker'); showErrorMessage; return
       const pos = new vscode.Position(at + 1, REVIEW_MARKER.length)
       editor.selection = new vscode.Selection(pos, pos)
       await window.showTextDocument(editor.document, editor.viewColumn, false)
@@ -1026,50 +1079,53 @@ Message constants (module level, so specs assert against the same string):
 - NO_PREVIEW_MSG   = 'Run this command while the markdown preview is focused'
 - NO_DOCUMENT_MSG  = 'Open the original markdown file in VS Code, then retry'
 - AMBIGUOUS_MSG(n) = `Two documents named ${n} are open — close the one you don't want, then retry`
-- NO_HEADINGS_MSG  = 'No section headings found in this document'
 ```
 
 > **Implementation note (issue #50):** `applyMarker` ships hardened beyond the original
 > decomposition. It takes a `log` parameter to implement the error-table row "editor.edit
-> returns false → log the failure; show a message". A stale-heading guard fails explicitly
-> when the selected heading was deleted while the quick-pick was open (the alternative is an
-> unhandled RangeError from `Position(at + 1, 0)`). The inserted newline honours
-> `editor.document.eol`, and when the heading (or last consecutive marker) is the document's
-> final line with no trailing newline, a separator newline is prepended so the marker lands on
-> its own line instead of being glued onto the heading text.
+> returns false → log the failure; show a message". The inserted newline honours
+> `editor.document.eol`, and when the target line (or the last consecutive marker) is the
+> document's final line with no trailing newline, a separator newline is prepended so the
+> marker lands on its own line instead of being glued onto the text above it. There is no
+> stale-heading guard: the target line comes from `insertionLineFor` (never a picked heading
+> that could be deleted mid-interaction), and `findReviewInsertLine` returns its input
+> unchanged for an out-of-range line, so `Position(at + 1, 0)` cannot throw a RangeError.
 
 > **Constraint:** exactly one `editor.edit` call. Invariant 16 asserts `document.version`
 > increases by 1 — two edits would also produce correct text while making the undo stack
 > two steps deep, which is a worse reviewer experience and is invisible to a text assertion.
 
-> **Constraint:** the quick-pick shows **1-based** line numbers (`heading.line + 1`) because
-> that is what the editor's gutter shows, while `Heading.line` stays 0-based because that is
-> what indexes the array. Mixing these is the most likely off-by-one in this task.
+> **Constraint (line-based, no quick-pick, ADR-0040):** the command never opens a heading
+> list. The marker lands below the inferred line — the source cursor line when the source
+> editor is focused, else the top-visible line — and the top-visible inference is accepted
+> as unreliable (markers can land at the end of the file). The Escape path that a quick-pick
+> provided is gone; there is no no-op cancel between resolution and insertion.
 
-> **Constraint:** `showQuickPick` returning `undefined` is the Escape path and must return
-> before any edit. Do not pre-apply an edit and undo it on cancel.
-
-> **Constraint (title-only + MRU lookup, 0.8):** the focused preview is the only legitimate
-> trigger; resolution never guesses. No preview → stop with `NO_PREVIEW_MSG`; a non-unique
-> basename (multiple tracked editors) → `AMBIGUOUS_MSG(name)` warning and stop. Candidates come
-> from the bounded markdown-only MRU stack (seeded from `visibleTextEditors` at activation,
-> cap 5, deduped on focus, tail evicted, pruned on close). Zero match → `NO_DOCUMENT_MSG`,
-> which instructs the user to open the original file — the reachable causes are the source
-> editor being closed (with or without a restart) while the preview stays open, or eviction
-> from the bounded stack; the file is never silently assumed. The resolved branch opens with
-> `{ preview: true, preserveFocus: true }` so the preview stays on screen — matching
-> `applyMarker`'s existing behaviour of focusing the source editor at insertion time.
+> **Constraint (title-only + MRU lookup, 0.8, live fallback 0.2.10):** the focused preview
+> (or focused markdown source editor) is the only legitimate trigger; resolution never
+> guesses. No name from the active tab → stop with `NO_PREVIEW_MSG`; a non-unique basename
+> (multiple tracked editors) → `AMBIGUOUS_MSG(name)` warning and stop. Candidates come from
+> the bounded markdown-only MRU stack (seeded from `visibleTextEditors` at activation,
+> cap 5, deduped on focus, tail evicted, pruned on close). Zero tracked match → fall back to
+> the **live visible-editor set** (`visibleMarkdownEditorsNamed`): an editor opened without
+> gaining focus (a diagram click-link opens with `preserveFocus`) never entered the stack, and
+> the reviewer must not be told to close and reopen the file (review feedback #63). Only when
+> no visible editor matches either does the command reach `NO_DOCUMENT_MSG` — the file is never
+> silently assumed. The resolved branch opens with `{ preview: true, preserveFocus: true }` so
+> the preview stays on screen — matching `applyMarker`'s existing behaviour of focusing the
+> source editor at insertion time.
 
 #### Error handling
 
 | Case | Behaviour |
 |---|---|
-| Focused tab is not a markdown preview | `NO_PREVIEW_MSG` to the user, reason to `EDF Review` — no guessing |
+| Focused tab is not a markdown preview or markdown editor | `NO_PREVIEW_MSG` to the user, reason to `EDF Review` — no guessing |
 | Preview title matches exactly one tracked editor | Resolved; editor opened with `{ preview: true, preserveFocus: true }` |
 | Preview title matches multiple tracked editors (same basename) | `AMBIGUOUS_MSG(name)` warning to the user, reason to `EDF Review` — stop, no guess |
-| Preview title matches zero tracked editors (original file closed, or evicted from the bounded stack) | `NO_DOCUMENT_MSG` to the user (open the original file), reason to `EDF Review` |
-| Document has no `##`/`###` headings | `NO_HEADINGS_MSG`, no edit |
-| Quick-pick dismissed | Silent return, no edit, no log entry |
+| Preview title matches zero tracked editors, exactly one visible editor | Resolved via live-visible fallback (0.2.10) — no close-and-reopen |
+| Preview title matches zero tracked and zero visible editors (original file genuinely closed) | `NO_DOCUMENT_MSG` to the user (open the original file), reason to `EDF Review` |
+| Source editor focused | `insertionLineFor` returns the cursor line — marker below the cursor |
+| Preview focused, top-visible inference stale | **Known open defect (ADR-0040):** marker can land at the end of the file — no error, wrong placement |
 | `editor.edit` returns `false` | Log the failure; show a message. Do not retry |
 
 <a id="LLD-v1-e1-2-packaging-security"></a>
@@ -1357,9 +1413,10 @@ Replace the "No preview script injection" row and add:
 **HLD reference:** [C6](v1-design.md#c6-in-flow-review-feedback), [Flow 3](v1-design.md#flow-3-review-comment-insertion-with-target-resolution-trust-boundary)
 
 **What:** Register `edf-review.insertReviewComment`; add the editor tracker and title-anchored
-target resolution, the `EDF Review` output channel, the quick-pick, single-edit insertion,
-cursor placement and focus. Integration specs under the test host. Capture the two
-wireframe screenshots per ADR-0035.
+target resolution (MRU + live visible-editor fallback), the `EDF Review` output channel,
+line-inference insertion (`insertionLineFor`, ADR-0040), single-edit insertion, cursor
+placement and focus. Integration specs under the test host. Capture the inserted-state
+screenshot per ADR-0035.
 
 **Acceptance criteria:** see [§2.3](#23-command-wiring-and-target-resolution).
 

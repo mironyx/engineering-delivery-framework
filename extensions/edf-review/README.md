@@ -32,10 +32,18 @@ shipped one, then commit the replacement.
 
 ## Usage
 
-Open a markdown document and its preview. Click the line in the preview you want to review —
-the preview scrolls the source editor so that line sits at the top of its viewport. Run
-`EDF: Insert Review Comment` from the command palette: a `> **[Review]:** ` marker is inserted
-on the line below the preview line you clicked, the cursor lands right after the marker, and
-the source editor is focused so you can type your note. (If the source editor holds focus
-instead of the preview, the marker goes below the cursor line.) Clicking a diagram `click`
-link inside a preview opens the linked source file.
+Open a markdown document and its preview. Run `EDF: Insert Review Comment` from the command
+palette: a `> **[Review]:** ` marker is inserted below the line being reviewed, the cursor
+lands right after the marker, and the source editor is focused so you can type your note.
+
+Two flows, discriminated by which editor holds focus:
+
+- **Source editor focused (reliable):** the marker goes below the cursor line.
+- **Preview focused (known defect):** the marker goes below the preview's top-visible line.
+  A single preview click does **not** scroll the source editor to the clicked line in this
+  build, so the marker can land at the end of the file. For reliable placement, click the
+  line in the **source editor** first, then run the command. See ADR-0040.
+
+Clicking a diagram `click` link inside a preview opens the linked source file beside the
+preview (native VS Code preview handling + the workspace `markdown.preview.openMarkdownLinks`
+/ `markdown.links.openLocation` settings).
