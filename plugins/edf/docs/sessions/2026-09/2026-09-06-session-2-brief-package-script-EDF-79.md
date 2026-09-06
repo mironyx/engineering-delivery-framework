@@ -78,8 +78,20 @@ verification.
   the failure anywhere — Step 4bF's version now instructs appending it to the session
   log's Concerns section immediately. Full suite re-run clean after all three fixes: 455
   passed, 18 pre-existing skips.
+- **Second re-review pass found a real bug in the fix itself:** `extract_by_heading_text`'s
+  awk never exited non-zero on a no-match (only a missing file did), so the caller's
+  fallback-to-full-body path for "no Acceptance Criteria heading found" was dead code — an
+  issue without that heading would silently get an empty "resolved" section instead of the
+  documented fallback. Fixed with a `matched` flag + `END { if (!matched) exit 1 }`.
+  Added regression test `test_ac_extraction_falls_back_when_no_heading_found` (using issue
+  #1, which has no AC heading) — this is exactly the kind of gap a hand-crafted fixture
+  wouldn't have caught since I only ever tested against issues that DO have the heading.
+  Also fixed two stale "from Step 3" cross-references in `feature-core/SKILL.md` left over
+  from the earlier fix that moved the brief-build step into Step 4bF. A final targeted
+  re-review pass reported no further findings. 456 passed, 18 pre-existing skips.
 | 3c | 2026-09-06T15:19:18Z | unavailable | unavailable | pressure: heavy - brief-package.sh ~230 lines single file, no split warranted |
 | 5 | 2026-09-06T15:30:21Z | unavailable | unavailable | green — 454 passed (pytest direct; run-tests.sh wrapper blocked by pre-existing missing pyproject.toml) |
 | 6 | 2026-09-06T15:32:09Z | unavailable | unavailable | diag tooling unavailable in this environment (no editor, no CodeScene MCP, SonarQube down) - manual review substituted |
 | 6b | 2026-09-06T15:41:29Z | unavailable | unavailable | evaluator: PASS WITH WARNINGS - 1 coverage gap + 2 silent-failure risks, both fixed |
 | 8 | 2026-09-06T15:43:40Z | unavailable | unavailable | [PR #87](https://github.com/mironyx/engineering-delivery-framework/pull/87) |
+| 9 | 2026-09-06T16:08:40Z | unavailable | unavailable | review clean after 2 rounds - 5 findings fixed total, final re-check clean |
