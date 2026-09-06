@@ -1,12 +1,26 @@
 ---
 name: diag
-description: Check diagnostics-exporter output for changed files, run CodeScene health checks, and SonarQube quality gate. Use when the user wants to check code quality, review diagnostics, or before committing code.
+description: Check diagnostics-exporter output for changed files and run CodeScene health checks. Pass `sonar` to also run the SonarQube quality gate. Use when the user wants to check code quality, review diagnostics, or before committing code.
 allowed-tools: Read, Write, Edit, MultiEdit, Glob, Bash, Skill, mcp__codescene__code_health_review, mcp__codescene__code_health_score
 ---
 
 # Check Diagnostics — On-Demand Code Quality Check
 
 Reads diagnostics exported by the diagnostics-exporter extension from `.diagnostics/`. Use for a batch check across multiple files, e.g., before committing.
+
+## Scope: local (default) vs. `sonar`
+
+Steps 1-7 (diagnostics-exporter + CodeScene) reflect **live local edits** — cheap, fast,
+safe to run on every fix-and-recheck iteration. Step 8 (SonarQube quality gate) reflects
+**the last commit SonarCloud has analysed** (typically triggered by CI on push) — it does
+not see uncommitted local changes, so re-running it before pushing again just returns the
+same result at full token cost.
+
+- **No arguments, or any argument other than `sonar`:** run Steps 1-7 only. This is the
+  default and the right choice for a local fix-and-recheck loop.
+- **`sonar` argument present in `$ARGUMENTS`:** also run Step 8. Callers should invoke this
+  **once** per push, not in a tight local loop — see the caller's own retry policy (e.g.
+  `edf:feature-core` Step 6 runs the sonar gate once, separately from its local diag loop).
 
 ## How diagnostics are generated
 
@@ -35,7 +49,7 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
    ```
    ### Diagnostics-exporter
    **Skipped** — `.diagnostics/` directory not found (worktree or non-editor environment).
-   CodeScene and SonarQube checks will still run.
+   CodeScene checks will still run (and SonarQube, if `sonar` was passed).
    ```
 
    **If EXISTS**, continue to Step 3.
@@ -97,14 +111,17 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
    **If any file scores ≤ 9.8**, include the detailed review findings in the report and fix them before proceeding, following the same fix-and-recheck loop as Step 5.
 
-8. **SonarQube quality gate.**
+8. **SonarQube quality gate (only when `sonar` is in `$ARGUMENTS`).**
 
-   After the CodeScene MCP pass, run the SonarQube quality gate. This works independently of
-   the editor and worktree status — no files need to be open, no editor required.
+   Skip this step entirely for a plain `edf:diag` call — see "Scope" above. When `sonar` is
+   present, run the SonarQube quality gate. This works independently of the editor and
+   worktree status — no files need to be open, no editor required.
 
-   **Important:** SonarQube is a project-level check, not a file-level check. It analyses the
-   state of the branch, not individual files. Run it to catch issues that diagnostics-exporter
-   and CodeScene may miss (security hotspots, vulnerability injections, coverage gaps, duplication).
+   **Important:** SonarQube is a project-level check, not a file-level check, and it reflects
+   the last commit SonarCloud analysed — not uncommitted local edits. Run it to catch issues
+   that diagnostics-exporter and CodeScene may miss (security hotspots, vulnerability
+   injections, coverage gaps, duplication), but only after a push, and only once per push —
+   looping it against unpushed edits burns tokens on an unchanged result.
 
    1. **Run the quality gate:** Invoke `sonarqube:sonar-quality-gate`.
       ```
@@ -114,7 +131,10 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
       - **Fail:** the gate reported one or more failed conditions. Drill into issues (step 2).
 
    2. **If the gate fails, drill into issues:** Invoke `sonarqube:sonar-list-issues` scoped to
-      the project. Filter to issues on the changed files (pass the file paths to focus the search).
+      the project. Filter to issues on the changed files (pass the file paths to focus the
+      search), and keep the payload small: request `severities=HIGH,BLOCKER` (or the closest
+      equivalent the skill's arguments support) and a small page size first — only widen to
+      lower severities or more pages if that first pass doesn't explain the gate failure.
       ```
       Skill: sonarqube:sonar-list-issues
       ```
