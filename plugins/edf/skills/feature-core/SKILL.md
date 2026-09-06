@@ -325,12 +325,21 @@ found insufficient.
 spec gaps, **stop and escalate to the user** — the spec is too vague to implement against.
 Do not write the tests yourself.
 
+**If `brief_path` was passed and the sub-agent's report shows `Brief usage: fell back`:**
+falling back after already reading the brief costs strictly more than never having built one
+— this is the token-efficiency mechanism failing on this feature, not neutral. Include the
+fallback and its stated reason in the checkpoint note below, and append it **to the session
+log's Concerns & Deferred Items section, immediately** — a fact that lives only in a cost
+checkpoint's note field is easy to skim past; this is exactly the kind of signal that
+section exists to make visible to a later reader (or a future `/retro` pass across many
+session logs) auditing whether `brief_path` is actually saving tokens.
+
 **Full track:** after the test-author returns, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
   --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
   --step "4bF" \
-  --note "test-author complete — <N> BDD properties, <all covered | N gaps>" \
+  --note "test-author complete — <N> BDD properties, <all covered | N gaps> — brief: <used as-is | fell back (<reason>) | none provided>" \
   --issue <N>
 ```
 
@@ -527,12 +536,16 @@ block.
 
 Evaluator tests follow the project's test file convention, committed in Step 7.
 
+**If the evaluator's return shows `BRIEF USAGE: fell back`:** same logging duty as Step
+4bF — include the fallback and its reason in the checkpoint note below, and append it to
+the session log's Concerns & Deferred Items section, immediately.
+
 **Full track:** after the evaluator verdict, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
   --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
   --step "6b" \
-  --note "evaluator: <verdict>$(<concise blocker summary if any>)" \
+  --note "evaluator: <verdict>$(<concise blocker summary if any>) — brief: <used as-is | fell back (<reason>) | none provided>" \
   --issue <N>
 ```
 

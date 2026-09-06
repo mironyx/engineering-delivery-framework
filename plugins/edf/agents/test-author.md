@@ -40,15 +40,22 @@ You will receive:
 body, the LLD's Part A + Part B for every section the issue references, and the matching
 requirements section(s) — reading it stands in for reading the full `requirements_paths` +
 `lld_path` list. If it looks sufficient (covers the properties you'd expect for this issue), skip straight to
-building the property list below. If it looks thin, contradicts the issue body, or you
-cannot identify enough properties from it alone, fall back to reading the full sources
-below — a brief that omits something is a bug in extraction, not a reason to under-test.
+building the property list below, and record `Brief usage: used as-is` for the Output
+report. If it looks thin, contradicts the issue body, or you cannot identify enough
+properties from it alone, fall back to reading the full sources below — a brief that omits
+something is a bug in extraction, not a reason to under-test — and record
+`Brief usage: fell back (<one-line reason>)`. Falling back after already reading the brief
+costs strictly more than never having a brief at all, so this fact must be visible, not
+just absorbed silently — it is how a token-efficiency mechanism's actual failure rate gets
+measured instead of assumed.
 
 **Otherwise (`brief_path` absent, or the brief was insufficient), read every source in
 this order:**
 1. Every file in `requirements_paths` — the contract of record
 2. The LLD at `lld_path` (if not "none") — refinement
 3. The issue body: `gh issue view <issue_number>`
+
+If `brief_path` was never provided at all, record `Brief usage: none provided`.
 
 Build a list of observable properties the implementation must satisfy. Each
 property must be testable through the public interface. Aim for at least 5
@@ -101,6 +108,8 @@ Return a structured report:
 
 ```
 ## Test Author Report — #<issue_number>
+
+Brief usage: <used as-is | fell back (<reason>) | none provided>
 
 ### Properties covered
 <N> observable properties identified from spec:

@@ -82,13 +82,18 @@ Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `al
 
 **If `brief_path` is present:** read that file first — it already contains the full issue
 body, the LLD's Part A + Part B for every section the issue references, and the matching
-requirements section(s). Build the checklist below from it. If it looks thin, contradicts the issue body,
+requirements section(s). Build the checklist below from it. If it looks sufficient, record
+`Brief usage: used as-is` for the return contract. If it looks thin, contradicts the issue body,
 or a criterion you'd expect for this issue is missing from it, fall back to the full sources
-below — a brief that omits something is a bug in extraction, not grounds to under-audit.
+below — a brief that omits something is a bug in extraction, not grounds to under-audit —
+and record `Brief usage: fell back (<one-line reason>)`. Falling back after already reading
+the brief costs strictly more than never having a brief at all, so this fact must be
+visible, not just absorbed silently.
 The `coverage_manifest` cross-check (item 4 below) still applies either way.
 
 **Otherwise (`brief_path` absent, or the brief was insufficient), read in this order, most
-authoritative first:**
+authoritative first — and record `Brief usage: none provided` if `brief_path` was never
+given at all:**
 
 1. Every file in `requirements_paths` — these are the contract of record.
 2. The LLD at `lld_path` — refinement of the requirements. **If `lld_path` is `"none"`,
@@ -286,6 +291,7 @@ Your return to the calling agent must be at most 15 lines:
 
 ```
 VERDICT: PASS | PASS WITH WARNINGS | FAIL
+BRIEF USAGE: used as-is | fell back (<reason>) | none provided
 ADVERSARIAL: <N written, N passed, N failed>
 GAPS:
 - AC-N: <one-line description> — <COVERED | UNCOVERED | FAIL>

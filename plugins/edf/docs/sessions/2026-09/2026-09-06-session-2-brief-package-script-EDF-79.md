@@ -101,6 +101,27 @@ order), unlike every other resolution-failure path in the script, which does war
 by adding the missing `echo ... >&2` for symmetry. 459 passed, 18 pre-existing skips after
 all fixes.
 
+## Follow-up — measuring whether brief_path actually saves tokens
+
+User raised a real risk the redesign didn't address: `test-author`/`feature-evaluator`'s
+"fall back to full docs if the brief looks thin" escape hatch means a bad brief costs
+*more* than no brief at all (brief read + full-doc read, strictly worse than the
+pre-#79 baseline of one full-doc read) — and nothing recorded whether this ever happens.
+Considered putting the signal in the session log alone; rejected as the primary mechanism
+since nothing aggregates session logs automatically across cycles (though `/retro` does
+mine them, so it's not a bad *secondary* location). Instead: added a `Brief usage` field
+to `test-author`'s Output report and `feature-evaluator`'s 15-line return contract (`used
+as-is | fell back (<reason>) | none provided`), and updated `feature-core` Step 4bF/6b to
+(a) fold that fact into the existing cost-checkpoint note — which already captures
+cumulative cost/tokens from Prometheus at that exact step, so a fallback's cost impact is
+directly attributable — and (b) append it to the session log's Concerns & Deferred Items
+section immediately on a fallback, matching how every other deviation in this pipeline
+gets surfaced. This reuses existing infrastructure (checkpoints, session log) rather than
+inventing a new metrics path, and a future `/retro` or dedicated audit script can
+`grep -rh "fell back" docs/sessions/**/*.md` across many cycles to see how often the
+mechanism actually degrades. Doc-only change (agent `.md` files + `feature-core/SKILL.md`)
+— no code, so the existing 460-test suite is unaffected and stayed green.
+
 ## Process deviation (recorded, not hidden)
 Implemented `brief-package.sh` and hand-validated it against real anchors in this repo's
 own dogfooded LLD/requirements docs (issue #50's `LLD-v1-e1-2-command-wiring` /
