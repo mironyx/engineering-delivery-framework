@@ -42,7 +42,7 @@ flowchart TD
         F2(("4bF: Write stubs + test-author agent")) --> F2_CHK{"3+ observable<br/>properties?"}
         F2_CHK -->|"No"| STOP_SPEC(["fa:fa-ban Escalate to user"])
         F2_CHK -->|"Yes"| F2_CP["Append cost checkpoint<br/>step 4bF: test-author"]
-        F2_CP --> F3["4cF: Implement against tests"]
+        F2_CP --> F3["4cF: Implement against tests<br/>bash run-tests.sh &lt;test-file&gt;<br/>(direct, no agent)"]
         F3 --> F3_CHK{"Tests pass?"}
         F3_CHK -->|"No"| F3_FIX["Fix implementation"]
         F3_FIX --> F3
