@@ -273,11 +273,14 @@ if [[ "$LLD_PATH" != "none" ]]; then
   # section) can't be picked up instead; fall back to a whole-body search
   # only if the section itself can't be found.
   declare -a LLD_ANCHOR_CANDIDATES=()
-  DESIGN_REF_SECTION=$(extract_by_heading_text "$TMP_ISSUE_BODY" "design reference" || true)
-  if [[ -n "$DESIGN_REF_SECTION" ]]; then
+  if DESIGN_REF_SECTION=$(extract_by_heading_text "$TMP_ISSUE_BODY" "design reference"); then
     mapfile -t LLD_ANCHOR_CANDIDATES < <(printf '%s\n' "$DESIGN_REF_SECTION" | grep -oE '#(LLD-[A-Za-z0-9._-]+)' | sed 's/^#//' | sort -u)
-  fi
-  if [[ "${#LLD_ANCHOR_CANDIDATES[@]}" -eq 0 ]]; then
+  else
+    # The "## Design reference" heading itself is missing — only then is a
+    # whole-body search safe. If the heading exists but simply names no
+    # anchor, leave LLD_ANCHOR_CANDIDATES empty rather than widening the
+    # search: a whole-body scan at that point could pick up an unrelated
+    # "#LLD-..." mention elsewhere (e.g. a Concerns/Related section).
     mapfile -t LLD_ANCHOR_CANDIDATES < <(printf '%s\n' "$ISSUE_BODY" | grep -oE '#(LLD-[A-Za-z0-9._-]+)' | sed 's/^#//' | sort -u)
   fi
 
@@ -332,9 +335,11 @@ if [[ ${#REQ_PATHS[@]} -gt 0 ]]; then
           # Each manifest entry starts with its own `- req:` line, followed
           # later by its `lld:` line — track the most recent `- req:` seen
           # so far and emit it once the matching `lld:` line is reached.
-          FOUND_REQ=$(awk -v anchor="${LLD_BASENAME}#${ANCHOR}" '
+          # Literal substring match (index(), not a dynamic regex) so a "."
+          # in the LLD filename or anchor is never misread as "any char".
+          FOUND_REQ=$(awk -v target="lld: ${LLD_BASENAME}#${ANCHOR}" '
             /^[ \t]*- req:/ { cur = $0; sub(/^[ \t]*- req:[ \t]*/, "", cur); current_req = cur }
-            $0 ~ ("lld:[ \t]*" anchor) { print current_req; exit }
+            index($0, target) > 0 { print current_req; exit }
           ' "$MANIFEST")
           if [[ -n "$FOUND_REQ" ]]; then
             REQ_ANCHORS_WANTED+=("$FOUND_REQ")

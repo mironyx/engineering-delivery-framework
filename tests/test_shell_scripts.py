@@ -468,6 +468,55 @@ class TestBriefPackage:
         assert "## 2.5 Diagram click-through overlay" not in body
 
     @gh_required
+    def test_design_reference_section_present_but_anchorless_does_not_widen_search(self, tmp_path):
+        # Regression guard for a pr-review finding: a "## Design reference" section
+        # that exists but names no #LLD-... anchor must NOT fall back to a
+        # whole-body search — that would risk picking up an unrelated anchor-looking
+        # mention elsewhere (here, in "## Concerns"). Only a MISSING section
+        # ("## Design reference" heading absent entirely, covered by
+        # test_lld_falls_back_to_full_file_when_no_anchor_referenced using real
+        # issue #1) should trigger the whole-body fallback.
+        fake_bin = tmp_path / "fakebin"
+        fake_bin.mkdir()
+        body_file = tmp_path / "body.txt"
+        body_file.write_text(
+            "## Design reference\n"
+            "(LLD pending — not yet written)\n\n"
+            "## Concerns\n"
+            "See also lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-command-wiring for prior art.\n"
+        )
+        gh_shim = fake_bin / "gh"
+        gh_shim.write_text(
+            "#!/usr/bin/env bash\n"
+            "case \"$*\" in\n"
+            "  *'--json title'*) echo 'Synthetic anchorless-design-reference issue' ;;\n"
+            f"  *'--json body'*) cat '{_to_msys2_path(body_file)}' ;;\n"
+            "  *) exit 1 ;;\n"
+            "esac\n"
+        )
+        gh_shim.chmod(0o755)
+
+        env = dict(os.environ)
+        env["PATH"] = f"{_to_msys2_path(fake_bin)}:{env.get('PATH', '')}"
+        out = tmp_path / "brief.md"
+        result = subprocess.run(
+            [
+                _BASH_EXE, _to_msys2_path(BIN_DIR / "brief-package.sh"),
+                "--issue", "999998",
+                "--lld", str(_LLD_FIXTURE),
+                "--out", str(out),
+            ],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        assert result.returncode == 0, result.stderr
+        # Must NOT pick up the Concerns-section mention — falls back to the
+        # full LLD file instead, same as "no anchor anywhere" would.
+        assert "lld: fallback-full-file" in result.stdout
+
+        body = out.read_text()
+        assert "## Execution Order" in body  # proof the whole file was included
+
+    @gh_required
     def test_default_output_path_is_self_ignoring(self):
         # Mirrors review-package.sh's `test_package_dir_is_self_ignoring` (issue #79
         # AC: ".edf/ ... is git-ignored"). No --out given, so the script must fall
