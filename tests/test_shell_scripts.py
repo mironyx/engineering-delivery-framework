@@ -354,6 +354,25 @@ class TestBriefPackage:
         finally:
             expected.unlink(missing_ok=True)
 
+    @gh_required
+    def test_ac_extraction_falls_back_when_no_heading_found(self, tmp_path):
+        # Issue #1 (merged) has no "## Acceptance criteria" heading at all. The
+        # extraction helper must report this as a miss so the caller falls back
+        # to the full issue body — never a silent, empty "resolved" section.
+        out = tmp_path / "brief.md"
+        result = _bash(
+            BIN_DIR / "brief-package.sh",
+            "--issue", "1", "--lld", "none",
+            "--out", str(out),
+        )
+        assert result.returncode == 0
+        assert "acceptance-criteria: fallback-full-issue-body" in result.stdout
+
+        body = out.read_text()
+        # The fallback must carry real content from the issue body, not an
+        # empty section.
+        assert "schema foundations" in body.lower()
+
 
 # ── gh-project-status.sh ─────────────────────────────────────────────────────
 

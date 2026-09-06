@@ -151,7 +151,7 @@ extract_by_heading_text() {
   local file="$1" needle="$2"
   [[ -f "$file" ]] || return 1
   awk -v needle="$needle" '
-    BEGIN { state = 0; in_code = 0 }
+    BEGIN { state = 0; in_code = 0; matched = 0 }
     {
       if ($0 ~ /^```/) { in_code = !in_code }
       if (state == 0) {
@@ -160,6 +160,7 @@ extract_by_heading_text() {
           if (index(line_lower, needle) > 0) {
             level = RLENGTH - 1
             state = 1
+            matched = 1
             next
           }
         }
@@ -172,6 +173,7 @@ extract_by_heading_text() {
       }
       print
     }
+    END { if (!matched) exit 1 }
   ' "$file"
 }
 

@@ -307,7 +307,7 @@ Then launch the `edf:test-author` agent with:
 Launch Agent: edf:test-author
 Input:
   issue_number: <N>
-  brief_path: <BRIEF_PATH from Step 3, or omit if the brief build failed>
+  brief_path: <BRIEF_PATH built earlier in this step, or omit if the brief build failed>
   requirements_paths: <list of absolute paths, e.g. ["/absolute/path/to/docs/requirements/v1-requirements.md"]>
   lld_path: <absolute path or "none"> (resolved in Step 3)
   target_test_file: <tests/.../<unit>.test.ts>
@@ -488,8 +488,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-
 
 **Full track:** Launch the `edf:feature-evaluator` agent. Pass it:
 
-- `brief_path` — the `BRIEF_PATH` from Step 3, if the brief build succeeded there; omit
-  otherwise. Same file already passed to `edf:test-author` in Step 4bF.
+- `brief_path` — the `BRIEF_PATH` built in Step 4bF, if the brief build succeeded there;
+  omit otherwise. Same file already passed to `edf:test-author`.
 - `requirements_paths` — same absolute list passed to the edf:test-author in Step 4bF
 - `lld_path` — the LLD file absolute path from Step 3, or the literal string `"none"` if no
   LLD exists (same sentinel used for `edf:test-author` in Step 4bF — do not pass the issue
