@@ -71,3 +71,4 @@ verification.
 | 5 | 2026-09-06T15:30:21Z | unavailable | unavailable | green — 454 passed (pytest direct; run-tests.sh wrapper blocked by pre-existing missing pyproject.toml) |
 | 6 | 2026-09-06T15:32:09Z | unavailable | unavailable | diag tooling unavailable in this environment (no editor, no CodeScene MCP, SonarQube down) - manual review substituted |
 | 6b | 2026-09-06T15:41:29Z | unavailable | unavailable | evaluator: PASS WITH WARNINGS - 1 coverage gap + 2 silent-failure risks, both fixed |
+| 8 | 2026-09-06T15:43:40Z | unavailable | unavailable | [PR #87](https://github.com/mironyx/engineering-delivery-framework/pull/87) |
