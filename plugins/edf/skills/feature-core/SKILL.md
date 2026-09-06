@@ -328,9 +328,15 @@ to make the tests pass.
 
 Run only the target test file after each increment:
 
+```bash
+CWD=$(pwd)
+cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test-file>
 ```
-Skill: edf:test <test-file>
-```
+
+`run-tests.sh` already pipes output through a summarizer, so the `edf:test`/`edf:test-runner`
+round trip adds no further compression here — mirrors Step 4L. Other test-related calls in
+this pipeline (Step 5's `full`, `e2e`, `audit` modes) still go through `edf:test`/`edf:test-runner`,
+since their underlying scripts have no summarizer step and can produce large output.
 
 ### Step 4dF: Self-check coverage before Step 5
 

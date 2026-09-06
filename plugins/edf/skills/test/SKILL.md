@@ -18,6 +18,10 @@ changing mode parsing, command resolution, or agent delegation.
 `$ARGUMENTS` determines the mode:
 
 - **File path** (e.g., `tests/foo.test.ts`) — run tests on that file only. Language auto-inferred from extension.
+  Note: `feature-core`'s Step 4cF implementation loop calls `run-tests.sh` directly via Bash
+  instead of this mode, since the script already summarizes output and the agent round trip
+  adds no further compression there. This mode remains the entry point for other callers
+  (e.g. ad hoc `/test <file>` invocations).
 - **`all [ts|p|all]`** — run full test suite. Language defaults to `all`.
 - **`full [ts|p|all]`** — tests + typecheck + lint. Used by `feature-core` Step 5.
 - **`typecheck [ts|p|all]`** — typecheck only.
