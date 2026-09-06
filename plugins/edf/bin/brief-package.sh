@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Write a per-issue implementation brief — acceptance criteria, the single
-# relevant LLD section, and the single relevant requirements section — to a
-# git-ignored file, and print only that file's path.
+# Write a per-issue implementation brief — the full issue body, the story's
+# LLD context (Part A rationale + Part B implementation detail for every
+# section the issue references), and the matching requirements section(s) —
+# to a git-ignored file, and print only that file's path.
 #
 # Mirrors review-package.sh's pattern: large project documents (a 1000+ line
 # requirements doc, a multi-section LLD) get read once here and handed to
@@ -15,33 +16,51 @@
 #     [--out <file>]
 #
 # Section extraction:
-#   - Acceptance criteria: the issue body's "## Acceptance criteria" section
-#     (case-insensitive heading match). Falls back to the full issue body if
-#     no such heading is found.
-#   - LLD section: the anchor is read from the "#LLD-..." fragment of the
-#     issue's "## Design reference" link, then that section is extracted
-#     from --lld (from the anchor to the next heading at or above its
-#     level). Falls back to the full LLD file if no anchor can be resolved.
-#   - Requirements section: resolved via a REQ- anchor found directly in the
-#     issue body, or failing that via the coverage manifest next to --lld
-#     (matching its `lld:` field to the resolved LLD anchor, reading its
-#     `req:` field). Falls back to the full contents of every --requirements
-#     file if no REQ- anchor can be resolved either way.
+#   - Issue: the full issue body, verbatim, always — it is already scoped to
+#     one task and typically 50-150 lines, so there is no token-efficiency
+#     reason to trim it further, and trimming it (an earlier version of this
+#     script extracted only "## Acceptance criteria") silently dropped
+#     sibling sections a reader needs just as much: BDD specs, Files to
+#     create/modify, Depends on, Design/HLD references.
+#   - LLD: every LLD-<anchor> found in the issue's "## Design reference"
+#     section (falling back to a whole-body search only if that section
+#     can't be found) is treated as story-relevant. For each anchor, Part B
+#     (the implementation detail the anchor is placed on) is extracted, and
+#     — since a design-conforming LLD (ADR-0026) mirrors every Part B
+#     section with a same-numbered Part A section carrying the human-
+#     readable rationale for the *same* story — its Part A counterpart is
+#     extracted too and placed first. A story's implementation detail read
+#     without the "why" behind it (constraints, rejected alternatives, open
+#     defects) is exactly the kind of thing a heading-scoped LLD extract can
+#     silently be missing. Falls back to the full LLD file if no anchor can
+#     be resolved at all.
+#   - Requirements: resolved via every REQ- anchor found directly in the
+#     issue body, unioned with whatever the coverage manifest next to --lld
+#     maps each resolved LLD anchor to (matching the manifest's `lld:` field,
+#     reading its `req:` field). Falls back to the full contents of every
+#     --requirements file if no REQ- anchor can be resolved either way.
 #
 # A fallback always includes full content rather than omitting a source —
 # this is a token-efficiency tool, not a scope reduction, so an agent reading
 # the brief must see everything it would have seen reading the originals.
+# Deliberately out of scope: the HLD and any ADRs the issue references. Those
+# are large, project-wide documents in their own right — pulling them in
+# would reopen the exact re-reading cost this script exists to close. An LLD
+# section is expected to already carry whatever HLD/ADR context a story
+# needs; an agent that still needs more can fetch those directly.
 #
 # Known limitation: section boundaries are heading-based (regex over `#`
 # lines) and skip fenced code blocks, but cannot distinguish a genuine
-# markdown heading from other `#`-prefixed text outside a fence.
+# markdown heading from other `#`-prefixed text outside a fence. The Part A
+# pairing relies on the ADR-0026 convention of matching section numbers
+# ("## 2.3 Foo" in Part A, "## 2.3 Foo — Implementation" in Part B) — an LLD
+# not following that convention just gets Part B alone, not an error.
 #
 # Output (stdout):
 #   brief: <path to the brief file>
 #   sections:
-#     acceptance-criteria: <resolved|fallback-full-issue-body>
-#     lld: <resolved:<anchor>|none|fallback-full-file>
-#     requirements: <resolved:<req-anchor>|fallback-full-files:<n>|none>
+#     lld: <resolved:<anchor>[,<anchor>...]|none|fallback-full-file>
+#     requirements: <resolved:<req-anchor>[,<req-anchor>...]|fallback-full-files:<n>|none>
 #
 # Exit codes: 0 ok, 1 usage/environment error.
 set -euo pipefail
@@ -103,6 +122,11 @@ if ! ISSUE_BODY=$(gh issue view "$ISSUE" --json body -q '.body' 2>/dev/null); th
   echo "brief-package.sh: cannot read issue #${ISSUE} body (is gh authenticated?)" >&2
   exit 1
 fi
+
+TMP_ISSUE_BODY=$(mktemp)
+TMP_PART_A=$(mktemp)
+trap 'rm -f "$TMP_ISSUE_BODY" "$TMP_PART_A"' EXIT
+printf '%s\n' "$ISSUE_BODY" > "$TMP_ISSUE_BODY"
 
 # --- Section extraction helpers ---
 
@@ -177,83 +201,172 @@ extract_by_heading_text() {
   ' "$file"
 }
 
-# --- Acceptance criteria ---
-AC_STATUS="fallback-full-issue-body"
-AC_TEXT=""
-TMP_ISSUE_BODY=$(mktemp)
-printf '%s\n' "$ISSUE_BODY" > "$TMP_ISSUE_BODY"
-if AC_TEXT=$(extract_by_heading_text "$TMP_ISSUE_BODY" "acceptance criteria"); then
-  AC_STATUS="resolved"
-else
-  AC_TEXT="$ISSUE_BODY"
-fi
+# extract_part_a_region <file>
+# Prints everything between a "# Part A" H1 heading and the next H1 heading
+# (exclusive of both). Prints nothing (not an error) if the file has no
+# "# Part A" heading — projects that predate, or don't use, the Part A/B
+# convention just don't get a Part A pairing.
+extract_part_a_region() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+  awk '
+    /^# Part A/ { region = 1; next }
+    region && /^# / { exit }
+    region { print }
+  ' "$file"
+}
 
-# --- LLD section ---
+# extract_by_heading_number <file> <task-number, e.g. 2.3>
+# Prints the section whose heading starts with the given task number
+# (token-bounded, so "2.1" does not also match "2.10"), through the line
+# before the next heading at or above that heading's level. Returns 1 if
+# not found.
+extract_by_heading_number() {
+  local file="$1" tasknum="$2"
+  [[ -f "$file" ]] || return 1
+  # Plain string comparison (no dynamic regex) so a literal "." in tasknum
+  # never needs escaping through a shell -> awk -v -> ERE round trip.
+  awk -v tasknum="$tasknum" '
+    BEGIN { state = 0; in_code = 0; matched = 0; tlen = length(tasknum) }
+    {
+      if ($0 ~ /^```/) { in_code = !in_code }
+      if (state == 0) {
+        if (!in_code && match($0, /^#{1,6}[ \t]/) > 0) {
+          rest = substr($0, RLENGTH + 1)
+          boundary_ok = (length(rest) == tlen) || (substr(rest, tlen + 1, 1) !~ /[0-9.]/)
+          if (substr(rest, 1, tlen) == tasknum && boundary_ok) {
+            level = RLENGTH - 1
+            state = 1
+            matched = 1
+            next
+          }
+        }
+        next
+      }
+      if (!in_code && $0 ~ /^<a id="/) { exit }
+      if (!in_code && match($0, /^#{1,6}[ \t]/) > 0) {
+        this_level = RLENGTH - 1
+        if (this_level <= level) { exit }
+      }
+      print
+    }
+    END { if (!matched) exit 1 }
+  ' "$file"
+}
+
+# task_number_of <section-text>
+# Extracts the leading "N.M" task number from a section's first heading
+# line (as produced by extract_by_anchor), or nothing if there isn't one.
+task_number_of() {
+  printf '%s\n' "$1" | grep -m1 -oE '^#{1,6}[ \t]+[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+' || true
+}
+
+# --- LLD section(s) ---
 LLD_STATUS="none"
 LLD_TEXT=""
-LLD_ANCHOR=""
+declare -a LLD_ANCHORS_RESOLVED=()
 if [[ "$LLD_PATH" != "none" ]]; then
-  # Resolve the anchor from the issue body's "## Design reference" link,
-  # e.g. [lld-foo.md §2.1](docs/design/v1/lld-foo.md#LLD-foo-bar). Scope the
-  # search to that section first, so an unrelated "#LLD-..." mention
-  # elsewhere in the issue body (e.g. a Concerns/Related section) can't be
-  # picked up instead; fall back to a whole-body search if the section
-  # itself can't be found.
+  # Resolve every "#LLD-..." anchor referenced in the issue's "## Design
+  # reference" section (a task can legitimately touch more than one
+  # section). Scope the search to that section first, so an unrelated
+  # "#LLD-..." mention elsewhere in the issue body (e.g. a Concerns/Related
+  # section) can't be picked up instead; fall back to a whole-body search
+  # only if the section itself can't be found.
+  declare -a LLD_ANCHOR_CANDIDATES=()
   DESIGN_REF_SECTION=$(extract_by_heading_text "$TMP_ISSUE_BODY" "design reference" || true)
   if [[ -n "$DESIGN_REF_SECTION" ]]; then
-    LLD_ANCHOR=$(printf '%s\n' "$DESIGN_REF_SECTION" | grep -oE '#(LLD-[A-Za-z0-9._-]+)' | head -1 | sed 's/^#//' || true)
+    mapfile -t LLD_ANCHOR_CANDIDATES < <(printf '%s\n' "$DESIGN_REF_SECTION" | grep -oE '#(LLD-[A-Za-z0-9._-]+)' | sed 's/^#//' | sort -u)
   fi
-  if [[ -z "$LLD_ANCHOR" ]]; then
-    LLD_ANCHOR=$(printf '%s\n' "$ISSUE_BODY" | grep -oE '#(LLD-[A-Za-z0-9._-]+)' | head -1 | sed 's/^#//' || true)
+  if [[ "${#LLD_ANCHOR_CANDIDATES[@]}" -eq 0 ]]; then
+    mapfile -t LLD_ANCHOR_CANDIDATES < <(printf '%s\n' "$ISSUE_BODY" | grep -oE '#(LLD-[A-Za-z0-9._-]+)' | sed 's/^#//' | sort -u)
   fi
-  if [[ -n "$LLD_ANCHOR" ]] && LLD_TEXT=$(extract_by_anchor "$LLD_PATH" "$LLD_ANCHOR"); then
-    LLD_STATUS="resolved:${LLD_ANCHOR}"
+
+  extract_part_a_region "$LLD_PATH" > "$TMP_PART_A"
+
+  for ANCHOR in "${LLD_ANCHOR_CANDIDATES[@]}"; do
+    [[ -z "$ANCHOR" ]] && continue
+    if PART_B=$(extract_by_anchor "$LLD_PATH" "$ANCHOR"); then
+      LLD_ANCHORS_RESOLVED+=("$ANCHOR")
+      TASK_NUM=$(task_number_of "$PART_B")
+      PART_A=""
+      if [[ -n "$TASK_NUM" && -s "$TMP_PART_A" ]]; then
+        PART_A=$(extract_by_heading_number "$TMP_PART_A" "$TASK_NUM" || true)
+      fi
+      LLD_TEXT+=$'\n\n---\n\n'"### ${ANCHOR}"$'\n'
+      if [[ -n "$PART_A" ]]; then
+        LLD_TEXT+=$'\n#### Part A — Design rationale (§'"${TASK_NUM}"$')\n\n'"$PART_A"$'\n'
+      fi
+      LLD_TEXT+=$'\n#### Part B — Implementation\n\n'"$PART_B"
+    else
+      echo "brief-package.sh: warning — LLD anchor not found, skipping: ${ANCHOR}" >&2
+    fi
+  done
+
+  if [[ "${#LLD_ANCHORS_RESOLVED[@]}" -gt 0 ]]; then
+    LLD_STATUS="resolved:$(IFS=,; echo "${LLD_ANCHORS_RESOLVED[*]}")"
   else
     LLD_STATUS="fallback-full-file"
     LLD_TEXT=$(cat "$LLD_PATH")
-    LLD_ANCHOR=""
   fi
 fi
 
-# --- Requirements section ---
+# --- Requirements section(s) ---
 REQ_STATUS="none"
 REQ_TEXT=""
 if [[ ${#REQ_PATHS[@]} -gt 0 ]]; then
-  # 1) A REQ- anchor named directly in the issue body.
-  REQ_ANCHOR=$(printf '%s\n' "$ISSUE_BODY" | grep -oE 'REQ-[A-Za-z0-9._-]+' | head -1 || true)
+  declare -a REQ_ANCHORS_WANTED=()
 
-  # 2) Failing that, resolve via the coverage manifest next to --lld: match
-  #    its `lld:` field against the LLD anchor resolved above, read `req:`.
-  if [[ -z "$REQ_ANCHOR" && "$LLD_PATH" != "none" && -n "$LLD_ANCHOR" ]]; then
+  # 1) Every REQ- anchor named directly in the issue body.
+  mapfile -t DIRECT_REQ_ANCHORS < <(printf '%s\n' "$ISSUE_BODY" | grep -oE 'REQ-[A-Za-z0-9._-]+' | sort -u)
+  REQ_ANCHORS_WANTED+=("${DIRECT_REQ_ANCHORS[@]:-}")
+
+  # 2) Every REQ- anchor the coverage manifest next to --lld maps each
+  #    resolved LLD anchor to (matching the manifest's `lld:` field).
+  if [[ "$LLD_PATH" != "none" && "${#LLD_ANCHORS_RESOLVED[@]}" -gt 0 ]]; then
     LLD_DIR=$(dirname "$LLD_PATH")
     LLD_BASENAME=$(basename "$LLD_PATH")
     for MANIFEST in "$LLD_DIR"/coverage-*.yaml; do
       [[ -f "$MANIFEST" ]] || continue
-      if grep -qF "lld: ${LLD_BASENAME}#${LLD_ANCHOR}" "$MANIFEST"; then
-        # Each manifest entry starts with its own `- req:` line, followed later
-        # by its `lld:` line — track the most recent `- req:` seen so far and
-        # emit it once the matching `lld:` line for this entry is reached.
-        REQ_ANCHOR=$(awk -v anchor="${LLD_BASENAME}#${LLD_ANCHOR}" '
-          /^[ \t]*- req:/ { cur = $0; sub(/^[ \t]*- req:[ \t]*/, "", cur); current_req = cur }
-          $0 ~ ("lld:[ \t]*" anchor) { print current_req; exit }
-        ' "$MANIFEST")
-        [[ -n "$REQ_ANCHOR" ]] && break
-      fi
+      for ANCHOR in "${LLD_ANCHORS_RESOLVED[@]}"; do
+        if grep -qF "lld: ${LLD_BASENAME}#${ANCHOR}" "$MANIFEST"; then
+          # Each manifest entry starts with its own `- req:` line, followed
+          # later by its `lld:` line — track the most recent `- req:` seen
+          # so far and emit it once the matching `lld:` line is reached.
+          FOUND_REQ=$(awk -v anchor="${LLD_BASENAME}#${ANCHOR}" '
+            /^[ \t]*- req:/ { cur = $0; sub(/^[ \t]*- req:[ \t]*/, "", cur); current_req = cur }
+            $0 ~ ("lld:[ \t]*" anchor) { print current_req; exit }
+          ' "$MANIFEST")
+          if [[ -n "$FOUND_REQ" ]]; then
+            REQ_ANCHORS_WANTED+=("$FOUND_REQ")
+          else
+            echo "brief-package.sh: warning — manifest entry for ${ANCHOR} has no req: field before its lld: line, skipping" >&2
+          fi
+        fi
+      done
     done
   fi
 
-  RESOLVED=0
-  if [[ -n "${REQ_ANCHOR:-}" ]]; then
+  mapfile -t REQ_ANCHORS_WANTED < <(printf '%s\n' "${REQ_ANCHORS_WANTED[@]:-}" | sed '/^$/d' | sort -u)
+
+  declare -a REQ_ANCHORS_RESOLVED=()
+  for ANCHOR in "${REQ_ANCHORS_WANTED[@]:-}"; do
+    [[ -z "$ANCHOR" ]] && continue
+    FOUND=0
     for RP in "${REQ_PATHS[@]}"; do
-      if SECTION=$(extract_by_anchor "$RP" "$REQ_ANCHOR"); then
-        REQ_TEXT+=$'\n\n---\n\n'"Source: ${RP}"$'\n\n'"$SECTION"
-        RESOLVED=1
+      if SECTION=$(extract_by_anchor "$RP" "$ANCHOR"); then
+        REQ_TEXT+=$'\n\n---\n\n'"Source: ${RP}#${ANCHOR}"$'\n\n'"$SECTION"
+        REQ_ANCHORS_RESOLVED+=("$ANCHOR")
+        FOUND=1
+        break
       fi
     done
-  fi
+    if [[ "$FOUND" -eq 0 ]]; then
+      echo "brief-package.sh: warning — requirements anchor not found in any --requirements file, skipping: ${ANCHOR}" >&2
+    fi
+  done
 
-  if [[ "$RESOLVED" -eq 1 ]]; then
-    REQ_STATUS="resolved:${REQ_ANCHOR}"
+  if [[ "${#REQ_ANCHORS_RESOLVED[@]}" -gt 0 ]]; then
+    REQ_STATUS="resolved:$(IFS=,; echo "${REQ_ANCHORS_RESOLVED[*]}")"
   else
     INCLUDED=0
     for RP in "${REQ_PATHS[@]}"; do
@@ -268,8 +381,6 @@ if [[ ${#REQ_PATHS[@]} -gt 0 ]]; then
   fi
 fi
 
-rm -f "$TMP_ISSUE_BODY"
-
 # --- Resolve the output path ---
 if [[ -z "$OUT" ]]; then
   PKG_DIR="$REPO_ROOT/.edf"
@@ -283,21 +394,20 @@ fi
 {
   echo "# Brief — Issue #${ISSUE}: ${ISSUE_TITLE}"
   echo
-  echo "## Acceptance criteria"
+  echo "## Issue"
   echo
-  echo "$AC_TEXT"
+  echo "$ISSUE_BODY"
   echo
-  echo "## LLD section"
+  echo "## LLD context"
   echo
   if [[ "$LLD_STATUS" == "none" ]]; then
     echo "(no LLD for this issue)"
   else
-    echo "Source: ${LLD_PATH}${LLD_ANCHOR:+#$LLD_ANCHOR}"
-    echo
+    echo "Source: ${LLD_PATH}"
     echo "$LLD_TEXT"
   fi
   echo
-  echo "## Requirements section"
+  echo "## Requirements section(s)"
   echo
   if [[ "$REQ_STATUS" == "none" ]]; then
     echo "(no requirements paths provided)"
@@ -308,6 +418,5 @@ fi
 
 echo "brief: $OUT"
 echo "sections:"
-echo "  acceptance-criteria: $AC_STATUS"
 echo "  lld: $LLD_STATUS"
 echo "  requirements: $REQ_STATUS"

@@ -54,9 +54,10 @@ Your volume is a diagnostic. Prefer fewer, higher-signal tests — but report, d
 ## Input
 
 You will receive:
-- `brief_path` — optional; path to a pre-built brief (acceptance criteria + the single
-  relevant LLD section + the single relevant requirements section), written by
-  `bin/brief-package.sh`. When present, read this instead of `requirements_paths` and
+- `brief_path` — optional; path to a pre-built brief written by `bin/brief-package.sh`:
+  the full issue body, the LLD's Part A (design rationale) paired with Part B
+  (implementation detail) for every section the issue references, and the matching
+  requirements section(s). When present, read this instead of `requirements_paths` and
   `lld_path` in full — see Step 1.
 - `requirements_paths` — one or more paths to the project requirements document(s)
   (e.g. `docs/requirements/v1-requirements.md`). These are the contract of record.
@@ -79,9 +80,9 @@ Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `al
 
 ### Step 1: Extract acceptance criteria from all sources
 
-**If `brief_path` is present:** read that file first — it already contains the issue's
-acceptance criteria, the single relevant LLD section, and the single relevant requirements
-section. Build the checklist below from it. If it looks thin, contradicts the issue body,
+**If `brief_path` is present:** read that file first — it already contains the full issue
+body, the LLD's Part A + Part B for every section the issue references, and the matching
+requirements section(s). Build the checklist below from it. If it looks thin, contradicts the issue body,
 or a criterion you'd expect for this issue is missing from it, fall back to the full sources
 below — a brief that omits something is a bug in extraction, not grounds to under-audit.
 The `coverage_manifest` cross-check (item 4 below) still applies either way.

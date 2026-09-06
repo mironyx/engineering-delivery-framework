@@ -18,9 +18,10 @@ implementation does not exist yet — you are writing the tests that will drive 
 
 You will receive:
 - `issue_number` — GitHub issue number
-- `brief_path` — optional; path to a pre-built brief (acceptance criteria + the single
-  relevant LLD section + the single relevant requirements section), written by
-  `bin/brief-package.sh`. When present, read this instead of `requirements_paths` and
+- `brief_path` — optional; path to a pre-built brief written by `bin/brief-package.sh`:
+  the full issue body, the LLD's Part A (design rationale) paired with Part B
+  (implementation detail) for every section the issue references, and the matching
+  requirements section(s). When present, read this instead of `requirements_paths` and
   `lld_path` in full — see Step 1.
 - `requirements_paths` — list of paths to requirements documents. Fallback source when
   `brief_path` is absent, or when the brief is missing something you need (see Step 1).
@@ -35,10 +36,10 @@ You will receive:
 
 ### Step 1: Extract the contract
 
-**If `brief_path` is present:** read that file first. It already contains the issue's
-acceptance criteria, the single relevant LLD section, and the single relevant requirements
-section — reading it stands in for reading the full `requirements_paths` + `lld_path` list.
-If it looks sufficient (covers the properties you'd expect for this issue), skip straight to
+**If `brief_path` is present:** read that file first. It already contains the full issue
+body, the LLD's Part A + Part B for every section the issue references, and the matching
+requirements section(s) — reading it stands in for reading the full `requirements_paths` +
+`lld_path` list. If it looks sufficient (covers the properties you'd expect for this issue), skip straight to
 building the property list below. If it looks thin, contradicts the issue body, or you
 cannot identify enough properties from it alone, fall back to reading the full sources
 below — a brief that omits something is a bug in extraction, not a reason to under-test.

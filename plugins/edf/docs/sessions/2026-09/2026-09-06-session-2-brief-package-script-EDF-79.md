@@ -18,6 +18,89 @@
   Heavy doesn't change the track, just flags "consider splitting" (not warranted here: the
   script is one cohesive unit, splitting it would fragment one algorithm across files).
 
+## Redesign — scoping was too aggressive (post-review, pre-merge)
+
+After PR #87 passed review, the user pushed back on the extraction scope itself, not just
+implementation bugs: extracting only `## Acceptance criteria` from the issue silently
+dropped sibling sections (BDD specs, Files to create/modify, HLD reference — confirmed via
+issue #50's real body) that `test-author`/`feature-evaluator` used to see in full. Worse,
+a single-anchor LLD extract drops the paired Part A "design rationale" section every LLD
+story has under this repo's ADR-0026 Part A/Part B convention (confirmed structurally
+identical across all 3 real LLD files in this repo — `## N.M <title>` in Part A mirrors
+`## N.M <title> — Implementation` in Part B) — the "why" (constraints, rejected
+alternatives, open defects) without which the "how" alone can be misread. This is a
+different failure class than the earlier fixes: the fallback safety net (never omit
+silently) only fires when an anchor fails to resolve; it does nothing when resolution
+*succeeds* but resolves to an incomplete subset — there is no "found but incomplete"
+signal for an agent to notice.
+
+**Redesign, applied to the same script:**
+1. Issue: always include the full body verbatim — it's already small (50-150 lines), so
+   heading-scoping it was optimizing a resource that was never the cost problem, and it's
+   exactly what dropped BDD specs, etc. Removed the AC-only extraction path entirely (and
+   its "acceptance-criteria" stdout status field, now meaningless).
+2. LLD: resolve *every* `#LLD-...` anchor in the issue's Design reference section (not just
+   the first — `head -1` dropped in favour of `mapfile` + a loop), and for each anchor pair
+   its Part B section with the same-numbered Part A section (new `extract_part_a_region` +
+   `extract_by_heading_number` helpers; task number parsed from Part B's own heading via a
+   new `task_number_of` helper). Deliberately excludes the HLD and any ADRs the issue
+   references — those are large, project-wide documents in their own right; pulling them in
+   would reopen the exact re-reading cost #79 exists to close, and an LLD section is
+   expected to already carry whatever HLD/ADR context a story needs.
+3. Requirements: union REQ- anchors from direct issue-body mentions with the coverage-
+   manifest lookup for *every* resolved LLD anchor (previously one lookup keyed on one
+   anchor).
+4. Kept from the prior round, unaffected: anchor-grep scoped to the Design reference
+   section first (falls back to whole-body only if that section is missing);
+   `extract_by_heading_text`'s `matched` flag + `END { exit 1 }` fix; full-file fallback on
+   total resolution failure.
+
+**Implementation bugs hit and fixed while rewriting, before any review:**
+- `${#ARRAY[@]:-0}` is invalid bash (can't combine array-length with a `:-` default) —
+  `set -u` made this fatal immediately. Fixed by always `declare -a ARRAY=()` up front
+  instead of relying on `:-` fallbacks at every use site.
+- The task-number-to-Part-A-section matcher originally built a dynamic awk regex with a
+  shell-side `sed 's/\./\\./g'` escape for the literal dot in "2.3" — gawk's `-v`
+  assignment strips backslash escapes it doesn't recognize as C-style sequences (with a
+  warning), so the escape never survived into the regex and "2.3" would have also matched
+  "2x3". Rewrote `extract_by_heading_number` as plain awk string comparison
+  (`substr(rest,1,tlen)==tasknum` + a boundary check on the next char) — no dynamic regex,
+  no escaping round-trip, and it's the more correct fix, not just a working one.
+- The heading-level calc for the new matcher had to line up with the other 3 extractor
+  functions' `RLENGTH-1` convention (single `[ \t]` in the match, not `[ \t]+`) — using `+`
+  would have overcounted the level on a heading with extra whitespace and corrupted the
+  section-boundary check.
+
+**Testing:** manually verified the boundary fix against issue #50's real LLD
+(`grep -n "## LLD context|### LLD-|#### Part A|#### Part B|## 2.4 Packaging"`) before
+touching the test suite — confirmed Part A stops exactly before Part B's own heading (no
+bleed into the next task's Part A). Rewrote `TestBriefPackage`: updated the two existing
+anchor-resolution tests for the new stdout/body shape, dropped the now-meaningless
+AC-fallback test (there's nothing to fall back from — the body is always in full), added
+tests for full-body inclusion with no AC heading (issue #1) and LLD-fallback-to-full-file
+when no anchor is referenced at all (issue #1 again, real fixture, no synthesis needed).
+Hit a Windows-specific mojibake issue while editing: unicode em-dash/section-sign (`—`,
+`§`) characters typed into new test-assertion strings came out as `<REPLACEMENT CHAR>`
+bytes in the file — did not chase the root cause (likely an encoding mismatch somewhere in
+the edit path on this Windows box), just rewrote those specific assertions to avoid
+non-ASCII literals (`"Part A" in body and "2.3" in body` instead of a single unicode
+string) — more robust anyway, since it no longer depends on exact heading punctuation.
+Spawned `edf:feature-evaluator` against the redesign specifically (not `gh issue view 79`,
+since this isn't a separate issue — six explicit acceptance criteria for the redesign
+itself, described in the agent prompt). Verdict: PASS WITH WARNINGS. It correctly
+identified that no real closed issue/LLD in this repo exercises the two new code paths
+(multi-anchor Design reference, task-number boundary collision) and wrote two adversarial
+tests: one with a synthetic decoy LLD file (real stable anchor from issue #50, fabricated
+sibling sections "2.30" and "12.3" to prove the boundary check rejects both), and one with
+a `gh` shim on `$PATH` that returns a synthetic multi-anchor issue body while the LLD file
+and coverage manifest underneath stay entirely real (`_LLD_FIXTURE`/`_REQ_FIXTURE`) — both
+passed. It also flagged a silent-failure asymmetry: the manifest req/lld lookup dropped an
+anchor with no warning if a manifest entry ever had its `req:`/`lld:` fields in the
+unexpected order (works today because every manifest in this repo has them in the expected
+order), unlike every other resolution-failure path in the script, which does warn — fixed
+by adding the missing `echo ... >&2` for symmetry. 459 passed, 18 pre-existing skips after
+all fixes.
+
 ## Process deviation (recorded, not hidden)
 Implemented `brief-package.sh` and hand-validated it against real anchors in this repo's
 own dogfooded LLD/requirements docs (issue #50's `LLD-v1-e1-2-command-wiring` /

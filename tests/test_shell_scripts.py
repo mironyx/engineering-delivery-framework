@@ -291,17 +291,28 @@ class TestBriefPackage:
         ) in result.stdout
 
         body = out.read_text()
+        # Full issue body, not just the acceptance-criteria heading — BDD
+        # specs, Files to create/modify, etc. must all be present too.
+        assert "## BDD specs" in body
+        assert "## Files to create/modify" in body
+        assert "insertReviewComment" in body and "target resolution" in body
+
+        # Part A (design rationale) is paired with Part B (implementation)
+        # for the same story, not just the anchored Part B section alone.
+        assert "Part A" in body and "Design rationale" in body and "2.3" in body
+        assert "Part B" in body and "Implementation" in body
         assert "## 2.3 Command wiring and target resolution" in body
-        assert "Story 2.1: Insert" in body
-        # Must stop before the next LLD section anchor — no bleed-through.
+        assert "Story 2.1: Insert" in body  # from the requirements section
+        # Must stop before the next LLD section anchor — no bleed-through
+        # into the next story's Part A or Part B content.
         assert "## 2.4 Packaging" not in body
         assert "LLD-v1-e1-2-packaging-security" not in body
 
     @gh_required
     def test_no_lld_and_no_anchor_falls_back_to_full_requirements(self, tmp_path):
-        # Issue #79 (this issue) has no LLD and references no REQ- anchor
-        # directly — both fallback paths in one call. A fallback must include
-        # full content, never omit it silently.
+        # Issue #79 has no LLD and references no REQ- anchor directly — both
+        # fallback paths in one call. A fallback must include full content,
+        # never omit it silently.
         out = tmp_path / "brief.md"
         result = _bash(
             BIN_DIR / "brief-package.sh",
@@ -317,6 +328,144 @@ class TestBriefPackage:
         body = out.read_text()
         assert "(no LLD for this issue)" in body
         assert "brief-package.sh` exists" in body  # from issue #79's own AC list
+        # Full body means sibling sections survive too, not just the AC list.
+        assert "## Acceptance criteria" in body
+        assert "## What to change" in body
+
+    @gh_required
+    def test_full_issue_body_included_even_with_no_ac_heading(self, tmp_path):
+        # Issue #1 (merged) has no "## Acceptance criteria" heading at all —
+        # a case the old AC-only extraction had to special-case. Now the
+        # whole body is always included verbatim, so there is nothing to
+        # fall back from: the content is just there.
+        out = tmp_path / "brief.md"
+        result = _bash(
+            BIN_DIR / "brief-package.sh",
+            "--issue", "1", "--lld", "none",
+            "--out", str(out),
+        )
+        assert result.returncode == 0
+        body = out.read_text()
+        assert "schema foundations" in body.lower()
+        assert "## Test plan" in body
+
+    @gh_required
+    def test_lld_falls_back_to_full_file_when_no_anchor_referenced(self, tmp_path):
+        # Issue #1 has no "## Design reference" section and no "#LLD-..."
+        # anchor anywhere in its body — resolution must fail closed to the
+        # full LLD file, not an empty section.
+        out = tmp_path / "brief.md"
+        result = _bash(
+            BIN_DIR / "brief-package.sh",
+            "--issue", "1",
+            "--lld", str(_LLD_FIXTURE),
+            "--out", str(out),
+        )
+        assert result.returncode == 0
+        assert "lld: fallback-full-file" in result.stdout
+
+        body = out.read_text()
+        # A marker from near the end of the real file — proof the whole
+        # thing was included, not just an early section.
+        assert "## Execution Order" in body
+
+    @gh_required
+    def test_part_a_task_number_matching_is_boundary_exact(self, tmp_path):
+        # Regression guard for the redesign's exact-boundary requirement: matching
+        # task "2.3" must not also match "2.30" (longer number, same prefix) or
+        # "12.3" (same suffix, different epic). No real LLD file in this repo has
+        # such a colliding sibling section, so this synthesizes one — reusing
+        # issue #50's real, stable "Design reference" anchor (task number "2.3")
+        # against a purpose-built LLD file that plants both decoys ahead of the
+        # real section.
+        lld = tmp_path / "lld-decoy.md"
+        lld.write_text(
+            "# Part A — Human-Reviewable Design\n\n"
+            "## 2.30 Decoy expanded task number\n\n"
+            "DECOY-PART-A-BODY-2-30\n\n"
+            "## 12.3 Decoy different epic\n\n"
+            "DECOY-PART-A-BODY-12-3\n\n"
+            "## 2.3 Command wiring and target resolution\n\n"
+            "REAL-PART-A-BODY-2-3\n\n"
+            "# Part B — Agent Implementation Detail\n\n"
+            '<a id="LLD-v1-e1-2-command-wiring"></a>\n\n'
+            "## 2.3 Command wiring and target resolution — Implementation\n\n"
+            "REAL-PART-B-BODY\n"
+        )
+        out = tmp_path / "brief.md"
+        result = _bash(
+            BIN_DIR / "brief-package.sh",
+            "--issue", "50",
+            "--lld", str(lld),
+            "--out", str(out),
+        )
+        assert result.returncode == 0, result.stderr
+        assert "lld: resolved:LLD-v1-e1-2-command-wiring" in result.stdout
+
+        body = out.read_text()
+        assert "REAL-PART-A-BODY-2-3" in body
+        assert "REAL-PART-B-BODY" in body
+        assert "DECOY-PART-A-BODY-2-30" not in body
+        assert "DECOY-PART-A-BODY-12-3" not in body
+
+    @gh_required
+    def test_resolves_every_design_reference_anchor_and_unions_their_reqs(self, tmp_path):
+        # No real closed issue in this repo names more than one LLD-<anchor> in its
+        # "## Design reference" section, so the redesign's "every anchor, not just
+        # the first" resolution and the requirements union across every resolved
+        # anchor have no real issue-body fixture. Shims only the `gh issue view`
+        # transport with a synthetic body naming two real, already-anchored
+        # sections of the real LLD fixture; the LLD-file and coverage-manifest
+        # extraction underneath stays entirely real.
+        fake_bin = tmp_path / "fakebin"
+        fake_bin.mkdir()
+        body_file = tmp_path / "body.txt"
+        body_file.write_text(
+            "## Design reference\n"
+            "[a](x#LLD-v1-e1-2-command-wiring) and "
+            "[b](y#LLD-v1-e1-2-packaging-security)\n\n"
+            "## Acceptance criteria\n- [ ] does a thing\n"
+        )
+        gh_shim = fake_bin / "gh"
+        gh_shim.write_text(
+            "#!/usr/bin/env bash\n"
+            "case \"$*\" in\n"
+            "  *'--json title'*) echo 'Synthetic multi-anchor issue' ;;\n"
+            f"  *'--json body'*) cat '{_to_msys2_path(body_file)}' ;;\n"
+            "  *) exit 1 ;;\n"
+            "esac\n"
+        )
+        gh_shim.chmod(0o755)
+
+        env = dict(os.environ)
+        env["PATH"] = f"{_to_msys2_path(fake_bin)}:{env.get('PATH', '')}"
+        out = tmp_path / "brief.md"
+        result = subprocess.run(
+            [
+                _BASH_EXE, _to_msys2_path(BIN_DIR / "brief-package.sh"),
+                "--issue", "999999",
+                "--lld", str(_LLD_FIXTURE),
+                "--requirements", str(_REQ_FIXTURE),
+                "--out", str(out),
+            ],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        assert result.returncode == 0, result.stderr
+        assert (
+            "lld: resolved:"
+            "LLD-v1-e1-2-command-wiring,LLD-v1-e1-2-packaging-security"
+        ) in result.stdout
+        assert (
+            "requirements: resolved:"
+            "REQ-vscode-extension-review-feedback-quick-pick-insert-review-comment,"
+            "REQ-vscode-extension-review-feedback-test-framework-local-packaging"
+        ) in result.stdout
+
+        body = out.read_text()
+        assert "## 2.3 Command wiring and target resolution" in body
+        assert "## 2.4 Packaging, install verification and security review" in body
+        # Bounded: neither Part A section bleeds into the next story's.
+        assert "## 2.5 Diagram click-through overlay" not in body
 
     @gh_required
     def test_default_output_path_is_self_ignoring(self):
@@ -353,26 +502,6 @@ class TestBriefPackage:
             assert ".edf" not in status.stdout
         finally:
             expected.unlink(missing_ok=True)
-
-    @gh_required
-    def test_ac_extraction_falls_back_when_no_heading_found(self, tmp_path):
-        # Issue #1 (merged) has no "## Acceptance criteria" heading at all. The
-        # extraction helper must report this as a miss so the caller falls back
-        # to the full issue body — never a silent, empty "resolved" section.
-        out = tmp_path / "brief.md"
-        result = _bash(
-            BIN_DIR / "brief-package.sh",
-            "--issue", "1", "--lld", "none",
-            "--out", str(out),
-        )
-        assert result.returncode == 0
-        assert "acceptance-criteria: fallback-full-issue-body" in result.stdout
-
-        body = out.read_text()
-        # The fallback must carry real content from the issue body, not an
-        # empty section.
-        assert "schema foundations" in body.lower()
-
 
 # ── gh-project-status.sh ─────────────────────────────────────────────────────
 
