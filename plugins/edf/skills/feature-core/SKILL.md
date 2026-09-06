@@ -430,13 +430,26 @@ Run `edf:diag` on changed files. This is a **blocking gate** — do not proceed 
 - **Light track:** Run `edf:diag` on changed `src/` files only. Skip test files.
 - **Full track:** Run `edf:diag` on all changed files — including test files under `tests/`.
 
-Then:
+**Step 6, local loop (diagnostics-exporter + CodeScene only — not to be confused with the
+Step 6b evaluator below):**
 
-1. Run `edf:diag` on the scoped file set.
+1. Run `edf:diag` (no `sonar` argument) on the scoped file set.
 2. If any findings exist, fix them all. **Exception: ignore smells on generated files** (e.g. content under `<migration-dir>` for projects that generate migrations from a declarative schema).
 3. After fixing, re-run `edf:diag` to confirm the findings are gone.
 4. Repeat until `edf:diag` reports zero findings on non-generated files.
 5. Re-run Step 5 (full verification) after any fixes.
+
+Do **not** pass `sonar` in this loop — SonarCloud's analysis reflects the last pushed
+commit, not these local edits, so looping the gate here just re-spends tokens on an
+unchanged result.
+
+**Step 6, sonar gate (once, after the local loop above is clean):**
+
+Run `edf:diag sonar` exactly once. If the gate fails and issues are fixed, re-run Step 5 and
+the local loop above for the fix, then re-run `edf:diag sonar` **one more time** to confirm —
+two sonar-gate calls total per feature, not one per fix iteration. If it still fails after
+that second call on issues you cannot fix, follow `edf:diag`'s own documented-deferral rule
+(note the reason, don't loop further).
 
 **Both tracks:** after diagnostics pass clean, append a cost checkpoint row:
 ```bash
@@ -482,7 +495,7 @@ Input: requirements_paths=<absolute list> lld_path=<absolute path or "none"> iss
 
 - **PASS** — every acceptance criterion maps to at least one passing test, no gaps. Proceed to Step 7.
 - **PASS WITH WARNINGS** — minor gaps found, evaluator added a small number of adversarial tests. Review warnings, fix quick wins, note the rest **in the session log's Concerns & Deferred Items section, immediately** (and in the PR body). Proceed to Step 7.
-- **FAIL** — a criterion is uncovered or an adversarial test exposed a real defect. Fix the implementation, re-run Step 5 (verification) and Step 6 (`edf:diag`), then re-run the evaluator once to confirm the previously-uncovered criteria now pass. PASS or PASS WITH WARNINGS → proceed to Step 7. FAIL again → pause and report. One re-run only — if it still fails, stop.
+- **FAIL** — a criterion is uncovered or an adversarial test exposed a real defect. Fix the implementation, re-run Step 5 (verification) and Step 6's local `edf:diag` loop (no code has been pushed yet, so there's nothing new for the Step 6 sonar gate to see), then re-run the evaluator once to confirm the previously-uncovered criteria now pass. PASS or PASS WITH WARNINGS → proceed to Step 7. FAIL again → pause and report. One re-run only — if it still fails, stop.
 
 If evaluator writes > 3 adversarial tests, note count **in the session log's Concerns &
 Deferred Items section, immediately**, and in the Step 10 report and PR body — but do not
