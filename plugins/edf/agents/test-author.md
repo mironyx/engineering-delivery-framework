@@ -18,8 +18,14 @@ implementation does not exist yet — you are writing the tests that will drive 
 
 You will receive:
 - `issue_number` — GitHub issue number
-- `requirements_paths` — list of paths to requirements documents
-- `lld_path` — path to the LLD document, or "none"
+- `brief_path` — optional; path to a pre-built brief (acceptance criteria + the single
+  relevant LLD section + the single relevant requirements section), written by
+  `bin/brief-package.sh`. When present, read this instead of `requirements_paths` and
+  `lld_path` in full — see Step 1.
+- `requirements_paths` — list of paths to requirements documents. Fallback source when
+  `brief_path` is absent, or when the brief is missing something you need (see Step 1).
+- `lld_path` — path to the LLD document, or "none". Same fallback role as
+  `requirements_paths`.
 - `target_test_file` — path where the test file should be written
 - `unit_under_test` — path to the source file that will be implemented
 - `mode` — "feature" or "bugfix"
@@ -29,7 +35,16 @@ You will receive:
 
 ### Step 1: Extract the contract
 
-Read every source in this order:
+**If `brief_path` is present:** read that file first. It already contains the issue's
+acceptance criteria, the single relevant LLD section, and the single relevant requirements
+section — reading it stands in for reading the full `requirements_paths` + `lld_path` list.
+If it looks sufficient (covers the properties you'd expect for this issue), skip straight to
+building the property list below. If it looks thin, contradicts the issue body, or you
+cannot identify enough properties from it alone, fall back to reading the full sources
+below — a brief that omits something is a bug in extraction, not a reason to under-test.
+
+**Otherwise (`brief_path` absent, or the brief was insufficient), read every source in
+this order:**
 1. Every file in `requirements_paths` — the contract of record
 2. The LLD at `lld_path` (if not "none") — refinement
 3. The issue body: `gh issue view <issue_number>`

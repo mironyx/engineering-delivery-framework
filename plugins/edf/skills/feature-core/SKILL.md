@@ -86,6 +86,19 @@ Execute sequentially. Do not skip steps. Do not ask for confirmation — only pa
    ```
 4. Read any existing source files in the target directory.
 5. Understand the contract: inputs, outputs, types, error cases.
+6. Build the implementation brief once, for the sub-agents spawned later in this cycle
+   (Step 4bF's `edf:test-author`, Step 6b's `edf:feature-evaluator`). This avoids each of
+   them independently re-reading the full requirements doc(s) and LLD:
+   ```bash
+   BRIEF_OUT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/brief-package.sh \
+     --issue <issue-number> \
+     --lld <absolute lld_path or "none"> \
+     --requirements <absolute requirements_path> [--requirements <absolute requirements_path> ...])
+   BRIEF_PATH=$(echo "$BRIEF_OUT" | grep '^brief:' | sed 's/^brief: //')
+   ```
+   Capture `BRIEF_PATH` for use in Steps 4bF and 6b. If the script fails (non-zero exit —
+   e.g. `gh` unauthenticated), do not block: proceed without a brief and pass the full
+   `requirements_paths`/`lld_path` to those agents instead, same as before this existed.
 
 ### Step 3a: Verify external surfaces
 
@@ -288,6 +301,7 @@ Then launch the `edf:test-author` agent with:
 Launch Agent: edf:test-author
 Input:
   issue_number: <N>
+  brief_path: <BRIEF_PATH from Step 3, or omit if the brief build failed>
   requirements_paths: <list of absolute paths, e.g. ["/absolute/path/to/docs/requirements/v1-requirements.md"]>
   lld_path: <absolute path or "none"> (resolved in Step 3)
   target_test_file: <tests/.../<unit>.test.ts>
@@ -297,7 +311,9 @@ Input:
 ```
 
 For `requirements_paths`: pass the project requirements doc plus any per-feature
-requirements files the issue or LLD references.
+requirements files the issue or LLD references. Pass this list regardless of whether
+`brief_path` is set — it is the fallback `edf:test-author` uses if the brief is missing or
+found insufficient.
 
 **If the sub-agent reports fewer than three observable properties** or reports unresolved
 spec gaps, **stop and escalate to the user** — the spec is too vague to implement against.
@@ -466,6 +482,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-
 
 **Full track:** Launch the `edf:feature-evaluator` agent. Pass it:
 
+- `brief_path` — the `BRIEF_PATH` from Step 3, if the brief build succeeded there; omit
+  otherwise. Same file already passed to `edf:test-author` in Step 4bF.
 - `requirements_paths` — same absolute list passed to the edf:test-author in Step 4bF
 - `lld_path` — the LLD file absolute path from Step 3, or the literal string `"none"` if no
   LLD exists (same sentinel used for `edf:test-author` in Step 4bF — do not pass the issue
@@ -486,7 +504,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-
 
 ```
 Launch Agent: edf:feature-evaluator
-Input: requirements_paths=<absolute list> lld_path=<absolute path or "none"> issue_number=<N> changed_files=<absolute list> test_files=<absolute list> coverage_manifest=<absolute path or "none">
+Input: brief_path=<absolute path, or omit> requirements_paths=<absolute list> lld_path=<absolute path or "none"> issue_number=<N> changed_files=<absolute list> test_files=<absolute list> coverage_manifest=<absolute path or "none">
 ```
 
 **HTTP mocking check:** verify the test files use the project's HTTP mocking convention as declared in CLAUDE.md. If they use manual stubs, spies, or monkeypatching instead, flag it as a blocker — the tests must be rewritten before the feature can proceed.

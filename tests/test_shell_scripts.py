@@ -231,6 +231,130 @@ class TestReviewPackage:
         assert "+CHANGED" in dest.read_text()
 
 
+# ── brief-package.sh ─────────────────────────────────────────────────────────
+
+
+_LLD_FIXTURE = (
+    BIN_DIR.parent / "docs" / "design" / "v1" / "lld-v1-e1-2-review-feedback.md"
+)
+_REQ_FIXTURE = BIN_DIR.parent / "docs" / "requirements" / "v1-requirements.md"
+
+
+class TestBriefPackage:
+    def test_no_args_shows_usage(self):
+        result = _bash(BIN_DIR / "brief-package.sh")
+        assert result.returncode == 1
+        assert "usage:" in result.stderr
+
+    def test_missing_lld_shows_usage(self):
+        result = _bash(BIN_DIR / "brief-package.sh", "--issue", "1")
+        assert result.returncode == 1
+        assert "usage:" in result.stderr
+
+    def test_issue_requires_a_number(self):
+        result = _bash(BIN_DIR / "brief-package.sh", "--issue", "abc", "--lld", "none")
+        assert result.returncode == 1
+        assert "expects a number" in result.stderr
+
+    def test_unknown_option(self):
+        result = _bash(BIN_DIR / "brief-package.sh", "--bogus")
+        assert result.returncode == 1
+        assert "Unknown option" in result.stderr
+
+    def test_outside_git_repo_fails_clearly(self, tmp_path):
+        result = _bash(
+            BIN_DIR / "brief-package.sh", "--issue", "1", "--lld", "none",
+            cwd=tmp_path,
+        )
+        assert result.returncode == 1
+        assert "git repository" in result.stderr.lower()
+
+    @gh_required
+    def test_lld_and_requirements_resolve_via_anchors(self, tmp_path):
+        # Issue #50 is closed/merged; its "Design reference" anchor and the
+        # matching coverage-manifest `req:` entry are stable fixtures already
+        # committed to this repo — a real end-to-end resolution path, not a
+        # synthetic one.
+        out = tmp_path / "brief.md"
+        result = _bash(
+            BIN_DIR / "brief-package.sh",
+            "--issue", "50",
+            "--lld", str(_LLD_FIXTURE),
+            "--requirements", str(_REQ_FIXTURE),
+            "--out", str(out),
+        )
+        assert result.returncode == 0
+        assert "lld: resolved:LLD-v1-e1-2-command-wiring" in result.stdout
+        assert (
+            "requirements: resolved:"
+            "REQ-vscode-extension-review-feedback-quick-pick-insert-review-comment"
+        ) in result.stdout
+
+        body = out.read_text()
+        assert "## 2.3 Command wiring and target resolution" in body
+        assert "Story 2.1: Insert" in body
+        # Must stop before the next LLD section anchor — no bleed-through.
+        assert "## 2.4 Packaging" not in body
+        assert "LLD-v1-e1-2-packaging-security" not in body
+
+    @gh_required
+    def test_no_lld_and_no_anchor_falls_back_to_full_requirements(self, tmp_path):
+        # Issue #79 (this issue) has no LLD and references no REQ- anchor
+        # directly — both fallback paths in one call. A fallback must include
+        # full content, never omit it silently.
+        out = tmp_path / "brief.md"
+        result = _bash(
+            BIN_DIR / "brief-package.sh",
+            "--issue", "79",
+            "--lld", "none",
+            "--requirements", str(_REQ_FIXTURE),
+            "--out", str(out),
+        )
+        assert result.returncode == 0
+        assert "lld: none" in result.stdout
+        assert "requirements: fallback-full-files:1" in result.stdout
+
+        body = out.read_text()
+        assert "(no LLD for this issue)" in body
+        assert "brief-package.sh` exists" in body  # from issue #79's own AC list
+
+    @gh_required
+    def test_default_output_path_is_self_ignoring(self):
+        # Mirrors review-package.sh's `test_package_dir_is_self_ignoring` (issue #79
+        # AC: ".edf/ ... is git-ignored"). No --out given, so the script must fall
+        # back to REPO_ROOT/.edf/brief-<issue>.md and keep it out of `git status`
+        # via the same self-writing .edf/.gitignore, not by relying on a tracked
+        # .gitignore entry.
+        repo_root = pathlib.Path(
+            subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                capture_output=True, text=True, check=True,
+            ).stdout.strip()
+        )
+        expected = repo_root / ".edf" / "brief-79.md"
+        try:
+            result = _bash(
+                BIN_DIR / "brief-package.sh",
+                "--issue", "79", "--lld", "none",
+                "--requirements", str(_REQ_FIXTURE),
+            )
+            assert result.returncode == 0
+            assert result.stdout.startswith("brief: ")
+            assert expected.is_file()
+
+            gitignore = repo_root / ".edf" / ".gitignore"
+            assert gitignore.is_file()
+            assert gitignore.read_text().strip() == "*"
+
+            status = subprocess.run(
+                ["git", "status", "--porcelain"], cwd=repo_root,
+                capture_output=True, text=True, check=True,
+            )
+            assert ".edf" not in status.stdout
+        finally:
+            expected.unlink(missing_ok=True)
+
+
 # ── gh-project-status.sh ─────────────────────────────────────────────────────
 
 
