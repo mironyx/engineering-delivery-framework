@@ -192,8 +192,18 @@ LLD_TEXT=""
 LLD_ANCHOR=""
 if [[ "$LLD_PATH" != "none" ]]; then
   # Resolve the anchor from the issue body's "## Design reference" link,
-  # e.g. [lld-foo.md §2.1](docs/design/v1/lld-foo.md#LLD-foo-bar)
-  LLD_ANCHOR=$(printf '%s\n' "$ISSUE_BODY" | grep -oE '#(LLD-[A-Za-z0-9._-]+)' | head -1 | sed 's/^#//' || true)
+  # e.g. [lld-foo.md §2.1](docs/design/v1/lld-foo.md#LLD-foo-bar). Scope the
+  # search to that section first, so an unrelated "#LLD-..." mention
+  # elsewhere in the issue body (e.g. a Concerns/Related section) can't be
+  # picked up instead; fall back to a whole-body search if the section
+  # itself can't be found.
+  DESIGN_REF_SECTION=$(extract_by_heading_text "$TMP_ISSUE_BODY" "design reference" || true)
+  if [[ -n "$DESIGN_REF_SECTION" ]]; then
+    LLD_ANCHOR=$(printf '%s\n' "$DESIGN_REF_SECTION" | grep -oE '#(LLD-[A-Za-z0-9._-]+)' | head -1 | sed 's/^#//' || true)
+  fi
+  if [[ -z "$LLD_ANCHOR" ]]; then
+    LLD_ANCHOR=$(printf '%s\n' "$ISSUE_BODY" | grep -oE '#(LLD-[A-Za-z0-9._-]+)' | head -1 | sed 's/^#//' || true)
+  fi
   if [[ -n "$LLD_ANCHOR" ]] && LLD_TEXT=$(extract_by_anchor "$LLD_PATH" "$LLD_ANCHOR"); then
     LLD_STATUS="resolved:${LLD_ANCHOR}"
   else

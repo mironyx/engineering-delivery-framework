@@ -13,8 +13,7 @@ flowchart TD
         S3["S3: Read issue body<br/>gh issue view"] --> S3_EPIC{"Epic label?"}
         S3_EPIC -->|"Yes"| STOP_EPIC(["fa:fa-ban Stop: use /feature epic"])
         S3_EPIC -->|"No"| S3_READ["Read referenced docs,<br/>LLDs, source files"]
-        S3_READ --> S3_BRIEF["S3: Build brief once<br/>bin/brief-package.sh<br/>-&gt; brief_path"]
-        S3_BRIEF --> S3A["S3a: Read LLD<br/>External Surfaces table"]
+        S3_READ --> S3A["S3a: Read LLD<br/>External Surfaces table"]
         S3A --> S3A_NEW{"Row is New to repo,<br/>or Unverified?"}
         S3A_NEW -->|"Yes"| S3A_FETCH["WebFetch pinned doc<br/>before coding"]
         S3A_FETCH --> S3B
@@ -40,7 +39,7 @@ flowchart TD
 
     %% ── Full track ──
     subgraph FULL["Full Track (>=30 lines)"]
-        F2(("4bF: Write stubs + test-author agent<br/>(brief_path)")) --> F2_CHK{"3+ observable<br/>properties?"}
+        S3_BRIEF["4bF: Build brief once<br/>bin/brief-package.sh<br/>-&gt; brief_path"] --> F2(("4bF: Write stubs + test-author agent<br/>(brief_path)")) --> F2_CHK{"3+ observable<br/>properties?"}
         F2_CHK -->|"No"| STOP_SPEC(["fa:fa-ban Escalate to user"])
         F2_CHK -->|"Yes"| F2_CP["Append cost checkpoint<br/>step 4bF: test-author"]
         F2_CP --> F3["4cF: Implement against tests<br/>bash run-tests.sh &lt;test-file&gt;<br/>(direct, no agent)"]

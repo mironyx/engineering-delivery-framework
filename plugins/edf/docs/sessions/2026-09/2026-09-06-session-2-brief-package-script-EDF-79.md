@@ -67,6 +67,17 @@ verification.
   (fixed — status now reports the actually-included count, and a warning is printed to
   stderr for each skipped path). Full suite re-run clean after both fixes: 455 passed, 18
   pre-existing skips.
+- **`edf:pr-review` findings on PR #87 (2 warn + 1 block), all fixed:** (1) [warn/bug]
+  `brief-package.sh`'s LLD anchor grep scanned the whole issue body instead of just the
+  "## Design reference" link its own header comment claimed — fixed to scope to that
+  section first, falling back to whole-body search only if the section isn't found. (2)
+  [warn/justification] the brief-build step ran unconditionally in Step 3's shared
+  preamble, so Light-track issues paid for a `gh` call and file write that Step 4L never
+  consumes — moved into Step 4bF (Full track only), and `flowchart.md` updated to match.
+  (3) [block/silent-swallow] the brief-script-failure fallback in Step 3 didn't say to log
+  the failure anywhere — Step 4bF's version now instructs appending it to the session
+  log's Concerns section immediately. Full suite re-run clean after all three fixes: 455
+  passed, 18 pre-existing skips.
 | 3c | 2026-09-06T15:19:18Z | unavailable | unavailable | pressure: heavy - brief-package.sh ~230 lines single file, no split warranted |
 | 5 | 2026-09-06T15:30:21Z | unavailable | unavailable | green — 454 passed (pytest direct; run-tests.sh wrapper blocked by pre-existing missing pyproject.toml) |
 | 6 | 2026-09-06T15:32:09Z | unavailable | unavailable | diag tooling unavailable in this environment (no editor, no CodeScene MCP, SonarQube down) - manual review substituted |

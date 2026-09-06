@@ -86,19 +86,6 @@ Execute sequentially. Do not skip steps. Do not ask for confirmation — only pa
    ```
 4. Read any existing source files in the target directory.
 5. Understand the contract: inputs, outputs, types, error cases.
-6. Build the implementation brief once, for the sub-agents spawned later in this cycle
-   (Step 4bF's `edf:test-author`, Step 6b's `edf:feature-evaluator`). This avoids each of
-   them independently re-reading the full requirements doc(s) and LLD:
-   ```bash
-   BRIEF_OUT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/brief-package.sh \
-     --issue <issue-number> \
-     --lld <absolute lld_path or "none"> \
-     --requirements <absolute requirements_path> [--requirements <absolute requirements_path> ...])
-   BRIEF_PATH=$(echo "$BRIEF_OUT" | grep '^brief:' | sed 's/^brief: //')
-   ```
-   Capture `BRIEF_PATH` for use in Steps 4bF and 6b. If the script fails (non-zero exit —
-   e.g. `gh` unauthenticated), do not block: proceed without a brief and pass the full
-   `requirements_paths`/`lld_path` to those agents instead, same as before this existed.
 
 ### Step 3a: Verify external surfaces
 
@@ -278,6 +265,25 @@ Tests must be written by a separate agent against the spec only, before implemen
 Flow: test-agent writes tests against spec -> implement against tests.
 
 ### Step 4bF: Write stubs and hand off tests
+
+**Build the implementation brief once**, before writing stubs, for the sub-agents spawned
+later in this cycle (this step's `edf:test-author`, Step 6b's `edf:feature-evaluator`).
+This avoids each of them independently re-reading the full requirements doc(s) and LLD.
+Full track only — Light track's Step 4L has no sub-agents to hand a brief to, so building
+one there would be pure overhead for a result nothing consumes:
+```bash
+BRIEF_OUT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/brief-package.sh \
+  --issue <issue-number> \
+  --lld <absolute lld_path or "none"> \
+  --requirements <absolute requirements_path> [--requirements <absolute requirements_path> ...])
+BRIEF_PATH=$(echo "$BRIEF_OUT" | grep '^brief:' | sed 's/^brief: //')
+```
+Capture `BRIEF_PATH` for use in this step and Step 6b. If the script fails (non-zero exit
+— e.g. `gh` unauthenticated), do not block: proceed without a brief, pass the full
+`requirements_paths`/`lld_path` to those agents instead (same as before this existed), and
+append a note to the session log's Concerns & Deferred Items section immediately — a
+fallback that runs on every remaining sub-agent spawn for this feature is worth surfacing,
+not just swallowing.
 
 **Write the public interface first.** Create the *public surface* of the unit under change:
 exported types, schemas, function signatures, and stub bodies that throw `not implemented`.
