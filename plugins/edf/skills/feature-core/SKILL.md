@@ -32,42 +32,23 @@ These override any conflicting instinct. Violations are the top cost drivers.
 5. **Review agents run in-process, not out-of-process.** All review agents (`edf:feature-evaluator`, `edf:pr-review`, `edf:ci-probe`, `edf:lld-review`, `edf:hld-review`, `edf:requirements-review`) are spawned via `Agent({subagent_type: "edf:feature-evaluator"})` (substituting whichever review agent applies) — they run inside the calling session and return findings directly to the caller. `edf:pr-review` is a Skill, not a registered agent — invoke it with `Skill: edf:pr-review`, not `Agent(...)`. **Do not assume CWD is reliably shared with a spawned review agent** — sub-agent spawns do not reliably inherit the calling session's CWD (the same failure mode `edf:test` was fixed for); any review agent that runs its own verification commands must capture and pin its own CWD explicitly rather than relying on inheritance. Only `edf:feature-team` teammates should be out-of-process (separate git worktree, separate session). Do not launch review agents with worktree isolation or as external processes.
 6. **Never invoke `/simplify`.** Only if the user explicitly asks.
 7. **Do not move the board item to Done.** `/feature-end` handles that.
+8. **Record concerns, deferred items, and deviations in the session log immediately** —
+   the moment they are found, not saved for the Step 10 report or PR body. The PR body and
+   Step 10 report are read once, at PR-creation time; the session log is what a reviewer or
+   `/feature-end` reads later, potentially hours or days after the PR was opened. A concern
+   that exists only in the PR body is invisible to anyone reading the session log before
+   `/feature-end` appends its narrative sections — which may never happen, if the PR sits for
+   review first. Every other call site that would otherwise restate this justification now
+   says only "…(see Critical rules)" — the step-specific detail stays, the justification
+   doesn't repeat.
 
 A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing step order, adding/removing agent spawns, or modifying branching logic.
 
 ## Managing technical debt
 
-**Rule: if you knowingly leave something unfixed, leave a visible marker.**
-
-When you defer a fix, skip a refactor, accept a rough edge, or hit a limitation that prevents
-a full resolution — **leave a `TODO` comment in the code**. Tech debt that lives only in PR
-comments or session logs is invisible to the next developer who reads the file. A `grep TODO`
-in the source tree should surface everything that was intentionally deferred.
-
-Each TODO must:
-1. **Reference the issue or PR number** for traceability (e.g. `#42` or `PR #128`)
-2. **Describe what should be done** and why it was deferred
-3. **Be on its own line** so `grep -rn "TODO" src/` catches it without extra context
-
-Pattern:
-```
-// TODO(#123): Refactor this cache once the shared invalidation layer lands (PR #456).
-// Deferred — the fix here is correct but duplicated; consolidation is tracked separately.
-```
-
-Prefer `TODO` over `FIXME`, `HACK`, or `NOTE` — it is the single convention every editor
-highlights and every grep finds. Keep them in source files (not test files, not config) so
-they sit where the next developer will actually see them.
-
-**When to leave a TODO (non-exhaustive):**
-- A PR review finding was deferred (Step 9 non-blocking suggestion)
-- A diagnostic finding was intentionally not fixed (Step 6 false positive or out-of-scope)
-- A design deviation created a known gap that the LLD expects but was cut for scope
-- A dependency or util doesn't exist yet and a stub was written instead
-- A refactor opportunity was noted but is too large for the current PR
-
-**Do NOT leave TODOs for:** things you plan to fix in the same PR, obvious typos, or
-temporary debugging code (remove that before committing).
+For the TODO convention used throughout this pipeline (format, examples, when-to/not-to),
+see [Managing technical debt](reference/tech-debt.md). All rules and examples in that file
+are binding — it is a relocation, not a downgrade.
 
 ## Steps — Shared preamble
 
@@ -228,12 +209,7 @@ later.
    ````
    Leave this section with only its heading — no placeholder text. Every step below that
    would otherwise "note it in the Step 10 report" appends a bullet here **immediately**,
-   not just at Step 10. The PR body and Step 10 report are read once, at PR-creation time;
-   the session log is what a reviewer or `/feature-end` reads later, potentially hours or
-   days after the PR was opened. A concern that exists only in the PR body is invisible to
-   anyone reading the session log before `/feature-end` appends its narrative sections —
-   which may never happen, if the PR sits for review first. Record it once, here, as it is
-   found.
+   not just at Step 10 (see Critical rules for the full justification).
    Then immediately append the Step 3c checkpoint row with a live timestamp and cost query:
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
@@ -679,7 +655,7 @@ Triage each finding:
 - **Blocker / correctness issue** — fix it: update the code, re-run Step 5 (verification), add a commit, push. If fixing it surfaced something a future reader needs to know (a bug in the task's own tests, a measured finding outside this issue's scope, an assumption that turned out wrong), append it to the session log's Concerns & Deferred Items section immediately, not just the fix itself.
 - **Design contract mismatch** — check whether the design or the implementation is wrong:
   if the implementation is wrong, fix it; if the design is outdated, update the design doc in the same branch. Note which one was wrong, and why, in the session log's Concerns & Deferred Items section.
-- **Non-blocking suggestion** — decide whether it is worth fixing now (quick win) or deferring. If deferring, **leave a `TODO` comment in the affected file** (see [Managing technical debt](#managing-technical-debt)) and append it **to the session log's Concerns & Deferred Items section, immediately** — not only the Step 10 report. A deferred finding that lives only in the PR body is invisible to anyone reading the session log before `/feature-end` runs, which may be hours or days later.
+- **Non-blocking suggestion** — decide whether it is worth fixing now (quick win) or deferring. If deferring, **leave a `TODO` comment in the affected file** (see [Managing technical debt](reference/tech-debt.md)) and append it **to the session log's Concerns & Deferred Items section, immediately** (see Critical rules).
 - **Style / minor** — fix if trivial; otherwise note in the session log's Concerns & Deferred Items section and move on.
 
 **If no fixes were needed** (no blockers found, or only deferred non-blockers): skip the
@@ -780,4 +756,4 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-
 
 If you write a workaround (e.g. stub, backfill, hardcoded value) to unblock progress when a
 dependency is missing or a full fix is not possible in this PR, **leave a `TODO` comment**
-(see [Managing technical debt](#managing-technical-debt)) so the stub is discoverable later.
+(see [Managing technical debt](reference/tech-debt.md)) so the stub is discoverable later.
