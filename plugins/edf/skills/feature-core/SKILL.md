@@ -666,7 +666,15 @@ When the probe reports back during Step 9:
 ### Step 9: Review
 
 Run `edf:pr-review <pr-number>` on the PR just created. This posts a comment on the PR and
-returns findings. Triage each finding:
+returns findings.
+
+Record the HEAD SHA before triaging — this is the baseline for measuring fix size if fixes
+are needed later:
+```bash
+REVIEWED_SHA=$(git rev-parse HEAD)
+```
+
+Triage each finding:
 
 - **Blocker / correctness issue** — fix it: update the code, re-run Step 5 (verification), add a commit, push. If fixing it surfaced something a future reader needs to know (a bug in the task's own tests, a measured finding outside this issue's scope, an assumption that turned out wrong), append it to the session log's Concerns & Deferred Items section immediately, not just the fix itself.
 - **Design contract mismatch** — check whether the design or the implementation is wrong:
@@ -674,7 +682,47 @@ returns findings. Triage each finding:
 - **Non-blocking suggestion** — decide whether it is worth fixing now (quick win) or deferring. If deferring, **leave a `TODO` comment in the affected file** (see [Managing technical debt](#managing-technical-debt)) and append it **to the session log's Concerns & Deferred Items section, immediately** — not only the Step 10 report. A deferred finding that lives only in the PR body is invisible to anyone reading the session log before `/feature-end` runs, which may be hours or days later.
 - **Style / minor** — fix if trivial; otherwise note in the session log's Concerns & Deferred Items section and move on.
 
-After any fixes, re-run `edf:pr-review <pr-number>` to confirm no new issues were introduced.
+**If no fixes were needed** (no blockers found, or only deferred non-blockers): skip the
+re-review section below and proceed straight to the cost checkpoint.
+
+**If fixes were applied**, compute the fix size before deciding whether to re-review:
+
+1. Get the fix diff since the recorded review baseline:
+   ```bash
+   git diff "$REVIEWED_SHA"..HEAD --stat
+   ```
+2. Count added + removed lines, **excluding test files** per the same test-file-exclusion
+   convention as pr-review Step 2. That convention: paths under `tests/`, `test/`, or
+   matching `*.test.*`, `*.spec.*`, `test_*.py`, `*_test.py` are test files — exclude them
+   from the count. (If the host project's `kb/conventions.md` names a `test-suffix`, honour
+   that instead.)
+3. Check for new source files (same exclusion):
+   ```bash
+   git diff "$REVIEWED_SHA"..HEAD --diff-filter=A --name-only | grep -vE '/(tests?|test|spec)/|\.(test|spec)\.|_test\.|test_' | wc -l
+   ```
+
+Then branch on fix size:
+
+- **Fix ≤ 20 source lines, no new files added:** skip the full re-review. Instead, do a
+  lightweight self-check:
+  1. Re-read the specific finding(s) that were fixed and confirm the fix addresses each one.
+  2. Run the target test file(s) for the changed source to confirm tests still pass:
+     ```bash
+     bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test-file>
+     ```
+  3. Note in the session log's Concerns & Deferred Items section: `Fix: N source lines — self-checked, skipped re-review.`
+- **Fix > 20 source lines, or new files added:** re-run `edf:pr-review <pr-number>` to
+  confirm no new issues were introduced. The same `REVIEWED_SHA` baseline persists —
+  cumulative fixes across rounds grow the diff, so a series of small fixes that together
+  exceed the threshold will trigger re-review.
+
+**Threshold rationale:** 20 lines mirrors the spirit of pr-review Step 2's `DIFF_LINE_COUNT
+< 150` single-vs-two-agent split — a post-review fix is inherently smaller than the original
+change, so the threshold is proportionally lower (~13% of the 150-line split). At ≤20 lines
+a reviewer can verify correctness at a glance; above that, or when new files enter the diff,
+the change is large enough to warrant automated review. This threshold makes the second
+pr-review invocation conditional — most post-review fixes are small and take the lightweight
+path.
 
 Once review is resolved (no blockers remain), append a cost checkpoint row:
 ```bash
