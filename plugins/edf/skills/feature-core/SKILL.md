@@ -95,13 +95,40 @@ recall as current.
 
 | Row state | Action before writing code |
 |-----------|---------------------------|
-| `New to repo: Yes` | `WebFetch` the Doc URL. Mandatory — no in-repo precedent to imitate, so the alternative is writing it from training recall. |
-| `Verified: Unverified` | `WebFetch` the Doc URL, or `WebSearch` the pinned version's docs if no URL is given. |
+| `New to repo: Yes` | Delegate to a sub-agent to fetch the Doc URL. Mandatory — no in-repo precedent to imitate, so the alternative is writing it from training recall. |
+| `Verified: Unverified` | Delegate to a sub-agent to fetch the Doc URL, or web-search the pinned version's docs if no URL is given. |
 | Otherwise | No research — grep for the existing in-repo usage and match it. The common case. |
 
 **No table** (LLD predates the convention, or there is no LLD): identify the surfaces this
-change codes against, grep for prior use, and fetch docs for any with none. Note the gap
+change codes against, grep for prior use, and research docs for any with none. Note the gap
 under `## Design deviations` so `/lld-sync` backfills the table.
+
+**How to research a surface (delegated sub-agent):**
+
+For each surface that needs research, spawn a lightweight sub-agent — do not call
+`WebFetch`/`WebSearch` directly. The sub-agent fetches the docs and returns only a compact
+summary; the main context never sees the raw fetched page.
+
+```
+Launch Agent: general-purpose (foreground — implementation is blocked on the result)
+Input:
+  instruction: |
+    1. Fetch the doc at <Doc URL> (or web-search "<surface name> <pinned version> docs" if no URL).
+    2. Extract only what Step 3 needs to implement against this surface:
+       - Exact function/endpoint signatures (names, parameters, return types)
+       - Request/response wire shapes (fields, types, required vs optional)
+       - Any version-specific gotchas or deprecations relevant to the pinned version
+    3. Return a compact summary, never the raw page.
+
+Return contract (sub-agent): at most 20-30 lines. Start with the surface name, doc URL,
+and confirmed version for citation. Then list the extracted signatures, shapes, and
+gotchas. If the doc is unavailable (broken link, auth wall), report that as a one-line
+finding — do not fabricate signatures.
+```
+
+The sub-agent's return is the only context the calling agent receives. The doc URL and
+confirmed version are preserved for citation in `## Design deviations` / the session log
+if needed.
 
 ### Step 3b: Pick the simplest approach and challenge the LLD
 
