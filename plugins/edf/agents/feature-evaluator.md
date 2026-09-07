@@ -54,10 +54,17 @@ Your volume is a diagnostic. Prefer fewer, higher-signal tests — but report, d
 ## Input
 
 You will receive:
+- `brief_path` — optional; path to a pre-built brief written by `bin/brief-package.sh`:
+  the full issue body, the LLD's Part A (design rationale) paired with Part B
+  (implementation detail) for every section the issue references, and the matching
+  requirements section(s). When present, read this instead of `requirements_paths` and
+  `lld_path` in full — see Step 1.
 - `requirements_paths` — one or more paths to the project requirements document(s)
   (e.g. `docs/requirements/v1-requirements.md`). These are the contract of record.
+  Fallback source when `brief_path` is absent or insufficient (see Step 1).
 - `lld_path` — path to the Low-Level Design document (refinement of requirements), or the
-  literal string `"none"` if no LLD exists for this issue
+  literal string `"none"` if no LLD exists for this issue. Same fallback role as
+  `requirements_paths`.
 - `issue_number` — the GitHub issue number
 - `changed_files` — list of source files created or modified
 - `test_files` — list of test files created or modified (including the file written by
@@ -73,7 +80,20 @@ Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `al
 
 ### Step 1: Extract acceptance criteria from all sources
 
-Read in this order, most authoritative first:
+**If `brief_path` is present:** read that file first — it already contains the full issue
+body, the LLD's Part A + Part B for every section the issue references, and the matching
+requirements section(s). Build the checklist below from it. If it looks sufficient, record
+`BRIEF USAGE: used as-is` for the return contract. If it looks thin, contradicts the issue body,
+or a criterion you'd expect for this issue is missing from it, fall back to the full sources
+below — a brief that omits something is a bug in extraction, not grounds to under-audit —
+and record `BRIEF USAGE: fell back (<one-line reason>)`. Falling back after already reading
+the brief costs strictly more than never having a brief at all, so this fact must be
+visible, not just absorbed silently.
+The `coverage_manifest` cross-check (item 4 below) still applies either way.
+
+**Otherwise (`brief_path` absent, or the brief was insufficient), read in this order, most
+authoritative first — and record `BRIEF USAGE: none provided` if `brief_path` was never
+given at all:**
 
 1. Every file in `requirements_paths` — these are the contract of record.
 2. The LLD at `lld_path` — refinement of the requirements. **If `lld_path` is `"none"`,
@@ -271,6 +291,7 @@ Your return to the calling agent must be at most 15 lines:
 
 ```
 VERDICT: PASS | PASS WITH WARNINGS | FAIL
+BRIEF USAGE: used as-is | fell back (<reason>) | none provided
 ADVERSARIAL: <N written, N passed, N failed>
 GAPS:
 - AC-N: <one-line description> — <COVERED | UNCOVERED | FAIL>

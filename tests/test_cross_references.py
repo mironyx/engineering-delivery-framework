@@ -140,6 +140,38 @@ class TestSkillScriptReferences:
 # ── Hooks configuration ──────────────────────────────────────────────────────
 
 
+# ── feature-core Step 4cF direct test-run bypass (#78) ───────────────────────
+
+
+def _section(text, heading, next_heading):
+    start = text.index(heading) + len(heading)
+    end = text.index(next_heading, start)
+    return text[start:end]
+
+
+class TestFeatureCoreStep4cFTestInvocation:
+    """Step 4cF should call run-tests.sh directly, bypassing the edf:test agent
+    wrapper for file-scoped runs (#78) — Step 5 must still use edf:test/edf:test-runner."""
+
+    def _skill_text(self):
+        return (SKILLS_DIR / "feature-core" / "SKILL.md").read_text(encoding="utf-8")
+
+    def test_step_4cf_calls_run_tests_directly(self):
+        section = _section(self._skill_text(), "### Step 4cF:", "### Step 4dF:")
+        assert "bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh" in section
+        assert 'Skill: edf:test' not in section
+
+    def test_step_4cf_has_cwd_guard(self):
+        section = _section(self._skill_text(), "### Step 4cF:", "### Step 4dF:")
+        assert 'CWD=$(pwd)' in section
+        assert 'cd "$CWD" &&' in section
+
+    def test_step_5_still_uses_edf_test_skill(self):
+        section = _section(self._skill_text(), "### Step 5:", "### Step 6:")
+        assert "Skill: edf:test full" in section
+        assert "Skill: edf:test audit" in section
+
+
 class TestHooksConfig:
     def test_hooks_json_valid(self):
         hooks_json = PLUGIN_ROOT / "hooks" / "hooks.json"

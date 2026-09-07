@@ -1,6 +1,6 @@
 # /diag — Process flowchart
 
-Visual overview of the on-demand diagnostics check. Identifies target files, opens them in the editor, reads diagnostics exports, fixes findings, runs CodeScene MCP health checks, and enforces the SonarQube quality gate. Decisions are orange, blocking gates are red.
+Visual overview of the on-demand diagnostics check. Identifies target files, opens them in the editor, reads diagnostics exports, fixes findings, and runs CodeScene MCP health checks. The SonarQube quality gate (S8) only runs when invoked as `edf:diag sonar` — it reflects the last pushed/CI-analysed commit, so callers run it once per push rather than in a local retry loop. Decisions are orange, blocking gates are red.
 
 ```mermaid
 flowchart TD
@@ -30,11 +30,13 @@ flowchart TD
     S7_CHK -->|"> 9.8, green"| S8
 
     S7_FIX --> S7_CHK
-    S7_REVIEW --> S8
+    S7_REVIEW --> S8_GATE
 
-    S8["S8: SonarQube quality gate<br/>sonarqube:sonar-quality-gate"] --> S8_CHK{"Gate pass?"}
+    S8_GATE{"'sonar' in<br/>$ARGUMENTS?"} -->|"No (default)"| DONE
+    S8_GATE -->|"Yes"| S8["S8: SonarQube quality gate<br/>sonarqube:sonar-quality-gate<br/>(once per push, not looped)"]
+    S8 --> S8_CHK{"Gate pass?"}
     S8_CHK -->|"Yes"| DONE
-    S8_CHK -->|"No"| S8_FIX["sonarqube:sonar-list-issues →<br/>fix all findings → re-check<br/>(skip only if blocked)"]
+    S8_CHK -->|"No"| S8_FIX["sonarqube:sonar-list-issues<br/>severities=HIGH,BLOCKER, small page →<br/>fix all findings → re-check<br/>(skip only if blocked)"]
     S8_FIX --> S8
 
     DONE(["fa:fa-check Diagnostics clean"])
@@ -46,5 +48,5 @@ flowchart TD
 
     class START,DONE startend
     class S1,S3,S4,S5,S5_FIX,S6,S7,S7_FIX,S7_REVIEW,S8,S8_FIX process
-    class S2,S5_CHK,S6_CHK,S7_CHK,S8_CHK decision
+    class S2,S5_CHK,S6_CHK,S7_CHK,S8_GATE,S8_CHK decision
 ```

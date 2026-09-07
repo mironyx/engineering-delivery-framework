@@ -266,6 +266,25 @@ Flow: test-agent writes tests against spec -> implement against tests.
 
 ### Step 4bF: Write stubs and hand off tests
 
+**Build the implementation brief once**, before writing stubs, for the sub-agents spawned
+later in this cycle (this step's `edf:test-author`, Step 6b's `edf:feature-evaluator`).
+This avoids each of them independently re-reading the full requirements doc(s) and LLD.
+Full track only — Light track's Step 4L has no sub-agents to hand a brief to, so building
+one there would be pure overhead for a result nothing consumes:
+```bash
+BRIEF_OUT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/brief-package.sh \
+  --issue <issue-number> \
+  --lld <absolute lld_path or "none"> \
+  --requirements <absolute requirements_path> [--requirements <absolute requirements_path> ...])
+BRIEF_PATH=$(echo "$BRIEF_OUT" | grep '^brief:' | sed 's/^brief: //')
+```
+Capture `BRIEF_PATH` for use in this step and Step 6b. If the script fails (non-zero exit
+— e.g. `gh` unauthenticated), do not block: proceed without a brief, pass the full
+`requirements_paths`/`lld_path` to those agents instead (same as before this existed), and
+append a note to the session log's Concerns & Deferred Items section immediately — a
+fallback that runs on every remaining sub-agent spawn for this feature is worth surfacing,
+not just swallowing.
+
 **Write the public interface first.** Create the *public surface* of the unit under change:
 exported types, schemas, function signatures, and stub bodies that throw `not implemented`.
 No behaviour logic, no happy-path code, no error handling. The surface is derived from the
@@ -288,6 +307,7 @@ Then launch the `edf:test-author` agent with:
 Launch Agent: edf:test-author
 Input:
   issue_number: <N>
+  brief_path: <BRIEF_PATH built earlier in this step, or omit if the brief build failed>
   requirements_paths: <list of absolute paths, e.g. ["/absolute/path/to/docs/requirements/v1-requirements.md"]>
   lld_path: <absolute path or "none"> (resolved in Step 3)
   target_test_file: <tests/.../<unit>.test.ts>
@@ -297,18 +317,29 @@ Input:
 ```
 
 For `requirements_paths`: pass the project requirements doc plus any per-feature
-requirements files the issue or LLD references.
+requirements files the issue or LLD references. Pass this list regardless of whether
+`brief_path` is set — it is the fallback `edf:test-author` uses if the brief is missing or
+found insufficient.
 
 **If the sub-agent reports fewer than three observable properties** or reports unresolved
 spec gaps, **stop and escalate to the user** — the spec is too vague to implement against.
 Do not write the tests yourself.
+
+**If `brief_path` was passed and the sub-agent's report shows `Brief usage: fell back`:**
+falling back after already reading the brief costs strictly more than never having built one
+— this is the token-efficiency mechanism failing on this feature, not neutral. Include the
+fallback and its stated reason in the checkpoint note below, and append it **to the session
+log's Concerns & Deferred Items section, immediately** — a fact that lives only in a cost
+checkpoint's note field is easy to skim past; this is exactly the kind of signal that
+section exists to make visible to a later reader (or a future `/retro` pass across many
+session logs) auditing whether `brief_path` is actually saving tokens.
 
 **Full track:** after the test-author returns, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
   --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
   --step "4bF" \
-  --note "test-author complete — <N> BDD properties, <all covered | N gaps>" \
+  --note "test-author complete — <N> BDD properties, <all covered | N gaps> — brief: <used as-is | fell back (<reason>) | none provided>" \
   --issue <N>
 ```
 
@@ -328,9 +359,15 @@ to make the tests pass.
 
 Run only the target test file after each increment:
 
+```bash
+CWD=$(pwd)
+cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test-file>
 ```
-Skill: edf:test <test-file>
-```
+
+`run-tests.sh` already pipes output through a summarizer, so the `edf:test`/`edf:test-runner`
+round trip adds no further compression here — mirrors Step 4L. Other test-related calls in
+this pipeline (Step 5's `full`, `e2e`, `audit` modes) still go through `edf:test`/`edf:test-runner`,
+since their underlying scripts have no summarizer step and can produce large output.
 
 ### Step 4dF: Self-check coverage before Step 5
 
@@ -424,13 +461,26 @@ Run `edf:diag` on changed files. This is a **blocking gate** — do not proceed 
 - **Light track:** Run `edf:diag` on changed `src/` files only. Skip test files.
 - **Full track:** Run `edf:diag` on all changed files — including test files under `tests/`.
 
-Then:
+**Step 6, local loop (diagnostics-exporter + CodeScene only — not to be confused with the
+Step 6b evaluator below):**
 
-1. Run `edf:diag` on the scoped file set.
+1. Run `edf:diag` (no `sonar` argument) on the scoped file set.
 2. If any findings exist, fix them all. **Exception: ignore smells on generated files** (e.g. content under `<migration-dir>` for projects that generate migrations from a declarative schema).
 3. After fixing, re-run `edf:diag` to confirm the findings are gone.
 4. Repeat until `edf:diag` reports zero findings on non-generated files.
 5. Re-run Step 5 (full verification) after any fixes.
+
+Do **not** pass `sonar` in this loop — SonarCloud's analysis reflects the last pushed
+commit, not these local edits, so looping the gate here just re-spends tokens on an
+unchanged result.
+
+**Step 6, sonar gate (once, after the local loop above is clean):**
+
+Run `edf:diag sonar` exactly once. If the gate fails and issues are fixed, re-run Step 5 and
+the local loop above for the fix, then re-run `edf:diag sonar` **one more time** to confirm —
+two sonar-gate calls total per feature, not one per fix iteration. If it still fails after
+that second call on issues you cannot fix, follow `edf:diag`'s own documented-deferral rule
+(note the reason, don't loop further).
 
 **Both tracks:** after diagnostics pass clean, append a cost checkpoint row:
 ```bash
@@ -447,6 +497,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-
 
 **Full track:** Launch the `edf:feature-evaluator` agent. Pass it:
 
+- `brief_path` — the `BRIEF_PATH` built in Step 4bF, if the brief build succeeded there;
+  omit otherwise. Same file already passed to `edf:test-author`.
 - `requirements_paths` — same absolute list passed to the edf:test-author in Step 4bF
 - `lld_path` — the LLD file absolute path from Step 3, or the literal string `"none"` if no
   LLD exists (same sentinel used for `edf:test-author` in Step 4bF — do not pass the issue
@@ -467,7 +519,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-
 
 ```
 Launch Agent: edf:feature-evaluator
-Input: requirements_paths=<absolute list> lld_path=<absolute path or "none"> issue_number=<N> changed_files=<absolute list> test_files=<absolute list> coverage_manifest=<absolute path or "none">
+Input: brief_path=<absolute path, or omit> requirements_paths=<absolute list> lld_path=<absolute path or "none"> issue_number=<N> changed_files=<absolute list> test_files=<absolute list> coverage_manifest=<absolute path or "none">
 ```
 
 **HTTP mocking check:** verify the test files use the project's HTTP mocking convention as declared in CLAUDE.md. If they use manual stubs, spies, or monkeypatching instead, flag it as a blocker — the tests must be rewritten before the feature can proceed.
@@ -476,7 +528,7 @@ Input: requirements_paths=<absolute list> lld_path=<absolute path or "none"> iss
 
 - **PASS** — every acceptance criterion maps to at least one passing test, no gaps. Proceed to Step 7.
 - **PASS WITH WARNINGS** — minor gaps found, evaluator added a small number of adversarial tests. Review warnings, fix quick wins, note the rest **in the session log's Concerns & Deferred Items section, immediately** (and in the PR body). Proceed to Step 7.
-- **FAIL** — a criterion is uncovered or an adversarial test exposed a real defect. Fix the implementation, re-run Step 5 (verification) and Step 6 (`edf:diag`), then re-run the evaluator once to confirm the previously-uncovered criteria now pass. PASS or PASS WITH WARNINGS → proceed to Step 7. FAIL again → pause and report. One re-run only — if it still fails, stop.
+- **FAIL** — a criterion is uncovered or an adversarial test exposed a real defect. Fix the implementation, re-run Step 5 (verification) and Step 6's local `edf:diag` loop (no code has been pushed yet, so there's nothing new for the Step 6 sonar gate to see), then re-run the evaluator once to confirm the previously-uncovered criteria now pass. PASS or PASS WITH WARNINGS → proceed to Step 7. FAIL again → pause and report. One re-run only — if it still fails, stop.
 
 If evaluator writes > 3 adversarial tests, note count **in the session log's Concerns &
 Deferred Items section, immediately**, and in the Step 10 report and PR body — but do not
@@ -484,12 +536,16 @@ block.
 
 Evaluator tests follow the project's test file convention, committed in Step 7.
 
+**If the evaluator's return shows `BRIEF USAGE: fell back`:** same logging duty as Step
+4bF — include the fallback and its reason in the checkpoint note below, and append it to
+the session log's Concerns & Deferred Items section, immediately.
+
 **Full track:** after the evaluator verdict, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
   --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
   --step "6b" \
-  --note "evaluator: <verdict>$(<concise blocker summary if any>)" \
+  --note "evaluator: <verdict>$(<concise blocker summary if any>) — brief: <used as-is | fell back (<reason>) | none provided>" \
   --issue <N>
 ```
 

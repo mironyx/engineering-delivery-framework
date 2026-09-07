@@ -4,3 +4,5 @@ claude_session_feature{session_id="7e181c5f-ef95-46e8-b60d-f6f61cfbc9da",feature
 claude_session_feature{session_id="7e181c5f-ef95-46e8-b60d-f6f61cfbc9da",feature_id="EDF-50"} 1
 claude_session_feature{session_id="7e181c5f-ef95-46e8-b60d-f6f61cfbc9da",feature_id="EDF-51"} 1
 claude_session_feature{session_id="7e181c5f-ef95-46e8-b60d-f6f61cfbc9da",feature_id="EDF-63"} 1
+claude_session_feature{session_id="3f312d4c-13cb-4719-8b3b-24fbdc6eacd7",feature_id="EDF-78"} 1
+claude_session_feature{session_id="f8624624-74a3-4065-89aa-c32d34a5e399",feature_id="EDF-79"} 1

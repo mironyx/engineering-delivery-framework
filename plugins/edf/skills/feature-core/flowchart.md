@@ -39,10 +39,10 @@ flowchart TD
 
     %% ── Full track ──
     subgraph FULL["Full Track (>=30 lines)"]
-        F2(("4bF: Write stubs + test-author agent")) --> F2_CHK{"3+ observable<br/>properties?"}
+        S3_BRIEF["4bF: Build brief once<br/>bin/brief-package.sh<br/>-&gt; brief_path"] --> F2(("4bF: Write stubs + test-author agent<br/>(brief_path)")) --> F2_CHK{"3+ observable<br/>properties?"}
         F2_CHK -->|"No"| STOP_SPEC(["fa:fa-ban Escalate to user"])
         F2_CHK -->|"Yes"| F2_CP["Append cost checkpoint<br/>step 4bF: test-author"]
-        F2_CP --> F3["4cF: Implement against tests"]
+        F2_CP --> F3["4cF: Implement against tests<br/>bash run-tests.sh &lt;test-file&gt;<br/>(direct, no agent)"]
         F3 --> F3_CHK{"Tests pass?"}
         F3_CHK -->|"No"| F3_FIX["Fix implementation"]
         F3_FIX --> F3
@@ -67,15 +67,18 @@ flowchart TD
         S5_E2E_RUN --> S5_AUDIT
         S5_AUDIT --> S5_CP["Append cost checkpoint<br/>step 5: green on attempt N"]
         S5_CP --> S6
-        S6["S6: edf:diag<br/>Light: src/ only<br/>Standard: all files"] --> S6_CHK{"Zero findings?"}
+        S6["S6: edf:diag (local)<br/>Light: src/ only<br/>Standard: all files"] --> S6_CHK{"Zero findings?"}
         S6_CHK -->|"No"| S6_FIX["Fix -> re-run edf:diag -> re-run S5"]
         S6_FIX --> S6
-        S6_CHK -->|"Yes"| S6_CP["Append cost checkpoint<br/>step 6: diag pass"]
+        S6_CHK -->|"Yes"| S6S["S6: edf:diag sonar<br/>(once, not looped)"] --> S6S_CHK{"Gate pass?"}
+        S6S_CHK -->|"No"| S6S_FIX["Fix -> re-run S5 + local diag<br/>-> re-run edf:diag sonar once more"]
+        S6S_FIX --> S6S
+        S6S_CHK -->|"Yes"| S6_CP["Append cost checkpoint<br/>step 6: diag pass"]
         S6_CP --> S6B_GATE
     end
 
     S6B_GATE{"Verification level?<br/>(Standard — Full track<br/>or security escalation)"} -->|"Light"| S7
-    S6B_GATE -->|"Standard"| S6B(("S6b: edf:feature-evaluator"))
+    S6B_GATE -->|"Standard"| S6B(("S6b: edf:feature-evaluator<br/>(brief_path)"))
     S6B --> S6B_CP["Append cost checkpoint<br/>step 6b: evaluator"]
     S6B_CP --> S6B_V{"Verdict?"}
     S6B_V -->|"PASS"| S7
@@ -122,8 +125,8 @@ flowchart TD
     classDef stop fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S3,S3_READ,S3A,S3A_FETCH,S3B,S3B_Q,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S10,S10_F,S10_OK,S10_CP,S10_W process
+    class S3,S3_READ,S3_BRIEF,S3A,S3A_FETCH,S3B,S3B_Q,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6S,S6S_FIX,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S10,S10_F,S10_OK,S10_CP,S10_W process
     class F2,S5,S5_E2E_RUN,S5_AUDIT,S6B,S6B_REV,S8B agent
-    class S3_EPIC,S3A_NEW,S3B_LLD,S3C_SEC,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6B_GATE,S6B_V,S6B_V2,S8_DEV,S9_B,S10_CI decision
+    class S3_EPIC,S3A_NEW,S3B_LLD,S3C_SEC,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6S_CHK,S6B_GATE,S6B_V,S6B_V2,S8_DEV,S9_B,S10_CI decision
     class STOP_EPIC,STOP_SPEC,STOP_ASK,S6B_STOP stop
 ```
