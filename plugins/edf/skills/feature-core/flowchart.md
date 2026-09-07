@@ -98,11 +98,16 @@ flowchart TD
         S8_DEV -->|"No"| S8_CP["Append cost checkpoint<br/>step 8: PR link"]
         S8_PATCH --> S8_CP
         S8_CP --> S8B(("S8b: edf:ci-probe<br/>background"))
-        S8B --> S9["S9: edf:pr-review"]
+        S8B --> S9["S9: edf:pr-review<br/>Record REVIEWED_SHA"]
         S9 --> S9_T["Triage findings"]
         S9_T --> S9_B{"Blocker?"}
         S9_B -->|"Yes"| S9_FIX["Fix -> re-run S5 -> push"]
-        S9_FIX --> S9
+        S9_FIX --> S9_SZ["Compute fix size:<br/>git diff REVIEWED_SHA..HEAD"]
+        S9_SZ --> S9_SZ_CHK{"Fix ≤20 src lines<br/>AND no new files?"}
+        S9_SZ_CHK -->|"Yes"| S9_SELF["Lightweight self-check:<br/>confirm findings fixed,<br/>run target test file(s)"]
+        S9_SELF --> S9_D
+        S9_SZ_CHK -->|"No"| S9RERUN["Re-run edf:pr-review"]
+        S9RERUN --> S9_T
         S9_B -->|"No"| S9_D["Fix or defer"]
         S9_D --> S9_CP["Append cost checkpoint<br/>step 9: review clean"]
         S9_CP --> S10["S10: Reconcile CI<br/>gh pr checks"]
@@ -125,8 +130,8 @@ flowchart TD
     classDef stop fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S3,S3_READ,S3_BRIEF,S3A,S3B,S3B_Q,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6S,S6S_FIX,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S10,S10_F,S10_OK,S10_CP,S10_W process
+    class S3,S3_READ,S3_BRIEF,S3A,S3B,S3B_Q,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6S,S6S_FIX,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S9_SZ,S9_SELF,S9RERUN,S10,S10_F,S10_OK,S10_CP,S10_W process
     class S3A_FETCH,S8B,F2,S5,S5_E2E_RUN,S5_AUDIT,S6B,S6B_REV agent
-    class S3_EPIC,S3A_NEW,S3B_LLD,S3C_SEC,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6S_CHK,S6B_GATE,S6B_V,S6B_V2,S8_DEV,S9_B,S10_CI decision
+    class S3_EPIC,S3A_NEW,S3B_LLD,S3C_SEC,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6S_CHK,S6B_GATE,S6B_V,S6B_V2,S8_DEV,S9_B,S9_SZ_CHK,S10_CI decision
     class STOP_EPIC,STOP_SPEC,STOP_ASK,S6B_STOP stop
 ```
