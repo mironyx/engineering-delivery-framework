@@ -126,6 +126,19 @@ Read every file in `changed_files`. Understand what was built — not how it was
 but what it does. Build a mental model of the feature's behaviour from the outside in:
 public API, inputs, outputs, error paths, state transitions.
 
+**During this same read, collect silent-failure risks.** You are already reading every
+file; apply the silent-failure lens on the same pass rather than re-reading later in
+Step 6. For each file, note:
+
+- `catch` blocks that swallow errors without logging
+- Promises without `.catch()` or `try/catch`
+- Conditional branches that silently return defaults instead of throwing
+- API responses that return 200 for error conditions
+- State that can become inconsistent without any error signal
+
+Carry these findings forward to Step 6 — the file content doesn't change between here
+and there, so a second read adds cost but no new signal.
+
 ### Step 3: Map criteria to existing tests
 
 Read every file in `test_files`. For each acceptance criterion from Step 1, determine:
@@ -227,17 +240,16 @@ are your evidence.
 If existing tests break after your additions (e.g. import side effects), fix your test
 file — not the implementation.
 
-### Step 6: Check for silent failures
+### Step 6: Report silent failure risks
 
-Read the implementation files again. Look for:
+You already collected silent-failure risks during Step 2's single read pass — do not
+re-read the implementation files. Report the risks you found:
 
-- `catch` blocks that swallow errors without logging
-- Promises without `.catch()` or `try/catch`
-- Conditional branches that silently return defaults instead of throwing
-- API responses that return 200 for error conditions
-- State that can become inconsistent without any error signal
+- `<file>:<line>` — <description of the risk>
 
-These are not test failures — they are design risks. Flag them separately.
+If you found none, report `"none"`.
+
+These are not test failures — they are design risks. Flag them separately in the output.
 
 ## Output
 
