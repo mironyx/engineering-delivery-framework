@@ -202,3 +202,125 @@ verification.
 | 10 | 2026-09-06T16:09:14Z | unavailable | unavailable | report done - no CI configured in this repo, tests verified locally |
 | 9b | 2026-09-06T18:07:59Z | unavailable | unavailable | redesign review: 2 rounds, 2 real bugs fixed (anchor-less design-ref widening, unescaped manifest regex), final check clean |
 | 9c | 2026-09-06T18:32:17Z | unavailable | unavailable | brief-usage tracking added and reviewed - 1 casing fix, clean after |
+
+## Work completed
+
+PR: [#87](https://github.com/mironyx/engineering-delivery-framework/pull/87) — closes #79.
+
+- `plugins/edf/bin/brief-package.sh` (new, ~427 lines) — packages a per-issue brief (full
+  issue body + paired LLD Part A/Part B sections for every referenced anchor + matching
+  requirements sections, via ADR-0026 stable IDs and the coverage manifest) into a
+  git-ignored file, modeled on `review-package.sh`'s "write once, pass a path" pattern.
+- `plugins/edf/skills/feature-core/SKILL.md` — Step 4bF builds the brief once (Full track
+  only) and threads `brief_path` into `edf:test-author` and `edf:feature-evaluator`; both
+  agents' checkpoint-note instructions now surface a `brief_path` fallback if one occurs.
+- `plugins/edf/agents/test-author.md`, `plugins/edf/agents/feature-evaluator.md` — accept
+  `brief_path`, prefer it over `requirements_paths`/`lld_path` when sufficient, fall back
+  otherwise; both now report a `Brief usage` field (`used as-is | fell back (<reason>) |
+  none provided`) so fallback frequency is observable across cycles.
+- `plugins/edf/skills/feature-core/flowchart.md` — brief-build node moved into the Full
+  track subgraph to match where it actually runs.
+- `tests/test_shell_scripts.py` — 13 tests in `TestBriefPackage`, covering anchor
+  resolution, Part A/Part B pairing and boundary-exactness, multi-anchor union, every
+  fallback path, and the self-ignoring output directory.
+- Plugin versions: `0.10.59` → `0.10.61` (three bumps across the review/redesign cycle).
+
+## Decisions made
+
+- **Scope widened mid-review** (see `## Redesign` above): the first shipped version
+  extracted only the issue's AC section and a single LLD Part B section. User feedback
+  (not a pr-review finding — a direct design-risk question) identified this as unsafe:
+  the fallback-to-full-content safety net only covers "anchor not found," not "resolved
+  but incomplete," and there is no signal for the latter. Widened to full issue body +
+  every referenced LLD anchor's Part A/Part B pair + the requirements union. HLD/ADRs
+  stayed deliberately out of scope — pulling those in would reopen the re-reading cost
+  this issue exists to close.
+- **No LLD deviation** — this issue has no design doc; `brief-package.sh`'s own algorithm
+  (anchor-based section extraction, Part A/B pairing by task number, fallback-never-omits)
+  is exactly as specified across the issue body and the follow-on user conversation, not a
+  deviation from a pre-existing spec.
+- **`pr-review`'s design-conformance agent (`agent-c.md`) needed no change** — it already
+  scoped LLD reads to the referenced section per-file design-reference comments, which was
+  issue #79's conditional AC item 4. Verified by reading the agent prompt before concluding.
+
+## Review feedback addressed
+
+Three separate review rounds on this PR, all findings fixed (see `## Concerns & Deferred
+Items` above for full detail per round):
+1. **`edf:feature-evaluator` (first pass):** 1 coverage gap (missing self-ignore test) + 2
+   silent-degradation paths (`gh` body-fetch failure, missing `--requirements` file) — all
+   fixed.
+2. **`edf:pr-review` (first pass, 2 rounds):** anchor-grep scoping, brief-build step placed
+   in the wrong pipeline stage, missing failure-log instruction, and (on re-review) a real
+   bug where `extract_by_heading_text` never signaled "not found" — all fixed, plus 2 stale
+   cross-references.
+3. **`edf:feature-evaluator` + `edf:pr-review` (redesign pass, 2 rounds):** 2 coverage gaps
+   in the widened-scope tests (multi-anchor, task-number boundary) + 2 real bugs
+   (anchor-less Design reference section incorrectly widening the search, an unescaped
+   dynamic-regex bug in the coverage-manifest lookup) — all fixed, plus 1 casing
+   inconsistency in the `brief_path`-fallback tracking follow-up.
+
+No CI is configured in this repo (confirmed via `gh pr checks` and a background
+`edf:ci-probe` run) — nothing to reconcile there.
+
+## LLD Sync report
+
+Skipped — no LLD covers this issue (confirmed in the PR body's Design reference field:
+"none — internal plugin tooling issue, no LLD").
+
+## Cost retrospective
+
+**No numeric data available.** Prometheus was unreachable throughout this feature (every
+cost-checkpoint row above reads "unavailable"; the Step 2.5 final-cost query also returned
+"Prometheus unreachable" — posted to the PR as-is). This retrospective is therefore
+structural (round counts, rework shape), not token/dollar-denominated.
+
+**Cost driver: 3 separate review rounds, not 1.** A typical Full-track feature clears
+`edf:pr-review` once. This one needed three: an initial implementation pass, a scope
+redesign the user requested mid-review (after the first review had already passed clean —
+not itself a review finding), and a follow-up feature (fallback-rate tracking) the user
+asked for afterward. Each redesign/addition round re-triggered its own evaluator +
+pr-review cycle. The redesign round alone found 2 real implementation bugs on top of the
+2 coverage gaps its own evaluator pass caught — meaning the *first* implementation of the
+widened scope wasn't clean either; it needed the same fix-evaluate-review loop as the
+original.
+
+**Improvement for next time:** two of the three rounds trace to the same root cause — the
+original scope (single-heading, single-anchor extraction) was implemented and shipped
+before its design was stress-tested against a "what could this miss" question. That
+question surfaced real, structural gaps (dropped BDD specs, dropped Part A rationale) that
+no amount of unit testing of the *implemented* algorithm would have caught, because the
+tests were written against the same (too-narrow) understanding of what the brief needed to
+contain. For a **new extraction/summarization algorithm** specifically (as opposed to a
+bug fix or a well-specified feature), doing one explicit "what could a reader of this
+output be missing?" pass against a real example *before* writing tests — not just before
+shipping — would likely have caught the Part A/BDD-specs gap in the first round instead of
+the second.
+
+**What went right, worth repeating:** hand-validating the extraction script against real,
+already-merged issues/LLDs in this repo (issue #50, issue #1) before writing the pytest
+suite caught two real bugs (a manifest field-ordering assumption, a duplicate-heading
+cosmetic issue) that a synthetic-fixture-first approach likely would have missed, since the
+synthetic fixtures would have encoded the same assumptions as the implementation. The
+evaluator's own synthetic-fixture tests (a `gh` shim for multi-anchor issues, a decoy LLD
+file for task-number boundaries) were the right call *in addition to* the real-fixture
+tests, for the code paths no real issue in this repo happens to exercise yet — real
+fixtures first, synthetic fixtures to fill the gaps real ones can't reach.
+
+## Next steps
+
+- Issue #83 ("trim feature-evaluator's duplicate implementation read and adopt
+  brief_path") explicitly depends on this landing — its Step 6-fold part is independent
+  and could ship regardless, but its `brief_path` adoption part now has a real mechanism
+  to adopt.
+- The `Brief usage` fallback-rate tracking added in this PR has no data yet — it only
+  starts producing signal once Full-track features that pass `brief_path` actually run.
+  Revisit after a handful of cycles (via `grep -rh "fell back" docs/sessions/**/*.md`) to
+  see whether the mechanism holds up in practice or needs another round of scope
+  adjustment.
+- This repo's own local dev environment gaps (no `pyproject.toml` for `uv run pytest`,
+  `shellcheck`/`ruff` not installed, no CodeScene MCP configured, SonarQube connection
+  down) blocked `edf:diag` and the standard `run-tests.sh`/`run-lint.sh` wrappers for the
+  entire feature — every verification ran via direct `pytest`/`bash -n` substitutes
+  instead. Worth a dedicated setup pass if `edf:diag` is expected to gate future work on
+  this repo's own plugin code, not just downstream projects that adopt EDF.
