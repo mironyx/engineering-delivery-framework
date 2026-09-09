@@ -20,6 +20,12 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 ## Process
 
+Tag the session so it is identifiable in the IDE and in Grafana:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py --skill create-plan
+```
+
 1. **Read the input** fully. Also read everything it references: ADRs in
    `docs/adr/`, requirements in `docs/requirements/`, existing LLDs in
    `docs/design/`, and relevant source files.

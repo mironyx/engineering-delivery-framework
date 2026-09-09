@@ -96,6 +96,12 @@ Execute these steps sequentially. Use `TodoWrite` to track progress.
 
 ### Step 1: Read inputs and orient
 
+Tag the session so it is identifiable in the IDE and in Grafana:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py --skill requirements
+```
+
 1. Determine the input source:
    - If `$ARGUMENTS` matches `#\d+` or a comma-separated list of `#\d+`,
      treat as GitHub issue input. Run `gh issue view <number>` for each

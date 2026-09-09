@@ -1,13 +1,21 @@
-"""Tag the current Claude Code session with a feature ID.
+"""Tag the current Claude Code session with a feature or task ID.
 
 Usage:
   py bin/tag-session.py <issue-number> [--cont]
+  py bin/tag-session.py --skill <skill-name> [--cont]
+
+The first form is for issue-driven work (feature/feature-team/feature-end):
+tag is "<PREFIX>-<issue>", e.g. EDF-87.
+
+The second form is for skills with no GitHub issue (requirements, architect,
+kickoff, discovery, retro, etc.): tag is "<SKILL-TAG>-<short-id>", e.g.
+REQ-a3f1p, where the short id is a base36-encoded timestamp.
 
 What it does:
   1. Derives the Claude project key from git root (works on Windows and WSL)
   2. Finds the newest session JSONL and writes a custom-title entry
   3. Appends a session->feature mapping to the Prometheus textfile
-  4. Records the feature start timestamp (skipped if already present)
+  4. Records the task start timestamp (skipped if already present)
 
 The --cont flag appends " (cont)" to the session title.
 """
@@ -63,6 +71,45 @@ def derive_feature_prefix(root: pathlib.Path) -> str:
     if len(parts) >= 2:
         return "".join(p[0].upper() for p in parts)
     return name.upper() or "FEAT"
+
+
+# Shortened tags for skills with no GitHub issue to key off. Unlisted skills
+# fall back to an uppercased, hyphen-stripped truncation in derive_skill_tag.
+SKILL_TAGS = {
+    "discovery": "DISC",
+    "requirements": "REQ",
+    "kickoff": "KICK",
+    "architect": "ARCH",
+    "retro": "RETRO",
+    "backlog": "BKLG",
+    "baseline": "BASE",
+    "bug": "BUG",
+    "drift-scan": "DRIFT",
+    "refactor-architect": "RFARCH",
+    "frontend-architect": "FEARCH",
+    "setup": "SETUP",
+    "create-plan": "PLAN",
+}
+
+
+def derive_skill_tag(skill_name: str) -> str:
+    """Shorten a skill name to a session-title tag."""
+    return SKILL_TAGS.get(skill_name, skill_name.replace("-", "").upper()[:8])
+
+
+def short_task_id() -> str:
+    """Base36-encode the current epoch second, keeping the last 5 chars.
+
+    No shared counter file needed: two invocations would have to start in the
+    same second to collide, which doesn't happen for sequential skill runs.
+    """
+    digits = "0123456789abcdefghijklmnopqrstuvwxyz"
+    n = int(time.time())
+    out = ""
+    while n:
+        n, r = divmod(n, 36)
+        out = digits[r] + out
+    return (out or "0")[-5:]
 
 
 def find_session_jsonl_via_proc(claude_dir: pathlib.Path) -> pathlib.Path | None:
@@ -185,14 +232,23 @@ def record_feature_start(timing_file: pathlib.Path, feature_id: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("issue", help="Issue number (e.g. 55)")
+    parser.add_argument("issue", nargs="?", help="Issue number (e.g. 55). Omit when using --skill.")
+    parser.add_argument("--skill", help="Skill name for non-issue tasks (e.g. requirements, architect)")
     parser.add_argument("--cont", action="store_true", help="Continuation session — appends (cont) to title")
     args = parser.parse_args()
 
+    if bool(args.issue) == bool(args.skill):
+        parser.error("provide exactly one of: issue number, or --skill <name>")
+
     root = git_root()
-    feature_prefix = derive_feature_prefix(root)
-    feature_id = f"{feature_prefix}-{args.issue}"
     project_key = derive_project_key(root)
+
+    feature_prefix = ""
+    if args.skill:
+        feature_id = f"{derive_skill_tag(args.skill)}-{short_task_id()}"
+    else:
+        feature_prefix = derive_feature_prefix(root)
+        feature_id = f"{feature_prefix}-{args.issue}"
 
     claude_dir = pathlib.Path.home() / ".claude" / "projects" / project_key
     env_session_id = os.environ.get("CLAUDE_CODE_SESSION_ID")

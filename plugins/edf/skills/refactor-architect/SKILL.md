@@ -69,6 +69,12 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 ### Step 1: Parse input and orient
 
+Tag the session so it is identifiable in the IDE and in Grafana:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py --skill refactor-architect
+```
+
 Inputs may **combine**. Identify each component present:
 
 - **File path(s)** — one or more starting points.

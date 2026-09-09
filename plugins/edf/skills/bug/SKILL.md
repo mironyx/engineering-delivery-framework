@@ -31,6 +31,12 @@ Execute these steps sequentially.
 
 ### Step 1: Parse input and orient
 
+Tag the session so it is identifiable in the IDE and in Grafana:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py --skill bug
+```
+
 Determine what the user is reporting:
 
 1. **Free-form text** — extract the symptom: error message, unexpected

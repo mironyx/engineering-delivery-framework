@@ -110,6 +110,12 @@ Execute these steps sequentially. Use `TodoWrite` to track progress.
 
 ### Step 1: Read the idea and orient
 
+Tag the session so it is identifiable in the IDE and in Grafana:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py --skill discovery
+```
+
 1. If `$ARGUMENTS` contains a file path, use that. Otherwise find the most
    recent `docs/discovery/*-idea.md` file by modification date.
 2. Read the idea file fully. Extract: the core concept, any stated constraints,

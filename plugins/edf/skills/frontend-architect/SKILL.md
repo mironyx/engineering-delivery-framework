@@ -20,6 +20,12 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 ### Step 1: Survey the existing frontend
 
+Tag the session so it is identifiable in the IDE and in Grafana:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py --skill frontend-architect
+```
+
 Read all of the following to understand what already exists:
 
 1. `src/app/layout.tsx` — root layout (fonts, global CSS imports)

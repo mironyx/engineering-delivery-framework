@@ -14,6 +14,12 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 ### 1. Gather data
 
+Tag the session so it is identifiable in the IDE and in Grafana:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py --skill retro
+```
+
 - **Session logs** — Read all files in `docs/sessions/` since the last retro (search recursively — sessions are organised in `YYYY-MM/` monthly folders per ADR-0036). These capture completed work, decisions, and conversation summaries.
 - **Git history** — Run `git log --oneline` to see commit frequency, message quality, and whether atomic commits per task are happening.
 - **GitHub Issues** — Run `gh issue list --state all --json number,title,state,labels` to assess backlog health.

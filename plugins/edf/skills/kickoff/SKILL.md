@@ -85,6 +85,12 @@ Use `TodoWrite` to track progress.
 
 ### Step 1: Read inputs and orient
 
+Tag the session so it is identifiable in the IDE and in Grafana:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py --skill kickoff
+```
+
 1. Resolve the requirements file: `$ARGUMENTS` if a path was supplied,
    otherwise the most recent `docs/requirements/*.md` by mtime.
 2. Derive `<version>` from the filename (`<version>-requirements.md`).

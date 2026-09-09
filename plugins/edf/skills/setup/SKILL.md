@@ -27,6 +27,12 @@ Use `TodoWrite` to track progress through the phases.
 
 ### Phase 1: Detect
 
+Tag the session so it is identifiable in the IDE and in Grafana:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py --skill setup
+```
+
 Survey the project to understand what exists and what's missing.
 
 Run ALL of the following in parallel:

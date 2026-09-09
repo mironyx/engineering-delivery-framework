@@ -22,6 +22,12 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 ## Instructions
 
+Tag the session so it is identifiable in the IDE and in Grafana:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py --skill backlog
+```
+
 Read broadly. Do not cap inputs arbitrarily — if a file is relevant, read it.
 
 **Board and issues:**

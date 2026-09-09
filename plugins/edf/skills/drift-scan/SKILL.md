@@ -10,7 +10,15 @@ Detects misalignment across the full delivery stack: Requirements ↔ Design ↔
 
 A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the artefact set, drift classification levels, or report structure.
 
-## Instructions Read all of:
+## Instructions
+
+Tag the session so it is identifiable in the IDE and in Grafana:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py --skill drift-scan
+```
+
+Read all of:
    - `docs/requirements/` — stories, epics, acceptance criteria
    - `docs/design/` — LLDs, HLDs, design spikes
    - `docs/adr/` — architecture decisions

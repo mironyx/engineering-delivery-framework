@@ -164,6 +164,12 @@ Execute these steps sequentially.
 
 ### Step 1: Read the plan, parse epic filter, and check existing state
 
+Tag the session so it is identifiable in the IDE and in Grafana:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py --skill architect
+```
+
 **Parse arguments.** Scan `$ARGUMENTS` for:
 
 1. **A file path** — if present, use it as the input file. Otherwise find the most recent `docs/plans/*.md` file by modification date.
