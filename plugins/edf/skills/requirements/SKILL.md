@@ -123,7 +123,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-ses
 3. Check for an existing requirements doc
    (`docs/requirements/v*-requirements.md`):
    - If present, check for `[Review]` markers. If found, this is a review
-     cycle — jump to the **Review cycle** section below.
+     cycle — do Step 1a (isolate/reuse the worktree) first, then jump to the
+     **Review cycle** section below.
    - If present with no markers, confirm with the user: rewrite or update
      specific sections?
 4. Check for existing project artefacts (`docs/design/`, `docs/adr/`,
@@ -140,6 +141,36 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-ses
    - The user decides what to include vs. drop.
 6. Present a short orientation: what input was found, how many features/
    journeys it contains, and the two-gate process. Wait for user confirmation.
+
+### Step 1a: Isolate work in a docs worktree
+
+Create a dedicated worktree and branch **before drafting anything**, so the
+run never touches the working tree you started from — any in-progress work or
+untracked files there stay untouched. This also means the finished document
+has a branch to open a PR from at Step 6.
+
+```bash
+SLUG=v{N}-requirements   # N from Step 1 (existing doc's version, or the next sequential version)
+REPO=$(basename "$(git rev-parse --show-toplevel)")
+git worktree add "../${REPO}-docs-$SLUG" -b docs/$SLUG main
+cd "../${REPO}-docs-$SLUG"
+```
+
+Verify you are in the worktree, not the main repo — sub-agent sessions can inherit
+the caller's CWD, and a wrong directory silently corrupts commits and the PR:
+
+```bash
+git rev-parse --show-toplevel | xargs basename
+# must print "<REPO>-docs-<slug>"; if it prints the plain repo name, re-cd and re-verify
+```
+
+If re-invoked on an existing `docs/v{N}-requirements` branch (e.g. resuming
+after a gate, or the Review cycle below on a doc not yet merged), reuse that
+worktree instead of creating a new one: `git worktree list` to find it, then
+`cd` into it.
+
+If the user cancels at Gate 1 or Gate 2, clean up before stopping:
+`git worktree remove "../${REPO}-docs-$SLUG"` and `cd` back to the main repo.
 
 ### Step 2: Domain clarification (freeform brief only)
 
@@ -655,8 +686,50 @@ After Gate 2 approval:
 5. Write a session log following `.claude/skills/shared/session-log.md`. Use
    `<skill>=requirements` and `<slug>=v{N}` (or a scope-specific slug if the
    session was a partial rewrite, e.g. `requirements-v2-e17-revision`).
-6. Report to the user: what was produced, key decisions, and suggested next
-   step.
+
+### Step 6a: Push and create the PR
+
+Push the worktree branch and open a PR for final review:
+
+```bash
+git push -u origin docs/v{N}-requirements
+gh pr create --base main --head docs/v{N}-requirements \
+  --title "docs: v{N} requirements — final" \
+  --body "<see below>"
+```
+
+PR body: a one-line summary of scope, the epic/story counts, a link to the
+session log, and a note that this is a docs-only PR (no production code).
+
+### Step 6b: Merge the PR (confirmation gate)
+
+Show the PR URL and **wait for explicit user go-ahead before merging.**
+Merging is shared-state and hard to reverse — never merge without approval.
+
+On approval:
+
+```bash
+gh pr merge <number> --squash --delete-branch
+```
+
+If the user declines or defers, leave the PR open and stop — do not remove
+the worktree while the PR is still open.
+
+### Step 6c: Clean up the worktree
+
+After the PR merges:
+
+```bash
+git worktree remove "../${REPO}-docs-v{N}-requirements"
+git branch -D docs/v{N}-requirements   # tip not an ancestor of main (squash merge), so -D
+```
+
+Then `cd` back to the main repo directory.
+
+### Step 7: Report
+
+Report to the user: what was produced, key decisions, the PR (merged or
+still open), and suggested next step.
 
 **Stop here.** Do not proceed to `edf:kickoff` automatically.
 

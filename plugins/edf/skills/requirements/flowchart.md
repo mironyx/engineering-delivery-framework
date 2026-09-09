@@ -6,7 +6,9 @@ Visual overview of the structured requirements generation pipeline. Transforms d
 flowchart TD
     START(["fa:fa-play /requirements invoked"]) --> S1
 
-    S1["S1: Read inputs and orient<br/>Discovery doc, freeform brief,<br/>or GitHub issues"] --> S1_RV{"[Review]<br/>markers?"}
+    S1["S1: Read inputs and orient<br/>Discovery doc, freeform brief,<br/>or GitHub issues"] --> S1A
+
+    S1A["S1a: Isolate work in a docs worktree<br/>git worktree add ../&lt;repo&gt;-docs-v&lt;N&gt;-requirements<br/>-b docs/v&lt;N&gt;-requirements main, verify CWD"] --> S1_RV{"[Review]<br/>markers?"}
     S1_RV -->|"Yes"| RV["Review cycle:<br/>address markers,<br/>remove, commit"]
     S1_RV -->|"No"| S1_MODE{"Input type?"}
     RV --> S1_MODE
@@ -46,9 +48,20 @@ flowchart TD
 
     GATE2(["fa:fa-hand-o-right Gate 2: Full document review<br/>ACs testable and complete?"])
 
-    GATE2 --> S6["S6: Finalise<br/>Status → Final, bump version,<br/>add Next steps, commit"]
+    GATE2 --> S6["S6: Finalise<br/>Status → Final, bump version,<br/>add Next steps, commit, session log"]
 
-    S6 --> DONE(["fa:fa-check Requirements complete"])
+    S6 --> S6A["S6a: Push + create PR<br/>git push -u origin docs/v&lt;N&gt;-requirements,<br/>gh pr create (docs-only body)"]
+
+    S6A --> S6B_GATE(["fa:fa-hand-o-right Confirm merge"])
+
+    S6B_GATE -->|approved| S6C["S6c: Clean up<br/>gh pr merge --squash,<br/>worktree remove, cd back"]
+
+    S6B_GATE -->|declined| S6C_NOTE["PR left open for later merge"]
+
+    S6C --> S7["S7: Report<br/>What was produced, PR status,<br/>suggested next step"]
+    S6C_NOTE --> S7
+
+    S7 --> DONE(["fa:fa-check Requirements complete"])
 
     %% ── Styles ──
     classDef startend fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a
@@ -58,8 +71,8 @@ flowchart TD
     classDef human fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S1,RV,S2,S3,S3A,S3B_FIX,S3C,S4,S5,S5B_FIX,S6 process
+    class S1,S1A,RV,S2,S3,S3A,S3B_FIX,S3C,S4,S5,S5B_FIX,S6,S6A,S6C,S6C_NOTE,S7 process
     class S3B,S5B agent
     class S1_RV,S1_MODE,S3B_TRIAGE,S5B_TRIAGE decision
-    class S2_CONFIRM,GATE1,GATE2 human
+    class S2_CONFIRM,GATE1,GATE2,S6B_GATE human
 ```
