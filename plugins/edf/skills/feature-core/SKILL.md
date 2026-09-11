@@ -531,7 +531,12 @@ Input: brief_path=<absolute path, or omit> requirements_paths=<absolute list> ll
 
 - **PASS** — every acceptance criterion maps to at least one passing test, no gaps. Proceed to Step 7.
 - **PASS WITH WARNINGS** — minor gaps found, evaluator added a small number of adversarial tests. Review warnings, fix quick wins, note the rest **in the session log's Concerns & Deferred Items section, immediately** (and in the PR body). Proceed to Step 7.
-- **FAIL** — a criterion is uncovered or an adversarial test exposed a real defect. Fix the implementation, re-run Step 5 (verification) and Step 6's local `edf:diag` loop (no code has been pushed yet, so there's nothing new for the Step 6 sonar gate to see), then re-run the evaluator once to confirm the previously-uncovered criteria now pass. PASS or PASS WITH WARNINGS → proceed to Step 7. FAIL again → pause and report. One re-run only — if it still fails, stop.
+- **FAIL** — a criterion is uncovered or an adversarial test exposed a real defect. Fix the implementation, re-run Step 5 (verification) and Step 6's local `edf:diag` loop (no code has been pushed yet, so there's nothing new for the Step 6 sonar gate to see), then re-run the evaluator once to confirm the previously-uncovered criteria now pass — **as a scoped recheck, not a second full audit**:
+  ```
+  Launch Agent: edf:feature-evaluator
+  Input: issue_number=<N> changed_files=<same list as the first call> test_files=<same list as the first call> recheck={prior_gaps: <the GAPS list from the FAIL return>, fix_files: <absolute paths touched by this fix>}
+  ```
+  `changed_files`/`test_files` are still passed as path lists — cheap, and `recheck` mode uses them only to locate the specific file(s) `prior_gaps` and `fix_files` point at, never to read the full sets. Omit `brief_path`/`requirements_paths`/`lld_path`/`coverage_manifest` — recheck mode (feature-evaluator Step 0) doesn't need them. PASS or PASS WITH WARNINGS → proceed to Step 7. FAIL again → pause and report. One re-run only — if it still fails, stop.
 
 If evaluator writes > 3 adversarial tests, note count **in the session log's Concerns &
 Deferred Items section, immediately**, and in the Step 10 report and PR body — but do not

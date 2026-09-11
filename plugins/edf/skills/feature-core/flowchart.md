@@ -85,7 +85,7 @@ flowchart TD
     S6B_V -->|"WARNINGS"| S6B_W["Fix quick wins,<br/>note rest in PR"]
     S6B_W --> S7
     S6B_V -->|"FAIL"| S6B_F["Fix -> re-run S5 + S6"]
-    S6B_F --> S6B_REV(("Re-run evaluator<br/>once"))
+    S6B_F --> S6B_REV(("Re-run evaluator, scoped<br/>recheck mode: prior_gaps<br/>+ fix_files only"))
     S6B_REV --> S6B_V2{"Verdict?"}
     S6B_V2 -->|"PASS / WARNINGS"| S7
     S6B_V2 -->|"FAIL again"| S6B_STOP(["fa:fa-ban Pause and report"])

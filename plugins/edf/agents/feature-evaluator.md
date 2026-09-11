@@ -72,13 +72,42 @@ You will receive:
 - `coverage_manifest` — path to the coverage manifest (`docs/design/v{N}/coverage-<epic-id>.yaml`
   per ADR-0036, or `docs/design/coverage-<epic-id>.yaml` legacy flat), e.g. `coverage-v11-e11-1.yaml`,
   or the literal string `"none"` if there isn't one. Maps REQ- → LLD- → issue → status per ADR-0026.
+- `recheck` — optional; present only when this is the confirmation re-run after a FAIL verdict
+  and a fix (feature-core Step 6b's "re-run the evaluator once" path) — not an initial audit.
+  Contains:
+  - `prior_gaps` — the GAPS list from the previous verdict (AC id, description, prior status)
+  - `fix_files` — absolute paths of files touched by the fix (a subset of the original
+    `changed_files`/`test_files`, typically 1-2 files)
 
 ## Process
+
+### Step 0: Recheck mode
+
+**Only when `recheck` is present — otherwise skip to Step 1.** This is a confirmation pass
+after a fix, not a second independent audit. Re-deriving the full criteria checklist and
+re-reading every file in `changed_files` a second time re-spends the first pass's cost for
+zero new signal on the criteria that already passed.
+
+1. Take `prior_gaps` as the checklist — do not run Step 1's extraction. Every criterion not
+   in `prior_gaps` already passed the first audit; trust that verdict.
+2. Read `fix_files`, plus whichever test file(s) cover the criteria in `prior_gaps` — locate
+   them from the prior report's evidence, or by matching the failing criterion's test name
+   against the `test_files` path list (you have the list; you're skipping reading it in full,
+   not skipping it entirely). Your own adversarial test file from the first pass, if you wrote
+   one, is the likely location for a criterion that was UNCOVERED. Skip Step 2's full
+   `changed_files` read and Step 3's full `test_files` read — you only need this narrow slice.
+3. Go to Step 4: for each item in `prior_gaps`, verify it now passes — re-run its adversarial
+   test if one exists, or write it if `prior_gaps` shows it was UNCOVERED.
+4. Skip Step 6's silent-failure scan — already reported in the first pass. Apply the lens to
+   `fix_files` only if the fix introduces code beyond what Step 2 already scanned there.
+5. Proceed to Step 5 (run scoped tests) and Output as normal.
 
 All commands use `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-*.sh` — fully resolved by Claude Code in skill markdown. The `bash` prefix avoids execute-bit issues.
 Infer `<ts|p>` from file extensions: `.ts/.tsx` → `ts`, `.py` → `p`. Use `all` if spanning both.
 
 ### Step 1: Extract acceptance criteria from all sources
+
+**Skip if in recheck mode (Step 0 already gave you the checklist via `prior_gaps`).**
 
 **If `brief_path` is present:** read that file first — it already contains the full issue
 body, the LLD's Part A + Part B for every section the issue references, and the matching
@@ -122,6 +151,8 @@ blocking gap and stop.
 
 ### Step 2: Read the implementation
 
+**Skip if in recheck mode** — Step 0 already scoped you to `fix_files` instead.
+
 Read every file in `changed_files`. Understand what was built — not how it was built,
 but what it does. Build a mental model of the feature's behaviour from the outside in:
 public API, inputs, outputs, error paths, state transitions.
@@ -140,6 +171,8 @@ Carry these findings forward to Step 6 — the file content doesn't change betwe
 and there, so a second read adds cost but no new signal.
 
 ### Step 3: Map criteria to existing tests
+
+**Skip if in recheck mode** — Step 0 already pointed you at the test file(s) covering `prior_gaps`.
 
 Read every file in `test_files`. For each acceptance criterion from Step 1, determine:
 
@@ -242,6 +275,10 @@ file — not the implementation.
 
 ### Step 6: Report silent failure risks
 
+**In recheck mode:** report only new risks found while scanning `fix_files` in Step 0, or
+`"none new"` — the caller already has the full risk list from the prior pass and merges this
+delta into it. Do not re-scan `changed_files`.
+
 You already collected silent-failure risks during Step 2's single read pass — do not
 re-read the implementation files. Report the risks you found:
 
@@ -312,3 +349,6 @@ SILENT RISKS: <"none" or one-line per risk>
 ```
 
 Do not return the full table from the Output section. The evaluation file is already written to disk; the caller only needs the above summary.
+
+**In recheck mode:** `BRIEF USAGE: n/a (recheck)`, and `GAPS` lists only the `prior_gaps`
+items with their now-current status — not a full re-derived checklist.
