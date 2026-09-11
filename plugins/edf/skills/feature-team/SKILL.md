@@ -57,6 +57,14 @@ If `epic <N>` is given:
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh add <epic-number> "in progress"
    ```
+7. Tag the lead's own session with the epic ID — the lead's orchestration work (wave
+   planning, teammate coordination, review gating) is otherwise invisible to cost tracking;
+   only the teammates' individual sessions get tagged today.
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <epic-number>
+   ```
+   **Non-epic modes (`-n N`, explicit issue numbers): skip this** — there is no single ID to
+   tag the lead with yet.
 
 If `-n N` is given:
 ```bash

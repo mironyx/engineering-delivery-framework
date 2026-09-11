@@ -31,10 +31,10 @@ flowchart TD
         S1_WAVES_TABLE --> S1_EPIC_BOARD
         S1_WAVES_DAG --> S1_EPIC_BOARD
         S1_WAVES_NONE --> S1_EPIC_BOARD
-        S1_EPIC_BOARD["Move epic to In Progress<br/>gh-project-status.sh"]
+        S1_EPIC_BOARD["Move epic to In Progress<br/>gh-project-status.sh"] --> S1_EPIC_TAG["Tag lead session<br/>with epic ID<br/>tag-session.py"]
     end
 
-    S1_EPIC_BOARD --> S1_GUARD
+    S1_EPIC_TAG --> S1_GUARD
     S1_N --> S1_GUARD
     S1_DIRECT --> S1_GUARD
 
@@ -88,7 +88,7 @@ flowchart TD
     classDef stop fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S0,S1_N,S1_DIRECT,S1_EPIC,S1_EPIC_TASKS,S1_WAVES_TABLE,S1_WAVES_DAG,S1_WAVES_NONE,S1_EPIC_BOARD,S1_READ,S2,S3,WAVE_ENTRY,S4B_NOTE,S5,S6,S6_GATE,S6_WAIT,S6_FWD,S6_TEAM_DONE,S6_SHUTDOWN,S7,S7_CLOSE,S8,S9B process
+    class S0,S1_N,S1_DIRECT,S1_EPIC,S1_EPIC_TASKS,S1_WAVES_TABLE,S1_WAVES_DAG,S1_WAVES_NONE,S1_EPIC_BOARD,S1_EPIC_TAG,S1_READ,S2,S3,WAVE_ENTRY,S4B_NOTE,S5,S6,S6_GATE,S6_WAIT,S6_FWD,S6_TEAM_DONE,S6_SHUTDOWN,S7,S7_CLOSE,S8,S9B process
     class S4B,S9 agent
     class S0_CHK,S1,S1_EPIC_LABEL,S1_EPIC_EMPTY,S1_WAVES,S1_GUARD,S2_CHK,S6_WAVES,S7_EPIC decision
     class STOP_PREFLIGHT,STOP_NOT_EPIC,STOP_NO_TASKS,STOP_EPIC_TASK,STOP_VALIDATE stop
