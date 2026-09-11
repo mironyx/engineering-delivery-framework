@@ -83,6 +83,16 @@ Read 2–3 existing test files in the same directory or parent directory as
 - How HTTP calls are mocked (e.g. MSW for TypeScript, responses or pytest-httpx
   for Python — follow what the project's CLAUDE.md prescribes)
 
+**Check for reusable setup before writing any inline mock or stub.** Read `kb/conventions.md`
+for `helper-dir` and `fixture-dir`. Glob those directories for a factory, mock, or stub that
+already covers a dependency this test needs (a UI primitive, a repository call, an API
+response shape). Import and extend an existing one rather than re-declaring an equivalent
+`vi.mock`/stub inline — a test file that hand-rolls stubs for primitives already mocked
+elsewhere in the codebase is doing avoidable work on every property, not just once. Only
+declare a new inline mock for a dependency that genuinely has no counterpart in `helper-dir`
+or `fixture-dir` yet — and prefer adding it there over burying it in the test file if sibling
+tests are likely to need it too.
+
 ### Step 3: Write the tests
 
 Write tests to `target_test_file`. Each test:
