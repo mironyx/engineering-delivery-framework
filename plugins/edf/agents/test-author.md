@@ -106,6 +106,12 @@ in CLAUDE.md. For TypeScript projects this is typically MSW; for Python it is
 typically `responses` or `pytest-httpx`. Do not use manual stubs or spies
 unless CLAUDE.md explicitly documents a reason to.
 
+**SDK adapter mocking:** When mocking an internal adapter that wraps a third-party
+SDK (Octokit, Supabase JS, an LLM SDK), mocking at the adapter boundary is correct —
+but the mock still accepts any call shape by construction. Before trusting it, verify
+the shape being passed matches the real SDK's actual signature/known constraints
+(check its types or docs), not just what compiles against the stub.
+
 **Bugfix mode:** Include at least one test that reproduces the bug (would fail
 on the pre-fix behaviour).
 

@@ -248,6 +248,10 @@ No sub-agents. Write the fix and regression tests in one pass.
    - Test through the public interface, not internals
    - Include at least one test that would fail on the pre-fix behaviour (for bug fixes)
    - Match the style of neighbouring test files (grep for sibling tests first)
+   - If the neighbouring style stubs a third-party SDK method directly (e.g.
+     `octokit.graphql: vi.fn()`), verify the mocked call shape against the SDK's real
+     signature/constraints before copying it — a stub accepts any shape by construction,
+     so copying a bad call shape from a sibling test propagates it silently
 3. **Run the target test file** to confirm tests pass:
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test-file>
