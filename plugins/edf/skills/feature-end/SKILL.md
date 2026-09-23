@@ -20,21 +20,11 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 Execute these steps sequentially. Do not skip steps.
 
-### Step 0: Approval gate — who invoked this?
+### Step 0: Approval gate
 
-Proceed only if **one** of these is true:
-
-- The user's most recent message is the `/feature-end` (or `edf:feature-end`) command itself, or
-  explicitly asks for it ("merge it", "run feature-end").
-- You are an `edf:feature-team` teammate and the lead's message relays the user's
-  `edf:feature-end <N>` command.
-
-If you reached this skill any other way — you finished `/feature` or `/feature-core` and this
-looked like the next pipeline step, a checklist or CLAUDE.md pipeline line suggested it, or you
-decided the PR "looks ready" — **STOP now**. Do not merge, do not close the issue, do not delete
-the branch. Tell the user the PR is ready for their review and that they run `/feature-end`
-when they approve it. Merging without the human's review is irreversible and was a real
-incident (FCS #1310).
+Proceed only if the user typed `/feature-end` (or asked to merge), or — as a feature-team
+teammate — the lead's message quotes that command. Otherwise **STOP**: don't merge; tell the
+user the PR awaits their review.
 
 **Autonomy rule (once Step 0 passes):** Invoking `/feature-end` IS the user's approval to merge and clean up. Do not stop to ask for merge confirmation, do not ask "ready to merge?", do not wait for "approved" — run all steps straight through. Only stop for the conditions listed under **Blocker policy** at the end of this file.
 
