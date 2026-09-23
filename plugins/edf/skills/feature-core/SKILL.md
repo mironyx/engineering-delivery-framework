@@ -414,16 +414,15 @@ This keeps verbose output out of the main context.
 Skill: edf:test full <ts|p>
 ```
 
-Check whether E2E tests exist by reading `kb/conventions.md` for the `e2e-dir` value, then:
+Decide whether E2E runs with the gate script — **do not decide by judgement**:
 ```bash
-E2E_DIR=$(grep 'e2e-dir' kb/conventions.md | sed -n 's/.*| *e2e-dir *| *\([^|]*\) *|.*/\1/p' | sed 's/<!-- e.g. //; s/ -->//; s/`//g; s/^ *//; s/ *$//')
-if [ -n "$E2E_DIR" ] && [ "$(ls -A "$E2E_DIR" 2>/dev/null)" ]; then
-  echo "E2E tests found"
-else
-  echo "No E2E tests — skipping"
-fi
+bash ${CLAUDE_PLUGIN_ROOT}/bin/e2e-needed.sh
 ```
-If the directory exists and is non-empty, also run:
+It prints one line starting with `run` or `skip`. It skips when `e2e-dir` is unset/empty, or
+when `kb/conventions.md` sets `e2e-trigger-paths` and no changed file (committed, staged,
+unstaged or untracked) matches those globs — e.g. an engine-only change in a project whose
+E2E suite only exercises `src/app/**`. Without `e2e-trigger-paths` it always prints `run`.
+Record the printed line in the Step 5 checkpoint note. On `run`, also run:
 
 ```
 Skill: edf:test e2e <ts|p>
@@ -750,6 +749,11 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-
   --note "report done$(<concise CI/review outcome>)" \
   --issue <N>
 ```
+
+**The pipeline ends here. STOP after the Step 10 checkpoint.** Do not invoke `/feature-end`,
+do not merge the PR, do not close the issue, and do not start the next board item. The human
+reviews the PR and runs `/feature-end` themselves — that command is their merge approval, and
+it is never yours to issue (see `/feature-end` Step 0).
 
 ## Blocker policy
 

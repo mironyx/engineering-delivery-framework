@@ -166,6 +166,8 @@ Propose values for each. **Wait for user confirmation** before writing.
 - `test-path` — derived from project structure
 - `eval-test-path` — `tests/eval/` or `tests/evaluation/`
 - `e2e-dir` — `tests/e2e/` or blank
+- `e2e-trigger-paths` — globs whose changes warrant an E2E run (UI, routes, API handlers),
+  e.g. `src/app/**`, `src/components/**`; blank = E2E always runs
 - `fixture-dir` — `tests/fixtures/` or blank
 - `helper-dir` — `tests/helpers/` or blank
 - Schema section — leave as-is unless the project uses declarative schemas

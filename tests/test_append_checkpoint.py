@@ -59,3 +59,24 @@ def test_appends_at_end_when_no_heading(tmp_path):
     assert result.returncode == 0
     assert "Warning" in result.stderr
     assert log.read_text(encoding="utf-8").rstrip().endswith("| x |")
+
+
+def _load_module():
+    import importlib.util
+    sys.path.insert(0, str(BIN_DIR))
+    spec = importlib.util.spec_from_file_location("append_checkpoint", BIN_DIR / "append-checkpoint.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_format_models_lists_each_model_by_cost_descending():
+    # The model mix is what tells a weak-model session from a strong one when
+    # reading logs later — it must be recorded on every checkpoint row.
+    mod = _load_module()
+    out = mod.format_models({"claude-haiku-4-5": 0.4, "claude-opus-5-5": 12.1})
+    assert out == "models: claude-opus-5-5 $12.10, claude-haiku-4-5 $0.40"
+
+
+def test_format_models_empty_when_no_data():
+    assert _load_module().format_models({}) == ""

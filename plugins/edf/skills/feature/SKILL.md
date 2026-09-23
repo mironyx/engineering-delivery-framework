@@ -1,6 +1,6 @@
 ---
 name: feature
-description: Autonomously implement the next feature from the project board. Picks the top Todo item, creates a branch, implements with TDD, runs diagnostics, commits, creates a PR, runs edf:pr-review and fixes any findings, then reports. Only pauses for real blockers.
+description: Autonomously implement the next feature from the project board. Picks the top Todo item, creates a branch, implements with TDD, runs diagnostics, commits, creates a PR, runs edf:pr-review and fixes any findings, then reports. Only pauses for real blockers. Never merges — ends at the report; the human reviews the PR and runs /feature-end.
 allowed-tools: Read, Write, Edit, MultiEdit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 ---
 
@@ -86,6 +86,13 @@ edf:feature-core <issue-number>
 ```
 
 This covers: read design → TDD → full verification → diagnostics → commit → PR + CI probe → review → report.
+
+### Step 4: Stop — the PR awaits human review
+
+`/feature` ends when feature-core's Step 10 report is delivered. **Do not invoke
+`/feature-end`, merge the PR, close the issue, or pick up the next board item** — not even
+when the review is clean and CI is green. The human reviews the PR and types `/feature-end`
+themselves; that command is their merge approval (see `/feature-end` Step 0).
 
 ## Blocker policy
 

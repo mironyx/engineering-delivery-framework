@@ -681,3 +681,109 @@ class TestRunAuditDispatcher:
         result = _bash(tmp_path / "run-audit.sh", "all", cwd=workdir)
         assert result.returncode == 0
         assert result.stdout.count("audit skipped") == 2
+
+
+class TestRunAuditTypescriptFailureDetection:
+    """The network-failure skip must not swallow real findings (FCS #1296/#1298:
+    an advisory mentioning "remote code execution" matched the old
+    case-insensitive `code E` pattern and the gate printed PASS on 19 findings)."""
+
+    def _run_with_npm(self, tmp_path, npm_output):
+        workdir = tmp_path / "proj"
+        workdir.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=workdir, check=True)
+        (workdir / "package-lock.json").write_text("{}")
+        fake_bin = tmp_path / "fakebin"
+        fake_bin.mkdir()
+        out_file = tmp_path / "npm-out.txt"
+        out_file.write_text(npm_output)
+        npm_shim = fake_bin / "npm"
+        npm_shim.write_text(f"#!/usr/bin/env bash\ncat '{_to_msys2_path(out_file)}'\nexit 1\n")
+        npm_shim.chmod(0o755)
+        env = dict(os.environ)
+        env["PATH"] = f"{_to_msys2_path(fake_bin)}:{env.get('PATH', '')}"
+        env.pop("EDF_AUDIT_WARN_ONLY", None)
+        return subprocess.run(
+            [_BASH_EXE, _to_msys2_path(SCRIPTS_DIR / "typescript" / "run-audit.sh")],
+            capture_output=True, text=True, timeout=30, cwd=workdir, env=env,
+        )
+
+    def test_advisory_mentioning_code_execution_fails_the_gate(self, tmp_path):
+        result = self._run_with_npm(
+            tmp_path,
+            "# npm audit report\n\n"
+            "next  <15.2.3\n"
+            "Severity: critical\n"
+            "Next.js vulnerable to remote Code Execution via crafted request\n"
+            "fix available via `npm audit fix --force`\n\n"
+            "19 vulnerabilities (2 low, 6 moderate, 8 high, 3 critical)\n",
+        )
+        assert result.returncode == 1
+        assert "audit skipped" not in result.stdout
+        assert "19 vulnerabilities" in result.stdout
+
+    def test_network_failure_still_skips(self, tmp_path):
+        result = self._run_with_npm(
+            tmp_path,
+            "npm error code ENOTFOUND\n"
+            "npm error audit endpoint returned an error\n",
+        )
+        assert result.returncode == 0
+        assert "audit skipped" in result.stdout
+
+
+# ── e2e-needed.sh ────────────────────────────────────────────────────────────
+
+
+class TestE2eNeeded:
+    """Step 5 E2E gate decided by changed paths, not by model judgement (FCS #1315:
+    E2E launched on an engine-only change, then the session idled ~4.5h)."""
+
+    def _repo(self, tmp_path, conventions_rows):
+        repo = tmp_path / "repo"
+        (repo / "kb").mkdir(parents=True)
+        (repo / "tests" / "e2e").mkdir(parents=True)
+        (repo / "tests" / "e2e" / "a.spec.ts").write_text("x")
+        (repo / "kb" / "conventions.md").write_text(
+            "| Concept | Pattern |\n|---|---|\n" + conventions_rows
+        )
+        run = lambda *a: subprocess.run(["git", *a], cwd=repo, check=True, capture_output=True)
+        run("init", "-q", "-b", "main")
+        run("-c", "user.email=t@t", "-c", "user.name=t", "add", "-A")
+        run("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base")
+        run("checkout", "-qb", "feat")
+        return repo
+
+    def _change(self, repo, rel):
+        p = repo / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("changed")
+
+    def _run(self, repo):
+        return _bash(BIN_DIR / "e2e-needed.sh", "main", cwd=repo)
+
+    ROWS = "| e2e-dir | `tests/e2e/` |\n| e2e-trigger-paths | `src/app/**`, `src/components/**` |\n"
+
+    def test_skips_when_no_changed_path_matches_a_trigger(self, tmp_path):
+        repo = self._repo(tmp_path, self.ROWS)
+        self._change(repo, "src/lib/engine/llm/schemas.ts")
+        result = self._run(repo)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.startswith("skip")
+
+    def test_runs_when_an_untracked_file_matches_a_trigger(self, tmp_path):
+        repo = self._repo(tmp_path, self.ROWS)
+        self._change(repo, "src/components/deep/button.tsx")
+        result = self._run(repo)
+        assert result.stdout.startswith("run")
+
+    def test_runs_when_trigger_paths_not_configured(self, tmp_path):
+        # Conservative default: projects that have not opted in keep today's behaviour.
+        repo = self._repo(tmp_path, "| e2e-dir | `tests/e2e/` |\n")
+        self._change(repo, "src/lib/x.ts")
+        assert self._run(repo).stdout.startswith("run")
+
+    def test_skips_when_no_e2e_dir(self, tmp_path):
+        repo = self._repo(tmp_path, "| e2e-dir | <!-- e.g. `tests/e2e/` --> |\n")
+        self._change(repo, "src/app/page.tsx")
+        assert self._run(repo).stdout.startswith("skip")

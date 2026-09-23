@@ -53,12 +53,12 @@ flowchart TD
     WAVE_ENTRY --> S4_PRE
 
     subgraph WAVE["Wave Orchestration (Steps 4-6)"]
-        S4B(("S4: Agent calls<br/>One per teammate<br/>Same message, background<br/>Team forms automatically")) --> S4B_NOTE["Each teammate: worktree →<br/>tag session → edf:feature-core →<br/>report PR, wait for edf:feature-end"]
+        S4B(("S4: Agent calls<br/>One per teammate<br/>Same message, background<br/>Team forms automatically")) --> S4B_NOTE["Each teammate: worktree →<br/>tag session → edf:feature-core →<br/>report PR, wait —<br/>never self-invoke edf:feature-end;<br/>run it only on a lead message<br/>quoting the user's command"]
         S4B_NOTE --> S5["S5: Monitor<br/>Teammates notify lead<br/>when idle or blocked"]
         S5 --> S6["S6: Report PRs to user"]
         S6 --> S6_GATE["Human review gate<br/>Lead MUST NOT send edf:feature-end<br/>autonomously"]
         S6_GATE --> S6_WAIT["Wait for user:<br/>edf:feature-end N"]
-        S6_WAIT --> S6_FWD["Lead forwards edf:feature-end<br/>to teammate via SendMessage"]
+        S6_WAIT --> S6_FWD["Lead quotes user's message verbatim,<br/>forwards edf:feature-end<br/>to teammate via SendMessage"]
         S6_FWD --> S6_TEAM_DONE["Teammate runs edf:feature-end<br/>reports complete"]
         S6_TEAM_DONE --> S6_WAVES{"More waves?"}
         S6_WAVES -->|"Yes"| S6_SHUTDOWN["SendMessage shutdown_request<br/>then pane cleanup if split-pane mode"]

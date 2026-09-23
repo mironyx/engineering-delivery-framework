@@ -4,7 +4,9 @@ Visual overview of the post-review wrap-up pipeline. Handles session log (find b
 
 ```mermaid
 flowchart TD
-    START(["fa:fa-play /feature-end invoked"]) --> S1
+    START(["fa:fa-play /feature-end invoked"]) --> S0{"S0: Typed by the user<br/>(or relayed by team lead)?"}
+    S0 -->|"No — agent chained into it"| STOP_GATE(["fa:fa-ban Stop: PR awaits human review"])
+    S0 -->|"Yes"| S1
 
     S1["S1: Gather context<br/>Find PR, extract branch,<br/>check review status"] --> S1_CHK{"Changes<br/>requested?"}
     S1_CHK -->|"Yes"| STOP_REVIEW(["fa:fa-ban Stop: CHANGES_REQUESTED"])
@@ -16,7 +18,7 @@ flowchart TD
     S1_5_RUN --> S2
 
     S2["S2: Find session log by feature ID<br/>Append narrative sections<br/>(or write full log if not found)"] --> S2_5["S2.5: Query final cost<br/>query-feature-cost.py --stage final"]
-    S2_5 --> S2_6["S2.6: Cost retrospective<br/>Read checkpoint table from<br/>session log (if Full track)"]
+    S2_5 --> S2_6["S2.6: Cost retrospective<br/>Read checkpoint table from<br/>session log (if Full track)<br/>+ .edf/session-drafts snapshots"]
 
     S2_6 --> S3["S3: Commit remaining changes<br/>Session log + final fixes"]
     S3 --> S3_5["S3.5: Rebase onto latest base<br/>git rebase origin/base"]
@@ -45,6 +47,6 @@ flowchart TD
     class START,DONE startend
     class S1,S1_5,S2,S2_5,S2_6,S3,S3_5,S4,S5,S6_4,S6_5,S7 process
     class S1_5_RUN agent
-    class S1_CHK,S1_5_CHK,S3_5_CHK,S4_CHK decision
-    class STOP_REVIEW,STOP_CONFLICT,STOP_MERGE stop
+    class S0,S1_CHK,S1_5_CHK,S3_5_CHK,S4_CHK decision
+    class STOP_GATE,STOP_REVIEW,STOP_CONFLICT,STOP_MERGE stop
 ```
