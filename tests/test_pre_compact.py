@@ -168,3 +168,34 @@ class TestInferProjectRoot:
         ]
         root = pcl._infer_project_root(tool_uses)
         assert root is None
+
+
+class TestDraftLocation:
+    """Drafts are scratch, not deliverables: they live in a self-ignored dir keyed by
+    session id, so they never collide with real session-log numbering, never block a
+    rebase, never get swept in by `git add -A`, and need no owner to delete them
+    (FCS #1295 — ten drafts were committed and none was ever cleaned up)."""
+
+    SID = "abc12345-def6-7890-abcd-ef1234567890"
+
+    def test_draft_lives_under_self_ignored_edf_dir(self, tmp_path):
+        path = pcl.draft_path_for(tmp_path, self.SID)
+        assert path.parent == tmp_path / ".edf" / "session-drafts"
+        assert path.name.endswith("-abc12345.md")
+        assert (tmp_path / ".edf" / ".gitignore").read_text() == "*\n"
+        assert not (tmp_path / "docs").exists()
+
+    def test_same_session_maps_to_same_file(self, tmp_path):
+        assert pcl.draft_path_for(tmp_path, self.SID) == pcl.draft_path_for(tmp_path, self.SID)
+
+    def test_prunes_drafts_older_than_retention(self, tmp_path):
+        import os, time
+        d = tmp_path / ".edf" / "session-drafts"
+        d.mkdir(parents=True)
+        old, fresh = d / "2026-01-01-aaaaaaaa.md", d / "2026-09-20-bbbbbbbb.md"
+        old.write_text("x"); fresh.write_text("x")
+        stale = time.time() - 15 * 86400
+        os.utime(old, (stale, stale))
+        pcl.prune_old_drafts(d, days=14)
+        assert not old.exists()
+        assert fresh.exists()

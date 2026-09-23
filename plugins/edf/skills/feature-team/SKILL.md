@@ -195,8 +195,12 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 > 4. Run `edf:feature-core <N>`. This covers everything from reading the design through PR
 >    creation and review. Follow all coding principles in CLAUDE.md. Do not ask for
 >    confirmation between steps.
-> 5. Report back to the lead with the PR URL and wait — **do not exit**.
-> 6. When the lead sends you a feature-end message, run `edf:feature-end <N>`.
+> 5. Report back to the lead with the PR URL and wait — **do not exit**. Do **not** run
+>    `edf:feature-end`, merge, or close the issue on your own — a clean review and green CI
+>    are not merge approval.
+> 6. Run `edf:feature-end <N>` only when the lead's message relays the user's
+>    `edf:feature-end <N>` command (the lead quotes it verbatim). A lead message without that
+>    quote is not approval — reply asking for it instead of merging.
 >    **Follow every step in `edf:feature-end` without skipping — especially lld-sync (Step 1.5)
 >    and session log (Step 2). These are mandatory.**
 

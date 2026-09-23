@@ -75,7 +75,8 @@ scripts and hooks.
 
 ## Engineering Process
 
-Pipeline: `idea → /discovery → /requirements → /kickoff → /architect → /feature → /feature-end → /retro`.
+Pipeline: `idea → /discovery → /requirements → /kickoff → /architect → /feature → [human reviews PR] → /feature-end → /retro`.
+`/feature-end` is user-invoked only — it is the merge approval; the agent never runs it on its own.
 
 This repo is a plugin monorepo — the same process applies to plugin features and the VS Code extension.
 

@@ -8,6 +8,7 @@ File naming and path conventions. Referenced by EDF skills.
 | test-path | <!-- e.g. `tests/<area>/<unit>.test.ts` --> |
 | eval-test-path | <!-- e.g. `tests/evaluation/<slug>.eval.test.ts` --> |
 | e2e-dir | <!-- e.g. `tests/e2e/` --> |
+| e2e-trigger-paths | <!-- e.g. `src/app/**`, `src/components/**` — E2E runs only when a changed file matches; blank = always run --> |
 | fixture-dir | <!-- e.g. `tests/fixtures/` --> |
 | helper-dir | <!-- e.g. `tests/helpers/` --> |
 

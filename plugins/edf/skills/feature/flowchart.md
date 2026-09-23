@@ -31,7 +31,7 @@ flowchart TD
 
     S2_BOARD --> S3(("S3: edf:feature-core<br/>Hand off to core<br/>implementation cycle"))
 
-    S3 --> DONE(["fa:fa-check Feature complete"])
+    S3 --> DONE(["fa:fa-hand-paper STOP — PR awaits human review<br/>(user runs /feature-end, never the agent)"])
 
     %% ── Styles ──
     classDef startend fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a

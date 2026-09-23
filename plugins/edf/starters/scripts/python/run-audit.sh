@@ -26,7 +26,10 @@ fi
 
 OUTPUT="$("${AUDIT_CMD[@]}" 2>&1)"
 rc=$?
-if [ "$rc" -ne 0 ] && echo "$OUTPUT" | grep -qiE 'ConnectionError|connection reset|Network error|failed to (resolve|fetch)|InsecureRequestWarning|too many requests'; then
+# A reported vulnerability count means the audit ran — never treat that as a tool failure.
+if [ "$rc" -ne 0 ] \
+    && ! echo "$OUTPUT" | grep -qiE '[0-9]+ (known )?vulnerabilit' \
+    && echo "$OUTPUT" | grep -qiE 'ConnectionError|connection reset|Network error|failed to (resolve|fetch)|InsecureRequestWarning|too many requests'; then
     echo "audit skipped (audit tool or network failure):"
     echo "$OUTPUT" | head -n 3
     exit 0

@@ -136,6 +136,34 @@ def query_cost(feature_id: str, prom_dir: pathlib.Path) -> str:
     return f"${cost:.2f} | {int(inp):,} in / {int(out):,} out"
 
 
+def format_models(cost_by_model: dict[str, float]) -> str:
+    if not cost_by_model:
+        return ""
+    ranked = sorted(cost_by_model.items(), key=lambda kv: -kv[1])
+    return "models: " + ", ".join(f"{m} ${c:.2f}" for m, c in ranked)
+
+
+def query_models(feature_id: str) -> str:
+    """Return the feature's cumulative cost split by model, or "" if unavailable."""
+    q = (
+        f'sum by (model) ('
+        f'  claude_code_cost_usage_USD_total'
+        f'  * on(session_id) group_left()'
+        f'  claude_session_feature{{feature_id="{feature_id}"}}'
+        f')'
+    )
+    try:
+        url = PROM + "?" + urllib.parse.urlencode({"query": q})
+        rows = (
+            json.loads(urllib.request.urlopen(url, timeout=3).read())
+            .get("data", {})
+            .get("result", [])
+        )
+    except Exception:
+        return ""
+    return format_models({r["metric"].get("model", "unknown"): float(r["value"][1]) for r in rows})
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session-log", required=True, help="Path to the session log .md file")
@@ -159,13 +187,16 @@ def main() -> None:
         feature_id = f"{prefix}-{args.issue}"
         prom_dir = _edf_env.prom_dir(root)
         cost_data = query_cost(feature_id, prom_dir)
+        models = query_models(feature_id)
     else:
         cost_data = "unavailable | unavailable"
+        models = ""
 
     # Insert the row into the Cost checkpoints table. The log may have sections
     # after the table (e.g. "## Cost retrospective"), so appending to EOF would
     # land the row under the wrong heading.
-    row = f"| {args.step} | {timestamp} | {cost_data} | {args.note} |"
+    note = f"{args.note} [{models}]" if models else args.note
+    row = f"| {args.step} | {timestamp} | {cost_data} | {note} |"
     lines = session_log.read_text(encoding="utf-8").splitlines()
     insert_at = len(lines)
     found = False

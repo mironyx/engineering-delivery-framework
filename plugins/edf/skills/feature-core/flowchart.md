@@ -61,7 +61,7 @@ flowchart TD
         S5(("S5: edf:test skill<br/>tests + typecheck + lint")) --> S5_CHK{"All pass?"}
         S5_CHK -->|"No"| S5_FIX["Fix, max 3 attempts"]
         S5_FIX --> S5
-        S5_CHK -->|"Yes"| S5_E2E{"E2E tests?"}
+        S5_CHK -->|"Yes"| S5_E2E{"e2e-needed.sh<br/>prints run?"}
         S5_E2E -->|"Yes"| S5_E2E_RUN(("edf:test e2e<br/>build + e2e"))
         S5_E2E -->|"No"| S5_AUDIT(("S5: edf:test audit<br/>dependency security"))
         S5_E2E_RUN --> S5_AUDIT
@@ -120,7 +120,7 @@ flowchart TD
     end
 
     S10_OK --> S10_CP["Append cost checkpoint<br/>step 10: report done"]
-    S10_CP --> DONE(["fa:fa-check Complete"])
+    S10_CP --> DONE(["fa:fa-hand-paper STOP — human reviews PR<br/>and runs /feature-end (never the agent)"])
 
     %% ── Styles ──
     classDef startend fill:#d4f0d4,stroke:#2d7d2d,color:#1a3a1a

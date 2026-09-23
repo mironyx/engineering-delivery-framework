@@ -22,7 +22,12 @@ fi
 
 OUTPUT="$("${AUDIT_CMD[@]}" 2>&1)"
 rc=$?
-if [ "$rc" -ne 0 ] && echo "$OUTPUT" | grep -qiE 'npm (error|err)|code E|EAI_AGAIN|ENOTFOUND|ETIMEDOUT|ENETUNREACH|ECONNREFUSED|ERR_SSL'; then
+# A reported vulnerability count means the audit ran — never treat that as a tool failure.
+# Failure signatures are case-sensitive and anchored: advisory prose ("remote code execution")
+# must not match an npm error code.
+if [ "$rc" -ne 0 ] \
+    && ! echo "$OUTPUT" | grep -qiE '[0-9]+ ([a-z]+ severity )?vulnerabilit' \
+    && echo "$OUTPUT" | grep -qE '^npm (error|ERR!)|code E[A-Z_]{3,}|EAI_AGAIN|ENOTFOUND|ETIMEDOUT|ENETUNREACH|ECONNREFUSED|ERR_SSL'; then
     echo "audit skipped (audit tool or network failure):"
     echo "$OUTPUT" | head -n 3
     exit 0

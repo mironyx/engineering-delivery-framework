@@ -1,6 +1,6 @@
 ---
 name: feature-end
-description: Wrap up a completed feature after PR review. Writes session log, commits remaining changes, merges PR, switches to parent branch, cleans up. Invoking this skill IS the approval — no further confirmations.
+description: USER-INVOKED ONLY — never invoke this skill yourself, and never chain into it from /feature, /feature-core, or any other skill. Wraps up a feature after the human has reviewed the PR — writes session log, merges PR, cleans up. The user typing /feature-end IS the merge approval; the model deciding to run it is not.
 allowed-tools: Read, Write, Edit, MultiEdit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 ---
 
@@ -20,7 +20,23 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 Execute these steps sequentially. Do not skip steps.
 
-**Autonomy rule:** Invoking `/feature-end` IS the user's approval to merge and clean up. Do not stop to ask for merge confirmation, do not ask "ready to merge?", do not wait for "approved" — run all steps straight through. Only stop for the conditions listed under **Blocker policy** at the end of this file.
+### Step 0: Approval gate — who invoked this?
+
+Proceed only if **one** of these is true:
+
+- The user's most recent message is the `/feature-end` (or `edf:feature-end`) command itself, or
+  explicitly asks for it ("merge it", "run feature-end").
+- You are an `edf:feature-team` teammate and the lead's message relays the user's
+  `edf:feature-end <N>` command.
+
+If you reached this skill any other way — you finished `/feature` or `/feature-core` and this
+looked like the next pipeline step, a checklist or CLAUDE.md pipeline line suggested it, or you
+decided the PR "looks ready" — **STOP now**. Do not merge, do not close the issue, do not delete
+the branch. Tell the user the PR is ready for their review and that they run `/feature-end`
+when they approve it. Merging without the human's review is irreversible and was a real
+incident (FCS #1310).
+
+**Autonomy rule (once Step 0 passes):** Invoking `/feature-end` IS the user's approval to merge and clean up. Do not stop to ask for merge confirmation, do not ask "ready to merge?", do not wait for "approved" — run all steps straight through. Only stop for the conditions listed under **Blocker policy** at the end of this file.
 
 ### Step 1: Gather context
 
@@ -202,6 +218,11 @@ rows are the cost buckets:
 - **8 → 9:** review + review fixes (post-PR rework)
 
 If no checkpoint table exists (Light track), fall back to git log analysis as below.
+
+**Compaction snapshots:** if the session compacted, the pre-compact hook left a per-session
+draft at `.edf/session-drafts/*-<first 8 chars of session id>.md` (files touched, test runs,
+agent spawns). Read it as supplementary cost-driver input. Never copy or commit it — the
+directory is self-ignored and the hook prunes it; no cleanup is needed.
 
 1. **Cost summary:** PR-creation cost (from PR body `Usage` section) vs final total.
    Delta = post-PR work (review fixes, re-runs, extra commits).
