@@ -14,6 +14,11 @@ Usage:
 
 The session log must already exist with a ## Cost checkpoints table header.
 Prometheus cost/token values are best-effort — "unavailable" if unreachable.
+
+If EDF_GRAFANA_URL and EDF_GRAFANA_TOKEN (a service-account token with Editor
+role) are set (env or .env), each checkpoint is also posted as a Grafana
+annotation — a vertical line labelled with the step — tagged `edf-step` and
+the feature ID.
 """
 
 import argparse
@@ -164,6 +169,27 @@ def query_models(feature_id: str) -> str:
     return format_models({r["metric"].get("model", "unknown"): float(r["value"][1]) for r in rows})
 
 
+def build_annotation(step: str, note: str, feature_id: str | None, time_ms: int) -> dict:
+    """Grafana annotation payload: one vertical line per step, filterable by tag."""
+    tags = ["edf-step", f"step:{step}"] + ([feature_id] if feature_id else [])
+    prefix = f"{feature_id} " if feature_id else ""
+    return {"time": time_ms, "tags": tags, "text": f"{prefix}Step {step}: {note}"}
+
+
+def post_annotation(grafana_url: str, token: str, payload: dict) -> None:
+    """Best-effort POST to Grafana — a failure never blocks the checkpoint row."""
+    req = urllib.request.Request(
+        grafana_url.rstrip("/") + "/api/annotations",
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+        method="POST",
+    )
+    try:
+        urllib.request.urlopen(req, timeout=3)
+    except Exception as e:
+        print(f"Grafana annotation skipped: {e}", file=sys.stderr)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session-log", required=True, help="Path to the session log .md file")
@@ -178,11 +204,13 @@ def main() -> None:
         sys.exit(1)
 
     # Current UTC timestamp — captured NOW, not by the caller
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.now(timezone.utc)
+    timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    root = git_root()
+    feature_id = None
 
     # Query cost if issue provided
     if args.issue is not None:
-        root = git_root()
         prefix = derive_feature_prefix(root)
         feature_id = f"{prefix}-{args.issue}"
         prom_dir = _edf_env.prom_dir(root)
@@ -217,6 +245,13 @@ def main() -> None:
     session_log.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     print(f"Checkpoint appended: step={args.step} timestamp={timestamp}")
+
+    # Opt-in: mark the step boundary as a vertical line on Grafana graphs.
+    grafana_url = _edf_env.resolve("EDF_GRAFANA_URL", root)
+    grafana_token = _edf_env.resolve("EDF_GRAFANA_TOKEN", root)
+    if grafana_url and grafana_token:
+        payload = build_annotation(args.step, args.note, feature_id, int(now.timestamp() * 1000))
+        post_annotation(grafana_url, grafana_token, payload)
 
 
 if __name__ == "__main__":

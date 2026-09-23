@@ -80,3 +80,20 @@ def test_format_models_lists_each_model_by_cost_descending():
 
 def test_format_models_empty_when_no_data():
     assert _load_module().format_models({}) == ""
+
+
+def test_build_annotation_labels_step_and_tags_feature():
+    # The dashboard filters annotations by the `edf-step` tag plus the feature ID,
+    # and the text is what appears when hovering the vertical line.
+    out = _load_module().build_annotation("5", "green on attempt 2", "FCS-1016", 1_700_000_000_000)
+    assert out == {
+        "time": 1_700_000_000_000,
+        "tags": ["edf-step", "step:5", "FCS-1016"],
+        "text": "FCS-1016 Step 5: green on attempt 2",
+    }
+
+
+def test_build_annotation_without_feature():
+    out = _load_module().build_annotation("3c", "pressure: heavy", None, 0)
+    assert out["tags"] == ["edf-step", "step:3c"]
+    assert out["text"] == "Step 3c: pressure: heavy"
