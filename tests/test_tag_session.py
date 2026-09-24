@@ -81,6 +81,32 @@ def test_rejects_both_issue_and_skill(tmp_path, monkeypatch):
     assert "exactly one of" in result.stderr
 
 
+def _load_module():
+    import importlib.util
+    sys.path.insert(0, str(BIN_DIR))
+    spec = importlib.util.spec_from_file_location("tag_session", BIN_DIR / "tag-session.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_retagging_a_session_replaces_its_previous_feature(tmp_path):
+    # One session running /drift-scan then /retro used to end up with two
+    # feature_id rows for the same session_id, which breaks the dashboard's
+    # `* on(session_id)` join with "many-to-many matching not allowed".
+    mod = _load_module()
+    prom = tmp_path / "session_feature.prom"
+    mod.update_prom_file(prom, "s1", "DRIFT-aaaaa")
+    mod.update_prom_file(prom, "s2", "EDF-7")
+    mod.update_prom_file(prom, "s1", "RETRO-bbbbb")
+
+    lines = [l for l in prom.read_text(encoding="utf-8").splitlines() if not l.startswith("#")]
+    assert lines == [
+        'claude_session_feature{session_id="s2",feature_id="EDF-7"} 1',
+        'claude_session_feature{session_id="s1",feature_id="RETRO-bbbbb"} 1',
+    ]
+
+
 def test_rejects_neither_issue_nor_skill(tmp_path, monkeypatch):
     repo, _claude_dir, _session_id, env = _init_repo_with_session(tmp_path, monkeypatch)
 

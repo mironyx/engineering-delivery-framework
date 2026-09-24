@@ -206,16 +206,22 @@ def update_prom_file(prom_file: pathlib.Path, session_id: str, feature_id: str) 
     if new_line in existing:
         return
 
+    # A session_id maps to exactly one feature at a time. Drop any prior mapping
+    # for this session_id before appending — otherwise a retagged session (e.g.
+    # /drift-scan then /retro in one session) ends up with two feature_id rows,
+    # breaking the session_id join in the Grafana dashboard (many-to-many).
+    session_prefix = f'claude_session_feature{{session_id="{session_id}",'
+    data_lines = [
+        line for line in existing.splitlines(keepends=True)
+        if line.startswith("claude_session_feature{") and not line.startswith(session_prefix)
+    ]
+    data_lines = [line if line.endswith("\n") else line + "\n" for line in data_lines]
+
     header = (
         "# HELP claude_session_feature Maps Claude Code session ID to feature ID\n"
         "# TYPE claude_session_feature gauge\n"
     )
-    if not existing:
-        content = header + new_line
-    elif not existing.startswith("# HELP"):
-        content = header + existing + new_line
-    else:
-        content = existing.rstrip("\n") + "\n" + new_line
+    content = header + "".join(data_lines) + new_line
 
     prom_file.write_text(content, encoding="utf-8", newline="\n")
 
