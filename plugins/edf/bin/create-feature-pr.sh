@@ -3,15 +3,21 @@
 #
 # Usage:
 #   ${CLAUDE_PLUGIN_ROOT}/bin/create-feature-pr.sh \
-#     --issue <number> \
+#     --issue <number> [--issue <number> ...] \
 #     --title "<short title>" \
 #     --summary "<1-3 bullet points>" \
 #     --design-ref "<path to design doc section>" \
 #     --tests-added <N> \
-#     --tests-total "<N (M test files)>"
+#     --tests-total "<N (M test files)>" \
+#     [--dry-run]
+#
+# --issue may repeat: a PR fixing several issues gets one `Closes #N` line per issue.
+# The first issue is the primary one — it names the feature ID for cost tracking.
+# --dry-run prints the PR body and exits without calling gh.
 #
 # Output:
-#   Prints the PR URL on success, exits non-zero on error.
+#   Prints the PR URL on success, exits non-zero on error. Warns on stderr when
+#   main's latest CI run is not green (a red main fails every PR built on it).
 set -euo pipefail
 
 # Derive plugin root from the script location. CLAUDE_PLUGIN_ROOT is only resolved
@@ -21,7 +27,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # --- Parse arguments ---
-ISSUE=""
+ISSUES=()
+DRY_RUN=0
 TITLE=""
 SUMMARY=""
 DESIGN_REF=""
@@ -30,7 +37,8 @@ TESTS_TOTAL=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --issue)       ISSUE="$2";       shift 2 ;;
+    --issue)       ISSUES+=("$2");   shift 2 ;;
+    --dry-run)     DRY_RUN=1;        shift ;;
     --title)       TITLE="$2";       shift 2 ;;
     --summary)     SUMMARY="$2";     shift 2 ;;
     --design-ref)  DESIGN_REF="$2";  shift 2 ;;
@@ -41,7 +49,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 # --- Validate required arguments ---
-for var in ISSUE TITLE SUMMARY TESTS_ADDED TESTS_TOTAL; do
+if [[ ${#ISSUES[@]} -eq 0 ]]; then
+  echo "Missing required argument: --issue" >&2
+  exit 1
+fi
+ISSUE="${ISSUES[0]}"
+CLOSES_LINES="$(printf 'Closes #%s\n' "${ISSUES[@]}")"
+
+for var in TITLE SUMMARY TESTS_ADDED TESTS_TOTAL; do
   if [[ -z "${!var}" ]]; then
     echo "Missing required argument: --$(echo "$var" | tr '[:upper:]' '[:lower:]' | tr '_' '-')" >&2
     exit 1
@@ -70,7 +85,7 @@ PR_BODY="$(cat <<EOF
 ${SUMMARY}
 
 ## Issue
-Closes #${ISSUE}
+${CLOSES_LINES}
 
 ## Design reference
 ${DESIGN_REF}
@@ -92,6 +107,17 @@ ${DESIGN_REF}
 <!-- claude-session-id: TBD -->
 EOF
 )"
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  echo "$PR_BODY"
+  exit 0
+fi
+
+# --- Warn when main is red (best-effort, never blocks) ---
+MAIN_STATUS=$("${PLUGIN_ROOT}/hooks/run-python.sh" "${PLUGIN_ROOT}/bin/ci-status.py" --branch main 2>/dev/null | head -n 1) || true
+case "$MAIN_STATUS" in
+  "ci: fail"*) echo "WARNING: main is not green — $MAIN_STATUS. This PR's CI will inherit the failure." >&2 ;;
+esac
 
 PR_URL=$(gh pr create --title "$TITLE" --base main --body "$PR_BODY")
 PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]*$')

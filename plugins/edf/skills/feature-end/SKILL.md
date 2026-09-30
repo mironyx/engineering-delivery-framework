@@ -79,11 +79,13 @@ In both cases:
 
 ### Step 1.5: Sync the LLD (pressure-adaptive)
 
-**Idempotency check:** Before running, check whether lld-sync was already completed this run:
+**Idempotency check:** skip this step if the session log already has its sync report
+(an earlier, interrupted `/feature-end` run got this far):
 ```bash
-git log --oneline origin/main..HEAD | grep -i "lld-sync\|lld sync" | head -1
+grep -l "^## LLD Sync report" docs/sessions/*/*-<FEATURE_ID>.md 2>/dev/null | head -1
 ```
-If a matching commit exists, skip this step and note "lld-sync already committed" in the session log.
+Do not look for an "lld-sync" commit — sync edits are committed with the session log after
+the merge (Step 6.6), never as a commit of their own.
 
 **Determine whether the issue has an LLD:** check the issue body for an `LLD reference` link or
 search `docs/design/v*/lld-*.md` (new version-foldered per ADR-0036) and `docs/design/lld-*.md`
@@ -145,12 +147,18 @@ If no existing session log was found (feature-core was on Light track, or was sk
 Read the existing session log. It contains `## Approach rationale` and `## Cost checkpoints` written
 by feature-core (per ADR-0037). Append these sections **in this exact order with these exact headings:**
 
-- `## Work completed` — what was implemented, PR link, key files, tests added
-- `## Decisions made` — approach choices, design deviations, anything the next dev should know
-- `## Review feedback addressed` — what review found, what was fixed, what was deferred
+- `## Work completed` — at most 6 bullets: PR link, key files, tests added
+- `## Decisions made` — at most 5 bullets of 1-2 lines; only decisions **not** already in
+  `## Concerns & Deferred Items` — link to it rather than restate
+- `## Review feedback addressed` — one line per finding:
+  `[type] file:line — fixed in <sha> | deferred (#issue) | not a defect (<reason>)`, plus the
+  link to the review comment. The comment holds the detail.
 - `## LLD Sync report` — paste `edf:lld-sync` Step 4 output verbatim (Corrections / Additions / Omissions / Confirmations / LLD updated). If skipped: _"Skipped — no LLD covers this issue."_
-- `## Cost retrospective` — data-backed analysis per Step 2.6
-- `## Next steps` — follow-up items, suggested next board item
+- `## Cost retrospective` — per Step 2.6: the bucket table plus at most 3 drivers
+- `## Next steps` — at most 5 bullets: follow-up items, suggested next board item
+
+The log is written through the conversation and re-read by later sessions — every extra
+paragraph is paid for twice. Do not repeat content between sections.
 
 **2.3 — Stage**
 
@@ -230,15 +238,25 @@ directory is self-ignored and the hook prunes it; no cleanup is needed.
    - "LLD private-helper signatures were wrong → validate signatures in a quick typecheck pass before writing tests"
    - "Context compaction hit → keep PRs under 200 lines; break large features into two issues"
 
-### Step 3: Commit remaining changes
+### Step 3: Park docs, commit remaining code
 
-1. Run `git status` to check for uncommitted changes (session log, review fixes, etc.).
-2. If there are changes to commit:
+Docs never go onto the PR branch at this point. A docs-only push cancels the CI run in flight
+and, where `docs/**` is paths-ignored, starts none — so the head that merges would not be the
+head CI verified. The session log and LLD-sync edits are parked now and land on the base
+branch after the merge (Step 6.6).
+
+1. Park everything uncommitted under `docs/` and `kb/`:
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/bin/park-docs.sh park <issue-number>
+   ```
+2. Run `git status`. Anything still uncommitted is code (e.g. a late review fix) — commit and
+   push it, then wait for CI on the new head before merging:
    ```bash
    git add <specific-files>
-   git commit -m "docs: session log and final fixes #<issue-number>"
+   git commit -m "fix: <what> #<issue-number>"
+   git push
    ```
-3. Push to remote: `git push`.
+   If nothing is left, do not push.
 
 ### Step 3.5: Rebase onto latest base branch
 
@@ -254,7 +272,7 @@ git merge-base --is-ancestor "origin/$BASE" HEAD \
 ```
 
 - **Already up to date** (`ALREADY_UP_TO_DATE`) → proceed directly to Step 4.
-- **Rebased cleanly** (`REBASED_AND_PUSHED`) → proceed to Step 4. CI will re-run on the rebased commit; wait for it to pass before merging (use `gh run watch`).
+- **Rebased cleanly** (`REBASED_AND_PUSHED`) → proceed to Step 4. CI will re-run on the rebased commit; wait for it to pass before merging: run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/ci-status.py --pr <number> --wait 9` (600000 ms Bash timeout; it polls for you) until it prints `ci: pass` (`fail(infra)` → re-run once; `fail(code)` → stop and report).
 - **Rebase conflict** (non-zero exit from `git rebase`) → run `git rebase --abort`, stop, and report the conflicting files to the user. Do not attempt to resolve conflicts automatically.
 
 ### Step 3.7: Switch CWD to main repo (worktree mode only)
@@ -312,7 +330,7 @@ Then chain all cleanup in a **single Bash call**:
 # If in a worktree: cd to main repo first, then clean up worktree + branch
 # If in main repo: standard cleanup (git branch -d works directly)
 
-cd "$MAIN_REPO" && git pull --rebase \
+cd "$MAIN_REPO" && git checkout <base-branch> && git pull --rebase \
   && { [ "$IS_WORKTREE" = "yes" ] && git worktree remove "$WORKTREE_PATH" --force 2>&1 || true; } \
   && { git branch -d <feature-branch> 2>&1 || true; } \
   && { bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh <issue-number> done 2>&1 || true; } \
@@ -362,27 +380,7 @@ this feature implemented.
    bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/update-coverage-manifest.py --verify-anchors "$MANIFEST"
    ```
 
-5. Stage and amend the manifest into the existing session-log commit (Step 3) if it has not been
-   pushed yet, otherwise create a follow-up commit:
-   ```bash
-   git add "$MANIFEST"
-   git commit -m "docs: coverage manifest — mark <issue-number> implemented"
-   git push
-   ```
-
-If the diff between `Approved → Implemented` would not be picked up before merge (manifest lives
-on the feature branch), commit it on the **base branch** post-merge instead:
-
-```bash
-git checkout "$BASE"
-git pull --rebase
-# edit manifest, then:
-git add "$MANIFEST"
-git commit -m "docs: coverage manifest — mark <issue-number> implemented"
-git push
-```
-
-Choose whichever path keeps the manifest atomically updated with the code it documents.
+5. Leave the edit uncommitted — Step 6.6 commits it with the session log.
 
 ### Step 6.5: kb/ coverage check
 
@@ -398,6 +396,21 @@ For any new file or addition that falls within a kb/ section's catalog scope:
 - If no matching kb/ section exists → skip (the project may not catalog this category).
 
 If the project has no kb/architecture.md, skip this step.
+
+### Step 6.6: Land the docs on the base branch
+
+On the up-to-date base branch (Step 5+6 checked it out and pulled), restore the parked docs
+and commit them, together with the Step 6.4/6.5 edits, in one commit:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/bin/park-docs.sh land <issue-number>
+```
+
+- `land: committed and pushed …` — done.
+- `land: … push was rejected` — the base branch is protected. Push the commit to a
+  `docs/<issue-number>-wrap-up` branch and open a docs-only PR for it; report the link.
+- `land: FAILED — stash … did not apply cleanly` — resolve the conflict in the named docs
+  files, then `git add` + commit + push them yourself.
 
 ### Step 7: Report
 

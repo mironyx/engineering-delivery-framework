@@ -63,17 +63,16 @@ flowchart TD
         S5_FIX --> S5
         S5_CHK -->|"Yes"| S5_E2E{"e2e-needed.sh<br/>prints run?"}
         S5_E2E -->|"Yes"| S5_E2E_RUN(("edf:test e2e<br/>build + e2e"))
-        S5_E2E -->|"No"| S5_AUDIT(("S5: edf:test audit<br/>dependency security"))
+        S5_E2E -->|"No"| S5_AUDIT(("S5: edf:test audit --baseline<br/>PRE-EXISTING passes"))
         S5_E2E_RUN --> S5_AUDIT
         S5_AUDIT --> S5_CP["Append cost checkpoint<br/>step 5: green on attempt N"]
         S5_CP --> S6
         S6["S6: edf:diag (local)<br/>Light: src/ only<br/>Standard: all files"] --> S6_CHK{"Zero findings?"}
         S6_CHK -->|"No"| S6_FIX["Fix -> re-run edf:diag -> re-run S5"]
         S6_FIX --> S6
-        S6_CHK -->|"Yes"| S6S["S6: edf:diag sonar<br/>(once, not looped)"] --> S6S_CHK{"Gate pass?"}
-        S6S_CHK -->|"No"| S6S_FIX["Fix -> re-run S5 + local diag<br/>-> re-run edf:diag sonar once more"]
-        S6S_FIX --> S6S
-        S6S_CHK -->|"Yes"| S6_CP["Append cost checkpoint<br/>step 6: diag pass"]
+        S6_CHK -->|"Yes"| S6S["S6: edf:diag sonar (once)<br/>local analysis of changed files:<br/>fix new + top 2 pre-existing"]
+        S6S --> S6J["S6: check-justification.py<br/>add Justification: comments<br/>until ok"]
+        S6J --> S6_CP["Append cost checkpoint<br/>step 6: diag pass"]
         S6_CP --> S6B_GATE
     end
 
@@ -110,12 +109,12 @@ flowchart TD
         S9RERUN --> S9_T
         S9_B -->|"No"| S9_D["Fix or defer"]
         S9_D --> S9_CP["Append cost checkpoint<br/>step 9: review clean"]
-        S9_CP --> S10["S10: Reconcile CI<br/>gh pr checks"]
+        S9_CP --> S10["S10: Reconcile CI<br/>ci-status.py --wait 9"]
         S10 --> S10_CI{"CI?"}
         S10_CI -->|"pass"| S10_OK["Summarize report"]
-        S10_CI -->|"fail"| S10_F["Fix -> push"]
+        S10_CI -->|"fail(code)"| S10_F["Fix -> push"]
         S10_F --> S10
-        S10_CI -->|"pending"| S10_W["gh pr checks --watch"]
+        S10_CI -->|"fail(infra)"| S10_W["gh run rerun once<br/>(no code change)"]
         S10_W --> S10_CI
     end
 
@@ -130,8 +129,8 @@ flowchart TD
     classDef stop fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S3,S3_READ,S3_BRIEF,S3A,S3B,S3B_Q,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6S,S6S_FIX,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S9_SZ,S9_SELF,S9RERUN,S10,S10_F,S10_OK,S10_CP,S10_W process
+    class S3,S3_READ,S3_BRIEF,S3A,S3B,S3B_Q,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6S,S6J,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S9_SZ,S9_SELF,S9RERUN,S10,S10_F,S10_OK,S10_CP,S10_W process
     class S3A_FETCH,S8B,F2,S5,S5_E2E_RUN,S5_AUDIT,S6B,S6B_REV agent
-    class S3_EPIC,S3A_NEW,S3B_LLD,S3C_SEC,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6S_CHK,S6B_GATE,S6B_V,S6B_V2,S8_DEV,S9_B,S9_SZ_CHK,S10_CI decision
+    class S3_EPIC,S3A_NEW,S3B_LLD,S3C_SEC,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6B_GATE,S6B_V,S6B_V2,S8_DEV,S9_B,S9_SZ_CHK,S10_CI decision
     class STOP_EPIC,STOP_SPEC,STOP_ASK,S6B_STOP stop
 ```

@@ -41,6 +41,11 @@ These override any conflicting instinct. Violations are the top cost drivers.
    review first. Every other call site that would otherwise restate this justification now
    says only "…(see Critical rules)" — the step-specific detail stays, the justification
    doesn't repeat.
+   **Each bullet is at most 3 lines:** what was found, where (`file:line`, PR comment,
+   issue), and what was decided. No re-derivation, no narrative — if the evidence is long,
+   it belongs in the PR comment, issue or LLD, and the bullet links to it. Do not record
+   script verdicts that already say "pre-existing" (audit, CI infra) — the checkpoint note
+   carries them.
 
 A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing step order, adding/removing agent spawns, or modifying branching logic.
 
@@ -213,13 +218,13 @@ later.
    Then immediately append the Step 3c checkpoint row with a live timestamp and cost query:
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
-     --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
      --step "3c" \
      --note "pressure: <tier> — <reasoning>" \
      --issue <N>
    ```
-   The script captures `date -u` and queries Prometheus at the moment it runs.
-   Cost/token values are materialised immediately — no placeholders to fill later.
+   The script finds the session log from `--issue`, captures the timestamp and queries
+   Prometheus at the moment it runs. **Never write or edit a checkpoint row by hand** — if
+   the script fails, report the error; a hand-written row has a guessed timestamp and cost.
    **If cost is unavailable:** Prometheus is not configured or unreachable.
    The script writes "unavailable" for cost/tokens and continues. To enable cost
    tracking, set up a Prometheus instance scraping the node_exporter textfile
@@ -344,7 +349,6 @@ session logs) auditing whether `brief_path` is actually saving tokens.
 **Full track:** after the test-author returns, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
-  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
   --step "4bF" \
   --note "test-author complete — <N> BDD properties, <all covered | N gaps> — brief: <used as-is | fell back (<reason>) | none provided>" \
   --issue <N>
@@ -387,7 +391,6 @@ only in the Step 10 report.
 **Full track:** after self-check passes, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
-  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
   --step "4dF" \
   --note "implementation complete" \
   --issue <N>
@@ -435,15 +438,18 @@ keeps that detail inside the project, not in the skill.
 Then run the dependency security audit:
 
 ```
-Skill: edf:test audit <ts|p>
+Skill: edf:test audit <ts|p> --baseline
 ```
 
 `run-audit.sh` fails only on high/critical vulnerabilities in production dependencies, and
 self-skips (exit 0) when there is no lockfile/manifest, the tool is missing, or the registry
-is unreachable — it cannot spuriously block. On audit failure: if the vulnerable dependency
-is related to this change, fix it (bump/update); if the finding is pre-existing in the
-dependency tree and unrelated, surface it to the user and record a documented deferral in
-the PR body — never silently ignore it.
+is unreachable. With `--baseline` it also decides whether findings are this branch's:
+
+- `audit: PRE-EXISTING — …` — no dependency file changed on this branch. Copy that line into
+  the Step 5 checkpoint note and move on. Do not investigate the advisories, do not re-prove
+  they predate the branch, do not ask whether to file an issue — that is backlog work.
+- `audit: FAIL — dependency files changed …` — this branch touched dependencies; fix the
+  vulnerable dependency (bump/update) before proceeding.
 
 All must pass — zero failures, including integration tests — before proceeding.
 If any fail, fix and re-run via `edf:test`. If stuck after 3 attempts on the same failure, pause and report.
@@ -451,7 +457,6 @@ If any fail, fix and re-run via `edf:test`. If stuck after 3 attempts on the sam
 After Step 5 passes, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
-  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
   --step "5" \
   --note "green on attempt <N>$(<any extra context like audit deferrals>)" \
   --issue <N>
@@ -476,22 +481,31 @@ Step 6b evaluator below):**
 4. Repeat until `edf:diag` reports zero findings on non-generated files.
 5. Re-run Step 5 (full verification) after any fixes.
 
-Do **not** pass `sonar` in this loop — SonarCloud's analysis reflects the last pushed
-commit, not these local edits, so looping the gate here just re-spends tokens on an
-unchanged result.
+Do **not** pass `sonar` in this loop.
 
-**Step 6, sonar gate (once, after the local loop above is clean):**
+**Step 6, SonarQube (once, after the local loop above is clean):**
 
-Run `edf:diag sonar` exactly once. If the gate fails and issues are fixed, re-run Step 5 and
-the local loop above for the fix, then re-run `edf:diag sonar` **one more time** to confirm —
-two sonar-gate calls total per feature, not one per fix iteration. If it still fails after
-that second call on issues you cannot fix, follow `edf:diag`'s own documented-deferral rule
-(note the reason, don't loop further).
+Run `edf:diag sonar` exactly once. It analyses the changed files locally: fix every issue on
+changed lines plus the top 2 pre-existing ones (diag Step 8 has the rule), then re-run Step 5
+if anything changed. Do not check the project quality gate — on a feature branch it describes
+`main`, not this change.
+
+**Step 6, justification check:**
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/check-justification.py --lld <absolute lld_path or "none">
+```
+
+It lists new functions the LLD does not name that lack a `Justification:` comment —
+`edf:pr-review` blocks on each. For every one listed, add a comment directly above it:
+`// Justification: <concrete reason it is a separate function — reuse, complexity gate,
+testability>` (`#` in Python). "Readability" alone is not a reason. If a listed function is
+**exported** and not in the LLD, it is a contract addition — also note it under
+`## Design deviations`. Re-run until it prints `justification: ok`.
 
 **Both tracks:** after diagnostics pass clean, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
-  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
   --step "6" \
   --note "diag pass$(<concise findings summary if notable>)" \
   --issue <N>
@@ -554,7 +568,6 @@ the session log's Concerns & Deferred Items section, immediately.
 **Full track:** after the evaluator verdict, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
-  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
   --step "6b" \
   --note "evaluator: <verdict>$(<concise blocker summary if any>) — brief: <used as-is | fell back (<reason>) | none provided>" \
   --issue <N>
@@ -594,6 +607,11 @@ PR_URL=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/create-feature-pr.sh \
 PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]*$')
 ```
 
+**One PR for several issues** (the user asked to combine them): repeat `--issue` once per
+issue — the script writes one `Closes #N` line each. The first issue is the primary one.
+If the script warns that main is not green, note it in the Step 10 report — this PR's CI
+will inherit that failure.
+
 If you deviated from the LLD (Step 3b), patch the PR body to add a `## Design deviations` section.
 
 **PR body patch guard:** When editing the PR body, **append** to the existing body — never replace it.
@@ -623,7 +641,6 @@ Must return `>= 1`. If not, fix immediately.
 Append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
-  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
   --step "8" \
   --note "[PR #<pr-number>](<pr-url>)" \
   --issue <N>
@@ -636,16 +653,13 @@ Launch `edf:ci-probe` in the background (uses status polling). **Do not wait** �
 
 ```
 Launch Agent: edf:ci-probe
-Input: pr=<pr-number>
+Input: pr=<pr-number> status_cmd="bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/ci-status.py --pr <pr-number> --wait 9"
 run_in_background: true
 ```
 
 The background agent's completion notification only fires at a turn boundary, so the probe's report may not arrive before Step 9 starts. **Do not insert no-op tool calls to "advance turns" and force the notification** — Step 10 reconciles the CI outcome synchronously.
 
-When the probe reports back during Step 9:
-
-- **CI failure** — fix the root cause, push, note in the Step 10 report.
-- **CI pass** — note in the Step 10 report.
+When the probe reports back during Step 9, act on its first line (see Step 10 for the verdicts).
 
 ### Step 9: Review
 
@@ -711,7 +725,6 @@ path.
 Once review is resolved (no blockers remain), append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
-  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
   --step "9" \
   --note "review clean$(<concise findings summary>)" \
   --issue <N>
@@ -720,16 +733,23 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-
 ### Step 10: Report
 
 **Before summarising, reconcile CI outcome.** The Step 8b background probe may not have
-reported back yet. Instead of waiting passively (which requires no-op tool calls to advance
-turns and force the notification), check CI status directly with a single synchronous call:
+reported back yet. Check directly with one synchronous call — the script classifies the
+failure, do not diagnose CI by hand:
 
 ```bash
-gh pr checks <pr-number>
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/ci-status.py --pr <pr-number> --wait 9
 ```
 
-- Output shows per-check status (`pass` / `fail` / `pending`). If all complete and pass: note **CI pass** in the report.
-- If any check failed: fix the root cause, push, then re-run `gh pr checks`. Note in the report.
-- If any check is still pending (CI slower than the review cycle): wait synchronously with `gh pr checks <pr-number> --watch --interval 30` (foreground; no no-op turns needed). On completion, classify pass/fail.
+`--wait 9` polls while CI runs and returns within 9 minutes — give the Bash call a 600000 ms
+timeout.
+
+| First line | Action |
+|---|---|
+| `ci: pass` | Note **CI pass** in the report. |
+| `ci: fail(code)` | Fix the root cause, push, re-run the script. |
+| `ci: fail(infra)` | Not a code failure. Do not change code. Run the `gh run rerun` it prints once; if it fails the same way, report it to the user as infra and stop. |
+| `ci: pending` | Still running after 9 min — run the same command once more. |
+| `ci: none` | No run for the head commit — usually a docs-only push that CI path-ignores. Report it; do not push again to trigger CI. |
 
 Then summarise what was done:
 
@@ -744,7 +764,6 @@ Then summarise what was done:
 After the report is delivered, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
-  --session-log "docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md" \
   --step "10" \
   --note "report done$(<concise CI/review outcome>)" \
   --issue <N>

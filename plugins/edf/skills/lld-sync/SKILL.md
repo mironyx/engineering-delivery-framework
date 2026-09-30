@@ -224,6 +224,10 @@ Version: 0.1 → 0.2
 If there are no Corrections or Additions (spec was fully accurate), say so explicitly — this is
 valuable signal that the LLD process is working well.
 
+**Keep it short — it is pasted verbatim into the session log.** One bullet per item, at most
+2 lines each; the detail lives in the LLD you just edited, so point to the section instead of
+restating it. `Confirmations`: at most 3 bullets, only ones a reader would not assume.
+
 ## Guidelines
 
 - Do not change the LLD's overall structure or rewrite sections that were correct.

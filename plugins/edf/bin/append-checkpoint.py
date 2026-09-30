@@ -6,13 +6,16 @@ the row is fully materialised before the agent sees it, so backfilling is
 impossible without detection.
 
 Usage:
-  py bin/append-checkpoint.py \\
-    --session-log docs/sessions/2026-07/2026-07-31-session-1-foo-FCS-1016.md \\
-    --step 5 \\
-    --note "green on attempt 2" \\
-    --issue 1016
+  py bin/append-checkpoint.py --issue 1016 --step 5 --note "green on attempt 2"
 
-The session log must already exist with a ## Cost checkpoints table header.
+--session-log is optional: without it the log is found from the issue, as the
+newest docs/sessions/**/*-<FEATURE_ID>.md. The session log must already exist
+with a ## Cost checkpoints table header.
+
+--step must be one of STEPS below; a mistyped label would silently break the
+cost-by-step analysis. The script appends the model split itself, so a
+"[models: ...]" tag in --note is stripped. Blank lines inside the table (which
+break Markdown rendering) are removed on every write.
 Prometheus cost/token values are best-effort — "unavailable" if unreachable.
 
 If EDF_GRAFANA_URL and EDF_GRAFANA_TOKEN (a service-account token with Editor
@@ -25,6 +28,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import sys
 import urllib.parse
 import urllib.request
@@ -35,6 +39,9 @@ import _edf_env
 _PROM_HOST = os.environ.get("WINDOWS_IP", "localhost")
 _PROM_PORT = os.environ.get("PROM_PORT", "9090")
 PROM = f"http://{_PROM_HOST}:{_PROM_PORT}/api/v1/query"
+
+
+STEPS = ("3c", "4bF", "4dF", "5", "6", "6b", "7", "8", "9", "9b", "10")
 
 
 def git_root() -> pathlib.Path:
@@ -190,23 +197,56 @@ def post_annotation(grafana_url: str, token: str, payload: dict) -> None:
         print(f"Grafana annotation skipped: {e}", file=sys.stderr)
 
 
+def find_session_log(root: pathlib.Path, feature_id: str) -> pathlib.Path | None:
+    logs = list((root / "docs" / "sessions").glob(f"**/*-{feature_id}.md"))
+    return max(logs, key=lambda p: p.stat().st_mtime) if logs else None
+
+
+def clean_note(note: str) -> str:
+    return re.sub(r"\s*\[models:[^\]]*\]", "", note).strip()
+
+
+def insert_row(lines: list[str], row: str) -> list[str]:
+    """Insert row at the end of the Cost checkpoints table; drop blank lines inside it."""
+    start = next((i for i, ln in enumerate(lines) if ln.strip().startswith("## Cost checkpoints")), None)
+    if start is None:
+        print("Warning: no '## Cost checkpoints' heading found — appending to end", file=sys.stderr)
+        return lines + [row]
+    end = next((j for j in range(start + 1, len(lines)) if lines[j].strip().startswith("## ")), len(lines))
+    table = [ln for ln in lines[start + 1:end] if ln.strip()]
+    trailing = [""] if end < len(lines) else []
+    return lines[:start + 1] + table + [row] + trailing + lines[end:]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--session-log", required=True, help="Path to the session log .md file")
-    parser.add_argument("--step", required=True, help="Step label (e.g. '5', '6b', '4bF')")
+    parser.add_argument("--session-log", help="Path to the session log .md file (default: found from --issue)")
+    parser.add_argument("--step", required=True, choices=STEPS, help="Step label")
     parser.add_argument("--note", required=True, help="Checkpoint note text")
     parser.add_argument("--issue", type=int, help="Issue number for Prometheus cost lookup")
     args = parser.parse_args()
 
-    session_log = pathlib.Path(args.session_log)
-    if not session_log.exists():
-        print(f"Session log not found: {session_log}", file=sys.stderr)
+    root = git_root()
+    if args.session_log:
+        session_log = pathlib.Path(args.session_log)
+    elif args.issue is not None:
+        # Search the current checkout, not git_root(): in a /feature-team worktree
+        # the log lives in the worktree, while git_root() is the main repo.
+        import subprocess
+        toplevel = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                                  capture_output=True, text=True).stdout.strip()
+        session_log = find_session_log(pathlib.Path(toplevel or "."), f"{derive_feature_prefix(root)}-{args.issue}")
+    else:
+        print("Pass --session-log or --issue", file=sys.stderr)
+        sys.exit(1)
+    if session_log is None or not session_log.exists():
+        print(f"Session log not found: {session_log or 'no docs/sessions/**/*-<FEATURE_ID>.md for this issue'}",
+              file=sys.stderr)
         sys.exit(1)
 
     # Current UTC timestamp — captured NOW, not by the caller
     now = datetime.now(timezone.utc)
     timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    root = git_root()
     feature_id = None
 
     # Query cost if issue provided
@@ -223,25 +263,10 @@ def main() -> None:
     # Insert the row into the Cost checkpoints table. The log may have sections
     # after the table (e.g. "## Cost retrospective"), so appending to EOF would
     # land the row under the wrong heading.
-    note = f"{args.note} [{models}]" if models else args.note
+    note = clean_note(args.note)
+    note = f"{note} [{models}]" if models else note
     row = f"| {args.step} | {timestamp} | {cost_data} | {note} |"
-    lines = session_log.read_text(encoding="utf-8").splitlines()
-    insert_at = len(lines)
-    found = False
-    for i, line in enumerate(lines):
-        if line.strip().startswith("## Cost checkpoints"):
-            found = True
-            insert_at = len(lines)
-            for j in range(i + 1, len(lines)):
-                if lines[j].strip().startswith("## "):
-                    insert_at = j
-                    break
-                if lines[j].strip():
-                    insert_at = j + 1
-            break
-    if not found:
-        print("Warning: no '## Cost checkpoints' heading found — appending to end", file=sys.stderr)
-    lines.insert(insert_at, row)
+    lines = insert_row(session_log.read_text(encoding="utf-8").splitlines(), row)
     session_log.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     print(f"Checkpoint appended: step={args.step} timestamp={timestamp}")
@@ -250,7 +275,7 @@ def main() -> None:
     grafana_url = _edf_env.resolve("EDF_GRAFANA_URL", root)
     grafana_token = _edf_env.resolve("EDF_GRAFANA_TOKEN", root)
     if grafana_url and grafana_token:
-        payload = build_annotation(args.step, args.note, feature_id, int(now.timestamp() * 1000))
+        payload = build_annotation(args.step, clean_note(args.note), feature_id, int(now.timestamp() * 1000))
         post_annotation(grafana_url, grafana_token, payload)
 
 

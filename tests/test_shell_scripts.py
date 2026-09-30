@@ -787,3 +787,146 @@ class TestE2eNeeded:
         repo = self._repo(tmp_path, "| e2e-dir | <!-- e.g. `tests/e2e/` --> |\n")
         self._change(repo, "src/app/page.tsx")
         assert self._run(repo).stdout.startswith("skip")
+
+
+# ── run-audit.sh --baseline ──────────────────────────────────────────────────
+
+
+class TestRunAuditBaseline:
+    """21 FCS session logs re-derive "8 pre-existing advisories, lockfile unchanged"
+    by hand. --baseline makes that a one-line script verdict."""
+
+    NPM_FINDINGS = "next  <15.2.3\nSeverity: critical\n8 vulnerabilities (4 moderate, 3 high, 1 critical)\n"
+
+    def _setup(self, tmp_path):
+        scripts = tmp_path / "scripts"
+        (scripts / "typescript").mkdir(parents=True)
+        (scripts / "python").mkdir()
+        shutil.copy2(SCRIPTS_DIR / "run-audit.sh", scripts / "run-audit.sh")
+        shutil.copy2(SCRIPTS_DIR / "typescript" / "run-audit.sh", scripts / "typescript" / "run-audit.sh")
+        shutil.copy2(SCRIPTS_DIR / "python" / "run-audit.sh", scripts / "python" / "run-audit.sh")
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        run = lambda *a: subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *a],
+                                        cwd=repo, check=True, capture_output=True)
+        run("init", "-q", "-b", "main")
+        (repo / "package-lock.json").write_text("{}")
+        (repo / "src.ts").write_text("x")
+        run("add", "-A")
+        run("commit", "-qm", "base")
+        run("checkout", "-qb", "feat")
+        fake_bin = tmp_path / "fakebin"
+        fake_bin.mkdir()
+        out = tmp_path / "npm-out.txt"
+        out.write_text(self.NPM_FINDINGS)
+        shim = fake_bin / "npm"
+        shim.write_text(f"#!/usr/bin/env bash\ncat '{_to_msys2_path(out)}'\nexit 1\n")
+        shim.chmod(0o755)
+        env = dict(os.environ)
+        env["PATH"] = f"{_to_msys2_path(fake_bin)}:{env.get('PATH', '')}"
+        env.pop("EDF_AUDIT_WARN_ONLY", None)
+        return scripts, repo, env
+
+    def _audit(self, scripts, repo, env, *args):
+        return subprocess.run([_BASH_EXE, _to_msys2_path(scripts / "run-audit.sh"), "ts", *args],
+                              capture_output=True, text=True, timeout=30, cwd=repo, env=env)
+
+    def test_findings_with_unchanged_dependencies_are_pre_existing(self, tmp_path):
+        scripts, repo, env = self._setup(tmp_path)
+        (repo / "src.ts").write_text("changed")
+        result = self._audit(scripts, repo, env, "--baseline", "main")
+        assert result.returncode == 0, result.stdout
+        assert result.stdout.startswith("audit: PRE-EXISTING")
+        assert "8 vulnerabilities" in result.stdout
+
+    def test_findings_with_changed_lockfile_fail(self, tmp_path):
+        scripts, repo, env = self._setup(tmp_path)
+        (repo / "package-lock.json").write_text('{"changed": true}')
+        result = self._audit(scripts, repo, env, "--baseline", "main")
+        assert result.returncode == 1
+        assert "dependency files changed on this branch: package-lock.json" in result.stdout
+
+    def test_without_baseline_findings_still_fail(self, tmp_path):
+        scripts, repo, env = self._setup(tmp_path)
+        assert self._audit(scripts, repo, env).returncode == 1
+
+
+# ── park-docs.sh ─────────────────────────────────────────────────────────────
+
+
+class TestParkDocs:
+    """Docs never go onto the PR branch at wrap-up: a docs-only push cancels the
+    in-flight CI run (FCS-1373: three extra CI cycles)."""
+
+    def _repos(self, tmp_path):
+        remote = tmp_path / "remote.git"
+        subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(remote)], check=True)
+        repo = tmp_path / "repo"
+        subprocess.run(["git", "clone", "-q", str(remote), str(repo)], check=True, capture_output=True)
+        run = lambda *a: subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *a],
+                                        cwd=repo, check=True, capture_output=True, text=True)
+        run("checkout", "-qb", "main")
+        (repo / "docs").mkdir()
+        (repo / "docs" / "lld.md").write_text("v1\n")
+        (repo / "src.ts").write_text("x\n")
+        run("add", "-A")
+        run("commit", "-qm", "base")
+        run("push", "-q", "-u", "origin", "main")
+        run("config", "user.email", "t@t")
+        run("config", "user.name", "t")
+        return repo, run
+
+    def test_park_then_land_on_main_commits_docs_only_there(self, tmp_path):
+        repo, run = self._repos(tmp_path)
+        run("checkout", "-qb", "feat")
+        (repo / "docs" / "lld.md").write_text("v2 synced\n")
+        (repo / "docs" / "session-log-X-7.md").write_text("log\n")
+        (repo / "src.ts").write_text("code change\n")
+
+        parked = _bash(BIN_DIR / "park-docs.sh", "park", "7", cwd=repo)
+        assert parked.returncode == 0, parked.stderr
+        assert parked.stdout.startswith("park: parked 2")
+        status = run("status", "--porcelain").stdout
+        assert "docs/" not in status and "src.ts" in status  # code untouched
+
+        run("checkout", "-q", "main")
+        run("checkout", "-q", "--", "src.ts")
+        landed = _bash(BIN_DIR / "park-docs.sh", "land", "7", cwd=repo)
+        assert landed.returncode == 0, landed.stderr
+        assert landed.stdout.startswith("land: committed and pushed")
+        remote_files = run("ls-tree", "-r", "--name-only", "origin/main").stdout
+        assert "docs/session-log-X-7.md" in remote_files
+        assert run("show", "origin/main:docs/lld.md").stdout == "v2 synced\n"
+        assert "#7" in run("log", "-1", "--format=%s", "origin/main").stdout
+
+    def test_land_does_not_pick_another_issues_stash(self, tmp_path):
+        repo, run = self._repos(tmp_path)
+        (repo / "docs" / "lld.md").write_text("for 71\n")
+        assert _bash(BIN_DIR / "park-docs.sh", "park", "71", cwd=repo).returncode == 0
+        landed = _bash(BIN_DIR / "park-docs.sh", "land", "7", cwd=repo)
+        assert landed.returncode == 0
+        assert "nothing parked for #7" in landed.stdout
+
+    def test_park_with_nothing_to_park(self, tmp_path):
+        repo, _ = self._repos(tmp_path)
+        result = _bash(BIN_DIR / "park-docs.sh", "park", "7", cwd=repo)
+        assert result.returncode == 0
+        assert "nothing to park" in result.stdout
+
+    def test_rejects_bad_usage(self, tmp_path):
+        assert _bash(BIN_DIR / "park-docs.sh", "park", "abc", cwd=tmp_path).returncode == 2
+
+
+class TestCreateFeaturePrMultiIssue:
+    def test_repeated_issue_writes_one_closes_line_each(self):
+        # FCS-1373/1374 and 1353/1367 shipped as one PR; only the first issue got
+        # a Closes line and the body was patched by hand.
+        env = dict(os.environ, EDF_FEATURE_PREFIX="T")
+        result = subprocess.run(
+            [_BASH_EXE, _to_msys2_path(BIN_DIR / "create-feature-pr.sh"),
+             "--issue", "1373", "--issue", "1374", "--title", "x", "--summary", "- y",
+             "--tests-added", "1", "--tests-total", "2", "--dry-run"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "Closes #1373\nCloses #1374\n" in result.stdout

@@ -1,26 +1,20 @@
 ---
 name: diag
-description: Check diagnostics-exporter output for changed files and run CodeScene health checks. Pass `sonar` to also run the SonarQube quality gate. Use when the user wants to check code quality, review diagnostics, or before committing code.
-allowed-tools: Read, Write, Edit, MultiEdit, Glob, Bash, Skill, mcp__codescene__code_health_review, mcp__codescene__code_health_score
+description: Check diagnostics-exporter output for changed files and run CodeScene health checks. Pass `sonar` to also run SonarQube analysis on the changed files locally. Use when the user wants to check code quality, review diagnostics, or before committing code.
+allowed-tools: Read, Write, Edit, MultiEdit, Glob, Bash, Skill, mcp__codescene__code_health_review, mcp__codescene__code_health_score, mcp__sonarqube__analyze_file_list
 ---
 
 # Check Diagnostics — On-Demand Code Quality Check
 
 Reads diagnostics exported by the diagnostics-exporter extension from `.diagnostics/`. Use for a batch check across multiple files, e.g., before committing.
 
-## Scope: local (default) vs. `sonar`
+## Scope: default vs. `sonar`
 
-Steps 1-7 (diagnostics-exporter + CodeScene) reflect **live local edits** — cheap, fast,
-safe to run on every fix-and-recheck iteration. Step 8 (SonarQube quality gate) reflects
-**the last commit SonarCloud has analysed** (typically triggered by CI on push) — it does
-not see uncommitted local changes, so re-running it before pushing again just returns the
-same result at full token cost.
-
-- **No arguments, or any argument other than `sonar`:** run Steps 1-7 only. This is the
-  default and the right choice for a local fix-and-recheck loop.
-- **`sonar` argument present in `$ARGUMENTS`:** also run Step 8. Callers should invoke this
-  **once** per push, not in a tight local loop — see the caller's own retry policy (e.g.
-  `edf:feature-core` Step 6 runs the sonar gate once, separately from its local diag loop).
+- **No arguments, or any argument other than `sonar`:** run Steps 1-7 (diagnostics-exporter
+  + CodeScene). Cheap — the right choice for a fix-and-recheck loop.
+- **`sonar` argument present in `$ARGUMENTS`:** also run Step 8 — SonarQube analysis of the
+  changed files, locally, before anything is pushed. Callers run it once after the local
+  loop is clean, not on every iteration.
 
 ## How diagnostics are generated
 
@@ -111,66 +105,37 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
    **If any file scores ≤ 9.8**, include the detailed review findings in the report and fix them before proceeding, following the same fix-and-recheck loop as Step 5.
 
-8. **SonarQube quality gate (only when `sonar` is in `$ARGUMENTS`).**
+8. **SonarQube local analysis (only when `sonar` is in `$ARGUMENTS`).**
 
-   Skip this step entirely for a plain `edf:diag` call — see "Scope" above. When `sonar` is
-   present, run the SonarQube quality gate. This works independently of the editor and
-   worktree status — no files need to be open, no editor required.
+   Analyse the changed files **locally** so issues are fixed before the PR. Do not use the
+   project quality gate (`sonarqube:sonar-quality-gate`) here: SonarCloud only analyses what
+   CI pushed, so on a feature branch the gate describes `main`, not this change — and issues
+   that never get checked before merge are how they accumulate.
 
-   **Important:** SonarQube is a project-level check, not a file-level check, and it reflects
-   the last commit SonarCloud analysed — not uncommitted local edits. Run it to catch issues
-   that diagnostics-exporter and CodeScene may miss (security hotspots, vulnerability
-   injections, coverage gaps, duplication), but only after a push, and only once per push —
-   looping it against unpushed edits burns tokens on an unchanged result.
-
-   1. **Run the quality gate:** Invoke `sonarqube:sonar-quality-gate`.
+   1. **List changed lines** (source files only — skip generated code):
+      ```bash
+      bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/changed-lines.py
       ```
-      Skill: sonarqube:sonar-quality-gate
-      ```
-      - **Pass:** clean — no action needed.
-      - **Fail:** the gate reported one or more failed conditions. Drill into issues (step 2).
+   2. **Analyse** the changed source files in one call with
+      `mcp__sonarqube__analyze_file_list` (fall back to `Skill: sonarqube:sonar-analyze
+      <file>` per file). If no SonarQube MCP tool is available, report
+      `SonarQube: skipped — MCP unavailable` and stop this step; do not block.
+   3. **Sort each issue:**
+      - **New** — its line is in the file's changed-line ranges. **Fix all of them.**
+      - **Pre-existing** — any other line in a changed file. **Fix the top 2 across all
+        files** by severity (Blocker, then Critical/High, then Major), boy-scout style. Skip
+        one whose fix would reach outside the changed files and take the next. Report the
+        rest as a count only — do not list or investigate them.
+   4. **Re-analyse once** after fixes to confirm the new issues are gone. Do not loop further;
+      a new issue you genuinely cannot fix gets a one-line reason in the report.
 
-   2. **If the gate fails, drill into issues:** Invoke `sonarqube:sonar-list-issues` scoped to
-      the project. Filter to issues on the changed files (pass the file paths to focus the
-      search), and keep the payload small: request `severities=HIGH,BLOCKER` (or the closest
-      equivalent the skill's arguments support) and a small page size first — only widen to
-      lower severities or more pages if that first pass doesn't explain the gate failure.
-      ```
-      Skill: sonarqube:sonar-list-issues
-      ```
-      **Attempt to fix every finding.** Only skip a finding if the fix would:
-      - Require changes to >5 unrelated files
-      - Touch infrastructure/config outside the feature scope
-      - Involve generated code or third-party vendored code
-      - Require a coordinated migration across multiple services
-
-      In those cases, document the finding and the specific reason for skipping.
-      Do NOT skip with a generic "pre-existing" label — state what makes it unfixable now.
-
-   3. **Confirm resolution:** Re-run `sonarqube:sonar-quality-gate` after fixes. If the gate
-      still fails on issues you cannot fix (with documented reasons per step 2), note them
-      in the report and proceed — do not block on documented, genuinely-unfixable debt.
-
-   Report SonarQube results alongside the CodeScene scores:
+   Report:
 
    ```
-   ### SonarQube Quality Gate
-   - Quality Gate: **PASS** ✓
-   - Bugs: 0 | Vulnerabilities: 0 | Code Smells: 0 | Coverage: 82%
+   ### SonarQube (local, changed files)
+   - New: 2 found, 2 fixed
+   - Pre-existing: 2 fixed (src/foo/bar.ts:88 S3776, src/foo/baz.ts:12 S1854); 7 others left
    ```
-
-   Or on failure:
-
-   ```
-   ### SonarQube Quality Gate
-   - Quality Gate: **FAIL** ✗
-   - Failed conditions: Coverage < 80% (actual: 76%), New Bugs > 0 (found: 2)
-   - `src/foo/bar.ts:42` — Potential SQL injection (fixed)
-   - `src/old/legacy.ts:15` — Unused parameter (skipped: requires refactor of 12 call sites across 3 packages)
-   ```
-
-   **This is a blocking gate** for issues you can fix. Issues with documented,
-   genuine blockers are noted but do not block.
 
 ## Diagnostics JSON Format
 
@@ -214,7 +179,7 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 - `src/foo/bar.ts` — 7.2 ⚠ (complex conditional, bumpy road)
 - `src/foo/types.ts` — 10.0 ✓
 
-### SonarQube Quality Gate
-- Quality Gate: **PASS** ✓
-- Bugs: 0 | Vulnerabilities: 0 | Code Smells: 1 (skipped: requires refactor of 12 call sites across 3 packages) | Coverage: 82%
+### SonarQube (local, changed files)
+- New: 0
+- Pre-existing: 1 fixed (src/foo/bar.ts:15 S1481); 3 others left
 ```

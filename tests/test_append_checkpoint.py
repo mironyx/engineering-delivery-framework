@@ -97,3 +97,78 @@ def test_build_annotation_without_feature():
     out = _load_module().build_annotation("3c", "pressure: heavy", None, 0)
     assert out["tags"] == ["edf-step", "step:3c"]
     assert out["text"] == "Step 3c: pressure: heavy"
+
+
+# ── Weak-model guard rails (FCS-1353/1373/1382/1389 logs) ────────────────────
+
+TABLE = (
+    "# Session\n"
+    "## Cost checkpoints\n"
+    "| Step | Timestamp | Cost | Tokens | Note |\n"
+    "|------|-----------|------|--------|------|\n"
+    "\n"
+    "| 3c | 2026-09-28T15:55:34Z | $4.00 | 1 in / 1 out | pressure: heavy |\n"
+    "## Concerns & Deferred Items\n"
+    "- one\n"
+)
+
+
+def test_rejects_unknown_step_label(tmp_path):
+    # FCS-1382 recorded "4cF" — a label no step uses — which breaks cost-by-step analysis.
+    log = tmp_path / "session.md"
+    log.write_text(TABLE, encoding="utf-8")
+    result = _run(log, "--step", "4cF", "--note", "x")
+    assert result.returncode != 0
+    assert "invalid choice" in result.stderr
+    assert "4cF" not in log.read_text(encoding="utf-8")
+
+
+def test_blank_lines_inside_table_are_removed(tmp_path):
+    # A blank line between the separator and the first row splits the Markdown table.
+    log = tmp_path / "session.md"
+    log.write_text(TABLE, encoding="utf-8")
+    assert _run(log, "--step", "5", "--note", "green").returncode == 0
+    lines = log.read_text(encoding="utf-8").splitlines()
+    sep = next(i for i, ln in enumerate(lines) if ln.startswith("|------"))
+    assert lines[sep + 1].startswith("| 3c |")
+    assert lines[sep + 2].startswith("| 5 |")
+    assert lines[sep + 3] == ""
+    assert lines[sep + 4] == "## Concerns & Deferred Items"
+
+
+def test_models_tag_in_note_is_stripped():
+    # FCS-1382 carried "[models: …] [models: …]" — the agent pasted the tag the script adds.
+    mod = _load_module()
+    assert mod.clean_note("pipeline half done [models: deepseek-flash]") == "pipeline half done"
+    assert mod.clean_note("green on attempt 1") == "green on attempt 1"
+
+
+def test_session_log_found_from_issue(tmp_path):
+    # The agent no longer retypes the log path at every checkpoint.
+    repo = tmp_path / "my-proj"
+    (repo / "docs" / "sessions" / "2026-09").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    (repo / ".env").write_text("EDF_FEATURE_PREFIX=MP\n", encoding="utf-8")
+    log = repo / "docs" / "sessions" / "2026-09" / "2026-09-30-session-1-foo-MP-42.md"
+    log.write_text(TABLE, encoding="utf-8")
+    other = repo / "docs" / "sessions" / "2026-09" / "2026-09-30-session-2-bar-MP-421.md"
+    other.write_text(TABLE, encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(BIN_DIR / "append-checkpoint.py"), "--issue", "42", "--step", "5", "--note", "green"],
+        capture_output=True, text=True, timeout=30, cwd=repo,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "| 5 |" in log.read_text(encoding="utf-8")
+    assert "| 5 |" not in other.read_text(encoding="utf-8")
+
+
+def test_missing_log_for_issue_fails_loudly(tmp_path):
+    repo = tmp_path / "my-proj"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    result = subprocess.run(
+        [sys.executable, str(BIN_DIR / "append-checkpoint.py"), "--issue", "7", "--step", "5", "--note", "x"],
+        capture_output=True, text=True, timeout=30, cwd=repo,
+    )
+    assert result.returncode == 1
+    assert "Session log not found" in result.stderr

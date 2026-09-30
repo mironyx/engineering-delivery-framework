@@ -28,7 +28,7 @@ changing mode parsing, command resolution, or agent delegation.
 - **`lint [ts|p|all]`** — lint only.
 - **`build [ts|p|all]`** — build only.
 - **`e2e [ts|p|all]`** — build + E2E tests.
-- **`audit [ts|p|all]`** — dependency security scan (npm/pnpm/yarn audit; uv audit/pip-audit). Used by `feature-core` Step 5.
+- **`audit [ts|p|all] [--baseline]`** — dependency security scan (npm/pnpm/yarn audit; uv audit/pip-audit). Used by `feature-core` Step 5 with `--baseline`, which passes findings as `PRE-EXISTING` when no dependency file changed on the branch.
 
 ## Instructions
 
@@ -69,7 +69,7 @@ prefixed onto every variant below:
 | `lint` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh <ts\|p>` |
 | `build` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-build.sh <ts\|p>` |
 | `e2e` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-build.sh <ts\|p> && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-e2e.sh <ts\|p>` |
-| `audit` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-audit.sh <ts\|p>` |
+| `audit` | `cd "$CWD" && bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-audit.sh <ts\|p>` — append ` --baseline` if `$ARGUMENTS` contains `--baseline` |
 
 `${CLAUDE_PLUGIN_ROOT}` is resolved by Claude Code in skill markdown — do not read it from `.env`.
 `$CWD` is the literal path captured above — substitute it in, don't pass the variable name.
