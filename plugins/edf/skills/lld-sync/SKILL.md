@@ -89,8 +89,12 @@ Refactor-mode adjustments per step are tagged **[refactor]**. When unmarked, bot
 **[feature]** Edit the LLD in-place. Be surgical — do not rewrite sections that were correct.
 
 For each Correction and Addition:
-1. Update the relevant prose, code snippet, or file structure list so it states what was built. Replace the wrong text; do not annotate it.
-2. Do not add `Implementation note (issue #N)` callouts. The history of what changed lives in git and the sync report. A lesson that would stop a future implementer repeating the mistake (a hand-maintained file, a ripple from widening a shared type) goes to the kb in Step 3a, where every future LLD sees it.
+1. Update the relevant prose, code snippet, or file structure list so it states what was built. Replace the wrong text rather than keeping both versions.
+2. Add a callout only when it carries something the corrected text cannot show — the original approach and why it failed, or a trap a future implementer would fall into:
+   ```
+   > **Implementation note (issue #N):** [The trap or rejected approach, and why.]
+   ```
+   State the trap and the reason, not how it was found. No callout for renames, paths, or anything the corrected text already says.
 3. For file structure changes, update the directory listing.
 4. For type/interface changes, update the function signatures or type definitions.
 
@@ -120,8 +124,7 @@ The kb is a living set of documents. `/lld-sync` updates the helper catalogue (`
 1. **New reusable helper introduced.** If the implementation added a new exported symbol in a shared module (see `kb/file-map.md` for project-specific paths) that future features should reuse, add a one-line entry to `kb/architecture.md` (API composition pattern section). Bar for inclusion: would future LLDs cause drift if they re-implemented it? If yes, add it. If not (purely local utility), skip.
 2. **Re-implementation pattern uncovered.** If a Correction in Step 2 was caused by the LLD inlining a query or behaviour that an existing reusable helper already covered, append the inlined-pattern → helper mapping to `kb/anti-patterns.md` (Helper reuse section). This prevents the same drift on the next epic.
 3. **Reusable helper renamed or retired.** If the implementation renamed an exported reusable helper, update the entry in `kb/architecture.md`. If a helper was deleted, remove the entry — keep the kb a true reflection of the codebase.
-4. **Implementation trap uncovered.** If a Correction came from a project fact the LLD author could not see (a hand-maintained generated file, a consumer ripple, a tool that clobbers edits), add a one-line entry to `kb/anti-patterns.md` or `kb/architecture.md` instead of a callout in the LLD.
-5. **No changes needed.** If the diff did not touch any reusable surface, skip — do not edit the kb for cosmetic reasons.
+4. **No changes needed.** If the diff did not touch any reusable surface, skip — do not edit the kb for cosmetic reasons.
 
 When the kb changes, mention it in the sync report (Step 4).
 

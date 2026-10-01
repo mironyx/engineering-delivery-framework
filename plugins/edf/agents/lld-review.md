@@ -173,7 +173,7 @@ brief).
   reused unchanged", the audit table must be present with every row having a
   non-empty Impedance column. Flag missing audit tables.
 
-- **Waste** (per `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`) — flag Document Control rows that tell how a problem was found, list small fixes, or restate the body (a short paragraph on a design correction is fine), `Implementation note` history callouts, paragraphs justifying an absent diagram, HLD/ADR/template content restated instead of linked, prose that narrates a diagram, the same constraint repeated across Purpose/Invariants/ACs/Tasks, diagrams whose "when required" signal is absent, and N/A sections. Cite the exact location and the proposed cut. Never flag missing content as waste, and never propose a cut that removes an item on the guide's quality floor.
+- **Waste** (per `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`) — flag Document Control rows that tell how a problem was found, list small fixes, or restate the body (a short paragraph on a design correction is fine), `Implementation note` callouts that only restate the corrected text, paragraphs justifying an absent diagram, HLD/ADR/template content restated instead of linked, prose that narrates a diagram, the same constraint repeated across Purpose/Invariants/ACs/Tasks, and N/A sections. Cite the exact location and the proposed cut. Never flag missing content as waste, and never propose a cut that removes an item on the guide's quality floor.
 
 ### Step 4: Produce findings
 

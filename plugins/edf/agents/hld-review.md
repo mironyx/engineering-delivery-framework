@@ -98,7 +98,7 @@ cross-cutting concern.
   (OAuth/webhooks/keys)? A missing authZ model on a component owning sensitive data is
   a blocker; a missing data-protection statement is a warning.
 
-- **Waste** (per `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`) — flag content restated from the requirements or a prior HLD instead of linked, prose that narrates a diagram, sequence diagrams for unchanged or linear flows, the same boundary stated in several places, and N/A sections. Cite the exact location and the proposed cut. Never flag missing content as waste, and never propose a cut that removes an item on the guide's quality floor.
+- **Waste** (per `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`) — flag content restated from the requirements or a prior HLD instead of linked, prose that narrates a diagram, the same boundary stated in several places, and N/A sections. Cite the exact location and the proposed cut. Never flag missing content as waste, and never propose a cut that removes an item on the guide's quality floor.
 
 ### Step 3: Produce findings
 

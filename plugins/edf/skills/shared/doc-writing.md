@@ -26,7 +26,6 @@ If a rule below conflicts with this list, this list wins.
 | Preamble and meta — "This section describes…", "As noted above", "It is important to note" | Start with the content |
 | The same constraint in Purpose, Invariants, ACs, and Tasks | State once, reference by ID |
 | Headings for sections that do not apply, filled with "N/A" / "None" / "See HLD" | Omit the heading. If the template mandates it, one line saying why it is empty |
-| A diagram whose "when required" signal is absent; a linear 2–3 step flow drawn as a sequence | One sentence |
 | Revision history or how-we-got-here narrative in the body — "v1.4 did X", "this replaces DP3", "simplified from the earlier design" | Rewrite to the current state. Withdrawn scope gets one line in the out-of-scope list |
 | Change Log / Document Control rows that tell how a problem was found, list small fixes, or restate the body | Routine revision: one line — what changed, by section or story ID. Shape change (a decision withdrawn or reversed, scope moved): a short paragraph — what changed, why, and the trade accepted, for readers of the earlier version |
 | Resolved open questions kept with their deliberation | Fold the decision into the body (principle, glossary, AC) with a one-line reason; delete the question |
@@ -47,6 +46,7 @@ Inflating a small idea into enterprise-scale analysis is a defect, not thoroughn
 ## Style
 
 - Lead with the conclusion, then the detail.
+- Prefer a diagram to prose for flows, structure and state; do not then narrate it in prose.
 - Tables for comparisons and mappings; bullets for lists; prose only for reasoning.
 - Specific nouns over abstractions — "returns 409 with `{error: 'stale'}`", not "handles conflicts appropriately".
 
