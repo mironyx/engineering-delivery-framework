@@ -88,6 +88,8 @@ Present this overview and **wait for user confirmation** before generating the L
 
 ### Step 2: Generate LLD
 
+**Writing:** follow `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md` — concise, never thin. Template sections whose "when required" signal is absent are omitted, not filled.
+
 **Epic mode:** Generate **one file per epic**, with one Part B section per task within it. File naming: `docs/design/v{N}/lld-<epic-id>-<short-name>.md` where `<epic-id>` is the canonical epic identifier (format: `v<N>-e<X>` for top-level epics, `v<N>-e<X>-<Y>` for nested epics) and `<short-name>` is a lower-kebab-case domain phrase. Reuse the convention of existing LLDs in `docs/design/`.
 
 **Deriving `<short-name>`:** take the epic title's distinguishing nouns and reduce to a 1–3-word lower-kebab phrase that names the domain concept. Drop filler words (the, a, and, of, for), version prefixes (`v<N>-`), epic-id prefixes (`e<N>-`), and process verbs (build, implement, add). Generic example: epic title *"V<N> E<X> — <Domain Concept>"* → `<domain-concept>`. The short-name must be unique among existing LLDs for this version (`docs/design/v{N}/`).
@@ -323,6 +325,7 @@ Be adversarial. The goal is to find the gaps a future `/feature` run will fall i
 > the author nothing to fix and hides whether the check ran at all.
 
 - **Error paths.** Is there at least one BDD spec per non-trivial error case, or did I only spec the happy path?
+- **Waste pass.** Run the self-edit pass in `doc-writing.md`: cut restated HLD/ADR/template content (link instead), prose that narrates a diagram, constraints repeated across Purpose/Invariants/ACs/Tasks, diagrams below their gate, and N/A sections. Then confirm every contract, invariant, AC, and error case is still present.
 - **Reused helpers table is mandatory.** Read kb/architecture.md and list every catalogued helper whose layer matches the section: backend (auth, context, validation, DB clients), frontend (shared UI components, design tokens, client-side hooks), database (migration helpers, RLS patterns). Add the "Reused helpers — DO NOT re-implement" table to Part B.0 listing each helper, its import path, and what re-implementing pattern it replaces. Code samples must call helpers by name — not inline the equivalent logic (no raw queries against access-controlled tables). The table at B.0 is the agent's first stop before any implementation code. If no helper covers the exact shape needed, note it and propose extending an existing helper or adding a new one in the `## kb/ additions` block.
 - **Single RPC write per response.** For any endpoint that persists data, does the flow use exactly one RPC call to write all related rows? Multiple sequential writes to the same table within one request are a race-condition risk and waste DB round-trips (#788).
 - **Performance at design time.** Is every non-trivial data path's round-trip / network-call count bounded — no N+1, no unbounded loop baked into the design? If the requirement implies latency, throughput, or a bulk path, does the design state a budget or batch size? Apply the project's efficiency convention.
@@ -505,7 +508,7 @@ Key points the template encodes (do not violate):
 - **Part B extends Part A with implementation precision.** The `/feature` agent reads both parts. Part B adds file paths, types, function signatures, and decomposition rules. A human reviewer may scan Part B for completeness but does not need to review it line-by-line.
 - **Diagrams are not optional decoration.** Sequence diagrams and structural overviews are primary review artefacts. Generate them whenever the "when required" conditions are met. Use mermaid syntax so they render in GitHub and editors.
 - **Invariants must be verifiable.** Every invariant needs a verification method (test, type check, grep, lint rule). If you cannot state how to verify it, it is not an invariant — it is a wish.
-- Keep LLDs focused and concise. If a section is just "see HLD", that's fine — it confirms the HLD is sufficient.
+- **Concise, never thin** — per `doc-writing.md`. LLD length tracks decisions and contracts, not template sections; a docs-only or single-file change gets a short LLD.
 - Task granularity: each task should be completable in one `/feature` cycle. If a task would produce > 200 lines of changes, split it.
 - BDD specs in tasks should be concrete enough for the `/feature` skill to write tests directly from them.
 - Use British English in all documentation.

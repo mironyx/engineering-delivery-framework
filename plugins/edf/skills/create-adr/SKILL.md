@@ -56,6 +56,7 @@ Include relevant constraints, forces, and prior decisions that influence this on
 ## Guidelines
 
 - The **Decision** and **Consequences** sections matter most. Don't skimp on reasoning.
+- **Concise, never thin** — follow `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`. Context states the forces, not the investigation story. List only options that were real contenders. Drop an option's **Implications** line when it would repeat Consequences.
 - Reference other ADRs by number when decisions are connected.
 - "Superseded" status means a later ADR replaced this one — link to it.
 - Record the decision even if it seems obvious now. Future readers need the reasoning, not just the outcome.

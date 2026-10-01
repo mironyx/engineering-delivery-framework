@@ -141,7 +141,7 @@ If fewer than 10 existing issues are viable, fill the remaining slots with **pro
 
 ### 7. Write the report
 
-Save to `docs/reports/backlog/YYYY-MM-DD-backlog-grooming.md` using this structure:
+Save to `docs/reports/backlog/YYYY-MM-DD-backlog-grooming.md` using this structure. Follow `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md` — concise, never thin.
 
 ```markdown
 # Backlog Grooming

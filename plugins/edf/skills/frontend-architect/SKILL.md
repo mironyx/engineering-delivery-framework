@@ -260,6 +260,7 @@ Present a summary:
 
 ## Guidelines
 
+- **Concise, never thin.** The design spec follows `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md` — exact tokens and rules, no rationale padding.
 - **Do not implement.** This skill produces a design spec and bootstrap issues only — no production code, no `globals.css`, no `tailwind.config.ts`.
 - **Be specific.** Every token must be an exact value. "A neutral dark palette" is not a token. `--color-background: #0f1117` is.
 - **Be bold.** Generic defaults (Inter, white background, blue accent) are explicitly forbidden. The design must have a point of view.

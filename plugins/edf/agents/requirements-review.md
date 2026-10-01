@@ -88,6 +88,8 @@ anti-scope lists, and explicit constraints that should carry forward.
   specify a minimum sample size or data threshold. Metrics computed over
   insufficient data produce misleading results.
 
+- **Waste** (per `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`) — flag Change Log rows written as paragraphs, history of earlier versions in the body, resolved Open Questions still carrying their deliberation, process records (testability reports, fix lists) in the document, background restated from the discovery doc, ACs that duplicate another AC or restate the story title, generic boilerplate ACs that apply to every story, and N/A sections. Cite the exact location and the proposed cut. Never flag missing content as waste, and never propose a cut that removes an item on the guide's quality floor.
+
 #### Gate 2 checks (mode: `complete`)
 
 Run all Gate 1 checks, plus:
@@ -136,7 +138,7 @@ issue is, and a suggested fix. Classify severity:
 - **warn** — missing negative case, vague qualifier, missing visual reference,
   priority ordering concern, story likely oversized, security/perf-sensitive
   story with zero security or performance AC, uncited external/regulatory claim
-  an AC is directly built on
+  an AC is directly built on, waste
 
 ## Output
 
