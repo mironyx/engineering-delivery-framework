@@ -554,7 +554,7 @@ to main; worktree removed."
 - **Do not invent requirements.** If the plan is ambiguous, flag it and ask rather than assuming.
 - **Reference, do not duplicate.** Link to existing design docs and ADRs rather than restating them.
 - **British English** in all documentation.
-- **Keep artefacts proportional.** A one-line bug fix with existing LLD coverage needs only BDD specs in the issue. A small feature without LLD coverage needs an LLD section. Do not over-engineer the design for trivial items.
+- **Keep artefacts proportional.** A one-line bug fix with existing LLD coverage needs only BDD specs in the issue. A small feature without LLD coverage needs an LLD section. Do not over-engineer the design for trivial items. All artefacts (LLDs, ADRs, issue bodies, epic bodies) follow `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md` — concise, never thin.
 - **Respect existing decisions.** Read ADRs before proposing new ones — the decision may already be recorded.
 - **Repo docs are source of truth.** GitHub issue bodies are convenient but not version-controlled. Every item that `edf:feature` will implement must have its design detail (fix approach, BDD specs, acceptance criteria) traceable to a file in `docs/`. Issue bodies reference these docs — they do not replace them.
 - **Check before creating.** Always check for existing issues and design docs before creating new ones. Duplicate artefacts cause confusion.

@@ -125,6 +125,8 @@ plan sits at (usually Level 5 — Implementation, assuming Levels 1–4 exist).>
   new work uses epics per ADR-0018.
 - **Source of truth is repo docs.** Reference ADRs, requirements, and LLDs by
   path — do not restate their content.
+- **Concise, never thin** — follow `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`
+  and run its self-edit pass before writing the plan.
 - **Separate automated from manual verification** in success criteria.
 - **British English** in all documentation.
 - **Do not create issues or design artefacts here.** This skill produces the

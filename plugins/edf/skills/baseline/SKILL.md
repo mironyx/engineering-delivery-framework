@@ -150,7 +150,7 @@ Map every epic to its actual state:
 
 ### 5. Write the report
 
-Save to `docs/reports/baseline/YYYY-MM-DD-baseline.md` using this structure:
+Save to `docs/reports/baseline/YYYY-MM-DD-baseline.md` using this structure. Follow `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md` — concise, never thin; link source requirements rather than restating them.
 
 ```markdown
 # Baseline: As-Built Requirements

@@ -116,6 +116,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-ses
 
 Produce `docs/design/<version>/<version>-design.md`. Ensure `docs/design/<version>/` exists first.
 
+**Writing (HLD, ADRs, plan, epic issue bodies):** follow `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md` — concise, never thin. Run its self-edit pass before each gate.
+
 **Initial mode** — full HLD with three levels:
 
 - **Level 1 — Capabilities.** One short paragraph per capability, named at
@@ -405,5 +407,5 @@ implementation.
   stop and ask.
 - **Keep the HLD proportional.** Three levels covering the main shape —
   not an exhaustive design. Level 4 detail belongs in LLDs produced by
-  `edf:architect`.
+  `edf:architect`. Concise, never thin — per `doc-writing.md`.
 - **British English.** No Co-Authored-By trailers.

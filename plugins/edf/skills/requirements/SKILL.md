@@ -220,6 +220,8 @@ them.
 ---
 ```
 
+Change Log rows for routine revisions stay one line: what changed, by story or section ID (e.g. "Gate 2 fixes: 1.2 AC3 made observable; DP4 added"). A revision that withdraws or reverses a decision, or moves scope, gets a short paragraph: what changed, why, and the trade accepted — readers of the earlier version need it. Never how the problem was found, who noticed, or a list of small fixes. When a revision changes the design, rewrite the affected sections to the current state rather than describing the old one.
+
 #### Context / Background
 
 1–2 paragraphs explaining why this project/version exists, what it replaces or
@@ -361,7 +363,9 @@ creep.
 
 Unresolved decisions needing human input. Collected throughout Steps 1–5.
 Each question should state the context, the options considered, and why it
-matters.
+matters. When a question is resolved, write the decision into the body
+(principle, glossary, or AC) with a one-line reason and delete the question —
+the deliberation does not stay in the document.
 
 ```markdown
 ## Open Questions
@@ -606,7 +610,7 @@ to surface them.
 4. **Completeness** — are negative cases covered? (invalid input, permission
    denied, not found, concurrent access)
 
-**Output a testability report** as a table:
+**Output a testability report** as a table, in the Gate 2 presentation — not in the requirements document:
 
 ```markdown
 ### Testability Validation
@@ -771,7 +775,9 @@ Key conventions:
 - Each story heading is preceded by a stable REQ- anchor:
   `<a id="REQ-<epic-slug>-<story-slug>"></a>` (see ADR-0026)
 - ACs use Given/When/Then in bullet list format
-- Notes and technical mechanism sections appear after ACs where relevant
+- Notes and technical mechanism sections appear after ACs where relevant. A Note
+  states the constraint in a few lines; code evidence is cited, not explained
+  (the LLD owns the mechanism)
 - Cross-cutting concerns appear after all epics
 - V2/Future items appear in an appendix section, clearly separated from V1
   scope
@@ -810,7 +816,10 @@ Key conventions:
   stop and ask the user rather than inferring. Flag ambiguities in the Gate
   presentations.
 - **Keep it proportional.** A small project gets a concise requirements doc.
-  Do not inflate three features into enterprise-scale epics.
+  Do not inflate three features into enterprise-scale epics. Follow
+  `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md` — concise, never thin —
+  and run its self-edit pass before each gate. Negative-case ACs are quality,
+  not waste; restated background and boilerplate ACs are waste.
 - **Reference, do not duplicate.** Point to the discovery doc for background
   context rather than restating research findings.
 - **No Co-Authored-By trailers** in commit messages.

@@ -89,11 +89,12 @@ Refactor-mode adjustments per step are tagged **[refactor]**. When unmarked, bot
 **[feature]** Edit the LLD in-place. Be surgical — do not rewrite sections that were correct.
 
 For each Correction and Addition:
-1. Update the relevant prose, code snippet, or file structure list.
-2. Add a callout where the spec was materially wrong, using this format:
+1. Update the relevant prose, code snippet, or file structure list so it states what was built. Replace the wrong text rather than keeping both versions.
+2. Add a callout only when it carries something the corrected text cannot show — the original approach and why it failed, or a trap a future implementer would fall into:
    ```
-   > **Implementation note (issue #N):** [What was actually built and why it differed from the spec.]
+   > **Implementation note (issue #N):** [The trap or rejected approach, and why.]
    ```
+   State the trap and the reason, not how it was found. No callout for renames, paths, or anything the corrected text already says.
 3. For file structure changes, update the directory listing.
 4. For type/interface changes, update the function signatures or type definitions.
 
@@ -155,7 +156,7 @@ Manifest ownership summary (for reference):
 Update the LLD's Document Control table:
 - Bump `Version` (e.g., `0.1` → `0.2`).
 - Change `Status` from `Draft` to `Revised` (or `Revised` → `Revised v2`).
-- Add a `Revised` row: `| Revised | [today's date] | Issue #N |`
+- Add a `Revised` row: `| Revised | [today's date] — Issue #N: §<sections touched> |`. For a routine reconciliation, nothing more — the detail is in the diff and the sync report. If a Correction shows the design itself was wrong (not just names or paths), add a short paragraph: what the design got wrong and what replaced it.
 
 ### Step 3c: Remove shipped Rev X blocks
 
@@ -237,3 +238,4 @@ restating it. `Confirmations`: at most 3 bullets, only ones a reader would not a
   matching file paths and function names.
 - Use British English in all documentation.
 - The goal is accuracy, not coverage — a short, correct LLD is better than a long, wrong one.
+- Write updates per `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`: state the current design, not the change history; delete superseded text rather than annotating it.

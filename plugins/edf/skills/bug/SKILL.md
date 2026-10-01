@@ -288,6 +288,7 @@ automatically.
 
 ## Guidelines
 
+- **Concise, never thin.** Issue bodies follow `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`: root cause, evidence, fix approach, and BDD specs — no investigation narrative.
 - **Investigate before concluding.** Do not guess the root cause from the
   symptom alone. Read the actual code. Trace the actual call chain. The
   obvious cause is often wrong.

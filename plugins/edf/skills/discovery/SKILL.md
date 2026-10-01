@@ -417,5 +417,7 @@ git commit -m "docs: address discovery review comments"
   challenge it.
 - **Keep it proportional.** A simple idea gets a concise discovery doc.
   Do not inflate a straightforward concept into enterprise-scale analysis.
+  Follow `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md` — concise, never
+  thin — and run its self-edit pass before each gate.
 - **Reference, do not duplicate.** If the idea file contains constraints or
   decisions, reference them — do not restate.

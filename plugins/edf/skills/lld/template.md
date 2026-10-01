@@ -21,6 +21,8 @@ section becomes a top-level heading.
 | Parent | [v<N>-design.md](v<N>-design.md) |
 | Implementation plan | [Phase N](../plans/<resolved-plan-filename>.md) |
 
+<!-- Revisions: one row each — `| Revised | <date> — <issue or trigger>: §<sections> |`. A design correction or reversal may add a short paragraph: what changed, why, and the trade accepted. Never how it was found or a list of small fixes. -->
+
 ---
 
 **Layout rule — two contiguous passes, never interleaved.** Every section number N.k in
@@ -242,7 +244,9 @@ absent, do not draw the diagram.
 
 A section matching none of the four conditional signals carries the sequence diagram alone.
 That is the expected outcome, not a gap — the gates exist to stop diagram bloat, and "no
-signal" is a negative result a reviewer can check as quickly as a positive one.
+signal" is a negative result a reviewer can check as quickly as a positive one. Do not write
+a paragraph justifying an absent diagram — omit it, or one line naming the absent signal. Do not
+follow a diagram with prose that narrates it step by step; add only what the diagram cannot show.
 
 #### Sequence diagram (primary)
 

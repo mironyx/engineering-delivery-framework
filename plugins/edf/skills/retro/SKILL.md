@@ -44,7 +44,7 @@ Evaluate against these dimensions:
 
 ### 3. Write the report
 
-Save to `docs/reports/retro/YYYY-MM-DD-process-retro.md` using this structure:
+Save to `docs/reports/retro/YYYY-MM-DD-process-retro.md` using this structure. Follow `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md` — concise, never thin; every finding cites its evidence once.
 
 ```markdown
 # Process Retrospective

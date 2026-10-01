@@ -43,7 +43,7 @@ Read all of:
 
 3. **Produce coverage matrix.** Table mapping each epic to: design coverage, ADR coverage, code implementation status, and drift status.
 
-4. **Save the report.** Write to `docs/reports/drift/YYYY-MM-DD-drift-report.md` using this structure:
+4. **Save the report.** Write to `docs/reports/drift/YYYY-MM-DD-drift-report.md` using this structure (concise, never thin — per `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`):
 
    ```markdown
    # Drift Report: Requirements ↔ Design ↔ Code

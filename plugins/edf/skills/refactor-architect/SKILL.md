@@ -202,6 +202,7 @@ Report what was created and the recommended next step:
 
 ## Guidelines
 
+- **Concise, never thin.** Issue bodies follow `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`.
 - **Reuse, don't duplicate.** Templates, agent dispatching, and board placement live in `/architect`. This skill carries only refactor-specific deltas. If a delta would mostly restate `/architect`, point at `/architect` instead.
 - **Do not implement.** This skill produces issues only.
 - **Do not invoke other skills.** Skills surface findings; the human routes work (per the cross-cutting-refactor ADR).
