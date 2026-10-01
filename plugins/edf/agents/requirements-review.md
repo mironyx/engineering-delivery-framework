@@ -88,7 +88,7 @@ anti-scope lists, and explicit constraints that should carry forward.
   specify a minimum sample size or data threshold. Metrics computed over
   insufficient data produce misleading results.
 
-- **Waste** (per `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`) — flag Change Log rows written as paragraphs, history of earlier versions in the body, resolved Open Questions still carrying their deliberation, process records (testability reports, fix lists) in the document, background restated from the discovery doc, ACs that duplicate another AC or restate the story title, generic boilerplate ACs that apply to every story, and N/A sections. Cite the exact location and the proposed cut. Never flag missing content as waste, and never propose a cut that removes an item on the guide's quality floor.
+- **Waste** (per `${CLAUDE_PLUGIN_ROOT}/skills/shared/doc-writing.md`) — flag Change Log rows that tell how a problem was found, list small fixes, or restate the body (a short paragraph on a revision that withdraws or reverses a decision is fine), history of earlier versions in the body, resolved Open Questions still carrying their deliberation, process records (testability reports, fix lists) in the document, background restated from the discovery doc, ACs that duplicate another AC or restate the story title, generic boilerplate ACs that apply to every story, and N/A sections. Cite the exact location and the proposed cut. Never flag missing content as waste, and never propose a cut that removes an item on the guide's quality floor.
 
 #### Gate 2 checks (mode: `complete`)
 

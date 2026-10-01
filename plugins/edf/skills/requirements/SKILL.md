@@ -220,7 +220,7 @@ them.
 ---
 ```
 
-Change Log rows stay one line: what changed, by story or section ID (e.g. "Gate 2 fixes: 1.2 AC3 made observable; DP4 added"). Not how the problem was found or why — that belongs in the commit and session log. When a revision changes the design, rewrite the affected sections to the current state rather than describing the old one.
+Change Log rows for routine revisions stay one line: what changed, by story or section ID (e.g. "Gate 2 fixes: 1.2 AC3 made observable; DP4 added"). A revision that withdraws or reverses a decision, or moves scope, gets a short paragraph: what changed, why, and the trade accepted — readers of the earlier version need it. Never how the problem was found, who noticed, or a list of small fixes. When a revision changes the design, rewrite the affected sections to the current state rather than describing the old one.
 
 #### Context / Background
 

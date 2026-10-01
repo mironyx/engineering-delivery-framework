@@ -28,7 +28,7 @@ If a rule below conflicts with this list, this list wins.
 | Headings for sections that do not apply, filled with "N/A" / "None" / "See HLD" | Omit the heading. If the template mandates it, one line saying why it is empty |
 | A diagram whose "when required" signal is absent; a linear 2–3 step flow drawn as a sequence | One sentence |
 | Revision history or how-we-got-here narrative in the body — "v1.4 did X", "this replaces DP3", "simplified from the earlier design" | Rewrite to the current state. Withdrawn scope gets one line in the out-of-scope list |
-| Change Log / Document Control rows written as paragraphs — what was found, by whom, why | One line per version: what changed, by section or story ID. The why lives in git, the PR, and the session log |
+| Change Log / Document Control rows that tell how a problem was found, list small fixes, or restate the body | Routine revision: one line — what changed, by section or story ID. Shape change (a decision withdrawn or reversed, scope moved): a short paragraph — what changed, why, and the trade accepted, for readers of the earlier version |
 | Resolved open questions kept with their deliberation | Fold the decision into the body (principle, glossary, AC) with a one-line reason; delete the question |
 | Process records in the deliverable — testability reports, review-fix lists, next-step todo lists | Put them in the gate presentation or session log, not the document |
 | A paragraph justifying an omission — "No diagram: the gate's negative case applies because…" | Omit silently, or one line naming the absent signal |

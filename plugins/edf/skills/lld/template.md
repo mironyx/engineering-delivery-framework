@@ -21,7 +21,7 @@ section becomes a top-level heading.
 | Parent | [v<N>-design.md](v<N>-design.md) |
 | Implementation plan | [Phase N](../plans/<resolved-plan-filename>.md) |
 
-<!-- Revisions: one row each — `| Revised | <date> — <issue or trigger>: §<sections> |`. No prose. -->
+<!-- Revisions: one row each — `| Revised | <date> — <issue or trigger>: §<sections> |`. A design correction or reversal may add a short paragraph: what changed, why, and the trade accepted. Never how it was found or a list of small fixes. -->
 
 ---
 

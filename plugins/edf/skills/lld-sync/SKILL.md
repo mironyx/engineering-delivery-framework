@@ -153,7 +153,7 @@ Manifest ownership summary (for reference):
 Update the LLD's Document Control table:
 - Bump `Version` (e.g., `0.1` → `0.2`).
 - Change `Status` from `Draft` to `Revised` (or `Revised` → `Revised v2`).
-- Add a `Revised` row: `| Revised | [today's date] — Issue #N: §<sections touched> |`. Nothing more — what changed is in the diff and the sync report, not the row.
+- Add a `Revised` row: `| Revised | [today's date] — Issue #N: §<sections touched> |`. For a routine reconciliation, nothing more — the detail is in the diff and the sync report. If a Correction shows the design itself was wrong (not just names or paths), add a short paragraph: what the design got wrong and what replaced it.
 
 ### Step 3c: Remove shipped Rev X blocks
 
