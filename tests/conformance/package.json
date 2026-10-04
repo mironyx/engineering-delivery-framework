@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@braintree/sanitize-url": "^7.1.1",
-    "dompurify": "^3.2.7",
+    "dompurify": "^3.4.16",
     "jsdom": "^26.1.0",
     "mermaid": "11.12.2"
   }
