@@ -253,10 +253,11 @@ No sub-agents. Write the fix and regression tests in one pass.
    - Test through the public interface, not internals
    - Include at least one test that would fail on the pre-fix behaviour (for bug fixes)
    - Match the style of neighbouring test files (grep for sibling tests first)
-   - If the neighbouring style stubs a third-party SDK method directly (e.g.
-     `octokit.graphql: vi.fn()`), verify the mocked call shape against the SDK's real
-     signature/constraints before copying it — a stub accepts any shape by construction,
-     so copying a bad call shape from a sibling test propagates it silently
+   - **Mocking is the exception to matching neighbours.** Code that calls `fetch` or a
+     third-party SDK is tested through the project's HTTP mocking library (MSW for
+     TypeScript) — never `spyOn(global, 'fetch')`, `stubGlobal('fetch')`, or hand-built
+     SDK clients with `vi.fn()` methods (`{ graphql: vi.fn() }`), even if sibling tests do.
+     Those siblings are legacy. Full rule: `agents/test-author.md` § HTTP and SDK mocking
 3. **Run the target test file** to confirm tests pass:
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh <ts|p> <test-file>
@@ -503,6 +504,14 @@ testability>` (`#` in Python). "Readability" alone is not a reason. If a listed 
 **exported** and not in the LLD, it is a contract addition — also note it under
 `## Design deviations`. Re-run until it prints `justification: ok`.
 
+**Step 6, HTTP mocking check (blocker, both tracks):** run this over every test file created or modified in this cycle; any hit means the tests must be rewritten to use the project's HTTP mocking library (see `agents/test-author.md` § HTTP and SDK mocking) before the feature can proceed:
+
+```bash
+grep -nE "spyOn\((global|globalThis), *'fetch'\)|stubGlobal\('fetch'|fetchImpl|(graphql|request|create|completions): *vi\.fn|vi\.mock\('(openai|@anthropic-ai/sdk|@octokit/[a-z-]+|octokit)'" <test_files>
+```
+
+A `create: vi.fn` hit on a mock of the project's *own* adapter (not an SDK client object) is a false positive — say so explicitly in the report rather than skipping the check.
+
 **Both tracks:** after diagnostics pass clean, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
@@ -541,8 +550,6 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-
 Launch Agent: edf:feature-evaluator
 Input: brief_path=<absolute path, or omit> requirements_paths=<absolute list> lld_path=<absolute path or "none"> issue_number=<N> changed_files=<absolute list> test_files=<absolute list> coverage_manifest=<absolute path or "none">
 ```
-
-**HTTP mocking check:** verify the test files use the project's HTTP mocking convention as declared in CLAUDE.md. If they use manual stubs, spies, or monkeypatching instead, flag it as a blocker — the tests must be rewritten before the feature can proceed.
 
 **Triage the verdict:**
 

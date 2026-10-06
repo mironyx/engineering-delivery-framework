@@ -98,19 +98,31 @@ tests are likely to need it too.
 Write tests to `target_test_file`. Each test:
 - Exercises one observable property through the public interface
 - References the issue number in a comment or test name
-- Uses the same patterns as existing test files in the project
+- Uses the same patterns as existing test files in the project — **except mocking**:
+  existing tests that stub HTTP or SDK methods are legacy, not precedent. Never copy them.
 - Imports from `unit_under_test` (the stub that will be implemented later)
 
-**HTTP mocking:** Use the project's standard HTTP mocking library as documented
-in CLAUDE.md. For TypeScript projects this is typically MSW; for Python it is
-typically `responses` or `pytest-httpx`. Do not use manual stubs or spies
-unless CLAUDE.md explicitly documents a reason to.
+**HTTP and SDK mocking (non-negotiable).** Pick the boundary by what the unit under
+test does:
 
-**SDK adapter mocking:** When mocking an internal adapter that wraps a third-party
-SDK (Octokit, Supabase JS, an LLM SDK), mocking at the adapter boundary is correct —
-but the mock still accepts any call shape by construction. Before trusting it, verify
-the shape being passed matches the real SDK's actual signature/known constraints
-(check its types or docs), not just what compiles against the stub.
+| Unit under test | Mock at | How |
+| --- | --- | --- |
+| Calls `fetch` or a third-party SDK (Octokit, OpenAI/Azure, Anthropic, Supabase JS, …) | The network | The project's HTTP mocking library from CLAUDE.md — MSW for TypeScript, `respx` / `responses` / `pytest-httpx` for Python |
+| Calls the project's own adapter/port that wraps an SDK | The project's adapter module | Mock the adapter (e.g. `vi.mock('@/lib/github/…')`) or its shared fixture helper |
+
+Forbidden — these bypass the SDK's real request building, validation and error paths, so
+a wrong call shape passes every test and fails in production:
+
+- `vi.spyOn(global|globalThis, 'fetch')`, `vi.stubGlobal('fetch', …)`, `fetchImpl` seams
+- Hand-built SDK client objects with `vi.fn()` methods, e.g.
+  `{ graphql: vi.fn() }`, `{ rest: { checks: { create: vi.fn() } } }`,
+  `{ chat: { completions: { create: vi.fn() } } }`
+- `vi.mock` of a third-party SDK package itself (e.g. `vi.mock('openai')`)
+
+If the SDK client is constructed inside the unit, construct a real client in the test and
+let MSW intercept its requests. If no MSW handler exists for that host yet, add one to the
+project's shared mocks directory. There is no "good reason" exemption you can grant yourself:
+if MSW genuinely cannot work, stop and report it in your output instead of writing a stub.
 
 **Bugfix mode:** Include at least one test that reproduces the bug (would fail
 on the pre-fix behaviour).
