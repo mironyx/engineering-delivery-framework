@@ -194,6 +194,11 @@ leaves a real risk (not a theoretical edge the spec did not promise). Do not wri
 tests as your default output — the `edf:test-author` sub-agent has already enumerated the
 contract, and your role is to audit, not to re-enumerate.
 
+Adversarial tests follow the same mocking rule as `edf:test-author` (§ HTTP and SDK
+mocking): code that calls `fetch` or a third-party SDK is tested through the project's
+HTTP mocking library (MSW for TypeScript), never through `fetch` spies or hand-built SDK
+clients with `vi.fn()` methods. Flag any such stub in the test-author's file as a gap.
+
 Before writing any test, ask: "Is this a property the spec promised?" If not, skip it.
 The feature-evaluator's volume has been a known bias — keep it tight.
 
