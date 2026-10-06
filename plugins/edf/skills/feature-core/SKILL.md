@@ -504,6 +504,14 @@ testability>` (`#` in Python). "Readability" alone is not a reason. If a listed 
 **exported** and not in the LLD, it is a contract addition — also note it under
 `## Design deviations`. Re-run until it prints `justification: ok`.
 
+**Step 6, HTTP mocking check (blocker, both tracks):** run this over every test file created or modified in this cycle; any hit means the tests must be rewritten to use the project's HTTP mocking library (see `agents/test-author.md` § HTTP and SDK mocking) before the feature can proceed:
+
+```bash
+grep -nE "spyOn\((global|globalThis), *'fetch'\)|stubGlobal\('fetch'|fetchImpl|(graphql|request|create|completions): *vi\.fn|vi\.mock\('(openai|@anthropic-ai/sdk|@octokit/[a-z-]+|octokit)'" <test_files>
+```
+
+A `create: vi.fn` hit on a mock of the project's *own* adapter (not an SDK client object) is a false positive — say so explicitly in the report rather than skipping the check.
+
 **Both tracks:** after diagnostics pass clean, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
@@ -542,14 +550,6 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-
 Launch Agent: edf:feature-evaluator
 Input: brief_path=<absolute path, or omit> requirements_paths=<absolute list> lld_path=<absolute path or "none"> issue_number=<N> changed_files=<absolute list> test_files=<absolute list> coverage_manifest=<absolute path or "none">
 ```
-
-**HTTP mocking check (blocker):** run this over the changed test files; any hit means the tests must be rewritten to use the project's HTTP mocking library (see `agents/test-author.md` § HTTP and SDK mocking) before the feature can proceed:
-
-```bash
-grep -nE "spyOn\((global|globalThis), *'fetch'\)|stubGlobal\('fetch'|fetchImpl|(graphql|request|create|completions): *vi\.fn|vi\.mock\('(openai|@anthropic-ai/sdk|@octokit/[a-z-]+|octokit)'" <test_files>
-```
-
-A `create: vi.fn` hit on a mock of the project's *own* adapter (not an SDK client object) is a false positive — say so explicitly in the report rather than skipping the check.
 
 **Triage the verdict:**
 
