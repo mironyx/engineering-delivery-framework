@@ -601,7 +601,10 @@ One commit per issue. Do not batch multiple issues.
 git push -u origin HEAD
 ```
 
-Create the PR using the script (handles PR body template, cost tracking, and session ID):
+Create the PR using the script (handles PR body template, cost tracking, and session ID).
+The script opens it as a **draft** — review (Step 9) and CI (Step 10) may still produce fixes,
+and marking it ready only afterwards avoids ready-for-review automation (e.g. PR assessment
+bots) running on code that is about to change. Step 10 marks it ready.
 
 ```bash
 PR_URL=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/create-feature-pr.sh \
@@ -758,13 +761,22 @@ timeout.
 | `ci: pending` | Still running after 9 min — run the same command once more. |
 | `ci: none` | No run for the head commit — usually a docs-only push that CI path-ignores. Report it; do not push again to trigger CI. |
 
+**Mark the PR ready** once CI is `ci: pass` or `ci: none` and no review fixes remain — this
+is the single point where ready-for-review automation should fire, so push nothing after it:
+
+```bash
+gh pr ready <pr-number>
+```
+
+If CI ended as unresolved infra failure, leave the PR as a draft and say so in the report.
+
 Then summarise what was done:
 
 - Issue number and title
 - Branch and PR link
 - Tests added / total
 - Review outcome: what was found, what was fixed, what was deferred
-- CI outcome: pass / fail (always known by this point — no "pending" in the report)
+- CI outcome: pass / fail (always known by this point — no "pending" in the report), and whether the PR was marked ready
 - Any warnings or notes (PR size, diagnostics findings, design drift)
 - Suggested next item from the board
 
