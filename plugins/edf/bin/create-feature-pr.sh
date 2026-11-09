@@ -15,6 +15,10 @@
 # The first issue is the primary one — it names the feature ID for cost tracking.
 # --dry-run prints the PR body and exits without calling gh.
 #
+# The PR is created as a draft: review fixes follow, and a draft keeps ready-for-review
+# automation (PR assessment bots) from running before the code settles. /feature-core
+# marks it ready once review and CI are resolved.
+#
 # Output:
 #   Prints the PR URL on success, exits non-zero on error. Warns on stderr when
 #   main's latest CI run is not green (a red main fails every PR built on it).
@@ -119,7 +123,7 @@ case "$MAIN_STATUS" in
   "ci: fail"*) echo "WARNING: main is not green — $MAIN_STATUS. This PR's CI will inherit the failure." >&2 ;;
 esac
 
-PR_URL=$(gh pr create --title "$TITLE" --base main --body "$PR_BODY")
+PR_URL=$(gh pr create --draft --title "$TITLE" --base main --body "$PR_BODY")
 PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]*$')
 
 # --- Cost tracking (best-effort) ---

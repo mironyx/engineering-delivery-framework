@@ -91,7 +91,7 @@ flowchart TD
 
     %% ── Shared delivery ──
     subgraph DELIVER["Shared Delivery"]
-        S7["S7: git add & commit"] --> S8["S8: git push + create PR"]
+        S7["S7: git add & commit"] --> S8["S8: git push + create<br/>DRAFT PR"]
         S8 --> S8_DEV{"Design<br/>deviations?"}
         S8_DEV -->|"Yes"| S8_PATCH["Patch PR body"]
         S8_DEV -->|"No"| S8_CP["Append cost checkpoint<br/>step 8: PR link"]
@@ -111,7 +111,8 @@ flowchart TD
         S9_D --> S9_CP["Append cost checkpoint<br/>step 9: review clean"]
         S9_CP --> S10["S10: Reconcile CI<br/>ci-status.py --wait 9"]
         S10 --> S10_CI{"CI?"}
-        S10_CI -->|"pass"| S10_OK["Summarize report"]
+        S10_CI -->|"pass / none"| S10_RDY["gh pr ready"]
+        S10_RDY --> S10_OK["Summarize report"]
         S10_CI -->|"fail(code)"| S10_F["Fix -> push"]
         S10_F --> S10
         S10_CI -->|"fail(infra)"| S10_W["gh run rerun once<br/>(no code change)"]
@@ -129,7 +130,7 @@ flowchart TD
     classDef stop fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S3,S3_READ,S3_BRIEF,S3A,S3B,S3B_Q,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6S,S6J,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S9_SZ,S9_SELF,S9RERUN,S10,S10_F,S10_OK,S10_CP,S10_W process
+    class S3,S3_READ,S3_BRIEF,S3A,S3B,S3B_Q,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6S,S6J,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S9_SZ,S9_SELF,S9RERUN,S10,S10_F,S10_RDY,S10_OK,S10_CP,S10_W process
     class S3A_FETCH,S8B,F2,S5,S5_E2E_RUN,S5_AUDIT,S6B,S6B_REV agent
     class S3_EPIC,S3A_NEW,S3B_LLD,S3C_SEC,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6B_GATE,S6B_V,S6B_V2,S8_DEV,S9_B,S9_SZ_CHK,S10_CI decision
     class STOP_EPIC,STOP_SPEC,STOP_ASK,S6B_STOP stop
