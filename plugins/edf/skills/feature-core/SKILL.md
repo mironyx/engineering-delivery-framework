@@ -486,8 +486,8 @@ Do **not** pass `sonar` in this loop.
 
 **Step 6, SonarQube (once, after the local loop above is clean):**
 
-Run `edf:diag sonar` exactly once. It analyses the changed files locally: fix every issue on
-changed lines plus the top 2 pre-existing ones (diag Step 8 has the rule), then re-run Step 5
+Run `edf:diag sonar` exactly once. It analyses the changed files through the SonarQube MCP: fix every issue on
+changed lines plus the top 2 pre-existing ones (diag Step 3 has the rule), then re-run Step 5
 if anything changed. Do not check the project quality gate — on a feature branch it describes
 `main`, not this change.
 

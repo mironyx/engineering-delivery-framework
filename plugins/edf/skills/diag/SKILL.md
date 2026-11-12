@@ -1,125 +1,100 @@
 ---
 name: diag
-description: Check diagnostics-exporter output for changed files and run CodeScene health checks. Pass `sonar` to also run SonarQube analysis on the changed files locally. Use when the user wants to check code quality, review diagnostics, or before committing code.
-allowed-tools: Read, Write, Edit, MultiEdit, Glob, Bash, Skill, mcp__codescene__code_health_review, mcp__codescene__code_health_score, mcp__sonarqube__analyze_file_list
+description: Run CodeScene health checks on changed files, plus SonarQube MCP analysis when `sonar` is passed, then check diagnostics-exporter output if `.diagnostics/` exists. Use when the user wants to check code quality, review diagnostics, or before committing code.
+allowed-tools: Read, Write, Edit, MultiEdit, Glob, Bash, Skill, mcp__codescene__code_health_review, mcp__codescene__code_health_score, mcp__sonarqube__analyze_code_snippet, mcp__sonarqube__analyze_file_list, mcp__sonarqube__run_advanced_code_analysis
 ---
 
 # Check Diagnostics — On-Demand Code Quality Check
 
-Reads diagnostics exported by the diagnostics-exporter extension from `.diagnostics/`. Use for a batch check across multiple files, e.g., before committing.
+Checks changed files with CodeScene MCP and, on request, SonarQube MCP. Reads the
+diagnostics-exporter output from `.diagnostics/` last, and only if it exists. Use for a
+batch check across multiple files, e.g., before committing.
 
 ## Scope: default vs. `sonar`
 
-- **No arguments, or any argument other than `sonar`:** run Steps 1-7 (diagnostics-exporter
-  + CodeScene). Cheap — the right choice for a fix-and-recheck loop.
-- **`sonar` argument present in `$ARGUMENTS`:** also run Step 8 — SonarQube analysis of the
-  changed files, locally, before anything is pushed. Callers run it once after the local
-  loop is clean, not on every iteration.
+- **No `sonar` argument:** run Steps 1, 2 and 4 (CodeScene + diagnostics-exporter). Cheap —
+  the right choice for a fix-and-recheck loop.
+- **`sonar` in `$ARGUMENTS`:** also run Step 3 — SonarQube MCP analysis of the changed
+  files, before anything is pushed. Callers run it once after the local loop is clean, not
+  on every iteration.
+
+CodeScene (Step 2) and SonarQube (Step 3) are the checks that matter. The
+diagnostics-exporter (Step 4) is an editor convenience: a missing `.diagnostics/` is never
+a reason to stop or skip the other steps.
 
 ## How diagnostics are generated
 
-The `diagnostics-exporter` extension exports diagnostics for files that are **open in the editor**. A PostToolUse hook fires after every Write/Edit, waits 3 s, then reads whatever the extension has exported. If the file is not open in the editor, the hook fires but the extension has nothing to export — the `.diagnostics/` file is either missing or reflects an earlier open session.
+The `diagnostics-exporter` extension exports diagnostics for files that are **open in the editor**, into `.diagnostics/` of the folder VS Code has open. A PostToolUse hook fires after every Write/Edit, waits 3 s, then reads whatever the extension has exported. If the file is not open in the editor, the extension has nothing to export — the `.diagnostics/` file is either missing or reflects an earlier open session. In a git worktree (a separate folder VS Code does not have open), in CI, or without an editor, `.diagnostics/` does not exist at all.
 
-This means: after making fixes in a CLI session, the diagnostics file may be **stale** (shows old issues) or **missing** entirely. The fix is to open the file in the editor using `bash ${CLAUDE_PLUGIN_ROOT}/hooks/open-in-editor.sh <file>`, which triggers a fresh CodeScene pass, then wait for the export.
-
-A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the diagnostics reading flow, CodeScene MCP integration, SonarQube quality gate, or fix-and-recheck loop.
+A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the step order, CodeScene MCP integration, SonarQube MCP analysis, or the fix-and-recheck loop.
 
 ## Instructions
 
 1. **Identify target files.**
-   - If arguments are provided (`$ARGUMENTS`), check only those files.
-   - Otherwise, check **all** files that have a diagnostics export: list every `.json` file under `.diagnostics/` (these are the files the extension has analysed). Also run `git diff --name-only` and `git diff --cached --name-only` to find modified source files (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`) under **both `src/` and `tests/`** that may not have a diagnostics file yet. Union both sets. Test files are analysed by CodeScene and must be included — do not restrict to `src/` only.
+   - File paths in `$ARGUMENTS` (anything other than `sonar` and `--verbose`): check only
+     those files.
+   - Otherwise run `git diff --name-only` and `git diff --cached --name-only` and take the
+     modified source files (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`) under **both `src/` and
+     `tests/`**. Test files are analysed by CodeScene and must be included — do not restrict
+     to `src/` only. Skip generated code.
 
-2. **Pre-check: does `.diagnostics/` exist?**
+2. **CodeScene MCP code health check.**
 
-   ```bash
-   test -d .diagnostics && echo "EXISTS" || echo "MISSING"
-   ```
-
-   **If MISSING** (worktree, CI, or non-editor environment): skip Steps 3–5 entirely.
-   The diagnostics-exporter extension only runs when files are open in a VS Code editor.
-   Report this clearly and proceed directly to Step 6 (CodeScene MCP):
-
-   ```
-   ### Diagnostics-exporter
-   **Skipped** — `.diagnostics/` directory not found (worktree or non-editor environment).
-   CodeScene checks will still run (and SonarQube, if `sonar` was passed).
-   ```
-
-   **If EXISTS**, continue to Step 3.
-
-3. **Open all target files in the editor immediately.**
-
-   Do this **before reading diagnostics or making any fixes**. Once a file is open, the editor detects every subsequent on-disk save and triggers a fresh CodeScene pass automatically — so diagnostics will be live as you edit.
-
-   ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/hooks/open-in-editor.sh src/foo/service.ts src/lib/bar/client.ts
-   sleep 5
-   ```
-
-   The `sleep 5` gives the initial analysis time to complete before you read diagnostics.
-
-4. **Read diagnostics for each file.** For each source file:
-   - Look for `.diagnostics/<relative-path>.json`
-   - Read the JSON file if it exists
-   - Parse the diagnostics array: `{source, severity, message, line, column, code}`
-
-5. **Report findings, then fix them all.**
-   - Total files checked vs files with diagnostics available
-   - **Errors and Warnings:** always report, grouped by severity (Errors first, then Warnings)
-   - **Info / Hints:** suppress from output. Only include if `--verbose` was passed as an argument.
-   - For each reported issue: `file:line:column [source/code] — message`
-   - Files with no diagnostics file: wait another 5 s and retry once
-   - Files with empty diagnostics: clean
-   - **If there are any Errors, flag this clearly at the top of the report.**
-
-   After listing all findings, fix every one of them before proceeding. Do not stop at "documenting" a warning — fix it or, if it genuinely cannot be fixed without a major cross-file refactor, add an explicit `// Justification:` comment explaining why.
-
-6. **Confirm resolution.**
-
-   After all fixes are applied, re-read the diagnostics files for the changed files. Because the files are already open in the editor (from Step 3), the extension will have exported fresh diagnostics after each save — no need to re-open. If any findings remain, fix them and re-check.
-
-   If a file's diagnostics timestamp has not advanced since before your edits (stale), run:
-   ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/hooks/open-in-editor.sh <file>
-   sleep 5
-   ```
-   then re-read once more as a safety net.
-
-7. **CodeScene MCP code health check.**
-
-   After the diagnostics-exporter pass (Steps 1–6), run `mcp__codescene__code_health_score` on each target source file (use absolute paths, forward slashes). This works independently of the editor — no need for files to be open.
+   Run `mcp__codescene__code_health_score` on each target file (absolute paths, forward slashes). This works independently of the editor and of `.diagnostics/`.
 
    - **Score > 9.8 (green/optimal):** clean — no action needed. Target 10.0.
    - **Score 4.0–9.8 (yellow):** run `mcp__codescene__code_health_review` for the detailed smell breakdown. **Attempt to fix every finding.** Only skip a finding if the fix would require changes to >5 unrelated files, touch infrastructure/config outside the feature scope, or involve generated code. In those cases, document the finding and the specific reason for skipping. Do NOT skip with a generic "pre-existing" label — that's not a reason.
    - **Score < 4.0 (red):** blocking — run `mcp__codescene__code_health_review`, fix all findings, and re-check until the score is at least 4.0 (ideally 10.0). Even here, document any finding you genuinely cannot fix rather than silently moving on.
 
-   Report MCP scores alongside the diagnostics-exporter findings:
+   Report:
 
-   ```
+   ```text
    ### Code Health (MCP)
    - `src/foo/bar.ts` — 10.0 ✓
    - `src/foo/baz.ts` — 7.2 ⚠ (complex conditional, bumpy road — fixed)
    - `tests/foo/bar.test.ts` — 9.5 ✓
    ```
 
-   **If any file scores ≤ 9.8**, include the detailed review findings in the report and fix them before proceeding, following the same fix-and-recheck loop as Step 5.
+   **If any file scores ≤ 9.8**, include the detailed review findings in the report and fix them, re-checking the score after each fix.
 
-8. **SonarQube local analysis (only when `sonar` is in `$ARGUMENTS`).**
+3. **SonarQube MCP analysis (only when `sonar` is in `$ARGUMENTS`).**
 
-   Analyse the changed files **locally** so issues are fixed before the PR. Do not use the
-   project quality gate (`sonarqube:sonar-quality-gate`) here: SonarCloud only analyses what
-   CI pushed, so on a feature branch the gate describes `main`, not this change — and issues
-   that never get checked before merge are how they accumulate.
+   Analyse the changed files through the SonarQube MCP server so issues are fixed before the
+   PR. Do not use the project quality gate or issue search for this: SonarCloud only holds
+   analyses of what CI pushed, so on a feature branch they describe `main`, not this change —
+   zero issues there means "not analysed", not "clean".
 
    1. **List changed lines** (source files only — skip generated code):
+
       ```bash
       bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/changed-lines.py
       ```
-   2. **Analyse** the changed source files in one call with
-      `mcp__sonarqube__analyze_file_list` (fall back to `Skill: sonarqube:sonar-analyze
-      <file>` per file). If no SonarQube MCP tool is available, report
-      `SonarQube: skipped — MCP unavailable` and stop this step; do not block.
+
+   2. **Analyse** with whichever SonarQube MCP analysis tool this session exposes. The
+      server registers different ones depending on its configuration; check in this order:
+      - `mcp__sonarqube__analyze_file_list` (SonarQube for IDE connected) — one call with
+        the absolute paths of all changed files.
+      - `mcp__sonarqube__analyze_code_snippet` — one call per file. Read the file and pass
+        its full content as `fileContent`, plus `language` and `scope` (`TEST` for test
+        files, else `MAIN`). This works from any folder, including worktrees, because the
+        server never needs to see the file system.
+      - `mcp__sonarqube__run_advanced_code_analysis` (needs a Vortex subscription and the
+        workspace mounted into the server) — one call per file with `projectKey`,
+        `branch` (`git branch --show-current`), `filePath` relative to the repo root, and
+        `fileScope`. If it fails because Vortex is not enabled, or the file is not found in
+        the mounted workspace, treat it as unavailable.
+
+      **Never** fall back to the `sonar` CLI (`sonar analyze …`) or to server-side issue
+      search — the CLI needs Vortex and fails with a 403, and server data does not cover
+      this branch. If no analysis tool is available, report the line below and move on to
+      Step 4; do not block:
+
+      ```text
+      SonarQube: skipped — the SonarQube MCP exposes no analysis tool in this session
+      (needs analyze_code_snippet: start the server with SONARQUBE_FORCE_LOCAL_ANALYSIS=true
+      and the `analysis` toolset, or connect SonarQube for IDE for analyze_file_list).
+      ```
+
    3. **Sort each issue:**
       - **New** — its line is in the file's changed-line ranges. **Fix all of them.**
       - **Pre-existing** — any other line in a changed file. **Fix the top 2 across all
@@ -131,11 +106,54 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
    Report:
 
-   ```
-   ### SonarQube (local, changed files)
+   ```text
+   ### SonarQube (MCP, changed files)
+   - Tool: analyze_code_snippet
    - New: 2 found, 2 fixed
    - Pre-existing: 2 fixed (src/foo/bar.ts:88 S3776, src/foo/baz.ts:12 S1854); 7 others left
    ```
+
+4. **Diagnostics-exporter (last; only if `.diagnostics/` exists).**
+
+   ```bash
+   test -d "$(git rev-parse --show-toplevel)/.diagnostics" && echo "EXISTS" || echo "MISSING"
+   ```
+
+   **If MISSING:** report the line below and finish. This is normal in worktrees, CI and
+   non-editor sessions — not an error, and not a reason to re-run or skip anything else.
+
+   ```text
+   ### Diagnostics-exporter
+   Skipped — no `.diagnostics/` (worktree or non-editor environment).
+   ```
+
+   **If EXISTS:**
+
+   1. **Open the target files in the editor** so the extension exports fresh diagnostics,
+      including for edits made in Steps 2–3:
+
+      ```bash
+      bash ${CLAUDE_PLUGIN_ROOT}/hooks/open-in-editor.sh src/foo/service.ts src/lib/bar/client.ts
+      sleep 5
+      ```
+
+   2. **Read diagnostics** for each target file from `.diagnostics/<relative-path>.json`
+      (format below) and parse the `diagnostics` array.
+   3. **Report findings, then fix them all.**
+      - **Errors and Warnings:** always report, grouped by severity (Errors first, then
+        Warnings). Flag any Errors clearly at the top of the report.
+      - **Info / Hints:** suppress unless `--verbose` was passed.
+      - Each issue: `file:line:column [source/code] — message`
+      - No diagnostics file for a target: wait another 5 s and retry once, then list it
+        under "No diagnostics available".
+      - Empty diagnostics: clean.
+
+      Fix every finding — or, if it genuinely cannot be fixed without a major cross-file
+      refactor, add an explicit `// Justification:` comment explaining why.
+   4. **Confirm resolution.** Re-read the diagnostics files; the files are open, so each save
+      produced a fresh export. If a file's `analyzedAt` has not advanced since your edits,
+      run `open-in-editor.sh <file>` and `sleep 5`, then re-read once more. Re-run Step 2
+      on any file you changed here.
 
 ## Diagnostics JSON Format
 
@@ -158,28 +176,24 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 ## Example Output
 
-```
+```text
 ## Diagnostics Report
 
-**Files checked:** 3 | **With issues:** 1 | **Clean:** 1 | **No diagnostics:** 1
-
-### Errors
-- `src/foo/bar.ts:42:5` [ts/2304] — Cannot find name 'foo'
-
-### Warnings
-- `src/foo/bar.ts:15:1` [codescene/brain-method] — Complex method detected
-
-### Clean
-- `src/foo/types.ts` — No issues
-
-### No diagnostics available
-- `tests/helpers/baz.test.ts` — Extension has not exported diagnostics for this file
+**Files checked:** 3
 
 ### Code Health (MCP)
-- `src/foo/bar.ts` — 7.2 ⚠ (complex conditional, bumpy road)
+- `src/foo/bar.ts` — 7.2 ⚠ (complex conditional, bumpy road — fixed)
 - `src/foo/types.ts` — 10.0 ✓
+- `tests/helpers/baz.test.ts` — 10.0 ✓
 
-### SonarQube (local, changed files)
+### SonarQube (MCP, changed files)
+- Tool: analyze_code_snippet
 - New: 0
 - Pre-existing: 1 fixed (src/foo/bar.ts:15 S1481); 3 others left
+
+### Diagnostics-exporter
+#### Errors
+- `src/foo/bar.ts:42:5` [ts/2304] — Cannot find name 'foo'
+#### No diagnostics available
+- `tests/helpers/baz.test.ts` — Extension has not exported diagnostics for this file
 ```
