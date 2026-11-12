@@ -1,42 +1,37 @@
 # /diag — Process flowchart
 
-Visual overview of the on-demand diagnostics check. Identifies target files, opens them in the editor, reads diagnostics exports, fixes findings, and runs CodeScene MCP health checks. SonarQube local analysis of the changed files (S8) only runs when invoked as `edf:diag sonar` — callers run it once after the local loop is clean. Decisions are orange, blocking gates are red.
+Visual overview of the on-demand diagnostics check. Identifies target files, runs CodeScene MCP health checks, runs SonarQube MCP analysis of the changed files (S3, only when invoked as `edf:diag sonar`), and reads diagnostics-exporter output last — skipped without error when `.diagnostics/` does not exist. Decisions are orange.
 
 ```mermaid
 flowchart TD
     START(["fa:fa-play /diag invoked"]) --> S1
 
-    S1["S1: Identify target files<br/>Args provided → check those<br/>Otherwise → .diagnostics/ + git diff"] --> S2
+    S1["S1: Identify target files<br/>File args → check those<br/>Otherwise → git diff (src/ + tests/)"] --> S2
 
-    S2{"S2: .diagnostics/<br/>directory exists?"} -->|"No (worktree/CI)"| S7
-    S2 -->|"Yes"| S3
+    S2["S2: CodeScene MCP health check<br/>code_health_score per file"] --> S2_CHK{"Score < 4.0?"}
+    S2_CHK -->|"Yes, red"| S2_FIX["code_health_review →<br/>fix all findings → re-check"]
+    S2_CHK -->|"4.0-9.8, yellow"| S2_REVIEW["code_health_review →<br/>fix all findings<br/>(skip only if blocked)"]
+    S2_CHK -->|"> 9.8, green"| S3_GATE
 
-    S3["S3: Open files in editor<br/>open-in-editor.sh, sleep 5<br/>Triggers CodeScene analysis"] --> S4
+    S2_FIX --> S2_CHK
+    S2_REVIEW --> S3_GATE
 
-    S4["S4: Read diagnostics<br/>Parse .diagnostics/*.json<br/>Extract severity, message, line"] --> S5
+    S3_GATE{"'sonar' in<br/>$ARGUMENTS?"} -->|"No (default)"| S4
+    S3_GATE -->|"Yes"| S3_TOOL{"MCP analysis tool?<br/>analyze_file_list /<br/>analyze_code_snippet /<br/>run_advanced_code_analysis"}
+    S3_TOOL -->|"None"| S3_SKIP["Report skipped + config hint<br/>(never sonar CLI)"]
+    S3_TOOL -->|"Available"| S3["S3: changed-lines.py →<br/>analyse changed files"]
+    S3 --> S3_FIX["Fix all issues on changed lines<br/>+ top 2 pre-existing by severity"]
+    S3_FIX --> S3_RE["Re-analyse once"]
+    S3_RE --> S4
+    S3_SKIP --> S4
 
-    S5["S5: Report findings<br/>Errors first, then Warnings<br/>Suppress Info/Hints"] --> S5_CHK{"Errors or<br/>Warnings?"}
-    S5_CHK -->|"No"| S7
-    S5_CHK -->|"Yes"| S5_FIX["Fix all findings"]
-
-    S5_FIX --> S6["S6: Confirm resolution<br/>Re-read diagnostics,<br/>verify timestamp advanced"]
-    S6 --> S6_CHK{"Clean?"}
-    S6_CHK -->|"No"| S5_FIX
-    S6_CHK -->|"Yes"| S7
-
-    S7["S7: CodeScene MCP health check<br/>code_health_score per file"] --> S7_CHK{"Score < 4.0?"}
-    S7_CHK -->|"Yes, red"| S7_FIX["code_health_review →<br/>fix all findings → re-check"]
-    S7_CHK -->|"4.0-9.8, yellow"| S7_REVIEW["code_health_review →<br/>fix all findings<br/>(skip only if blocked)"]
-    S7_CHK -->|"> 9.8, green"| S8_GATE
-
-    S7_FIX --> S7_CHK
-    S7_REVIEW --> S8_GATE
-
-    S8_GATE{"'sonar' in<br/>$ARGUMENTS?"} -->|"No (default)"| DONE
-    S8_GATE -->|"Yes"| S8["S8: changed-lines.py →<br/>analyze_file_list on changed files<br/>(MCP unavailable → skip)"]
-    S8 --> S8_FIX["Fix all issues on changed lines<br/>+ top 2 pre-existing by severity"]
-    S8_FIX --> S8_RE["Re-analyse once"]
-    S8_RE --> DONE
+    S4{"S4: .diagnostics/<br/>exists?"} -->|"No (worktree/CI)"| DONE
+    S4 -->|"Yes"| S4_OPEN["Open files in editor<br/>open-in-editor.sh, sleep 5"]
+    S4_OPEN --> S4_READ["Read .diagnostics/*.json<br/>Errors first, then Warnings"]
+    S4_READ --> S4_CHK{"Errors or<br/>Warnings?"}
+    S4_CHK -->|"No"| DONE
+    S4_CHK -->|"Yes"| S4_FIX["Fix all findings →<br/>re-read, re-score changed files"]
+    S4_FIX --> S4_CHK
 
     DONE(["fa:fa-check Diagnostics clean"])
 
@@ -46,6 +41,6 @@ flowchart TD
     classDef decision fill:#f7eed6,stroke:#8a6d2d,color:#443a1a
 
     class START,DONE startend
-    class S1,S3,S4,S5,S5_FIX,S6,S7,S7_FIX,S7_REVIEW,S8,S8_FIX,S8_RE process
-    class S2,S5_CHK,S6_CHK,S7_CHK,S8_GATE decision
+    class S1,S2,S2_FIX,S2_REVIEW,S3,S3_SKIP,S3_FIX,S3_RE,S4_OPEN,S4_READ,S4_FIX process
+    class S2_CHK,S3_GATE,S3_TOOL,S4,S4_CHK decision
 ```
