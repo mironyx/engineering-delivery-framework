@@ -68,12 +68,12 @@ Jira permissions are those of the API token's user. EDF adds no permission layer
 Every other epic depends on this one. It builds the single entry point, with a GitHub backend
 (today's behaviour, moved behind the script) and a new Jira backend.
 
-<a id="REQ-tracker-script-select-tracker"></a>
+<a id="REQ-tracker-script-select-tracker-from-environment"></a>
 
-### Story 1.1: Select the tracker from the environment
+### Story 1.1: Select tracker from environment
 
 **As a** Project Maintainer,
-**I want to** switch EDF to Jira by setting `JIRA_HOST`, `JIRA_EMAIL`, `JIRA_API_TOKEN` and `JIRA_PROJECT`,
+**I want to** switch EDF to Jira by setting the Jira env vars (host, email, API token, space key; names per Open Question 1),
 **so that** changing tracker needs no edits to code or skills.
 
 *(Acceptance criteria in next pass)*
@@ -82,7 +82,7 @@ Every other epic depends on this one. It builds the single entry point, with a G
 
 <a id="REQ-tracker-script-create-issue"></a>
 
-### Story 1.2: Create an issue
+### Story 1.2: Create issue
 
 **As an** EDF skill,
 **I want to** create an issue from a title, Markdown body, labels and an optional parent epic, skipping it if an open issue with the same title already exists,
@@ -92,7 +92,7 @@ Every other epic depends on this one. It builds the single entry point, with a G
 
 ---
 
-<a id="REQ-tracker-script-read-issues"></a>
+<a id="REQ-tracker-script-view-and-list-issues"></a>
 
 ### Story 1.3: View and list issues
 
@@ -104,12 +104,24 @@ Every other epic depends on this one. It builds the single entry point, with a G
 
 ---
 
-<a id="REQ-tracker-script-update-issue"></a>
+<a id="REQ-tracker-script-edit-and-comment"></a>
 
-### Story 1.4: Edit, comment on and change the status of an issue
+### Story 1.4: Edit and comment
 
 **As an** EDF skill,
-**I want to** replace an issue's body, add labels, add a comment, and move it between `todo`, `in progress`, `blocked` and `done`,
+**I want to** replace an issue's body, add or remove labels, and add a Markdown comment,
+**so that** `/architect` and `/lld-sync` can enrich issues and record progress.
+
+*(Acceptance criteria in next pass)*
+
+---
+
+<a id="REQ-tracker-script-change-status"></a>
+
+### Story 1.5: Change status
+
+**As an** EDF skill,
+**I want to** move an issue to `todo`, `in progress`, `blocked` or `done`,
 **so that** the tracker reflects pipeline progress.
 
 *(Acceptance criteria in next pass)*
@@ -122,21 +134,21 @@ Moves the skills onto the tracker script and handles the places that assume GitH
 epic is done, `/architect` → `/feature` → `/feature-end` runs end to end on a Jira-tracked
 project.
 
-<a id="REQ-pipeline-on-jira-epics"></a>
+<a id="REQ-pipeline-on-jira-native-epics"></a>
 
-### Story 2.1: Native Jira epics
+### Story 2.1: Native epics
 
 **As an** EDF skill,
-**I want to** create epics as Jira Epics, give tasks the epic as `parent`, and read epic progress from child statuses instead of body checkboxes,
+**I want to** create epics as Jira Epics and read epic progress from the statuses of its child tasks, instead of from checkboxes in the body,
 **so that** the epic model in ADR-0018 works in Jira.
 
 *(Acceptance criteria in next pass)*
 
 ---
 
-<a id="REQ-pipeline-on-jira-issue-references"></a>
+<a id="REQ-pipeline-on-jira-jira-references-in-branches-and-prs"></a>
 
-### Story 2.2: Jira issue references in branches and PRs
+### Story 2.2: Jira references in branches and PRs
 
 **As an** Operator,
 **I want to** use `SCRUM-123` in branch names, PR bodies and session logs, and have `/feature-end` move the issue to Done on merge,
@@ -146,41 +158,53 @@ project.
 
 ---
 
-<a id="REQ-pipeline-on-jira-migrate-skills"></a>
+<a id="REQ-pipeline-on-jira-migrate-design-skills"></a>
 
-### Story 2.3: Migrate skills and agents to the tracker script
+### Story 2.3: Migrate design skills
 
 **As an** Operator,
-**I want to** have every skill, agent and bin script that calls `gh issue` / `gh project` use the tracker script instead,
-**so that** no part of the pipeline bypasses Jira.
+**I want to** have `/kickoff`, `/architect`, `/refactor-architect`, `/bug`, `/create-plan`, `/lld` and `gh-issue-manager` use the tracker script,
+**so that** design work files issues into Jira.
 
 *(Acceptance criteria in next pass)*
-
-**Notes:** This is likely 2–3 PRs grouped by pipeline area (design, implementation, reporting). `/kickoff` or `/architect` will do the split.
 
 ---
 
-<a id="REQ-pipeline-on-jira-guard-direct-calls"></a>
+<a id="REQ-pipeline-on-jira-migrate-implementation-skills"></a>
 
-### Story 2.4: Guard against direct tracker calls
+### Story 2.4: Migrate implementation skills
 
-**As a** maintainer of EDF,
-**I want to** a test that fails when any file other than the GitHub backend calls `gh issue` / `gh project`,
-**so that** later changes cannot quietly bypass Jira routing.
+**As an** Operator,
+**I want to** have `/feature`, `/feature-core`, `/feature-team`, `/feature-end`, `/lld-sync`, `/pr-review` and their agents use the tracker script,
+**so that** `/feature` runs on a Jira-tracked project.
 
 *(Acceptance criteria in next pass)*
+
+---
+
+<a id="REQ-pipeline-on-jira-migrate-reporting-skills"></a>
+
+### Story 2.5: Migrate reporting skills
+
+**As an** Operator,
+**I want to** have `/backlog`, `/retro`, `/baseline` and `update-coverage-manifest.py` read through the tracker script,
+**so that** reports reflect Jira work items and no `gh issue` / `gh project` call is left outside the GitHub backend.
+
+*(Acceptance criteria in next pass)*
+
+**Notes:** This is the last migration story, so its ACs include a test that fails on any direct `gh issue` / `gh project` call outside the GitHub backend.
 
 ---
 
 ## Epic 3: Onboarding [Priority: Medium]
 
-<a id="REQ-onboarding-setup-tracker"></a>
+<a id="REQ-onboarding-setup-configures-tracker"></a>
 
-### Story 3.1: `/setup` configures the tracker
+### Story 3.1: Setup configures tracker
 
 **As a** Project Maintainer,
-**I want to** have `/setup` ask which tracker to use, write `.env` placeholders for the Jira variables, and run a connection check,
-**so that** new adopters get Jira working without reading script sources.
+**I want to** have `/setup` ask which tracker to use and write `.env` placeholders for the Jira variables,
+**so that** new adopters know exactly what to set.
 
 *(Acceptance criteria in next pass)*
 
@@ -197,7 +221,7 @@ project.
 ### Performance
 
 - The volume is small: tens of issues per `/architect` run. List operations are capped at 100 items, the same as today's `gh issue list --limit 100`.
-- On a Jira 429, retry up to 3 times, honouring `Retry-After`.
+- No retries: a Jira 429 or 5xx fails the operation with a named error (Principle 3).
 
 ### Observability
 
@@ -211,6 +235,7 @@ project.
 - **Moving code hosting off GitHub.** PRs, CI and reviews stay on GitHub.
 - **Migrating or syncing existing GitHub issues.** Only one tracker is active per project.
 - **Sprint management.**
+- **Retry/back-off and a standalone connection-check command.** At this volume, failing loudly is enough.
 
 ## Open Questions
 
