@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.1 |
+| Version | 0.2 |
 | Status | Draft — awaiting Gate 1 |
 | Author | LS / Claude |
 | Created | 2026-11-14 |
@@ -16,6 +16,7 @@
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 0.2 | 2026-11-14 | LS / Claude | `edf:hld-review` and Gate 1 drift-scan fixes: dry-run and no-op rules; component↔requirement table; redaction scope; trust boundary named on C3.1/C3.3; `check-epic-checkbox.py` and `gh issue close` moved into C3.2; C3.5 asks C3.1 for tracker; C3.8 detection patterns; Flow 5 added |
 | 0.1 | 2026-11-14 | LS / Claude | Initial delta HLD — Levels 1–3 |
 
 ---
@@ -89,6 +90,23 @@ workflow statuses they must provide.
 | `REQ-pipeline-on-jira-route-all-issue-calls-through-tracker-script` (2.3) | K6 |
 | `REQ-onboarding-setup-configures-tracker` (3.1) | K7 |
 
+### Component ↔ requirement coverage
+
+| Component | Stories |
+|---|---|
+| C3.1 Tracker Script | 1.1, 1.2, 1.3, 1.4, 1.5 |
+| C3.2 GitHub Backend | 1.1–1.5 (GitHub parity ACs), 2.1 AC4 |
+| C3.3 Jira Backend | 1.1–1.5 |
+| C3.4 Markdown↔ADF Converter | 1.2, 1.3, 1.4 |
+| C3.5 Feature Identity Resolver | 2.2 |
+| C3.6 Epic Progress Reader | 2.1 |
+| C3.7 Pipeline Call Sites | 2.1, 2.2 (merge → Done), 2.3 |
+| C3.8 Issue-Access Guard | 2.3 AC1 |
+| C3.9 Tracker Onboarding | 3.1 |
+
+Story 2.3's end-to-end ACs exercise K2, K4 and K5 through C3.7; Story 1.2 owns the
+`--type epic` mechanics, Story 2.1 the call sites and progress.
+
 ---
 
 ## Level 2 — Components
@@ -121,7 +139,8 @@ graph TD
   SK --> EP
   EP --> TS
   TS --> ENV
-  FI --> ENV
+  FI --> TS
+  EP -.no direct GitHub call.-> TS
   TS -->|JIRA_HOST unset| GH
   TS -->|JIRA_HOST set| JB
   JB --> CV
@@ -145,6 +164,13 @@ The single entry point for issue operations (DP4).
   non-zero exit.
 - Owns the logical status vocabulary (`todo | in progress | blocked | done`) and rejects
   anything else.
+- `--dry-run` is resolved here: print the planned title, labels and parent and stop before
+  any backend write; read-only checks (parent lookup, dedup) still run.
+- Owns tracker selection: `tracker` (no args) prints `github` or `jira`, so other components
+  (C3.5, C3.6) ask rather than re-derive it.
+- **Trust boundary:** the only component that reads credentials. Redaction rule: the token
+  value never reaches stdout, stderr, session logs, issue bodies or Prometheus files; errors
+  name the variable. Not-found errors use one form, `Error: <ref> not found`.
 
 **Non-responsibilities:** does not talk to either API itself; does not convert rich text;
 does not compute epic progress; does not retry; does not fall back from Jira to GitHub.
@@ -156,27 +182,35 @@ Today's behaviour, moved behind C3.1 (DP2).
 - Absorbs `gh-create-issue.sh` and `gh-project-status.sh` behaviour unchanged, including
   `.github/project.env` board configuration and `--parent` appending to the epic checklist.
 - Implements view/list/edit/comment with `gh issue`, returning C3.1's JSON shape.
-- Is the only code permitted to call `gh issue` / `gh project` (C3.8's allow-list).
+- Absorbs `check-epic-checkbox.py`'s epic-body patching, so all GitHub issue writes live here.
+- `status done` closes the issue *and* sets the board status, matching today's `/feature-end`
+  sequence of board update plus `gh issue close`.
+- Is the only code permitted to call `gh issue`, `gh project` or `gh api …/issues`
+  (C3.8's allow-list).
 
-**Non-responsibilities:** no output changes for existing adopters; no new GitHub features.
+**Non-responsibilities:** no output changes for existing adopters; does not reshape GitHub
+data to look like Jira's beyond the shared JSON shape.
 `gh pr` and `gh run` stay where they are.
 
 ### C3.3: Jira Backend
 
 Implements the operations against one team-managed Jira Cloud space (DP1).
 
-- HTTPS with basic auth (email + token); maps 401/403, 404, 429/5xx to the named errors in
-  Story 1.1, without retrying and without echoing the token.
+- **Trust boundary:** the only component that sends credentials, and only in the HTTPS
+  `Authorization` header. Maps HTTP failures to the named errors in Stories 1.1–1.2, with no
+  retry and no token or header echoed.
 - Dedup and list via JQL built with escaping, never concatenation of raw input; caps at 100,
-  orders by rank, treats "open" as status category ≠ Done.
+  orders by rank, treats "open" as status category ≠ Done. The search endpoint (current Cloud
+  JQL search, token-paged) is pinned in the LLD against Atlassian's docs.
 - Creates Tasks and Epics; sets `parent`; validates the parent exists before writing.
 - Changes status through workflow transitions using the fixed mapping; reports a missing
   Blocked status and unreachable transitions by name.
-- Maps EDF labels one-to-one onto Jira labels (DP6).
+- Maps EDF labels one-to-one onto Jira labels (DP6); removing an absent label is a no-op.
+- Status change to the current status is a no-op checked before any transition, since Jira
+  may reject a self-transition.
 
-**Non-responsibilities:** no Server/Data Center, OAuth, company-managed projects,
-configurable mappings, sprints or migration (Not Building list); no Markdown parsing — it
-hands bodies to C3.4.
+**Non-responsibilities:** nothing in the requirements' *What We Are NOT Building* list; no
+Markdown parsing — it hands bodies to C3.4.
 
 ### C3.4: Markdown↔ADF Converter
 
@@ -194,11 +228,13 @@ markup.
 
 The one place `FEATURE_ID` is derived (Story 2.2).
 
+- Asks C3.1 which tracker is active; never reads `JIRA_HOST` itself.
 - Jira backend: `FEATURE_ID` is the issue key (`SCRUM-42`); `EDF_FEATURE_PREFIX` is ignored.
 - GitHub backend: `<prefix>-<n>` exactly as today.
 - Consumed by session tagging, checkpoints, cost queries, session-log naming and PR creation,
   which today each derive the ID independently.
-- PR body carries `Jira: <key>` instead of `Closes #N` on Jira.
+- Supplies the issue-reference line for the PR body (`Jira: <key>` or `Closes #N`);
+  `create-feature-pr` inserts it but does not choose it.
 
 **Non-responsibilities:** does not change branch names (`feat/<slug>` in both); does not move
 issues — `/feature-end` does that via C3.1 after a successful merge.
@@ -209,13 +245,15 @@ Answers "how far along is this epic?" for either tracker (Story 2.1).
 
 - Jira: children from `view`, status of each child; reports `done of total` and per-child
   status.
-- GitHub: keeps `check-epic-checkbox.py` behaviour unchanged.
+- GitHub: the checkbox-tick behaviour is unchanged, but it now runs inside C3.2 and is
+  reached through C3.1 — C3.6 makes no direct GitHub call.
 
 **Non-responsibilities:** never closes or transitions an epic.
 
 ### C3.7: Pipeline Call Sites
 
-The ~27 skill, agent, flowchart and bin files that currently call `gh issue` / `gh project`.
+Every skill, agent, flowchart and bin file that currently calls `gh issue` / `gh project`
+(27 files today; the requirements' "about 20" undercounted flowcharts and bin scripts).
 
 - Replace each call with the equivalent C3.1 operation; read `ref` values as opaque strings
   (`#123` or `SCRUM-123`), never as integers.
@@ -227,9 +265,11 @@ The ~27 skill, agent, flowchart and bin files that currently call `gh issue` / `
 ### C3.8: Issue-Access Guard
 
 A test in `tests/` that fails, naming file and line, when any file under `skills/`, `agents/`
-or `bin/` outside C3.2 contains `gh issue` or `gh project`.
+or `bin/` outside C3.2 matches an issue-access pattern: `gh issue` / `gh project` in shell
+form, the argv form (`"gh", "issue"`, `"gh", "project"`), or `gh api` with a path containing
+`/issues`.
 
-**Non-responsibilities:** does not police `gh pr`, `gh run` or `gh api` for non-issue use.
+**Non-responsibilities:** does not police `gh pr`, `gh run` or `gh api` for non-issue paths.
 
 ### C3.9: Tracker Onboarding
 
@@ -342,17 +382,22 @@ Level 4 contract is the node mapping table and the round-trip equivalence rules 
   migrate in several PRs.
 - **Observability:** one machine-parseable result line per operation; no new metrics.
 
+### Flow 5: Epic progress
+
+C3.6 calls `view <epic>` through C3.1, then `view` on each child ref, and reports
+`done of total` with per-child status. Contract to pin: whether `view` adds a per-child status
+field to avoid N calls (see Open Question 1). Edit, comment and `/setup` are single-hop and
+need no diagram.
+
 ## Open Questions (for LLD)
 
-1. **Epic progress shape.** `view` returns `children` as refs only. C3.6 either calls `view`
-   per child or C3.1 gains a child-status field. Decide in the Epic 2 LLD.
-2. **GitHub `done` vs close.** `/feature-end` today runs `gh issue close` separately from the
-   board status. The GitHub backend's `status done` must cover both to keep behaviour
-   identical once the call is routed.
+1. **Epic progress shape.** `view` returns `children` as refs only (Story 1.3). C3.6 either
+   calls `view` per child or the `view` JSON gains child statuses. Decide in the Epic 2 LLD.
 
 ## References
 
 - [v3 requirements](../../requirements/v3-requirements.md)
+- ADR-0041 — tracker abstraction (to be drafted in kickoff Step 5)
 - [ADR-0018](../../adr/0018-epic-task-organisation.md) — epic model (revision note for Jira)
 - [ADR-0026](../../adr/0026-stable-ids-requirements-lld.md) — REQ anchors
 - [ADR-0037](../../adr/0037-incremental-session-logging.md) — session-log naming
