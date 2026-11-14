@@ -4,8 +4,8 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.1 |
-| Status | Draft — Structure |
+| Version | 0.2 |
+| Status | Draft — Complete |
 | Author | LS / Claude |
 | Created | 2026-11-14 |
 | Last updated | 2026-11-14 |
@@ -15,6 +15,7 @@
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 0.1 | 2026-11-14 | LS / Claude | Initial draft |
+| 0.2 | 2026-11-14 | LS / Claude | Gate 1 decisions: `JIRA_SPACE` var; Blocked status required; fixed status mapping, rank ordering and labels added as glossary and DP6; ACs written |
 
 ---
 
@@ -29,7 +30,7 @@ V3 lets a host project send all issue tracking to Jira Cloud. Code, PRs and CI s
 GitHub. Setting `JIRA_HOST` is the only switch. Without it, EDF behaves exactly as it does
 today. The reference target is the `SCRUM` space on `mironyx.atlassian.net`. It is a
 team-managed project with native Epics, where a Task points to its Epic through `parent`.
-Its statuses are To Do, Design, In Progress, In Review and Done, with no Blocked status.
+EDF requires the space's workflow to have To Do, In Progress, Blocked and Done. `SCRUM` also has Design and In Review, which EDF does not use; Blocked must be added to it.
 
 ## Glossary
 
@@ -40,6 +41,7 @@ Its statuses are To Do, Design, In Progress, In Review and Done, with no Blocked
 | **Issue reference** | The tracker's own ID: `#123` for GitHub, `SCRUM-123` for Jira. |
 | **Space** | A Jira project, identified by its key (e.g. `SCRUM`). |
 | **Board status** | EDF's logical states: `todo`, `in progress`, `blocked`, `done`. |
+| **Status mapping** | Fixed: `todo`→To Do, `in progress`→In Progress, `blocked`→Blocked, `done`→Done. Other statuses are ignored. |
 | **ADF** | Atlassian Document Format, the JSON rich-text format that Jira Cloud requires for issue bodies and comments. |
 
 ## Design Principles / Constraints
@@ -49,7 +51,8 @@ Its statuses are To Do, Design, In Progress, In Review and Done, with no Blocked
 3. **One switch, fail loudly.** Setting `JIRA_HOST` selects Jira. If a required companion variable is missing, the script stops with an error that names it. EDF never falls back to GitHub without saying so.
 4. **One script for all issue operations.** Skills and agents call the tracker script and never call `gh issue`, `gh project` or the Jira API directly. `gh pr` and `gh run` are unaffected. The script extends the existing `gh-create-issue.sh` contract (`created:<ref>` / `exists:<ref>`).
 5. **Credentials come from the environment only.** They are read from the OS environment first, then `.env`, using the existing `_edf_env.py` precedence. They are never written to committed files or logs.
-6. **Skills keep using Markdown.** Skills write and read issue bodies as Markdown. The tracker script converts to and from ADF.
+6. **Labels stay labels.** EDF labels (`kind:task`, `bug`, …) become Jira labels. Every issue is a Task except epics. The next item is the highest-ranked To Do issue.
+7. **Skills keep using Markdown.** Skills write and read issue bodies as Markdown. The tracker script converts to and from ADF.
 
 ## Roles
 
@@ -73,10 +76,17 @@ Every other epic depends on this one. It builds the single entry point, with a G
 ### Story 1.1: Select tracker from environment
 
 **As a** Project Maintainer,
-**I want to** switch EDF to Jira by setting the Jira env vars (host, email, API token, space key; names per Open Question 1),
+**I want to** switch EDF to Jira by setting `JIRA_HOST`, `JIRA_EMAIL`, `JIRA_API_TOKEN` and `JIRA_SPACE`,
 **so that** changing tracker needs no edits to code or skills.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given `JIRA_HOST` is unset, when any tracker operation runs, then it uses the GitHub backend and its output is byte-identical to today's `gh-create-issue.sh` / `gh-project-status.sh` output.
+- Given `JIRA_HOST`, `JIRA_EMAIL`, `JIRA_API_TOKEN` and `JIRA_SPACE` are set in the OS environment, when an operation runs, then it uses the Jira backend against that host and space.
+- Given the variables are set only in the repo's `.env`, when an operation runs, then the Jira backend is used; given a variable is set in both, then the OS value wins.
+- Given `JIRA_HOST` is set and any of `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_SPACE` is missing, when an operation runs, then it exits non-zero with `Error: JIRA_HOST is set but <VAR> is missing` and makes no GitHub or Jira call.
+- Given `JIRA_HOST` does not start with `https://`, when an operation runs, then it exits non-zero with `Error: JIRA_HOST must use https://`.
+- Given Jira returns 401 or 403, when an operation runs, then it exits non-zero with `Error: Jira authentication failed (<status>)` and the token value appears in no output.
 
 ---
 
@@ -88,7 +98,16 @@ Every other epic depends on this one. It builds the single entry point, with a G
 **I want to** create an issue from a title, Markdown body, labels and an optional parent epic, skipping it if an open issue with the same title already exists,
 **so that** `/kickoff`, `/architect` and `/bug` file work into the active tracker.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given no open issue has the exact title, when create runs with title, Markdown body and labels, then the issue is created as type Task with the body converted to ADF and the labels applied, and the script prints `created:SCRUM-<n>`.
+- Given an open issue with the exact same title exists, when create runs, then no issue is created and the script prints `exists:SCRUM-<n>`.
+- Given only a closed issue has that title, when create runs, then a new issue is created.
+- Given `--parent SCRUM-<e>` names an Epic, when create runs, then the new Task's `parent` is that epic.
+- Given `--parent` names an issue that does not exist, when create runs, then it exits non-zero with `Error: parent SCRUM-<e> not found` and creates nothing.
+- Given `--dry-run`, when create runs, then it prints the planned title, labels and parent and makes no write call.
+- Given the title contains quotes, `"`, `\` or JQL keywords, when the duplicate check runs, then it matches only the exact title and raises no error.
+- Given the GitHub backend, when create runs with the same arguments, then behaviour matches today's `gh-create-issue.sh`, and `--parent` adds the task to the epic body's checklist.
 
 ---
 
@@ -100,7 +119,15 @@ Every other epic depends on this one. It builds the single entry point, with a G
 **I want to** fetch an issue (title, Markdown body, labels, status, parent, children) and list issues by status or label,
 **so that** `/feature` can pick the next item and agents can read the brief.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given an issue exists, when view runs with its reference, then it prints JSON with `ref`, `title`, `body` (Markdown), `labels`, `status` (EDF board status), `parent` and `children` (refs).
+- Given a body containing headings, lists, code blocks and links, when it is created and then viewed, then the Markdown returned keeps the same headings, list items, code block content and link targets.
+- Given a reference that does not exist, when view runs, then it exits non-zero with `Error: SCRUM-<n> not found`.
+- Given issues in several statuses, when list runs with `--status todo`, then it returns only issues in To Do, ordered by Jira rank.
+- Given list runs with `--label kind:task`, then it returns only issues with that label.
+- Given more than 100 matching issues, when list runs, then it returns at most 100.
+- Given the GitHub backend, when view or list runs, then it returns the same JSON shape for GitHub issues.
 
 ---
 
@@ -112,7 +139,13 @@ Every other epic depends on this one. It builds the single entry point, with a G
 **I want to** replace an issue's body, add or remove labels, and add a Markdown comment,
 **so that** `/architect` and `/lld-sync` can enrich issues and record progress.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given an issue, when edit runs with `--body <markdown>`, then the issue body is replaced (stored as ADF) and the script prints `updated:<ref>`.
+- Given an issue, when edit runs with `--add-label a --remove-label b`, then `a` is present, `b` is absent, and other labels are unchanged.
+- Given `--remove-label` names a label the issue does not have, when edit runs, then it succeeds with no change.
+- Given an issue, when comment runs with Markdown text, then a comment with that content appears on the issue and the script prints `commented:<ref>`.
+- Given a reference that does not exist, when edit or comment runs, then it exits non-zero with `Error: <ref> not found`.
 
 ---
 
@@ -124,7 +157,14 @@ Every other epic depends on this one. It builds the single entry point, with a G
 **I want to** move an issue to `todo`, `in progress`, `blocked` or `done`,
 **so that** the tracker reflects pipeline progress.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given an issue in To Do, when status runs with `in progress`, `blocked` or `done`, then the issue moves via a Jira transition to In Progress, Blocked or Done respectively, and the script prints `<ref> → <status>`.
+- Given an issue already in the target status, when status runs, then it succeeds with no change.
+- Given the space has no status named `Blocked`, when status runs with `blocked`, then it exits non-zero with `Error: space SCRUM has no "Blocked" status — add it to the workflow`.
+- Given no transition leads from the current status to the target, when status runs, then it exits non-zero, naming the current and target statuses.
+- Given an unknown status value, when status runs, then it exits non-zero, listing `todo | in progress | blocked | done`.
+- Given the GitHub backend, when status runs, then behaviour matches today's `gh-project-status.sh`.
 
 ---
 
@@ -142,7 +182,13 @@ project.
 **I want to** create epics as Jira Epics and read epic progress from the statuses of its child tasks, instead of from checkboxes in the body,
 **so that** the epic model in ADR-0018 works in Jira.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given the Jira backend, when a skill creates an epic, then a Jira issue of type Epic is created and its reference is returned.
+- Given an epic with three child tasks, one in Done, when epic progress is read, then it reports 1 of 3 done and lists each child with its status.
+- Given all children of an epic are Done, when `/feature-end` completes the last task, then the epic is moved to Done.
+- Given some children are not Done, when `/feature-end` completes a task, then the epic's status is unchanged.
+- Given the GitHub backend, when the same steps run, then the epic body checkbox behaviour (`check-epic-checkbox.py`) is unchanged.
 
 ---
 
@@ -154,7 +200,13 @@ project.
 **I want to** use `SCRUM-123` in branch names, PR bodies and session logs, and have `/feature-end` move the issue to Done on merge,
 **so that** the issue still gets closed without GitHub's `Closes #N`.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given `/feature` picks `SCRUM-42`, when it creates the branch, then the branch name contains `SCRUM-42` in the position where `#42`'s number appears today.
+- Given a Jira-tracked feature, when the PR is created, then the body contains `Jira: SCRUM-42` and does not contain `Closes #`.
+- Given a Jira-tracked feature, when `/feature-end` merges the PR, then `SCRUM-42` is moved to Done.
+- Given session logs and cost tags for a Jira feature, when they are written, then they record `SCRUM-42` as the issue reference.
+- Given the GitHub backend, when the same flow runs, then branch names, the PR body (`Closes #N`) and logs are unchanged.
 
 ---
 
@@ -166,7 +218,11 @@ project.
 **I want to** have `/kickoff`, `/architect`, `/refactor-architect`, `/bug`, `/create-plan`, `/lld` and `gh-issue-manager` use the tracker script,
 **so that** design work files issues into Jira.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given the listed design skills and `gh-issue-manager`, when their files are searched, then they contain no `gh issue` or `gh project` command.
+- Given a Jira-configured fixture project, when `/architect` creates an epic and tasks, then they appear in the Jira space with the tasks parented to the epic, and no GitHub issue is created.
+- Given a GitHub-configured project, when `/architect` runs, then issues are created on GitHub as today.
 
 ---
 
@@ -178,7 +234,11 @@ project.
 **I want to** have `/feature`, `/feature-core`, `/feature-team`, `/feature-end`, `/lld-sync`, `/pr-review` and their agents use the tracker script,
 **so that** `/feature` runs on a Jira-tracked project.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given the listed implementation skills and their agents, when their files are searched, then they contain no `gh issue` or `gh project` command.
+- Given a Jira-configured project with a To Do task, when `/feature` runs, then it picks the top-ranked To Do task, moves it to In Progress, and reads its body via the tracker script.
+- Given the GitHub backend, when `/feature` runs, then it behaves as today.
 
 ---
 
@@ -190,7 +250,11 @@ project.
 **I want to** have `/backlog`, `/retro`, `/baseline` and `update-coverage-manifest.py` read through the tracker script,
 **so that** reports reflect Jira work items and no `gh issue` / `gh project` call is left outside the GitHub backend.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given `/backlog`, `/retro`, `/baseline` and `update-coverage-manifest.py`, when their files are searched, then they contain no `gh issue` or `gh project` command.
+- Given a Jira-configured project, when `/backlog` runs, then its report lists issues using `SCRUM-<n>` references.
+- Given any file under `plugins/edf/skills`, `plugins/edf/agents` or `plugins/edf/bin` other than the GitHub backend calls `gh issue` or `gh project`, when the test suite runs, then a test fails, naming the file and line.
 
 **Notes:** This is the last migration story, so its ACs include a test that fails on any direct `gh issue` / `gh project` call outside the GitHub backend.
 
@@ -206,7 +270,12 @@ project.
 **I want to** have `/setup` ask which tracker to use and write `.env` placeholders for the Jira variables,
 **so that** new adopters know exactly what to set.
 
-*(Acceptance criteria in next pass)*
+**Acceptance Criteria:**
+
+- Given `/setup` runs and the Maintainer picks Jira, when it finishes, then `.env` contains `JIRA_HOST=`, `JIRA_EMAIL=`, `JIRA_API_TOKEN=` and `JIRA_SPACE=` placeholders, and `.env` is in `.gitignore`.
+- Given `.env` already defines any of these, when `/setup` runs, then existing values are kept.
+- Given the Maintainer picks GitHub, when `/setup` finishes, then no Jira placeholders are written.
+- Given Jira is picked, when `/setup` finishes, then it reports that the space needs To Do, In Progress, Blocked and Done statuses.
 
 ---
 
@@ -231,7 +300,7 @@ project.
 
 - **Jira Server / Data Center, or OAuth.** V3 supports Cloud with an API token only.
 - **Company-managed Jira projects.** They link epics differently and use custom workflows.
-- **Configurable status or issue-type mapping.** V3 uses fixed defaults (see Open Questions); mapping can be added when a second project needs it.
+- **Configurable status or issue-type mapping.** V3 uses the fixed mapping in the Glossary; mapping can be added when a second project needs it.
 - **Moving code hosting off GitHub.** PRs, CI and reviews stay on GitHub.
 - **Migrating or syncing existing GitHub issues.** Only one tracker is active per project.
 - **Sprint management.**
@@ -239,12 +308,4 @@ project.
 
 ## Open Questions
 
-The proposed default for each question is option (a), the simplest choice.
-
-| # | Question | Context | Options | Impact |
-|---|----------|---------|---------|--------|
-| 1 | What are the env var names? | The machine already has the FCS test credentials `JIRA_TEST_SITE_URL`, `JIRA_TEST_EMAIL`, `JIRA_TEST_API_TOKEN` and `JIRA_TEST_SPACE_KEY`. | (a) `JIRA_HOST`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT`; (b) the FCS names without `_TEST` | Story 1.1 |
-| 2 | How is `blocked` represented? | SCRUM has no Blocked status. | (a) a `blocked` label, status unchanged; (b) the Jira flag | Story 1.4 |
-| 3 | How do statuses map? | Jira statuses are To Do, Design, In Progress, In Review and Done. | (a) fixed mapping: `todo`→To Do, `in progress`→In Progress, `done`→Done, with Design and In Review unused | Story 1.4 |
-| 4 | How does `/feature` pick the "top Todo" item? | Jira orders issues by rank. | (a) JQL `status = "To Do" ORDER BY rank`; (b) active sprint first | Story 1.3 |
-| 5 | Are EDF labels kept as labels or mapped to issue types? | EDF uses `kind:task`, `bug`, `enhancement`. | (a) keep them as Jira labels, with all issues of type Task except epics | Story 1.2 |
+None.
