@@ -4,8 +4,8 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.4 |
-| Status | Draft — Complete |
+| Version | 1.0 |
+| Status | Final |
 | Author | LS / Claude |
 | Created | 2026-11-14 |
 | Last updated | 2026-11-14 |
@@ -15,6 +15,7 @@
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 0.1 | 2026-11-14 | LS / Claude | Initial draft |
+| 1.0 | 2026-11-14 | LS / Claude | Final |
 | 0.4 | 2026-11-14 | LS / Claude | Back to REST API v3 with Markdown↔ADF conversion for a defined subset (DP7, Glossary), because FCS reads Jira bodies as ADF and v2 plain text would reach it as mangled wiki markup. The cost is a two-way converter in the script. Stories 2.3–2.5 merged into 2.3, a single routing story. |
 | 0.3 | 2026-11-14 | LS / Claude | Jira backend uses REST API v2 with Markdown stored unchanged, instead of converting to ADF. This removes a two-way converter, and the accepted cost is that Markdown looks rough in Jira's UI (DP7). Story 2.1 no longer auto-closes epics, to match today's GitHub behaviour. Story 2.2 changed from branch names to `FEATURE_ID`, because branches don't carry the issue number. Gate 2 fixes: 1.1 429/5xx AC; 1.2 `--type epic` and open-issue definition; 1.5 reopen AC; 2.3/2.4 negative ACs; 3.1 `.gitignore`. |
 | 0.2 | 2026-11-14 | LS / Claude | Gate 1 decisions: `JIRA_SPACE` var; Blocked status required; fixed status mapping, rank ordering and labels added as glossary and DP6; ACs written |
@@ -290,3 +291,8 @@ project.
 ## Open Questions
 
 None.
+
+## Next steps
+
+1. Add a Blocked status to the `SCRUM` workflow.
+2. Run `edf:kickoff plugins/edf/docs/requirements/v3-requirements.md` to produce HLD, ADRs, and implementation plan.
