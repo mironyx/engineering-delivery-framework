@@ -4,11 +4,11 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.3 |
+| Version | 0.4 |
 | Status | Draft — awaiting Gate 1 |
 | Author | LS / Claude |
 | Created | 2026-11-14 |
-| Last updated | 2026-11-14 |
+| Last updated | 2026-11-15 |
 | Requirements | [v3-requirements.md](../../requirements/v3-requirements.md) (v1.0) |
 | Mode | Delta against [v1 HLD](../v1/v1-design.md) |
 
@@ -16,6 +16,7 @@
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 0.4 | 2026-11-15 | LS / Claude | Gate 1 drift fixes: `close` operation (GitHub board Done + issue close + epic tick; Jira → Done) so `status` keeps `gh-project-status.sh` parity; GitHub `parent`/`children` source and `--type epic` label; parent-not-found error form; `tracker` is local-only; `starters/` brought into C3.7/C3.8 scope; Performance bullet; injection rule on GitHub side |
 | 0.3 | 2026-11-15 | LS / Claude | Pre-Gate 1 tidy: Flow 5 moved into Level 3; redundant diagram edge removed; C3.1/C3.3/C3.6 bullets tightened. No design change |
 | 0.2 | 2026-11-14 | LS / Claude | `edf:hld-review` and Gate 1 drift-scan fixes: dry-run and no-op rules; component↔requirement table; redaction scope; trust boundary named on C3.1/C3.3; `check-epic-checkbox.py` and `gh issue close` moved into C3.2; C3.5 asks C3.1 for tracker; C3.8 detection patterns; Flow 5 added |
 | 0.1 | 2026-11-14 | LS / Claude | Initial delta HLD — Levels 1–3 |
@@ -48,7 +49,7 @@ fails before any network call, naming the variable. Credentials never reach outp
 ### K2: Uniform issue operations
 
 One interface covers every issue operation the pipeline uses: create (with dedup by exact
-open title), view, list, edit, comment and status change. Both trackers return the same
+open title), view, list, edit, comment, status change and close. Both trackers return the same
 result lines and the same JSON shape, so callers never branch on tracker.
 
 ### K3: Rich-text round-trip
@@ -65,11 +66,12 @@ child task statuses rather than body checkboxes. Closing epics stays manual.
 ### K5: Tracker-aware feature identity and closure
 
 A Jira-tracked feature uses its issue key as `FEATURE_ID` throughout PR bodies, session logs
-and cost tags. The issue moves to Done when `/feature-end` merges, and only then.
+and cost tags. `/feature-end` closes the issue (Jira: moves it to Done) after a successful
+merge, and only then.
 
 ### K6: Single route for issue access
 
-No skill, agent or bin script reaches the tracker except through the tracker script. A test
+No skill, agent, bin script or starter template reaches the tracker except through the tracker script. A test
 enforces this so later drift fails CI rather than silently breaking Jira projects.
 
 ### K7: Guided tracker onboarding
@@ -95,8 +97,8 @@ workflow statuses they must provide.
 
 | Component | Stories |
 |---|---|
-| C3.1 Tracker Script | 1.1, 1.2, 1.3, 1.4, 1.5 |
-| C3.2 GitHub Backend | 1.1–1.5 (GitHub parity ACs), 2.1 AC4 |
+| C3.1 Tracker Script | 1.1, 1.2, 1.3, 1.4, 1.5, 2.2 AC4–5 (`close`) |
+| C3.2 GitHub Backend | 1.1–1.5 (GitHub parity ACs), 2.1 AC4, 2.2 AC6 |
 | C3.3 Jira Backend | 1.1–1.5 |
 | C3.4 Markdown↔ADF Converter | 1.2, 1.3, 1.4 |
 | C3.5 Feature Identity Resolver | 2.2 |
@@ -155,19 +157,23 @@ graph TD
 The single entry point for issue operations (DP4).
 
 - Exposes the operations `create`, `view`, `list`, `edit`, `comment`, `status`, with the
-  arguments in Stories 1.2–1.5.
+  arguments in Stories 1.2–1.5, plus `close <ref>`: the merge-time closure `/feature-end`
+  calls (Story 2.2). `status` changes board status only; `close` is the one operation that
+  closes an issue.
 - Resolves configuration through the existing env precedence (OS, then `.env`), selects the
   backend (GitHub when `JIRA_HOST` is unset, Jira otherwise) and, for Jira, validates all
   four variables and the `https://` host before any call.
 - `tracker` (no args) prints `github` or `jira`, so C3.5 and C3.6 ask rather than re-derive.
+  It is local only — no network call, and not a connection check (see Non-Goals).
 - Owns the output contract: one result line per write (`created:`, `exists:`, `updated:`,
-  `commented:`, `<ref> → <status>`), JSON for `view` and `list`, `Error: …` on stderr with
+  `commented:`, `closed:`, `<ref> → <status>`), JSON for `view` and `list`, `Error: …` on stderr with
   non-zero exit. Owns the status vocabulary (`todo | in progress | blocked | done`).
 - `--dry-run` prints the planned title, labels and parent and stops before any backend write;
   read-only checks (parent lookup, dedup) still run.
 - **Trust boundary:** the only component that reads credentials. Redaction rule: the token
   value never reaches stdout, stderr, session logs, issue bodies or Prometheus files; errors
-  name the variable. Not-found errors use one form, `Error: <ref> not found`.
+  name the variable. Not-found errors use `Error: <ref> not found`, except a missing `--parent`, which
+  reports `Error: parent <ref> not found` (Story 1.2).
 
 **Non-responsibilities:** does not talk to either API itself; does not convert rich text;
 does not compute epic progress; does not retry; does not fall back from Jira to GitHub.
@@ -178,10 +184,16 @@ Today's behaviour, moved behind C3.1 (DP2).
 
 - Absorbs `gh-create-issue.sh` and `gh-project-status.sh` behaviour unchanged, including
   `.github/project.env` board configuration and `--parent` appending to the epic checklist.
-- Implements view/list/edit/comment with `gh issue`, returning C3.1's JSON shape.
-- Absorbs `check-epic-checkbox.py`'s epic-body patching, so all GitHub issue writes live here.
-- `status done` closes the issue *and* sets the board status, matching today's `/feature-end`
-  sequence of board update plus `gh issue close`.
+- `--type epic` maps to the `epic` label (Story 1.2 AC4); there is no GitHub issue type.
+- Implements view/list/edit/comment with `gh issue`, returning C3.1's JSON shape. For `view`,
+  an epic's `children` are parsed from its body checklist and a task's `parent` from the
+  epic reference in its body (ADR-0018) — no native hierarchy is assumed.
+- `status` matches `gh-project-status.sh` exactly: board column only, never closes.
+- `close` reproduces today's `/feature-end` sequence: board → Done, `gh issue close`, then
+  tick the task's checkbox in the parent epic body (absorbing `check-epic-checkbox.py`), so
+  all GitHub issue writes live here.
+- Passes titles and bodies as quoted argv or files, never by shell concatenation. Dedup keeps
+  today's `in:title` search for parity; the LLD notes it is fuzzier than Jira's exact match.
 - Is the only code permitted to call `gh issue`, `gh project` or `gh api …/issues`
   (C3.8's allow-list).
 
@@ -204,6 +216,7 @@ Implements the operations against one team-managed Jira Cloud space (DP1).
   Blocked status and unreachable transitions by name. A change to the current status is a
   no-op checked first, since Jira may reject a self-transition.
 - Maps EDF labels one-to-one onto Jira labels (DP6); removing an absent label is a no-op.
+- `close` is the transition to Done; an issue already in Done is a no-op.
 
 **Non-responsibilities:** nothing in the requirements' *What We Are NOT Building* list; no
 Markdown parsing — it hands bodies to C3.4.
@@ -241,29 +254,33 @@ Answers "how far along is this epic?" for either tracker (Story 2.1).
 
 - Jira: children from `view`, status of each child; reports `done of total` and per-child
   status.
-- GitHub: checkbox behaviour unchanged, now inside C3.2 and reached through C3.1; C3.6 makes
-  no direct GitHub call.
+- GitHub: checkbox behaviour unchanged — ticked by C3.2's `close`, progress read from the
+  `children` that `view` parses from the checklist; C3.6 makes no direct GitHub call.
 
 **Non-responsibilities:** never closes or transitions an epic.
 
 ### C3.7: Pipeline Call Sites
 
-Every skill, agent, flowchart and bin file that currently calls `gh issue` / `gh project`
-(27 files today; the requirements' "about 20" undercounted flowcharts and bin scripts).
+Every skill, agent, flowchart, bin file and `starters/` template that currently calls or
+instructs `gh issue` / `gh project` (28 files today, including
+`starters/CLAUDE.md.template`; the requirements' "about 20" undercounted these).
 
 - Replace each call with the equivalent C3.1 operation; read `ref` values as opaque strings
   (`#123` or `SCRUM-123`), never as integers.
 - Stop and report on any non-zero tracker exit, listing references already created.
 - `/feature` selects the top-ranked `todo` task and stops with `No Todo items` when none.
+- `/feature-end` replaces its board update, `gh issue close` and checkbox tick with one
+  `close <ref>`, called only after the merge succeeds.
 
 **Non-responsibilities:** no behaviour change on GitHub beyond the call route.
 
 ### C3.8: Issue-Access Guard
 
-A test in `tests/` that fails, naming file and line, when any file under `skills/`, `agents/`
-or `bin/` outside C3.2 matches an issue-access pattern: `gh issue` / `gh project` in shell
+A test in `tests/` that fails, naming file and line, when any file under `skills/`, `agents/`,
+`bin/` or `starters/` outside C3.2 matches an issue-access pattern: `gh issue` / `gh project` in shell
 form, the argv form (`"gh", "issue"`, `"gh", "project"`), or `gh api` with a path containing
-`/issues`.
+`/issues`. The `starters/` scope, argv form and `gh api` patterns go beyond Story 2.3 AC1 by
+design, so drift cannot re-enter through templates or Python callers.
 
 **Non-responsibilities:** does not police `gh pr`, `gh run` or `gh api` for non-issue paths.
 
@@ -352,14 +369,14 @@ sequenceDiagram
   Note over F,E: human reviews PR, runs /feature-end
   E->>E: merge PR
   alt merge succeeded
-    E->>T: status SCRUM-42 done
+    E->>T: close SCRUM-42
   else merge failed
     E-->>E: stop; issue untouched
   end
 ```
 
 Contracts to pin: the `FEATURE_ID` resolution order across the five bin consumers, and the
-ordering rule "transition only after merge returns success".
+ordering rule "`close` only after merge returns success".
 
 ### Flow 4: Body round-trip
 
@@ -383,7 +400,9 @@ need no diagram.
 - **Compatibility:** with `JIRA_HOST` unset, the existing script tests must pass unchanged
   against C3.2. The old script names stay as thin shims until C3.7 lands, so call sites can
   migrate in several PRs.
-- **Observability:** one machine-parseable result line per operation; no new metrics.
+- **Performance:** list results capped at 100; no retries — 429/5xx fail with a named error.
+- **Observability:** one machine-parseable result line per write, JSON for `view`/`list`; no
+  new metrics.
 
 ## Open Questions (for LLD)
 
@@ -394,6 +413,7 @@ need no diagram.
 
 - [v3 requirements](../../requirements/v3-requirements.md)
 - ADR-0041 — tracker abstraction (to be drafted in kickoff Step 5)
-- [ADR-0018](../../adr/0018-epic-task-organisation.md) — epic model (revision note for Jira)
+- [ADR-0018](../../adr/0018-epic-task-organisation.md) — epic model (revision note for Jira:
+  native Epic type, `parent` link, and progress rolled up from child statuses)
 - [ADR-0026](../../adr/0026-stable-ids-requirements-lld.md) — REQ anchors
 - [ADR-0037](../../adr/0037-incremental-session-logging.md) — session-log naming
