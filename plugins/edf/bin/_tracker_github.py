@@ -86,9 +86,10 @@ def _issue_node(result: subprocess.CompletedProcess[str]) -> dict | None:
         raise TrackerError("unexpected gh api graphql response") from e
 
 
-def _fetch_issue(number: int, repo: str | None = None) -> dict | None:
-    """Issue without board fields (no read:project scope needed); None when it does not exist."""
-    result = _issue_query(number, repo, board=False)
+def _fetch_issue(number: int, repo: str | None = None, *, board: bool = True) -> dict | None:
+    """The issue node, or None when it does not exist. board=False skips projectItems, which
+    needs the read:project token scope — create uses it, since it never reads board fields."""
+    result = _issue_query(number, repo, board=board)
     if result.returncode != 0:
         if _NOT_FOUND in result.stderr:
             return None
@@ -250,14 +251,17 @@ def _link_child(epic_node: dict, child: int, title: str) -> None:
 # Justification: an issue found by dedup may predate --parent; its body gets the same
 # '## Parent epic' section a new issue is created with (AC: "new (or existing)").
 def _ensure_parent_section(number: int, parent: int, title: str) -> None:
-    node = _fetch_issue(number)
+    node = _fetch_issue(number, board=False)
     if node is None:
         raise TrackerError(f"issue #{number} not found")
     if node["title"] != title:  # dedup is a fuzzy in:title match; never link a different issue
         raise TrackerError(f"issue #{number} title differs")
     body = _with_parent_section(node["body"], parent)
-    if body != node["body"] and _write_body(number, body).returncode != 0:
-        raise TrackerError(f"failed to update issue #{number}")
+    if body == node["body"]:
+        return
+    result = _write_body(number, body)
+    if result.returncode != 0:
+        raise TrackerError(f"failed to update issue #{number}: {result.stderr.strip()}")
 
 
 # Justification: shared by the created and dedup-hit paths of create; one place turns any link
@@ -317,7 +321,7 @@ def create(args: argparse.Namespace, ctx: object) -> int:
     parent_node = None
     if args.parent is not None:
         parent = _parse_ref(args.parent)
-        parent_node = _fetch_issue(parent)
+        parent_node = _fetch_issue(parent, board=False)
         if parent_node is None:
             raise TrackerError(f"parent #{parent} not found")
 

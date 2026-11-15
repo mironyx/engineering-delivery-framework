@@ -490,6 +490,13 @@ class TestCreateParent:
         assert _flag(task["argv"], "--body-file") == "-"
         assert task["stdin"] == "## Parent epic\n#7\n\nOld"
 
+    def test_dedup_hit_task_write_failure_names_gh_error(self, fake_gh):
+        # PR #125 review round 2: the existing-issue body write carries gh's stderr too.
+        fake_gh.rules([_issue_rule(7, body=f"## Tasks\n{PLACEHOLDER}\n"), _issue_rule(17, title=TITLE, body="Old"),
+                       _dup(17), {"argv_prefix": ["issue", "edit", "17"], "stderr": "HTTP 403\n", "exit": 1}])
+        result = _run(fake_gh.repo, "create", *BASE, "--parent", "#7")
+        _ok(result, "exists:17\n", "Warning: failed to link #17 to epic #7: failed to update issue #17: HTTP 403\n")
+
     def test_dedup_near_match_is_not_linked(self, fake_gh):
         # PR #125 review: in:title is fuzzy; an issue whose title only contains ours is left alone.
         fake_gh.rules([_issue_rule(7, body=f"## Tasks\n{PLACEHOLDER}\n"),
