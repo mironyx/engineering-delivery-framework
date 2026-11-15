@@ -415,7 +415,7 @@ need no diagram.
 ## References
 
 - [v3 requirements](../../requirements/v3-requirements.md)
-- ADR-0041 — tracker abstraction (to be drafted in kickoff Step 5)
+- [ADR-0041](../../adr/0041-tracker-abstraction.md) — tracker abstraction
 - [ADR-0018](../../adr/0018-epic-task-organisation.md) — epic model (revision note for Jira:
   native Epic type, `parent` link, and progress rolled up from child statuses)
 - [ADR-0026](../../adr/0026-stable-ids-requirements-lld.md) — REQ anchors
