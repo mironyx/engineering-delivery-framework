@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tracker-agnostic issue CLI (ADR-0041).
 
+Design reference: plugins/edf/docs/design/v3/lld-v3-e3-1-tracker-script.md §1.1
+
 Parses every operation, resolves configuration (OS env, then the main
 checkout's .env), selects the backend and dispatches. Never calls an API itself.
 
@@ -148,8 +150,8 @@ def _parse(argv: list[str]) -> argparse.Namespace:
 def _git(*args: str) -> str | None:
     try:
         result = subprocess.run(["git", "rev-parse", *args], capture_output=True, text=True)
-    except OSError:  # git not installed: behave as outside a repo, no traceback (I5)
-        return None
+    except OSError as e:  # git missing: fail loudly through the Error contract (I5)
+        raise TrackerError("git is not installed or not on PATH") from e
     return result.stdout.strip() if result.returncode == 0 else None
 
 

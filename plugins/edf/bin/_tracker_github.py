@@ -1,6 +1,8 @@
 """GitHub backend for tracker.py (ADR-0041).
 
 Stub until E3.1 T2–T4 port the bash scripts: every operation raises TrackerError.
+
+Design reference: plugins/edf/docs/design/v3/lld-v3-e3-1-tracker-script.md §1.2–§1.4
 """
 
 from __future__ import annotations

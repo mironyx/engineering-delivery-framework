@@ -8,13 +8,19 @@ FAKE_GH_LOG: every call appends {"argv": [...], "stdin": "..."} as one JSON line
 
 import json
 import os
+import select
 import sys
+
+# A caller that passes input= (or DEVNULL) makes stdin readable at once; an inherited pipe
+# that never closes must not hang the test, so stop waiting after this many seconds.
+_STDIN_WAIT_SECONDS = 2.0
 
 
 def _read_stdin() -> str:
     if sys.stdin is None or sys.stdin.isatty():
         return ""
-    return sys.stdin.read()
+    ready, _, _ = select.select([sys.stdin], [], [], _STDIN_WAIT_SECONDS)
+    return sys.stdin.read() if ready else ""
 
 
 def main(argv: list[str]) -> int:

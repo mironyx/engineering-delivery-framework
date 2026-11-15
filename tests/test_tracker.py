@@ -602,12 +602,11 @@ class TestEvaluatorGaps:
         assert result.returncode == 0, result.stderr
         assert result.stdout == "jira\n"
 
-    def test_git_missing_from_path_falls_back_to_cwd_without_traceback(self, tmp_path):
-        """I5: no git on PATH behaves as outside a repo (cwd .env), never a traceback."""
-        _write_dotenv(tmp_path, {"JIRA_HOST": HOST})
+    def test_git_missing_from_path_is_an_error_without_traceback(self, tmp_path):
+        """I5: no git on PATH fails through the Error contract, never a traceback."""
         result = subprocess.run(
             [sys.executable, str(TRACKER), "tracker"],
             cwd=tmp_path, capture_output=True, text=True, timeout=30,
             env={"PATH": str(tmp_path / "no-such-dir")},
         )  # fmt: skip
-        _assert_error(result, "Error: JIRA_HOST is set but JIRA_EMAIL is missing")
+        _assert_error(result, "Error: git is not installed or not on PATH")

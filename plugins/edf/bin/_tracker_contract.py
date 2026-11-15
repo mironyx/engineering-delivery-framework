@@ -3,6 +3,8 @@
 Every backend raises TrackerError; tracker.main turns it into one ``Error: …``
 line on stderr and exit 1. The status vocabulary and the Issue JSON shape are
 the same for every tracker.
+
+Design reference: plugins/edf/docs/design/v3/lld-v3-e3-1-tracker-script.md §1.1
 """
 
 from __future__ import annotations
