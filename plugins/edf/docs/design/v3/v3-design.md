@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.2 |
+| Version | 0.3 |
 | Status | Draft — awaiting Gate 1 |
 | Author | LS / Claude |
 | Created | 2026-11-14 |
@@ -16,6 +16,7 @@
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 0.3 | 2026-11-15 | LS / Claude | Pre-Gate 1 tidy: Flow 5 moved into Level 3; redundant diagram edge removed; C3.1/C3.3/C3.6 bullets tightened. No design change |
 | 0.2 | 2026-11-14 | LS / Claude | `edf:hld-review` and Gate 1 drift-scan fixes: dry-run and no-op rules; component↔requirement table; redaction scope; trust boundary named on C3.1/C3.3; `check-epic-checkbox.py` and `gh issue close` moved into C3.2; C3.5 asks C3.1 for tracker; C3.8 detection patterns; Flow 5 added |
 | 0.1 | 2026-11-14 | LS / Claude | Initial delta HLD — Levels 1–3 |
 
@@ -140,7 +141,6 @@ graph TD
   EP --> TS
   TS --> ENV
   FI --> TS
-  EP -.no direct GitHub call.-> TS
   TS -->|JIRA_HOST unset| GH
   TS -->|JIRA_HOST set| JB
   JB --> CV
@@ -156,18 +156,15 @@ The single entry point for issue operations (DP4).
 
 - Exposes the operations `create`, `view`, `list`, `edit`, `comment`, `status`, with the
   arguments in Stories 1.2–1.5.
-- Resolves configuration through the existing env precedence (OS, then `.env`) and selects
-  the backend: GitHub when `JIRA_HOST` is unset, Jira otherwise.
-- Validates Jira configuration before any call: all four variables present, `https://` host.
+- Resolves configuration through the existing env precedence (OS, then `.env`), selects the
+  backend (GitHub when `JIRA_HOST` is unset, Jira otherwise) and, for Jira, validates all
+  four variables and the `https://` host before any call.
+- `tracker` (no args) prints `github` or `jira`, so C3.5 and C3.6 ask rather than re-derive.
 - Owns the output contract: one result line per write (`created:`, `exists:`, `updated:`,
   `commented:`, `<ref> → <status>`), JSON for `view` and `list`, `Error: …` on stderr with
-  non-zero exit.
-- Owns the logical status vocabulary (`todo | in progress | blocked | done`) and rejects
-  anything else.
-- `--dry-run` is resolved here: print the planned title, labels and parent and stop before
-  any backend write; read-only checks (parent lookup, dedup) still run.
-- Owns tracker selection: `tracker` (no args) prints `github` or `jira`, so other components
-  (C3.5, C3.6) ask rather than re-derive it.
+  non-zero exit. Owns the status vocabulary (`todo | in progress | blocked | done`).
+- `--dry-run` prints the planned title, labels and parent and stops before any backend write;
+  read-only checks (parent lookup, dedup) still run.
 - **Trust boundary:** the only component that reads credentials. Redaction rule: the token
   value never reaches stdout, stderr, session logs, issue bodies or Prometheus files; errors
   name the variable. Not-found errors use one form, `Error: <ref> not found`.
@@ -204,10 +201,9 @@ Implements the operations against one team-managed Jira Cloud space (DP1).
   JQL search, token-paged) is pinned in the LLD against Atlassian's docs.
 - Creates Tasks and Epics; sets `parent`; validates the parent exists before writing.
 - Changes status through workflow transitions using the fixed mapping; reports a missing
-  Blocked status and unreachable transitions by name.
+  Blocked status and unreachable transitions by name. A change to the current status is a
+  no-op checked first, since Jira may reject a self-transition.
 - Maps EDF labels one-to-one onto Jira labels (DP6); removing an absent label is a no-op.
-- Status change to the current status is a no-op checked before any transition, since Jira
-  may reject a self-transition.
 
 **Non-responsibilities:** nothing in the requirements' *What We Are NOT Building* list; no
 Markdown parsing — it hands bodies to C3.4.
@@ -245,8 +241,8 @@ Answers "how far along is this epic?" for either tracker (Story 2.1).
 
 - Jira: children from `view`, status of each child; reports `done of total` and per-child
   status.
-- GitHub: the checkbox-tick behaviour is unchanged, but it now runs inside C3.2 and is
-  reached through C3.1 — C3.6 makes no direct GitHub call.
+- GitHub: checkbox behaviour unchanged, now inside C3.2 and reached through C3.1; C3.6 makes
+  no direct GitHub call.
 
 **Non-responsibilities:** never closes or transitions an epic.
 
@@ -371,6 +367,13 @@ ordering rule "transition only after merge returns success".
 UI outside the subset come back as text. No diagram: the flow is a pure function pair. The
 Level 4 contract is the node mapping table and the round-trip equivalence rules in Story 1.3.
 
+### Flow 5: Epic progress
+
+C3.6 calls `view <epic>` through C3.1, then `view` on each child ref, and reports
+`done of total` with per-child status. Contract to pin: whether `view` adds a per-child status
+field to avoid N calls (see Open Question 1). Edit, comment and `/setup` are single-hop and
+need no diagram.
+
 ---
 
 ## Cross-Cutting Concerns
@@ -381,13 +384,6 @@ Level 4 contract is the node mapping table and the round-trip equivalence rules 
   against C3.2. The old script names stay as thin shims until C3.7 lands, so call sites can
   migrate in several PRs.
 - **Observability:** one machine-parseable result line per operation; no new metrics.
-
-### Flow 5: Epic progress
-
-C3.6 calls `view <epic>` through C3.1, then `view` on each child ref, and reports
-`done of total` with per-child status. Contract to pin: whether `view` adds a per-child status
-field to avoid N calls (see Open Question 1). Edit, comment and `/setup` are single-hop and
-need no diagram.
 
 ## Open Questions (for LLD)
 
