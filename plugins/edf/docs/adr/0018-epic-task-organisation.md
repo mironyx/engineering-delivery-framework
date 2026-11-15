@@ -1,7 +1,8 @@
 # 0018. Epic/Task Work Organisation
 
 **Date:** 2026-04-02
-**Status:** Accepted
+**Status:** Accepted — revised 2026-11-15 for Jira-tracked projects (see
+[Revision](#revision--2026-11-15))
 **Deciders:** LS / Claude
 
 ## Context
@@ -70,3 +71,31 @@ LLD file named `lld-<epic-slug>-<task-slug>.md`.
 - `/feature-team` skill updated to validate epic membership when picking tasks.
 - `/lld` skill updated to use `lld-<epic-slug>-<task-slug>.md` naming.
 - Existing `lld-phase-*` files remain — no retroactive rename.
+
+## Revision — 2026-11-15
+
+**Status of this section:** amends the Decision above for projects whose tracker is Jira
+([ADR-0041](0041-tracker-abstraction.md), [v3 HLD](../design/v3/v3-design.md)). On GitHub
+the original Decision stands unchanged. Where the two conflict on a Jira project, this section
+governs.
+
+The epic/task model, the one-LLD-per-task rule and the LLD naming are unchanged. What differs
+is how the tracker represents the hierarchy:
+
+| | GitHub (unchanged) | Jira |
+|---|---|---|
+| Epic | Issue with `epic` label | Native Epic issue type |
+| Task → epic link | Epic body checklist; task body references the epic | Task's `parent` field |
+| Epic progress | Read from checklist ticks | Rolled up from child task statuses (`done of total`) |
+| Task completion | `/feature-end` ticks the epic checkbox | `/feature-end` moves the task to Done; epic body untouched |
+| Epic closure | Manual | Manual |
+
+- **"No automated rollup" no longer holds on Jira.** Progress is computed from child statuses
+  (Story 2.1), because Jira holds the hierarchy natively and a body checklist would duplicate
+  it and drift.
+- **The epic body stays a container description on Jira.** It keeps scope, success criteria
+  and REQ- anchors (ADR-0026); `/architect` does not write a task checklist into it.
+- **Skills never branch on this.** Both representations sit behind the tracker script
+  (ADR-0041): `create --type epic`, `create --parent`, `view` (`parent`, `children`) and
+  `close` behave the same way from the caller's side.
+
