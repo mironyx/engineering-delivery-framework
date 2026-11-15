@@ -1,0 +1,18 @@
+{
+  "script": "gh-project-status.sh",
+  "argv": [
+    "42",
+    "todo"
+  ],
+  "tracker_argv": [
+    "status",
+    "42",
+    "todo"
+  ],
+  "setup": {},
+  "rules": [],
+  "compare": "exact",
+  "stdout": "",
+  "stderr": "Error: config file not found: {cwd}/.github/project.env\nCreate it with REPO, PROJECT_NUMBER, PROJECT_ID, FIELD_ID, and STATUS_* values.\nSee this script's header for the format.\n",
+  "exit": 1
+}

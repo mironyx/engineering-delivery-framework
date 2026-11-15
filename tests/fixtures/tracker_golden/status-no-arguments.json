@@ -1,0 +1,13 @@
+{
+  "script": "gh-project-status.sh",
+  "argv": [],
+  "tracker_argv": null,
+  "setup": {
+    "project_env": true
+  },
+  "rules": [],
+  "compare": "exact",
+  "stdout": "Usage: {script} <issue-number> <status>\n       {script} add <issue-number> [status]\n       {script} remove <issue-number>\nStatus: todo | blocked | \"in progress\" | done\n",
+  "stderr": "",
+  "exit": 1
+}

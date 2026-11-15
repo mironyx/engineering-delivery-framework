@@ -1,0 +1,21 @@
+{
+  "script": "gh-project-status.sh",
+  "argv": [
+    "42",
+    "todo"
+  ],
+  "tracker_argv": [
+    "status",
+    "42",
+    "todo"
+  ],
+  "setup": {
+    "project_env": true,
+    "omit_var": "FIELD_ID"
+  },
+  "rules": [],
+  "compare": "exact",
+  "stdout": "",
+  "stderr": "Error: FIELD_ID not set in {cwd}/.github/project.env\n",
+  "exit": 1
+}

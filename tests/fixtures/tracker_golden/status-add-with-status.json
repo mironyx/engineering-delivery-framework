@@ -1,0 +1,37 @@
+{
+  "script": "gh-project-status.sh",
+  "argv": [
+    "add",
+    "42",
+    "blocked"
+  ],
+  "tracker_argv": [
+    "status",
+    "42",
+    "blocked",
+    "--add-to-board"
+  ],
+  "setup": {
+    "project_env": true
+  },
+  "rules": [
+    {
+      "argv_prefix": [
+        "project",
+        "item-add"
+      ],
+      "stdout": "{\"id\":\"PVTI_new\"}\n"
+    },
+    {
+      "argv_prefix": [
+        "project",
+        "item-edit"
+      ],
+      "stdout": ""
+    }
+  ],
+  "compare": "exact",
+  "stdout": "Issue #42 → added → blocked\n",
+  "stderr": "",
+  "exit": 0
+}

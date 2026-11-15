@@ -106,9 +106,9 @@ def _parse_create(rest: list[str]) -> argparse.Namespace:
             setattr(args, _CREATE_VALUE_FLAGS[arg], value)
         else:
             raise TrackerError(f"unknown option '{arg}'")
-    if args.title is None:
+    if not args.title:  # empty counts as missing, as bash's [[ -z ]] did
         raise TrackerError("--title is required")
-    if args.body is None:
+    if not args.body:
         raise TrackerError("--body is required")
     return args
 

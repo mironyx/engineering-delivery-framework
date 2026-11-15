@@ -1,0 +1,49 @@
+{
+  "script": "gh-create-issue.sh",
+  "argv": [
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two",
+    "--add-to-board"
+  ],
+  "tracker_argv": [
+    "create",
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two",
+    "--add-to-board"
+  ],
+  "setup": {
+    "project_env": true
+  },
+  "rules": [
+    {
+      "argv_prefix": [
+        "issue",
+        "list"
+      ],
+      "stdout": ""
+    },
+    {
+      "argv_prefix": [
+        "issue",
+        "create"
+      ],
+      "stdout": "https://github.com/owner/repo/issues/42\n"
+    },
+    {
+      "argv_prefix": [
+        "project",
+        "item-add"
+      ],
+      "stderr": "boom\n",
+      "exit": 1
+    }
+  ],
+  "compare": "exact",
+  "stdout": "created:42\n",
+  "stderr": "Warning: failed to add #42 to board\n",
+  "exit": 0
+}

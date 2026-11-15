@@ -1,0 +1,37 @@
+{
+  "script": "gh-create-issue.sh",
+  "argv": [
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two"
+  ],
+  "tracker_argv": [
+    "create",
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two"
+  ],
+  "setup": {},
+  "rules": [
+    {
+      "argv_prefix": [
+        "issue",
+        "list"
+      ],
+      "stdout": ""
+    },
+    {
+      "argv_prefix": [
+        "issue",
+        "create"
+      ],
+      "stdout": "https://github.com/owner/repo/issues/42\n"
+    }
+  ],
+  "compare": "exact",
+  "stdout": "created:42\n",
+  "stderr": "",
+  "exit": 0
+}

@@ -1,0 +1,36 @@
+{
+  "script": "gh-project-status.sh",
+  "argv": [
+    "42",
+    "done"
+  ],
+  "tracker_argv": [
+    "status",
+    "42",
+    "done"
+  ],
+  "setup": {
+    "project_env": true
+  },
+  "rules": [
+    {
+      "argv_prefix": [
+        "api",
+        "graphql"
+      ],
+      "stdout": "{\"data\": {\"repository\": {\"issue\": {\"number\": 42, \"title\": \"Some issue\", \"body\": \"Body\", \"state\": \"OPEN\", \"labels\": {\"nodes\": []}, \"projectItems\": {\"nodes\": [{\"id\": \"PVTI_item\", \"project\": {\"id\": \"PVT_abc\"}, \"fieldValues\": {\"nodes\": []}}]}}}}}\n"
+    },
+    {
+      "argv_prefix": [
+        "project",
+        "item-edit"
+      ],
+      "stderr": "edit failed\n",
+      "exit": 1
+    }
+  ],
+  "compare": "exact",
+  "stdout": "",
+  "stderr": "edit failed\n",
+  "exit": 1
+}

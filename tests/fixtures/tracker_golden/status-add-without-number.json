@@ -1,0 +1,15 @@
+{
+  "script": "gh-project-status.sh",
+  "argv": [
+    "add"
+  ],
+  "tracker_argv": null,
+  "setup": {
+    "project_env": true
+  },
+  "rules": [],
+  "compare": "exact",
+  "stdout": "Usage: {script} add <issue-number> [status]\n",
+  "stderr": "",
+  "exit": 1
+}

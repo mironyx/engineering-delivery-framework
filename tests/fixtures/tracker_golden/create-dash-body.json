@@ -1,0 +1,32 @@
+{
+  "script": "gh-create-issue.sh",
+  "argv": [
+    "--title",
+    "T",
+    "--body",
+    "--y",
+    "--dry-run"
+  ],
+  "tracker_argv": [
+    "create",
+    "--title",
+    "T",
+    "--body",
+    "--y",
+    "--dry-run"
+  ],
+  "setup": {},
+  "rules": [
+    {
+      "argv_prefix": [
+        "issue",
+        "list"
+      ],
+      "stdout": ""
+    }
+  ],
+  "compare": "exact",
+  "stdout": "dry-run: would create issue\n  title:  T\n  labels: <none>\n  board:  false (status: todo)\n  body:\n    --y\n",
+  "stderr": "",
+  "exit": 0
+}

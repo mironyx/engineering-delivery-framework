@@ -1,0 +1,24 @@
+{
+  "script": "gh-create-issue.sh",
+  "argv": [
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two",
+    "--bogus"
+  ],
+  "tracker_argv": [
+    "create",
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two",
+    "--bogus"
+  ],
+  "setup": {},
+  "rules": [],
+  "compare": "exact",
+  "stdout": "",
+  "stderr": "Error: unknown option '--bogus'\n",
+  "exit": 1
+}

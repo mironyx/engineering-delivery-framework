@@ -1,0 +1,39 @@
+{
+  "script": "gh-create-issue.sh",
+  "argv": [
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two"
+  ],
+  "tracker_argv": [
+    "create",
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two"
+  ],
+  "setup": {},
+  "rules": [
+    {
+      "argv_prefix": [
+        "issue",
+        "list"
+      ],
+      "stdout": ""
+    },
+    {
+      "argv_prefix": [
+        "issue",
+        "create"
+      ],
+      "stdout": "https://github.com/owner/repo/issues/new\n"
+    }
+  ],
+  "compare": "exact",
+  "stdout": "",
+  "stderr": "",
+  "exit": 1,
+  "port_stdout": "",
+  "port_stderr": "Error: could not extract issue number from: https://github.com/owner/repo/issues/new\n"
+}

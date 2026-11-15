@@ -1,0 +1,30 @@
+{
+  "script": "gh-create-issue.sh",
+  "argv": [
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two"
+  ],
+  "tracker_argv": [
+    "create",
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two"
+  ],
+  "setup": {},
+  "rules": [
+    {
+      "argv_prefix": [
+        "issue",
+        "list"
+      ],
+      "stdout": "17\n"
+    }
+  ],
+  "compare": "exact",
+  "stdout": "exists:17\n",
+  "stderr": "",
+  "exit": 0
+}

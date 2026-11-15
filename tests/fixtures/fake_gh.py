@@ -1,8 +1,9 @@
 """Fake `gh` executable driven by a scenario file.
 
 FAKE_GH_SCENARIO: JSON list of rules {"argv_prefix": [...], "stdout": "", "stderr": "", "exit": 0};
-the first rule whose prefix matches argv wins. No match → stderr
-"fake gh: unexpected call <argv>", exit 97. A missing scenario file means no rules.
+the first rule whose prefix matches argv wins. An optional "argv_contains": [...] further requires
+every listed element to appear somewhere in argv (e.g. "number=7" to tell GraphQL lookups apart).
+No match → stderr "fake gh: unexpected call <argv>", exit 97. A missing scenario file means no rules.
 FAKE_GH_LOG: every call appends {"argv": [...], "stdin": "..."} as one JSON line.
 """
 
@@ -35,7 +36,8 @@ def main(argv: list[str]) -> int:
             rules = json.load(f)
     for rule in rules:
         prefix = rule.get("argv_prefix", [])
-        if argv[: len(prefix)] == prefix:
+        contains = rule.get("argv_contains", [])
+        if argv[: len(prefix)] == prefix and all(item in argv for item in contains):
             sys.stdout.write(rule.get("stdout", ""))
             sys.stderr.write(rule.get("stderr", ""))
             return int(rule.get("exit", 0))
