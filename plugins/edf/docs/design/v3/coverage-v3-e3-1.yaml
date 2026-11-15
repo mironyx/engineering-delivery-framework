@@ -1,0 +1,58 @@
+epic: v3-e3-1
+entries:
+  # --- Story split (implementation plan, "Story split across epics") ----------------
+  # Stories 1.1-1.5 close in two halves: this epic delivers the tracker contract and
+  # every GitHub AC; E3.2 (coverage-v3-e3-2.yaml) delivers the Jira ACs for the same
+  # anchors. Do not mark Implemented until both halves have merged.
+  # ---------------------------------------------------------------------------------
+
+  - req: REQ-tracker-script-select-tracker-from-environment
+    lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-entry-point
+    issue: 118
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.1 AC1-AC5. AC1 byte-identical output also verified in #LLD-v3-e3-1-github-create-status.
+    # Jira half (AC6, AC7): E3.2.
+
+  - req: REQ-tracker-script-create-issue
+    lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-create-status
+    issue: 119
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.2 GitHub AC9, AC4 (--type epic label), AC7 (--dry-run), AC8 (quoting on GitHub).
+    # Jira half (AC1-AC6, AC8 JQL escaping): E3.2.
+
+  - req: REQ-tracker-script-view-and-list-issues
+    lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-read-edit
+    issue: 120
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.3 GitHub AC9 (shared JSON shape). Jira half (AC1-AC8): E3.2.
+
+  - req: REQ-tracker-script-edit-and-comment
+    lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-read-edit
+    issue: 120
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.4 AC1-AC5 on GitHub. Jira half: E3.2.
+
+  - req: REQ-tracker-script-change-status
+    lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-create-status
+    issue: 119
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.5 GitHub AC7. AC6 (status vocabulary) in #LLD-v3-e3-1-entry-point.
+    # Jira half (AC1-AC5): E3.2.
+
+  - req: REQ-pipeline-on-jira-native-epics
+    lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-close
+    issue: 121
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 2.1 AC4 only (GitHub checkbox via close). AC1-AC3: E3.3.
