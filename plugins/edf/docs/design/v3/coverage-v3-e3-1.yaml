@@ -9,8 +9,11 @@ entries:
   - req: REQ-tracker-script-select-tracker-from-environment
     lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-entry-point
     issue: 118
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/bin/tracker.py
+      - plugins/edf/bin/_tracker_contract.py
+      - plugins/edf/bin/_tracker_github.py
+    status: Approved  # GitHub half merged (#118); Implemented once the E3.2 Jira half merges
     lld_revision: r1
     # Story 1.1 AC1-AC5. AC1 byte-identical output also verified in #LLD-v3-e3-1-github-create-status.
     # Jira half (AC6, AC7): E3.2.

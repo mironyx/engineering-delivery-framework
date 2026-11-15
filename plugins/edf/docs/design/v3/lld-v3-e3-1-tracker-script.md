@@ -4,10 +4,11 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.1 |
-| Status | Draft |
+| Version | 0.2 |
+| Status | Revised |
 | Author | LS / Claude |
 | Created | 2026-11-15 |
+| Revised | 2026-11-15 — Issue #118: §1.1 Part B (tracker.py decomposition, fake `gh` fixture) |
 | Epic | [#114](https://github.com/mironyx/engineering-delivery-framework/issues/114) |
 | Parent | [v3-design.md](v3-design.md) (v0.4) — [C3.1](v3-design.md#c31-tracker-script), [C3.2](v3-design.md#c32-github-backend) |
 | Requirements | [v3-requirements.md](../../requirements/v3-requirements.md) (v1.0) |
@@ -579,6 +580,7 @@ main(argv: list[str] | None = None) -> int
 
 _parse(argv) -> argparse.Namespace
   - op = argv[0]; unknown or missing op → TrackerError("unknown operation '<op>'. Use: tracker | create | view | list | edit | comment | status | close")
+  - tracker takes no arguments; any extra → "unexpected argument '<arg>'"
   - create and status use hand-rolled parsers, because their output is parity-bound and
     argparse differs from the bash `while/case` loop (abbreviations, "unrecognized arguments",
     rejecting values that start with "-"):
@@ -586,14 +588,19 @@ _parse(argv) -> argparse.Namespace
       unknown flag → "unknown option '<arg>'"; flag with no value → "<flag> needs a value";
       then missing title → "--title is required", missing body → "--body is required" (that order)
     _parse_status(rest): positional REF and S, optional --add-to-board; S kept raw in
-      args.status_raw. Each backend's status() calls normalise_status itself — the GitHub backend
+      args.status_raw; not exactly two positionals → "status needs REF and STATUS". Each backend's status() calls normalise_status itself — the GitHub backend
       after load_board(strict=True), because today's script reports config errors before an
       unknown status
-  - view, list, edit, comment use argparse with allow_abbrev=False and an error() override that
-    raises TrackerError(msg); edit with no change flag →
+  - view, list, edit, comment, close use argparse built by _argparser(op) (add_help=False,
+    allow_abbrev=False, error() override that raises TrackerError(msg)); edit with no change flag →
     "edit needs one of --title, --body, --add-label, --remove-label"
   - --board-status is NOT validated at parse time: it is checked inside the board step, and an
     invalid value becomes the parity "Warning: failed to add #N to board" after the issue exists
+
+_git(*args) -> str | None
+  - `git rev-parse <args>` stdout, None on non-zero exit (outside a repo); shared by the two roots
+  - git binary missing (OSError) → TrackerError("git is not installed or not on PATH"), never a
+    silent fall back to cwd
 
 _env_root() -> pathlib.Path
   - parent of `git rev-parse --git-common-dir` (as tag-session.py), so a linked worktree reads the
@@ -631,7 +638,11 @@ _load_backend(name) -> ModuleType
   `{"argv_prefix": [...], "stdout": "", "stderr": "", "exit": 0}`; the first rule whose prefix
   matches wins; no match → stderr `fake gh: unexpected call <argv>`, exit 97.
 - Log: every call appends `{"argv": [...], "stdin": "..."}` to `FAKE_GH_LOG` (JSON lines).
-- Fixture API: `fake_gh.rules(list[dict])`, `fake_gh.calls() -> list[dict]`.
+- Stdin: logged only when the caller supplies it; the fake waits at most 2 s for stdin to become
+  readable, so a `gh` call that inherits an open pipe cannot hang a test. Backends should still
+  pass `input=` (or `DEVNULL`) explicitly.
+- Fixture API: `fake_gh.rules(list[dict])`, `fake_gh.calls() -> list[dict]`, `fake_gh.repo`
+  (the fresh repo to use as `cwd`), `fake_gh.bin_dir`.
 - Isolation: the fixture deletes every `JIRA_*` variable from the test environment
   (`monkeypatch.delenv`) and runs subprocesses with `cwd` in a fresh `git init` repo under
   `tmp_path`, so the developer's own `.env` cannot select Jira. Existing shim tests that run
