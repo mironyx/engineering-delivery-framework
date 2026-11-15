@@ -8,7 +8,7 @@ entries:
 
   - req: REQ-tracker-script-select-tracker-from-environment
     lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-entry-point
-    issue: null
+    issue: 118
     files: []
     status: Approved
     lld_revision: r1
@@ -17,7 +17,7 @@ entries:
 
   - req: REQ-tracker-script-create-issue
     lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-create-status
-    issue: null
+    issue: 119
     files: []
     status: Approved
     lld_revision: r1
@@ -26,7 +26,7 @@ entries:
 
   - req: REQ-tracker-script-view-and-list-issues
     lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-read-edit
-    issue: null
+    issue: 120
     files: []
     status: Approved
     lld_revision: r1
@@ -34,7 +34,7 @@ entries:
 
   - req: REQ-tracker-script-edit-and-comment
     lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-read-edit
-    issue: null
+    issue: 120
     files: []
     status: Approved
     lld_revision: r1
@@ -42,7 +42,7 @@ entries:
 
   - req: REQ-tracker-script-change-status
     lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-create-status
-    issue: null
+    issue: 119
     files: []
     status: Approved
     lld_revision: r1
@@ -51,7 +51,7 @@ entries:
 
   - req: REQ-pipeline-on-jira-native-epics
     lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-close
-    issue: null
+    issue: 121
     files: []
     status: Approved
     lld_revision: r1
