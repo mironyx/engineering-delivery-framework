@@ -1,0 +1,36 @@
+{
+  "script": "gh-project-status.sh",
+  "argv": [
+    "add",
+    "42"
+  ],
+  "tracker_argv": [
+    "status",
+    "42",
+    "todo",
+    "--add-to-board"
+  ],
+  "setup": {
+    "project_env": true
+  },
+  "rules": [
+    {
+      "argv_prefix": [
+        "project",
+        "item-add"
+      ],
+      "stdout": "{\"id\":\"PVTI_new\"}\n"
+    },
+    {
+      "argv_prefix": [
+        "project",
+        "item-edit"
+      ],
+      "stdout": ""
+    }
+  ],
+  "compare": "exact",
+  "stdout": "Issue #42 → added → todo\n",
+  "stderr": "",
+  "exit": 0
+}

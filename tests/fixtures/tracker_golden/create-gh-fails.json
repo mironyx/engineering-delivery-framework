@@ -1,0 +1,38 @@
+{
+  "script": "gh-create-issue.sh",
+  "argv": [
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two"
+  ],
+  "tracker_argv": [
+    "create",
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two"
+  ],
+  "setup": {},
+  "rules": [
+    {
+      "argv_prefix": [
+        "issue",
+        "list"
+      ],
+      "stdout": ""
+    },
+    {
+      "argv_prefix": [
+        "issue",
+        "create"
+      ],
+      "stderr": "HTTP 422: Validation Failed\n",
+      "exit": 1
+    }
+  ],
+  "compare": "exact",
+  "stdout": "",
+  "stderr": "Error: gh issue create failed: HTTP 422: Validation Failed\n",
+  "exit": 1
+}

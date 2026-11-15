@@ -4,10 +4,10 @@ Covers LLD v3 E3.1 §1.1: tracker selection from the environment (worktree-safe
 .env root), Jira config validation, the error contract (I1, I2, I4, I5), the
 pinned grammar, and the shared contract helpers (status vocabulary, Issue JSON).
 
-The GitHub backend is a stub at this point (every op raises
-TrackerError("not implemented")), so a request that passes parsing and config
-validation is observed as "Error: not implemented" — nothing beyond that is
-asserted about GitHub behaviour here.
+The GitHub backend's view/list/edit/comment/close are stubs (TrackerError("not
+implemented")), so a request for those that passes parsing and config validation is
+observed as "Error: not implemented". create and status are real since #119; their
+grammar tests observe the gh calls they make instead (behaviour: test_tracker_github.py).
 """
 
 from __future__ import annotations
@@ -39,6 +39,8 @@ UNKNOWN_OP_MSG = (
 EDIT_NEEDS_MSG = "Error: edit needs one of --title, --body, --add-label, --remove-label"
 NOT_IMPLEMENTED = "Error: not implemented"
 JIRA_UNAVAILABLE = "Error: Jira backend is not available in this EDF version"
+NO_DUP_RULE = {"argv_prefix": ["issue", "list"], "stdout": ""}
+CREATED_RULE = {"argv_prefix": ["issue", "create"], "stdout": "https://github.com/owner/repo/issues/42\n"}
 
 
 # ---------------------------------------------------------------- helpers
@@ -350,6 +352,19 @@ class TestGrammar:
     def test_create_requires_body(self, fake_gh):
         _assert_error(_run(fake_gh.repo, "create", "--title", "T"), "Error: --body is required")
 
+    @pytest.mark.parametrize(
+        ("argv", "expected"),
+        [
+            pytest.param(["--title", "", "--body", "B"], "Error: --title is required", id="empty-title"),
+            pytest.param(["--title", "T", "--body", ""], "Error: --body is required", id="empty-body"),
+        ],
+    )
+    def test_create_empty_value_counts_as_missing(self, fake_gh, argv, expected):
+        # #119: gh-create-issue.sh used [[ -z ]], so an empty value was "required" too (I6 parity).
+        result = _run(fake_gh.repo, "create", *argv)
+        _assert_error(result, expected)
+        assert fake_gh.calls() == []
+
     def test_create_reports_title_before_body(self, fake_gh):
         _assert_error(_run(fake_gh.repo, "create"), "Error: --title is required")
 
@@ -365,16 +380,31 @@ class TestGrammar:
         _assert_error(_run(fake_gh.repo, *base, flag), f"Error: {flag} needs a value")
 
     def test_create_consumes_dash_value_verbatim(self, fake_gh):
-        # "-x" is the title, not an option; the request reaches the (stub) backend.
-        _assert_error(_run(fake_gh.repo, "create", "--title", "-x", "--body", "--y"), NOT_IMPLEMENTED)
+        # "-x" is the title and "--y" the body, not options; both reach gh issue create.
+        fake_gh.rules([NO_DUP_RULE, CREATED_RULE])
+        result = _run(fake_gh.repo, "create", "--title", "-x", "--body", "--y")
+        assert (result.returncode, result.stdout) == (0, "created:42\n"), result.stderr
+        create = [c for c in fake_gh.calls() if c["argv"][:2] == ["issue", "create"]]
+        assert create[0]["argv"][2:4] == ["--title", "-x"]
+        assert create[0]["stdin"] == "--y"
 
     def test_create_board_status_not_validated_at_parse_time(self, fake_gh):
+        # An invalid --board-status is a board-step warning after the issue exists, not a parse error.
+        fake_gh.rules([NO_DUP_RULE, CREATED_RULE])
         result = _run(
             fake_gh.repo, "create", "--title", "T", "--body", "B", "--add-to-board", "--board-status", "bogus"
         )
-        _assert_error(result, NOT_IMPLEMENTED)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == "created:42\n"
+        assert result.stderr == "Warning: failed to add #42 to board\n"
 
     def test_create_accepts_full_grammar(self, fake_gh):
+        epic = {"number": 12, "title": "E", "body": "", "state": "OPEN", "labels": {"nodes": []},
+                "projectItems": {"nodes": []}}
+        fake_gh.rules([
+            {"argv_prefix": ["api", "graphql"], "stdout": json.dumps({"data": {"repository": {"issue": epic}}})},
+            NO_DUP_RULE,
+        ])
         result = _run(
             fake_gh.repo,
             "create",
@@ -387,7 +417,10 @@ class TestGrammar:
             "--board-status", "todo",
             "--dry-run",
         )  # fmt: skip
-        _assert_error(result, NOT_IMPLEMENTED)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.startswith("dry-run: would create issue\n")
+        assert "  parent: #12\n" in result.stdout
+        assert "  labels: a,b,epic\n" in result.stdout
 
     # -- edit
 
@@ -449,17 +482,27 @@ class TestGrammar:
             pytest.param(["list"], id="list"),
             pytest.param(["list", "--status", "todo", "--label", "bug"], id="list-filters"),
             pytest.param(["comment", "1", "--body", "B"], id="comment"),
-            pytest.param(["status", "1", "in progress"], id="status-two-words"),
-            pytest.param(["status", "1", "todo", "--add-to-board"], id="status-add-to-board"),
             pytest.param(["close", "1"], id="close"),
         ],
     )
     def test_valid_requests_reach_github_backend(self, fake_gh, argv):
         _assert_error(_run(fake_gh.repo, *argv), NOT_IMPLEMENTED)
 
-    def test_status_value_not_validated_by_entry_point(self, fake_gh):
-        # The backend's status() calls normalise_status itself (after board config).
-        _assert_error(_run(fake_gh.repo, "status", "1", "bogus"), NOT_IMPLEMENTED)
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            pytest.param(["status", "1", "in progress"], id="status-two-words"),
+            pytest.param(["status", "1", "todo", "--add-to-board"], id="status-add-to-board"),
+            # The backend's status() calls normalise_status itself, after board config.
+            pytest.param(["status", "1", "bogus"], id="status-value-not-validated-by-entry-point"),
+        ],
+    )
+    def test_valid_status_requests_reach_github_backend(self, fake_gh, argv):
+        # No .github/project.env in the fresh repo: the backend's config check answers.
+        result = _run(fake_gh.repo, *argv)
+        assert result.returncode == 1
+        assert result.stderr.startswith("Error: config file not found: ")
+        assert fake_gh.calls() == []
 
 
 # ---------------------------------------------------------------- _tracker_contract

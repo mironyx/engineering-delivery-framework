@@ -1,0 +1,35 @@
+{
+  "script": "gh-project-status.sh",
+  "argv": [
+    "42",
+    "todo"
+  ],
+  "tracker_argv": [
+    "status",
+    "42",
+    "todo"
+  ],
+  "setup": {
+    "project_env": true
+  },
+  "rules": [
+    {
+      "argv_prefix": [
+        "api",
+        "graphql"
+      ],
+      "stdout": "{\"data\": {\"repository\": {\"issue\": {\"number\": 42, \"title\": \"Some issue\", \"body\": \"Body\", \"state\": \"OPEN\", \"labels\": {\"nodes\": []}, \"projectItems\": {\"nodes\": [{\"id\": \"PVTI_item\", \"project\": {\"id\": \"PVT_abc\"}, \"fieldValues\": {\"nodes\": []}}]}}}}}\n"
+    },
+    {
+      "argv_prefix": [
+        "project",
+        "item-edit"
+      ],
+      "stdout": ""
+    }
+  ],
+  "compare": "exact",
+  "stdout": "Issue #42 → todo\n",
+  "stderr": "",
+  "exit": 0
+}

@@ -1,0 +1,32 @@
+{
+  "script": "gh-create-issue.sh",
+  "argv": [
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two",
+    "--dry-run"
+  ],
+  "tracker_argv": [
+    "create",
+    "--title",
+    "Add widget",
+    "--body",
+    "Line one\nLine two",
+    "--dry-run"
+  ],
+  "setup": {},
+  "rules": [
+    {
+      "argv_prefix": [
+        "issue",
+        "list"
+      ],
+      "stdout": ""
+    }
+  ],
+  "compare": "exact",
+  "stdout": "dry-run: would create issue\n  title:  Add widget\n  labels: <none>\n  board:  false (status: todo)\n  body:\n    Line one\n    Line two\n",
+  "stderr": "",
+  "exit": 0
+}

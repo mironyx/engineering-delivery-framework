@@ -1,0 +1,20 @@
+{
+  "script": "gh-project-status.sh",
+  "argv": [
+    "42",
+    "todo"
+  ],
+  "tracker_argv": [
+    "status",
+    "42",
+    "todo"
+  ],
+  "setup": {
+    "git": false
+  },
+  "rules": [],
+  "compare": "exact",
+  "stdout": "",
+  "stderr": "Error: not inside a git repository — run from your project directory\n",
+  "exit": 1
+}

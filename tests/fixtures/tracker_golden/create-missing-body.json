@@ -1,0 +1,18 @@
+{
+  "script": "gh-create-issue.sh",
+  "argv": [
+    "--title",
+    "T"
+  ],
+  "tracker_argv": [
+    "create",
+    "--title",
+    "T"
+  ],
+  "setup": {},
+  "rules": [],
+  "compare": "exact",
+  "stdout": "",
+  "stderr": "Error: --body is required\n",
+  "exit": 1
+}
