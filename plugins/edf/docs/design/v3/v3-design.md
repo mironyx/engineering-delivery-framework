@@ -16,7 +16,7 @@
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 0.4 | 2026-11-15 | LS / Claude | Gate 1 drift fixes: `close` operation (GitHub board Done + issue close + epic tick; Jira → Done) so `status` keeps `gh-project-status.sh` parity; GitHub `parent`/`children` source and `--type epic` label; parent-not-found error form; `tracker` is local-only; `starters/` brought into C3.7/C3.8 scope; Performance bullet; injection rule on GitHub side |
+| 0.4 | 2026-11-15 | LS / Claude | Gate 1 drift fixes: `close` operation (GitHub board Done + issue close + epic tick; Jira → Done) so `status` keeps `gh-project-status.sh` parity; GitHub `parent`/`children` source and `--type epic` label; parent-not-found error form; `tracker` is local-only; `starters/` brought into C3.7/C3.8 scope; Performance bullet; injection rule on GitHub side; `close` idempotent, in today's step order |
 | 0.3 | 2026-11-15 | LS / Claude | Pre-Gate 1 tidy: Flow 5 moved into Level 3; redundant diagram edge removed; C3.1/C3.3/C3.6 bullets tightened. No design change |
 | 0.2 | 2026-11-14 | LS / Claude | `edf:hld-review` and Gate 1 drift-scan fixes: dry-run and no-op rules; component↔requirement table; redaction scope; trust boundary named on C3.1/C3.3; `check-epic-checkbox.py` and `gh issue close` moved into C3.2; C3.5 asks C3.1 for tracker; C3.8 detection patterns; Flow 5 added |
 | 0.1 | 2026-11-14 | LS / Claude | Initial delta HLD — Levels 1–3 |
@@ -99,7 +99,7 @@ workflow statuses they must provide.
 |---|---|
 | C3.1 Tracker Script | 1.1, 1.2, 1.3, 1.4, 1.5, 2.2 AC4–5 (`close`) |
 | C3.2 GitHub Backend | 1.1–1.5 (GitHub parity ACs), 2.1 AC4, 2.2 AC6 |
-| C3.3 Jira Backend | 1.1–1.5 |
+| C3.3 Jira Backend | 1.1–1.5, 2.2 AC4 |
 | C3.4 Markdown↔ADF Converter | 1.2, 1.3, 1.4 |
 | C3.5 Feature Identity Resolver | 2.2 |
 | C3.6 Epic Progress Reader | 2.1 |
@@ -189,9 +189,11 @@ Today's behaviour, moved behind C3.1 (DP2).
   an epic's `children` are parsed from its body checklist and a task's `parent` from the
   epic reference in its body (ADR-0018) — no native hierarchy is assumed.
 - `status` matches `gh-project-status.sh` exactly: board column only, never closes.
-- `close` reproduces today's `/feature-end` sequence: board → Done, `gh issue close`, then
-  tick the task's checkbox in the parent epic body (absorbing `check-epic-checkbox.py`), so
-  all GitHub issue writes live here.
+- `close` reproduces today's `/feature-end` sequence in today's order: board → Done, tick the
+  task's checkbox in the parent epic body (absorbing `check-epic-checkbox.py`), then
+  `gh issue close`, so all GitHub issue writes live here. It is idempotent, as today's
+  `|| true` steps are: already-Done, no-epic and already-closed cases exit 0, and a failing
+  sub-step is reported without aborting the rest.
 - Passes titles and bodies as quoted argv or files, never by shell concatenation. Dedup keeps
   today's `in:title` search for parity; the LLD notes it is fuzzier than Jira's exact match.
 - Is the only code permitted to call `gh issue`, `gh project` or `gh api …/issues`
@@ -216,7 +218,8 @@ Implements the operations against one team-managed Jira Cloud space (DP1).
   Blocked status and unreachable transitions by name. A change to the current status is a
   no-op checked first, since Jira may reject a self-transition.
 - Maps EDF labels one-to-one onto Jira labels (DP6); removing an absent label is a no-op.
-- `close` is the transition to Done; an issue already in Done is a no-op.
+- `close` is the same transition as `status done`, kept separate for GitHub parity; an issue
+  already in Done is a no-op.
 
 **Non-responsibilities:** nothing in the requirements' *What We Are NOT Building* list; no
 Markdown parsing — it hands bodies to C3.4.
