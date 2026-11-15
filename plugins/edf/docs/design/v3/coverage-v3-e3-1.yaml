@@ -21,8 +21,12 @@ entries:
   - req: REQ-tracker-script-create-issue
     lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-create-status
     issue: 119
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/bin/_tracker_github.py
+      - plugins/edf/bin/tracker.py
+      - plugins/edf/bin/gh-create-issue.sh
+      - plugins/edf/bin/gh-project-status.sh
+    status: Revised  # GitHub half merged (#119), §1.2 revised by lld-sync; Implemented once the E3.2 Jira half merges
     lld_revision: r1
     # Story 1.2 GitHub AC9, AC4 (--type epic label), AC7 (--dry-run), AC8 (quoting on GitHub).
     # Jira half (AC1-AC6, AC8 JQL escaping): E3.2.
@@ -46,8 +50,12 @@ entries:
   - req: REQ-tracker-script-change-status
     lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-create-status
     issue: 119
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/bin/_tracker_github.py
+      - plugins/edf/bin/tracker.py
+      - plugins/edf/bin/gh-create-issue.sh
+      - plugins/edf/bin/gh-project-status.sh
+    status: Revised  # GitHub half merged (#119), §1.2 revised by lld-sync; Implemented once the E3.2 Jira half merges
     lld_revision: r1
     # Story 1.5 GitHub AC7. AC6 (status vocabulary) in #LLD-v3-e3-1-entry-point.
     # Jira half (AC1-AC5): E3.2.
