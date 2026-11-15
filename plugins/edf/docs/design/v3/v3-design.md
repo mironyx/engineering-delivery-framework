@@ -98,7 +98,7 @@ workflow statuses they must provide.
 | Component | Stories |
 |---|---|
 | C3.1 Tracker Script | 1.1, 1.2, 1.3, 1.4, 1.5, 2.2 AC4–5 (`close`) |
-| C3.2 GitHub Backend | 1.1–1.5 (GitHub parity ACs), 2.1 AC4, 2.2 AC6 |
+| C3.2 GitHub Backend | 1.1–1.5 (GitHub parity ACs), 2.1 AC4 |
 | C3.3 Jira Backend | 1.1–1.5, 2.2 AC4 |
 | C3.4 Markdown↔ADF Converter | 1.2, 1.3, 1.4 |
 | C3.5 Feature Identity Resolver | 2.2 |
@@ -193,7 +193,7 @@ Today's behaviour, moved behind C3.1 (DP2).
   task's checkbox in the parent epic body (absorbing `check-epic-checkbox.py`), then
   `gh issue close`, so all GitHub issue writes live here. It is idempotent, as today's
   `|| true` steps are: already-Done, no-epic and already-closed cases exit 0, and a failing
-  sub-step is reported without aborting the rest.
+  sub-step is reported on stderr without aborting the rest, and `close` still exits 0.
 - Passes titles and bodies as quoted argv or files, never by shell concatenation. Dedup keeps
   today's `in:title` search for parity; the LLD notes it is fuzzier than Jira's exact match.
 - Is the only code permitted to call `gh issue`, `gh project` or `gh api …/issues`

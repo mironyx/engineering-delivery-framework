@@ -30,7 +30,8 @@ From the requirements' *What We Are NOT Building*:
 ## Story split across epics — read before assigning work
 
 Stories 1.1–1.5 each carry both GitHub-parity and Jira ACs. They are split by AC: **E3.1**
-owns the tracker contract and every GitHub AC; **E3.2** owns every Jira AC. Both epics list
+owns the tracker contract and every GitHub AC; **E3.2** owns every Jira AC. A tracker-neutral
+AC (e.g. all of Story 1.4) is met twice: by E3.1 on GitHub and by E3.2 on Jira. Both epics list
 the same anchors, with the AC split stated. A story closes when both epics' halves are done.
 
 ## Epics
@@ -43,18 +44,20 @@ the same anchors, with the AC split stated. A story closes when both epics' halv
   moved behind it unchanged.
 - **Requirements covered:**
   - `REQ-tracker-script-select-tracker-from-environment` — Story 1.1: selection, env
-    precedence, missing-var and `https://` validation (AC1–AC5)
+    precedence, missing-var and `https://` validation (AC1–AC5); config errors name the
+    variable, never its value
   - `REQ-tracker-script-create-issue` — Story 1.2: GitHub AC9, `--type epic` label (AC4),
-    `--dry-run` (AC7)
+    `--dry-run` contract (AC7), AC8 on GitHub (quoting safe; matching stays today's fuzzy
+    `in:title`)
   - `REQ-tracker-script-view-and-list-issues` — Story 1.3: GitHub AC9 (shared JSON shape)
-  - `REQ-tracker-script-edit-and-comment` — Story 1.4: GitHub half
+  - `REQ-tracker-script-edit-and-comment` — Story 1.4: AC1–AC5 on GitHub
   - `REQ-tracker-script-change-status` — Story 1.5: status vocabulary (AC6), GitHub AC7
   - `REQ-pipeline-on-jira-native-epics` — Story 2.1: AC4 (GitHub checkbox via `close`)
 - **Owns (components):** C3.1 Tracker Script, C3.2 GitHub Backend
 - **Touches (components):** `_edf_env.py` (reads only); `gh-create-issue.sh`,
-  `gh-project-status.sh`, `check-epic-checkbox.py` (become shims or are absorbed)
+  `gh-project-status.sh` (become shims); `check-epic-checkbox.py` (absorbed into C3.2)
 - **Depends on:** none
-- **Parallelisable with:** E3.4
+- **Parallelisable with:** E3.4; E3.2's converter task
 - **Rough task shape:**
   - Tracker entry point: argument grammar, env resolution, backend selection, Jira config
     validation, `tracker` command, output and error contract, `--dry-run`
@@ -76,8 +79,9 @@ the same anchors, with the AC split stated. A story closes when both epics' halv
   bodies and comments stored as ADF.
 - **Requirements covered:**
   - `REQ-tracker-script-select-tracker-from-environment` — Story 1.1: AC6 (401/403), AC7
-    (429/5xx), token redaction
-  - `REQ-tracker-script-create-issue` — Story 1.2: Jira AC1–AC6, AC8 (JQL escaping)
+    (429/5xx); HTTP errors carry the status only, never the token or header
+  - `REQ-tracker-script-create-issue` — Story 1.2: Jira AC1–AC6, AC7 (read-only
+    checks without writes), AC8 (JQL escaping)
   - `REQ-tracker-script-view-and-list-issues` — Story 1.3: Jira AC1–AC8 (round-trip, rank,
     cap)
   - `REQ-tracker-script-edit-and-comment` — Story 1.4: Jira AC1–AC5
@@ -117,7 +121,9 @@ the same anchors, with the AC split stated. A story closes when both epics' halv
   C3.7 Pipeline Call Sites, C3.8 Issue-Access Guard
 - **Touches (components):** C3.1 (calls only); session tagging, checkpoint and cost tooling
   (consume `FEATURE_ID`)
-- **Depends on:** E3.1. Its Jira end-to-end ACs (2.3 AC2–AC3, AC6) also need E3.2.
+- **Depends on:** E3.1 to start. Its Jira ACs (2.1 AC1–AC3, 2.2 AC1–AC5, 2.3 AC2–AC4 and
+  AC6) are verified after E3.2, so E3.3 can start in parallel with E3.2 but cannot close
+  before it.
 - **Parallelisable with:** E3.2, E3.4
 - **Rough task shape:**
   - Feature identity resolver and its consumers (`tag-session`, `append-checkpoint`,
@@ -128,10 +134,14 @@ the same anchors, with the AC split stated. A story closes when both epics' halv
     `gh-issue-manager`; Jira epic body has no task checklist per ADR-0018 revision);
     implementation (`feature`, `feature-core`, `feature-end` → `close`); everything else
     (`bug`, `backlog`, `lld-sync`, agents, bin, `starters/`, flowcharts)
-  - Guard test, landed last, then shims from E3.1 removed
-- **Exit criteria:** the guard test passes with no exclusions beyond C3.2; GitHub-configured
-  `/architect`, `/feature`, `/backlog` behave as today; a manual `/qa` run on `SCRUM` covers
-  `/architect` → `/feature` → `/feature-end`.
+  - Guard test, landed last; then repoint the parity tests in `tests/test_shell_scripts.py`
+    and `tests/test_utils.py` at the tracker's GitHub backend with the same expected output,
+    and remove the E3.1 shims
+- **Exit criteria:** the guard test passes with no exclusions beyond C3.2; on GitHub, PR
+  bodies still contain `Closes #N`, `FEATURE_ID` is `<prefix>-<n>` and existing tests pass
+  unchanged; a manual `/qa` run on `SCRUM` covers `/architect` → `/feature` → `/feature-end`
+  and ends with the task in Done, the epic untouched, and a session log named
+  `…-SCRUM-<n>.md`.
 
 ### Epic E3.4 — Tracker onboarding
 
@@ -154,13 +164,14 @@ the same anchors, with the AC split stated. A story closes when both epics' halv
 graph TD
   E31[E3.1 Tracker script + GitHub backend] --> E32[E3.2 Jira backend + converter]
   E31 --> E33[E3.3 Pipeline on tracker script]
-  E32 -.Jira end-to-end ACs.-> E33
-  E32 -.parallel.- E33
-  E34[E3.4 Tracker onboarding]
-  E31 -.parallel.- E34
+  E32 -.Jira ACs verified after.-> E33
+  E32 -.parallel start.- E33
+  CV[E3.2 converter task] -.parallel.- E31
+  E34[E3.4 Tracker onboarding — parallel with all]
 ```
 
-E3.1 goes first. E3.2 and E3.3 then run in parallel: their `Owns` sets are disjoint, and E3.3
-can migrate and verify call sites on GitHub before the Jira backend lands. E3.3's final Jira
-`/qa` run waits for E3.2. E3.4 is independent and can be picked up at any time. File-level
+E3.1 goes first; E3.2's converter task can run alongside it. E3.2 and E3.3 then start in
+parallel: their `Owns` sets are disjoint, and E3.3 can migrate and verify call sites on GitHub
+before the Jira backend lands. E3.3 cannot close until E3.2 has, because its Jira ACs and the
+`SCRUM` `/qa` run need the Jira backend. E3.4 is independent and can be picked up at any time. File-level
 conflicts (both E3.2 and E3.3 touch `CLAUDE.md` and `tests/`) are checked in `/architect`.
