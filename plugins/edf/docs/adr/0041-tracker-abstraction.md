@@ -1,7 +1,7 @@
 # 0041. Tracker Abstraction — One Script, Swappable Backends
 
 **Date:** 2026-11-15
-**Status:** Proposed
+**Status:** Accepted
 **Deciders:** LS / Claude
 
 ## Context
