@@ -471,7 +471,14 @@ class TestCreateParent:
         fake_gh.rules([_issue_rule(7, body="## Tasks\n"), NO_DUP, CREATED,
                        {"argv_prefix": ["issue", "edit", "7"], "stderr": "HTTP 403\n", "exit": 1}])
         _ok(_run(fake_gh.repo, "create", *BASE, "--parent", "#7"), "created:42\n",
-            "Warning: failed to link #42 to epic #7\n")
+            "Warning: failed to link #42 to epic #7: failed to update epic #7: HTTP 403\n")
+
+    def test_parent_lookup_needs_no_project_scope(self, fake_gh):
+        # PR #125 review: projectItems needs read:project; the parent lookup must not ask for it.
+        fake_gh.rules([_issue_rule(7, body="## Tasks\n"), NO_DUP, CREATED, EDIT_OK])
+        _ok(_run(fake_gh.repo, "create", *BASE, "--parent", "#7"), "created:42\n")
+        lookup = _only(_calls(fake_gh, "api", "graphql"))
+        assert "projectItems" not in _flag(lookup["argv"], "-f") + " ".join(lookup["argv"])
 
     def test_dedup_hit_links_existing_issue_both_ways(self, fake_gh):
         fake_gh.rules([_issue_rule(7, body=f"## Tasks\n{PLACEHOLDER}\n"), _issue_rule(17, title=TITLE, body="Old"),
@@ -483,10 +490,18 @@ class TestCreateParent:
         assert _flag(task["argv"], "--body-file") == "-"
         assert task["stdin"] == "## Parent epic\n#7\n\nOld"
 
+    def test_dedup_near_match_is_not_linked(self, fake_gh):
+        # PR #125 review: in:title is fuzzy; an issue whose title only contains ours is left alone.
+        fake_gh.rules([_issue_rule(7, body=f"## Tasks\n{PLACEHOLDER}\n"),
+                       _issue_rule(17, title=f"{TITLE} rate limiting", body="Old"), _dup(17), EDIT_OK])
+        result = _run(fake_gh.repo, "create", *BASE, "--parent", "#7")
+        _ok(result, "exists:17\n", "Warning: failed to link #17 to epic #7: issue #17 title differs\n")
+        assert _writes(fake_gh) == []
+
     @pytest.mark.parametrize("box", [" ", "x", "X"])
     def test_does_not_duplicate_checklist_line_on_exists_rerun(self, fake_gh, box):
         epic_body = f"## Tasks\n- [{box}] #17 — {TITLE}\n"
-        fake_gh.rules([_issue_rule(7, body=epic_body), _issue_rule(17, body=f"## Parent epic\n#7\n\n{BODY}"),
+        fake_gh.rules([_issue_rule(7, body=epic_body), _issue_rule(17, title=TITLE, body=f"## Parent epic\n#7\n\n{BODY}"),
                        _dup(17), EDIT_OK])
         _ok(_run(fake_gh.repo, "create", *BASE, "--parent", "#7"), "exists:17\n")
         for call in _calls(fake_gh, "issue", "edit", "7"):
@@ -498,7 +513,7 @@ class TestCreateParent:
     def test_checklist_match_is_number_exact(self, fake_gh):
         # "#170" in the epic must not count as "#17" already being linked.
         epic_body = "## Tasks\n- [ ] #170 — Something else\n"
-        fake_gh.rules([_issue_rule(7, body=epic_body), _issue_rule(17, body=f"## Parent epic\n#7\n\n{BODY}"),
+        fake_gh.rules([_issue_rule(7, body=epic_body), _issue_rule(17, title=TITLE, body=f"## Parent epic\n#7\n\n{BODY}"),
                        _dup(17), EDIT_OK])
         _ok(_run(fake_gh.repo, "create", *BASE, "--parent", "#7"), "exists:17\n")
         assert _epic_body_written(fake_gh) == f"## Tasks\n- [ ] #170 — Something else\n- [ ] #17 — {TITLE}\n"
@@ -519,7 +534,7 @@ class TestCreateParent:
         assert _writes(fake_gh) == []
 
     def test_dry_run_dedup_hit_with_parent_writes_nothing(self, fake_gh):
-        fake_gh.rules([_issue_rule(7, body=f"## Tasks\n{PLACEHOLDER}\n"), _issue_rule(17, body="Old"), _dup(17),
+        fake_gh.rules([_issue_rule(7, body=f"## Tasks\n{PLACEHOLDER}\n"), _issue_rule(17, title=TITLE, body="Old"), _dup(17),
                        EDIT_OK])
         _ok(_run(fake_gh.repo, "create", *BASE, "--parent", "#7", "--dry-run"), "exists:17\n")
         assert _writes(fake_gh) == []
@@ -715,6 +730,16 @@ class TestMalformedGraphql:
         result = _run(fake_gh.repo, "create", "--title", "T", "--body", "B", "--parent", "7")
         assert (result.returncode, result.stderr) == (1, "Error: parent #7 not found\n")
         assert _writes(fake_gh) == []
+
+
+class TestBoardAddReply:
+    def test_status_add_with_non_json_reply_names_the_reply(self, fake_gh):
+        # PR #125 review: a malformed item-add reply is reported, not swallowed.
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules([{"argv_prefix": ["project", "item-add"], "stdout": "oops\n"}])
+        result = _run(fake_gh.repo, "status", "42", "todo", "--add-to-board")
+        assert (result.returncode, result.stdout) == (1, "")
+        assert result.stderr == "unexpected gh project item-add reply: oops\n"
 
 
 class TestShims:

@@ -29,15 +29,17 @@ _STATUS_VARS = {"todo": "STATUS_TODO", "blocked": "STATUS_BLOCKED",
 _NOT_FOUND = "Could not resolve to an Issue"
 _TYPES = ("task", "epic")
 
+_BASE_FIELDS = "number title body state labels(first:50){nodes{name}}"
+# Board fields need the read:project token scope; only status (board lookups) requests them.
 ISSUE_FIELDS = (
-    "number title body state labels(first:50){nodes{name}} "
+    _BASE_FIELDS + " "
     "projectItems(first:10){nodes{id project{id} fieldValues(first:20){nodes{"
     "... on ProjectV2ItemFieldSingleSelectValue{optionId field{... on ProjectV2SingleSelectField{id}}}}}}}"
 )
-ISSUE_QUERY = (
-    "query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){"
-    f"issue(number:$number){{{ISSUE_FIELDS}}}}}}}"
-)
+_QUERY = ("query($owner:String!,$name:String!,$number:Int!){{repository(owner:$owner,name:$name){{"
+          "issue(number:$number){{{fields}}}}}}}")
+ISSUE_QUERY = _QUERY.format(fields=ISSUE_FIELDS)
+_PLAIN_ISSUE_QUERY = _QUERY.format(fields=_BASE_FIELDS)
 
 
 class _ParityExit(Exception):
@@ -66,13 +68,13 @@ def _parse_ref(ref: str) -> int:
 
 # Justification: status needs the raw gh result (its not-found stderr is parity output), while
 # _fetch_issue maps it to None/TrackerError — one query builder serves both.
-def _issue_query(number: int, repo: str | None) -> subprocess.CompletedProcess[str]:
+def _issue_query(number: int, repo: str | None, *, board: bool = True) -> subprocess.CompletedProcess[str]:
     if repo is None:
         owner = ["-F", "owner={owner}", "-F", "name={repo}"]
     else:
         name_owner, _, name = repo.partition("/")
         owner = ["-f", f"owner={name_owner}", "-f", f"name={name}"]
-    return _gh(["api", "graphql", *owner, "-F", f"number={number}", "-f", f"query={ISSUE_QUERY}"])
+    return _gh(["api", "graphql", *owner, "-F", f"number={number}", "-f", f"query={ISSUE_QUERY if board else _PLAIN_ISSUE_QUERY}"])
 
 
 # Justification: parses the GraphQL envelope once for both call paths (create --parent, status).
@@ -85,7 +87,8 @@ def _issue_node(result: subprocess.CompletedProcess[str]) -> dict | None:
 
 
 def _fetch_issue(number: int, repo: str | None = None) -> dict | None:
-    result = _issue_query(number, repo)
+    """Issue without board fields (no read:project scope needed); None when it does not exist."""
+    result = _issue_query(number, repo, board=False)
     if result.returncode != 0:
         if _NOT_FOUND in result.stderr:
             return None
@@ -171,17 +174,17 @@ def _board_set(board: Board, item_id: str, status: str) -> subprocess.CompletedP
 
 
 def _board_add(board: Board, number: int) -> str:
-    """Add the issue to the board; returns the item id, "" when gh returned none.
+    """Add the issue to the board; returns the item id, "" when the reply carries none.
 
-    Raises TrackerError when gh fails (its stderr is passed through to the caller)."""
+    Raises TrackerError, carrying gh's stderr or reply, when gh fails or the reply is not JSON."""
     result = _gh(["project", "item-add", board.number, "--owner", board.owner,
                   "--url", f"https://github.com/{board.repo}/issues/{number}", "--format", "json"])
     if result.returncode != 0:
         raise TrackerError(result.stderr.strip() or "gh project item-add failed")
     try:
         return str(json.loads(result.stdout).get("id") or "")
-    except (json.JSONDecodeError, AttributeError):
-        return ""
+    except (json.JSONDecodeError, AttributeError) as e:
+        raise TrackerError(f"unexpected gh project item-add reply: {result.stdout.strip()}") from e
 
 
 # ---------------------------------------------------------------- create
@@ -237,16 +240,21 @@ def _add_checklist_line(body: str, child: int, title: str) -> str | None:
 
 def _link_child(epic_node: dict, child: int, title: str) -> None:
     new_body = _add_checklist_line(epic_node["body"], child, title)
-    if new_body is not None and _write_body(epic_node["number"], new_body).returncode != 0:
-        raise TrackerError(f"failed to update epic #{epic_node['number']}")
+    if new_body is None:
+        return
+    result = _write_body(epic_node["number"], new_body)
+    if result.returncode != 0:
+        raise TrackerError(f"failed to update epic #{epic_node['number']}: {result.stderr.strip()}")
 
 
 # Justification: an issue found by dedup may predate --parent; its body gets the same
 # '## Parent epic' section a new issue is created with (AC: "new (or existing)").
-def _ensure_parent_section(number: int, parent: int) -> None:
+def _ensure_parent_section(number: int, parent: int, title: str) -> None:
     node = _fetch_issue(number)
     if node is None:
         raise TrackerError(f"issue #{number} not found")
+    if node["title"] != title:  # dedup is a fuzzy in:title match; never link a different issue
+        raise TrackerError(f"issue #{number} title differs")
     body = _with_parent_section(node["body"], parent)
     if body != node["body"] and _write_body(number, body).returncode != 0:
         raise TrackerError(f"failed to update issue #{number}")
@@ -258,10 +266,10 @@ def _link_parent(parent_node: dict, number: int, title: str, *, existing: bool) 
     parent = parent_node["number"]
     try:
         if existing:
-            _ensure_parent_section(number, parent)
+            _ensure_parent_section(number, parent, title)
         _link_child(parent_node, number, title)
-    except (TrackerError, KeyError, ValueError):
-        print(f"Warning: failed to link #{number} to epic #{parent}", file=sys.stderr)
+    except (TrackerError, KeyError, ValueError) as e:
+        print(f"Warning: failed to link #{number} to epic #{parent}: {e}", file=sys.stderr)
 
 
 # Justification: the dedup search is its own gh round trip with bash-parity quirks (failure
@@ -298,6 +306,8 @@ def _add_new_issue_to_board(ctx: object, number: int, board_status: str) -> None
         if not item_id or _board_set(board, item_id, normalise_status(board_status)).returncode != 0:
             raise TrackerError("board update failed")
     except TrackerError:
+        # Deliberately detail-free: golden create-add-to-board-fails pins stderr to this one line,
+        # because the bash script ran the board step with >/dev/null 2>&1 (I6).
         print(f"Warning: failed to add #{number} to board", file=sys.stderr)
 
 
