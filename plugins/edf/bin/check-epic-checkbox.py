@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
-"""Tick a closed issue's checkbox in its parent epic body.
+"""Tick a closed issue's checkbox in its parent epic body (shim over the GitHub backend).
 
-Reads the issue body from stdin, extracts the parent epic number, reads the epic
-body via gh, ticks the checkbox for this issue, and patches the epic via gh api.
+Reads the issue body from stdin; the parent lookup, epic read and epic patch live in
+_tracker_github.tick_parent_checkbox (ADR-0041).
 
 Usage:
   gh issue view <N> --json body --jq .body | check-epic-checkbox.py --issue <N>
 """
 
 import argparse
-import re
-import subprocess
+import pathlib
 import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+import _tracker_github  # noqa: E402
+from _tracker_contract import TrackerError  # noqa: E402
 
 
 def _extract_parent_epic(body: str) -> str:
-    m = re.search(r"## Parent epic\s*\n+#(\d+)", body)
-    return m.group(1) if m else ""
+    parent = _tracker_github.parent_from_body(body)
+    return parent[1:] if parent else ""
 
 
 def _tick_checkbox(body: str, issue: str) -> str:
-    return re.sub(
-        r"- \[ \] (#" + re.escape(issue) + r"\b)",
-        r"- [x] \1",
-        body,
-    )
+    return _tracker_github.tick_checkbox(body, issue)
 
 
 def main() -> None:
@@ -32,38 +32,12 @@ def main() -> None:
     parser.add_argument("--issue", required=True, help="Issue number")
     args = parser.parse_args()
 
-    body = sys.stdin.read()
-    epic = _extract_parent_epic(body)
-
-    if not epic:
-        print(f"No parent epic found for issue #{args.issue}", file=sys.stderr)
-        return
-
-    result = subprocess.run(
-        ["gh", "issue", "view", epic, "--json", "body", "--jq", ".body"],
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        print(f"Failed to read epic #{epic}", file=sys.stderr)
+    try:
+        outcome, message = _tracker_github.tick_parent_checkbox(int(args.issue), sys.stdin.read())
+    except TrackerError as e:
+        print(str(e), file=sys.stderr)
         sys.exit(1)
-
-    epic_body = result.stdout
-    updated = _tick_checkbox(epic_body, args.issue)
-
-    if updated == epic_body:
-        print(f"Epic #{epic}: checkbox for #{args.issue} already ticked or not found")
-        return
-
-    proc = subprocess.run(
-        ["gh", "api", f"repos/{{owner}}/{{repo}}/issues/{epic}",
-         "--method", "PATCH", "-f", f"body={updated}"],
-        capture_output=True, text=True,
-    )
-    if proc.returncode == 0:
-        print(f"Epic #{epic}: checked off #{args.issue}")
-    else:
-        print(f"Failed to update epic #{epic}: {proc.stderr}", file=sys.stderr)
-        sys.exit(1)
+    print(message, file=sys.stderr if outcome == "no-parent" else sys.stdout)
 
 
 if __name__ == "__main__":

@@ -508,7 +508,10 @@ class TestGrammar:
         assert fake_gh.calls() == []
 
     def test_close_reaches_github_backend(self, fake_gh):
-        _assert_error(_run(fake_gh.repo, "close", "1"), NOT_IMPLEMENTED)
+        # #121: close is implemented; an unknown ref proves the GitHub backend was reached.
+        fake_gh.rules([{"argv_prefix": ["api", "graphql"], "exit": 1,
+                        "stderr": "gh: Could not resolve to an Issue with the number of 1.\n"}])
+        _assert_error(_run(fake_gh.repo, "close", "1"), "Error: #1 not found")
 
     @pytest.mark.parametrize(
         "argv",
