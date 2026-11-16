@@ -1,0 +1,56 @@
+epic: v3-e3-2
+entries:
+  # --- Story split (implementation plan, "Story split across epics") ----------------
+  # Stories 1.1-1.5 close in two halves: E3.1 (coverage-v3-e3-1.yaml) delivered the contract and
+  # every GitHub AC; this epic delivers the Jira ACs for the same anchors. Mark Implemented only
+  # once both halves have merged. issue: values are backfilled by /architect after task creation.
+  # The Markdown<->ADF converter (Task 1) serves Story 1.3 and 1.2; it has no REQ of its own.
+  # ---------------------------------------------------------------------------------
+
+  - req: REQ-tracker-script-select-tracker-from-environment
+    lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-client
+    issue: null
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.1 Jira AC6 (401/403), AC7 (429/5xx), redaction. Selection logic: E3.1.
+
+  - req: REQ-tracker-script-create-issue
+    lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-create
+    issue: null
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.2 Jira AC1-AC6, AC7 (dry-run), AC8 (JQL escaping).
+
+  - req: REQ-tracker-script-view-and-list-issues
+    lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-view-list
+    issue: null
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.3 Jira AC1-AC8. Round-trip ACs also rest on #LLD-v3-e3-2-adf-converter.
+
+  - req: REQ-tracker-script-edit-and-comment
+    lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-write-ops
+    issue: null
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.4 AC1-AC5 on Jira.
+
+  - req: REQ-tracker-script-change-status
+    lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-write-ops
+    issue: null
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 1.5 Jira AC1-AC5 (transitions, missing Blocked).
+
+  - req: REQ-pipeline-on-jira-jira-references-in-prs-and-logs
+    lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-write-ops
+    issue: null
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 2.2 AC4 mechanics only: Jira close -> Done, idempotent. The rest of Story 2.2 is E3.3.
