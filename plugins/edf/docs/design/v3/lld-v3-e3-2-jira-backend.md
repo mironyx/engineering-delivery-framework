@@ -8,7 +8,6 @@
 | Status | Revised |
 | Author | LS / Claude |
 | Created | 2026-11-16 |
-| Revised | 2026-11-16 — Issue #128: §1.1 Implementation (`md_to_adf`) |
 | Epic | [#115](https://github.com/mironyx/engineering-delivery-framework/issues/115) |
 | Parent | [v3-design.md](v3-design.md) (v0.4) — [C3.3](v3-design.md#c33-jira-backend), [C3.4](v3-design.md#c34-markdownadf-converter) |
 | Requirements | [v3-requirements.md](../../requirements/v3-requirements.md) (v1.0) |
@@ -16,6 +15,7 @@
 | ADRs | [ADR-0041](../../adr/0041-tracker-abstraction.md), [ADR-0018](../../adr/0018-epic-task-organisation.md) |
 | Depends on | [lld-v3-e3-1-tracker-script.md](lld-v3-e3-1-tracker-script.md) — contract, dispatch, `fake_gh` pattern |
 | Epic id | `v3-e3-2` |
+| Revised | 2026-11-16 — Issue #130: §1.2 `fake_jira` fixture |
 
 ---
 
@@ -562,28 +562,20 @@ ALLOWED_NODES: frozenset[str]   # doc paragraph heading bulletList orderedList l
 ALLOWED_MARKS: frozenset[str]   # strong em code link
 
 md_to_adf(markdown: str) -> dict
-  - {"version": 1, "type": "doc", "content": [blocks]}; empty or blank input → one empty paragraph;
-    CRLF is normalised to LF first. A parser failure (never expected) warns with RuntimeWarning
-    and returns one literal paragraph per blank-separated chunk, so no input raises
-  - _blocks(lines) -> list[dict]; _next_block dispatches on the first line in this order: fence,
-    heading (`#`…`######` then a space; seven `#` is text), rule, block quote or raw HTML, list
-    marker, table (header row plus separator row of equal width), else paragraph
-  - _paragraph ends at a blank line or a fence, heading, rule, quote, bullet or `1.` list item, or
-    table; raw HTML does not interrupt
-  - _list_block / _list(items, i, base) -> dict: items carry (indent, kind, text); a deeper indent
-    nests under the previous item, a shallower one closes the level, a change of kind starts a new
-    list; tabs count as 4 spaces; `[ ] `/`[x] ` stays as text; the ordered-list start number is
-    not kept
-  - _table_block / _table(rows) -> dict: first row tableHeader, rest tableCell; each cell wraps one
-    paragraph; every row is padded with empty cells to the widest row; cells split on unescaped `|`
-  - _inline(text) -> list[dict]: _scan tokenises code spans, `[t](u)` links, backslash escapes and
-    `*`/`_` delimiter runs; _emphasis resolves them with CommonMark's delimiter stack (GFM
-    flanking: `_` never opens or closes inside a word; rule of 3); _flatten emits nodes and marks;
-    `![alt](u)` stays literal text; a link whose target starts `javascript:`, `data:` or
-    `vbscript:` stays literal text; unmatched delimiters stay literal; adjacent runs with equal
-    marks are merged and empty text is dropped
+  - {"version": 1, "type": "doc", "content": [blocks]}; empty or blank input → one empty paragraph
+  - _blocks(lines: list[str]) -> list[dict]: dispatch on the first line (fence, heading, list marker,
+    table header + separator row, else paragraph); any construct not in the mapping → paragraph of
+    its raw lines
+  - _list(lines, indent) -> dict: nesting by leading-space depth (2 or 4 spaces per level, any
+    consistent step); `[ ] `/`[x] ` stays as text
+  - _table(rows) -> dict: first row tableHeader, rest tableCell; each cell wraps one paragraph;
+    ragged rows padded with empty cells
+  - _inline(text: str) -> list[dict]: tokenises `` `code` ``, `**strong**`, `*em*`/`_em_`, `[t](u)`,
+    and backslash escapes; emphasis follows GFM flanking (the opener touches non-space on its inner
+    side, and `_` never opens or closes inside a word); `![alt](u)` stays literal text; unmatched
+    delimiters stay literal; adjacent plain runs merged
   - unsupported blocks (raw HTML, block quote, rule) → one paragraph with one literal text node of
-    the source lines (`---`, `***`, `___` are rules); `adf_to_md` escapes it like any text, so A1 holds
+    the source lines; `adf_to_md` escapes it like any text, so A1 holds
 
 adf_to_md(doc: dict | None) -> str
   - None, {} or a doc with no content → ""
@@ -665,17 +657,25 @@ and the function-scoped fixture sets `JIRA_HOST=https://localhost:<port>`, `JIRA
   (`statuses`, `transitions: dict[from] -> list[to]`, default all four statuses fully connected,
   `with_blocked=False` removes Blocked), per-issue `labels`, `type`, `parent`, ADF description.
 - Endpoints: the ones in External Surfaces. Responses follow the spec's shapes and status codes
-  (`201`, `204`, `404`, `400`).
+  (`201`, `204`, `404`, `400`); a request without the configured Basic credentials gets `401`, and any
+  other endpoint gets `501` so a typo fails the test instead of reading as a missing issue.
 - JQL: the fake parses only the grammar `emit` produces — `project = "K"`, `issuetype`,
   `summary ~ "<phrase>"`, `status = "<name>"`, `statusCategory = Done|!= Done`, `labels = "<v>"`,
   `parent = KEY`, joined by `AND`, optional `ORDER BY Rank ASC`, string escapes `\"` and `\\`. Anything
   else returns 400 with `errorMessages`, so a malformed query fails the test rather than matching
   everything.
-- Search paging honours `maxResults` and `nextPageToken`.
-- Fault injection: `fake_jira.fail_next(status, body=None, echo_auth=False)`,
-  `fake_jira.redirect_next(location)`, `fake_jira.delay_next(seconds)`.
-- API: `fake_jira.add_issue(...)`, `fake_jira.issue(key)`, `fake_jira.calls() -> list[dict]`
-  (method, path, query, body, whether the `Authorization` header was present), `fake_jira.env`.
+- Search requires a `project =` clause (unbounded queries are `400`), returns issues in `rank` order,
+  returns only `id` and `key` unless `fields` is passed, and pages with `maxResults` and an opaque
+  `nextPageToken` (absent on the last page, `isLast` true).
+- Fault injection, consumed one per request in call order: `fake_jira.fail_next(status, body=None,
+  echo_auth=False)`, `fake_jira.redirect_next(location, status=302)`, `fake_jira.delay_next(seconds)`
+  (sleeps, then answers normally).
+- API: `fake_jira.add_issue(...)`, `fake_jira.issue(key)`, `fake_jira.set_rank(key, rank)`,
+  `fake_jira.set_workflow(with_blocked=True, transitions=None)`, `fake_jira.calls() -> list[dict]`
+  (method, path, query, body, `has_auth`, `authorization`), `fake_jira.env`. An unexpected exception in
+  a request handler is recorded in `fake_jira.errors` and fails the test at teardown.
+- Certificate generation lives in `generate_certificate()`, which raises `FakeJiraSetupError` when
+  `openssl` is missing; the session-scoped certificate fixture turns that into `pytest.fail`.
 - The fixture is POSIX only (`pytest.mark.skipif(sys.platform == "win32")`) like `fake_gh`.
 
 The fake mirrors the spec, not real Jira behaviour: it cannot prove JQL text-search semantics or
