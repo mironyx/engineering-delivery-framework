@@ -83,6 +83,8 @@ This repo is a plugin monorepo — the same process applies to plugin features a
 ## Coding Principles
 
 - HTTP mocking: respx (HTTPX) for any HTTP interactions. Do not use manual stubs or monkey-patching.
+- HTTP mocking exception: Jira backend tests use the `fake_jira` fixture (a local HTTPS
+  `http.server`), because respx mocks `httpx` and the plugin is standard-library only (ADR-0041).
 - Test runner: pytest. Typecheck: pyright (via VS Code).
 
 ## Verification Commands
