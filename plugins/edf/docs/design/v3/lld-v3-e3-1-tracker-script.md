@@ -4,12 +4,13 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.3 |
+| Version | 0.4 |
 | Status | Revised |
 | Author | LS / Claude |
 | Created | 2026-11-15 |
 | Revised | 2026-11-15 — Issue #118: §1.1 Part B (tracker.py decomposition, fake `gh` fixture) |
 | Revised | 2026-11-15 — Issue #119: §1.2 Part B (helpers, golden overrides, `--parent` dedup guard), Open question 4 |
+| Revised | 2026-11-16 — Issue #120: §1.3 Part B (board fields only when needed, `_require_issue`, query constants) |
 | Epic | [#114](https://github.com/mironyx/engineering-delivery-framework/issues/114) |
 | Parent | [v3-design.md](v3-design.md) (v0.4) — [C3.1](v3-design.md#c31-tracker-script), [C3.2](v3-design.md#c32-github-backend) |
 | Requirements | [v3-requirements.md](../../requirements/v3-requirements.md) (v1.0) |
@@ -860,8 +861,9 @@ through and returns its exit code, as `set -e` does today.
 ### File structure
 
 ```text
-plugins/edf/bin/_tracker_github.py      — add view, list_issues, edit, comment, _to_issue
-tests/test_tracker_github.py            — add view/list/edit/comment tests
+plugins/edf/bin/_tracker_github.py      — add view, list_issues, edit, comment, _to_issue, _require_issue
+tests/test_tracker_github.py            — add view/list/edit/comment tests (shared helpers, one `_node`)
+tests/test_tracker.py                   — #118 grammar tests now observe the gh call, not the stub
 ```
 
 ### Functions
@@ -870,12 +872,13 @@ tests/test_tracker_github.py            — add view/list/edit/comment tests
 _derive_status(node: dict, board: Board | None) -> str
   - node["state"] == "CLOSED" → "done", always (the PR merge closes the issue before
     /feature-end moves the board)
-  - OPEN with board and an item whose project.id == board.project_id and a fieldValue whose
-    field.id == board.field_id → reverse-map optionId through board.options
+  - OPEN with board: option id from _board_item(board, node), reverse-mapped through
+    board.options
   - otherwise, including an option id not in project.env (a custom column) → "todo"
 
 parent_from_body(body: str) -> str | None
-  - r"## Parent epic\s*\n+#(\d+)" (moved from check-epic-checkbox.py) → "#<n>"
+  - r"## Parent epic\s*\n+#(\d+)" → "#<n>". Copied from check-epic-checkbox.py, which keeps its
+    own copy until §1.4 absorbs it.
 
 children_from_body(body: str) -> list[str]
   - re.findall(r"^\s*- \[[ xX]\] #(\d+)\b", body, re.M) → ["#<n>", …], order kept, de-duplicated
@@ -883,19 +886,24 @@ children_from_body(body: str) -> list[str]
 _to_issue(node, board) -> Issue
   - children only when "epic" in labels, else []
 
+_require_issue(ref: str, *, board: bool = False) -> tuple[int, dict]
+  - shared existence check for view, edit and comment: _parse_ref, then _fetch_issue(n, board=board),
+    None → TrackerError(f"#{n} not found")
+
 view(args, ctx) -> int
-  - node = _fetch_issue(_parse_ref(args.ref)) or TrackerError(f"#{n} not found")
-  - print(issue_json(_to_issue(node, load_board(ctx.repo_root, strict=False))))
+  - board = load_board(ctx.repo_root, strict=False); node via _require_issue(board=board is not None)
+  - print(issue_json(_to_issue(node, board)))
 
 list_issues(args, ctx) -> int
   - status = args.status (normalised) ; states = ["CLOSED"] if status == "done" else ["OPEN"]
   - one gh api graphql call: repository.issues(first:100, states, labels:[label] if given,
-    orderBy:{field:CREATED_AT, direction:DESC}) { nodes { ISSUE_FIELDS } }
+    orderBy:{field:CREATED_AT, direction:DESC}) { nodes { fields } }, where fields is ISSUE_FIELDS
+    (ISSUES_QUERY) when project.env exists and the base fields only (_PLAIN_ISSUES_QUERY) otherwise
   - non-zero exit → TrackerError(f"gh api graphql failed: {stderr.strip()}")
   - filter on _derive_status when status given; print issue_json(list)
 
 edit(args, ctx) -> int
-  - node = _fetch_issue (not found → TrackerError)
+  - number, node = _require_issue(args.ref)   (never requests board fields)
   - remove = [l for l in args.remove_label if l in current labels]   (I12)
   - nothing to send (only absent removes) → print updated, return 0
   - gh issue edit N [--title T] [--body-file -] [--add-label a,b] [--remove-label c,d]
@@ -903,8 +911,13 @@ edit(args, ctx) -> int
   - print(f"updated:#{n}")
 
 comment(args, ctx) -> int
-  - existence check, then gh issue comment N --body-file - ; print(f"commented:#{n}")
+  - _require_issue, then gh issue comment N --body-file - ; print(f"commented:#{n}")
 ```
+
+> **Implementation note (issue #120):** `ISSUE_FIELDS` includes `projectItems`, which needs the
+> `read:project` token scope. Requesting it unconditionally made edit, comment and board-less
+> view/list fail on tokens without that scope, so only view and list request it, and only when
+> `.github/project.env` exists.
 
 `list` without `--status` returns open issues only (today's `gh issue list` default).
 
