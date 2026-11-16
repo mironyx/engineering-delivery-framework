@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 import string
+import warnings
 
 ALLOWED_NODES: frozenset[str] = frozenset({
     "doc", "paragraph", "heading", "bulletList", "orderedList", "listItem",
@@ -32,6 +33,7 @@ _LIST_INTERRUPT = re.compile(r"^ {0,3}(?:[-*+]|1[.)])[ \t]+\S")
 _SEPARATOR_CELL = re.compile(r"^:?-+:?$")
 _PIPE = re.compile(r"(?<!\\)\|")
 _BACKTICKS = re.compile(r"`+")
+_UNSAFE_SCHEME = re.compile(r"^\s*(?:javascript|data|vbscript):", re.I)
 
 
 def md_to_adf(markdown: str) -> dict:
@@ -39,7 +41,8 @@ def md_to_adf(markdown: str) -> dict:
     text = markdown.replace("\r\n", "\n").replace("\r", "\n")
     try:
         blocks = _blocks(text.split("\n"))
-    except Exception:  # noqa: BLE001 — the contract is "no input raises"
+    except Exception as exc:  # noqa: BLE001 — the contract is "no input raises"
+        warnings.warn(f"md_to_adf fell back to literal text: {exc!r}", RuntimeWarning, stacklevel=2)
         blocks = _literal_blocks(text)
     if not blocks:
         blocks = [{"type": "paragraph", "content": []}]
@@ -307,7 +310,10 @@ def _match_link(text: str, i: int) -> tuple[str, str, int] | None:
     label, dest = text[i + 1:j], text[j + 2:k].strip()
     if not label or not dest or any(c.isspace() for c in dest):
         return None
-    return label, re.sub(r"\\([!-/:-@\[-`{-~])", r"\1", dest), k + 1
+    href = re.sub(r"\\([!-/:-@\[-`{-~])", r"\1", dest)
+    if _UNSAFE_SCHEME.match(href):
+        return None  # scripting schemes never become a live link; the source stays as text
+    return label, href, k + 1
 
 
 # Justification: single left-to-right tokeniser; code, links and delimiter runs share one cursor

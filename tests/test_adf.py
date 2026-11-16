@@ -577,3 +577,27 @@ class TestMalformedInput:
 
     def test_crlf_line_endings_are_treated_like_lf(self):  # #128
         assert md_to_adf("a\r\nb\r\n\r\nc") == md_to_adf("a\nb\n\nc")
+
+
+class TestFallback:
+    def test_parser_failure_warns_and_returns_literal_doc(self, monkeypatch):  # #128 review: no silent swallow
+        def boom(_lines):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(_adf, "_blocks", boom)
+        with pytest.warns(RuntimeWarning, match="boom"):
+            doc = md_to_adf("keep **this**")
+        assert doc["type"] == "doc"
+        assert text_of(doc) == "keep **this**"
+
+
+class TestUnsafeLinks:
+    @pytest.mark.parametrize("href", ["javascript:alert(1)", "JavaScript:x", "data:text/html,x", "vbscript:x"])
+    def test_scripting_scheme_stays_literal_text(self, href):  # #128 review: no live javascript: links
+        src = f"[click]({href})"
+        doc = md_to_adf(src)
+        assert text_of(doc) == src
+        assert not any("link" in marks_of(n) for n in find(doc, "text"))
+
+    def test_https_link_still_works(self):  # #128
+        assert any("link" in marks_of(n) for n in find(md_to_adf("[a](https://x.io)"), "text"))
