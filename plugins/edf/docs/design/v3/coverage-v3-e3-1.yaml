@@ -63,7 +63,9 @@ entries:
   - req: REQ-pipeline-on-jira-native-epics
     lld: lld-v3-e3-1-tracker-script.md#LLD-v3-e3-1-github-close
     issue: 121
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/bin/_tracker_github.py
+      - plugins/edf/bin/check-epic-checkbox.py
+    status: Revised
     lld_revision: r1
     # Story 2.1 AC4 only (GitHub checkbox via close). AC1-AC3: E3.3.

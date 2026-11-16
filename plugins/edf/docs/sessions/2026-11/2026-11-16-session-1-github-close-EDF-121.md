@@ -25,3 +25,48 @@
 - Evaluator silent risk: non-not-found fetch failure in `close` exits 1 with Error (treated as fatal, LLD silent); epic read cause swallowed to match old message.
 - No lint/diag tooling available (uv absent); ruff/pyflakes not installed — only tests run.
 - pr-review: parent regex duplication fixed (parent_from_body); swallowed epic-read cause deferred (TODO in tick_parent_checkbox, old-message parity).
+
+## Work completed
+- [PR #127](https://github.com/mironyx/engineering-delivery-framework/pull/127): `close` (board → epic tick → issue close, warn-and-continue) and `tick_parent_checkbox` in `_tracker_github.py`.
+- `check-epic-checkbox.py` rewritten as a shim over the backend; `tests/test_utils.py` untouched (I17).
+- 41 tests added in `tests/test_tracker_github.py`; `test_tracker.py` stub test updated.
+
+## Decisions made
+- Board fields requested only when `project.env` exists (read:project scope).
+- A non-not-found fetch failure in `close` is fatal (exit 1, before any write); see Concerns.
+
+## Review feedback addressed
+- [maintainability] `_tracker_github.py:67` — fixed in f7d52a7 (reuse `parent_from_body`).
+- [silent-swallow] `_tracker_github.py:73` — deferred (TODO; old-message parity). Review comment on PR #127.
+
+## LLD Sync report
+## LLD Sync — Issue #121: GitHub backend close — board, epic tick, issue close
+
+### Corrections (spec was wrong)
+- `_step` signature: spec `_step(name, fn)` → built `_step(number, name, action)` (number needed for the warning text).
+- Epic read: spec `_fetch_issue(epic)` → `board=False` (no read:project scope needed).
+
+### Additions (not in spec)
+- `close` requests board fields only when project.env exists; fetch failure is fatal before any write (§1.4 Part B).
+
+### Omissions (in spec but not built)
+- None.
+
+### Confirmations (notable)
+- Step order, skip conditions and warning format built as designed.
+
+### LLD updated
+File: plugins/edf/docs/design/v3/lld-v3-e3-1-tracker-script.md §1.4 Part B (+ coverage-v3-e3-1.yaml entry set to Revised)
+Version: 0.4 → 0.5
+
+## Cost retrospective
+| Bucket | Cost |
+|--------|------|
+| 3c → 5 (design, tests, impl) | $0.45 |
+| 5 → 8 (diag, evaluator, PR) | $0.20 |
+| 8 → 9 (review) | $0.30 |
+
+Final: $1.98 (PR-creation $1.08). Drivers: review round ($0.30) and post-PR feature-end work; no fix cycles (green first attempt).
+
+## Next steps
+- E3.3: migrate call sites; drop `check-epic-checkbox.py` shim and the epic-read-cause TODO then.

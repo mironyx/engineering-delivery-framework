@@ -4,13 +4,14 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.4 |
+| Version | 0.5 |
 | Status | Revised |
 | Author | LS / Claude |
 | Created | 2026-11-15 |
 | Revised | 2026-11-15 — Issue #118: §1.1 Part B (tracker.py decomposition, fake `gh` fixture) |
 | Revised | 2026-11-15 — Issue #119: §1.2 Part B (helpers, golden overrides, `--parent` dedup guard), Open question 4 |
 | Revised | 2026-11-16 — Issue #120: §1.3 Part B (board fields only when needed, `_require_issue`, query constants) |
+| Revised | 2026-11-16 — Issue #121: §1.4 Part B (`_step` signature, board fields only with project.env, epic read without board fields, fetch failure fatal) |
 | Epic | [#114](https://github.com/mironyx/engineering-delivery-framework/issues/114) |
 | Parent | [v3-design.md](v3-design.md) (v0.4) — [C3.1](v3-design.md#c31-tracker-script), [C3.2](v3-design.md#c32-github-backend) |
 | Requirements | [v3-requirements.md](../../requirements/v3-requirements.md) (v1.0) |
@@ -941,7 +942,8 @@ tick_checkbox(body: str, child: str) -> str
 
 tick_parent_checkbox(child: int, body: str) -> tuple[str, str]
   - returns (outcome, message) with outcome in {"no-parent", "already", "ticked"}
-  - reads the epic with _fetch_issue(epic); None or failure → "Failed to read epic #E"
+  - parent found with parent_from_body (one regex, shared with view)
+  - reads the epic with _fetch_issue(epic, board=False); None or any TrackerError → "Failed to read epic #E"
   - success messages are today's strings: "No parent epic found for issue #N" /
     "Epic #E: checkbox for #N already ticked or not found" / "Epic #E: checked off #N"
   - failures raise TrackerError with today's text: "Failed to read epic #E" /
@@ -951,16 +953,20 @@ tick_parent_checkbox(child: int, body: str) -> tuple[str, str]
   - close discards the success message: its only stdout line is closed:#N
 
 close(args, ctx) -> int
-  - n = _parse_ref; node = _fetch_issue(n) or TrackerError(f"#{n} not found")
-  - _step("board", lambda: _board_set(done) unless _board_item says already Done / not on
-    board, or project.env is absent)
-  - _step("epic", lambda: tick_parent_checkbox(n, node["body"]))
-  - if node["state"] == "OPEN": _step("issue close", lambda: gh issue close N)
+  - n = _parse_ref(args.ref); board = load_board(repo_root, strict=False)
+  - node = _fetch_issue(n, board=board is not None) or TrackerError(f"#{n} not found")
+    (board fields are requested only when project.env exists — read:project scope; any other
+    gh failure here is fatal too: "Error: gh api graphql failed: …", exit 1, before any write)
+  - board step runs only when board is not None, the item is on the board and its option is not
+    already STATUS_DONE: _step(n, "board", lambda: _board_set(board, item_id, "done"))
+  - _step(n, "epic", lambda: tick_parent_checkbox(n, node["body"] or ""))
+  - if node["state"] == "OPEN": _step(n, "issue close", lambda: _gh(["issue", "close", str(n)]))
   - print(f"closed:#{n}"); return 0
 
-_step(name: str, fn: Callable[[], object]) -> None
-  - runs fn; TrackerError or non-zero CompletedProcess → stderr f"Warning: close #{n}: {name} failed — {detail}"
-```
+_step(number: int, name: str, action: Callable[[], object]) -> None
+  - runs action; TrackerError or a CompletedProcess with non-zero exit → stderr
+    f"Warning: close #{number}: {name} failed — {detail}", detail being the message or gh stderr
+    collapsed to one line ("no detail" when empty), so each failure is exactly one line
 
 ### `check-epic-checkbox.py` shim
 
