@@ -15,7 +15,7 @@
 | ADRs | [ADR-0041](../../adr/0041-tracker-abstraction.md), [ADR-0018](../../adr/0018-epic-task-organisation.md) |
 | Depends on | [lld-v3-e3-1-tracker-script.md](lld-v3-e3-1-tracker-script.md) — contract, dispatch, `fake_gh` pattern |
 | Epic id | `v3-e3-2` |
-| Revised | 2026-11-16 — Issue #130: §1.2 `fake_jira` fixture |
+| Revised | 2026-11-16 — Issue #131: §1.2 `JiraClient` private helpers |
 
 ---
 
@@ -625,6 +625,10 @@ class JiraClient:
         #                      errorMessages / errors values, redacted, ≤200 characters)
         #   URLError, timeout → "Jira request failed: cannot reach <host>"
         #   undecodable body  → "Jira returned an unreadable response"
+    def _http_error(self, e) -> tuple[int, dict | None]   # status → named TrackerError, or (404, None)
+    def _detail(self, e) -> str              # first errorMessages / errors value, redacted, ≤200 chars; "" if unparseable
+    @staticmethod
+    def _parse(raw: bytes) -> dict | None    # empty → None; undecodable → "Jira returned an unreadable response"
     def _redact(self, text: str) -> str      # replaces the token and the base64 credential with ***
     def __repr__(self) -> str                 # never includes credentials
 ```
