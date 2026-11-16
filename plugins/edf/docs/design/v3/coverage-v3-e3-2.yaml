@@ -9,7 +9,7 @@ entries:
 
   - req: REQ-tracker-script-select-tracker-from-environment
     lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-client
-    issue: null
+    issue: 131
     files: []
     status: Approved
     lld_revision: r1
@@ -17,7 +17,7 @@ entries:
 
   - req: REQ-tracker-script-create-issue
     lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-create
-    issue: null
+    issue: 132
     files: []
     status: Approved
     lld_revision: r1
@@ -25,7 +25,7 @@ entries:
 
   - req: REQ-tracker-script-view-and-list-issues
     lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-view-list
-    issue: null
+    issue: 133
     files: []
     status: Approved
     lld_revision: r1
@@ -33,7 +33,7 @@ entries:
 
   - req: REQ-tracker-script-edit-and-comment
     lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-write-ops
-    issue: null
+    issue: 134
     files: []
     status: Approved
     lld_revision: r1
@@ -41,7 +41,7 @@ entries:
 
   - req: REQ-tracker-script-change-status
     lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-write-ops
-    issue: null
+    issue: 134
     files: []
     status: Approved
     lld_revision: r1
@@ -49,7 +49,7 @@ entries:
 
   - req: REQ-pipeline-on-jira-jira-references-in-prs-and-logs
     lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-write-ops
-    issue: null
+    issue: 134
     files: []
     status: Approved
     lld_revision: r1
