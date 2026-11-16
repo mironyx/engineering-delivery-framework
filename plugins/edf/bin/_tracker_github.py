@@ -15,12 +15,10 @@ import pathlib
 import re
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from _tracker_contract import Issue, TrackerError, issue_json, normalise_status
-
-# TODO(#121): replace the close stub with the GitHub implementation.
-_NOT_IMPLEMENTED = "not implemented"
 
 _BOARD_VARS = ("REPO", "PROJECT_NUMBER", "PROJECT_ID", "FIELD_ID",
                "STATUS_TODO", "STATUS_BLOCKED", "STATUS_IN_PROGRESS", "STATUS_DONE")
@@ -513,8 +511,59 @@ def comment(args: argparse.Namespace, ctx: object) -> int:
     return 0
 
 
-# ---------------------------------------------------------------- not yet ported (#121)
+# ---------------------------------------------------------------- close
+
+
+def tick_checkbox(body: str, child: str) -> str:
+    return re.sub(r"- \[ \] (#" + re.escape(child) + r"\b)", r"- [x] \1", body)
+
+
+def tick_parent_checkbox(child: int, body: str) -> tuple[str, str]:
+    """Tick `child` in its parent epic. Returns (outcome, message); raises TrackerError on failure."""
+    match = re.search(r"## Parent epic\s*\n+#(\d+)", body)
+    if match is None:
+        return "no-parent", f"No parent epic found for issue #{child}"
+    epic = int(match.group(1))
+    try:
+        node = _fetch_issue(epic, board=False)
+    except TrackerError:
+        node = None
+    if node is None:
+        raise TrackerError(f"Failed to read epic #{epic}")
+    epic_body = node["body"] or ""
+    updated = tick_checkbox(epic_body, str(child))
+    if updated == epic_body:
+        return "already", f"Epic #{epic}: checkbox for #{child} already ticked or not found"
+    result = _write_body(epic, updated)
+    if result.returncode != 0:
+        raise TrackerError(f"Failed to update epic #{epic}: {result.stderr}")
+    return "ticked", f"Epic #{epic}: checked off #{child}"
+
+
+# Justification: close's three sub-steps share one warn-and-continue policy (I16).
+def _step(number: int, name: str, action: Callable[[], object]) -> None:
+    try:
+        result = action()
+        failure = result.stderr if isinstance(result, subprocess.CompletedProcess) and result.returncode else None
+    except TrackerError as e:
+        failure = str(e)
+    if failure is not None:
+        detail = " ".join(failure.split()) or "no detail"
+        print(f"Warning: close #{number}: {name} failed — {detail}", file=sys.stderr)
 
 
 def close(args: argparse.Namespace, ctx: object) -> int:
-    raise TrackerError(_NOT_IMPLEMENTED)
+    number = _parse_ref(args.ref)
+    board = load_board(getattr(ctx, "repo_root", None), strict=False)
+    node = _fetch_issue(number, board=board is not None)
+    if node is None:
+        raise TrackerError(f"#{number} not found")
+    if board is not None:
+        item_id, option = _board_item(board, node)
+        if item_id and option != board.options["done"]:
+            _step(number, "board", lambda: _board_set(board, item_id, "done"))
+    _step(number, "epic", lambda: tick_parent_checkbox(number, node["body"] or ""))
+    if node["state"] == "OPEN":
+        _step(number, "issue close", lambda: _gh(["issue", "close", str(number)]))
+    print(f"closed:#{number}")
+    return 0

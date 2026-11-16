@@ -1304,3 +1304,306 @@ class TestTokenScope:
         result = _run(fake_gh.repo, *argv)
         assert result.returncode == 0, result.stderr
         assert any("projectItems" in q for q in self._queries(fake_gh))
+
+
+# ---------------------------------------------------------------- close (#121)
+
+EPIC_SHIM = BIN_DIR / "check-epic-checkbox.py"
+CLOSE_OK = {"argv_prefix": ["issue", "close"], "stdout": ""}
+CHILD_BODY = "## Summary\nx\n\n## Parent epic\n\n#7\n"
+EPIC_BODY = "## Tasks\n- [ ] #5 the task\n- [ ] #55 other task\n"
+DONE_ID = PROJECT_ENV["STATUS_DONE"]
+
+
+def _fail(*prefix: str, stderr: str = "boom\n", contains: list[str] | None = None) -> dict:
+    rule: dict = {"argv_prefix": list(prefix), "stderr": stderr, "exit": 1}
+    if contains:
+        rule["argv_contains"] = contains
+    return rule
+
+
+def _full_rules(*, child: dict | None = None, epic_body: str = EPIC_BODY, head: list[dict] | None = None) -> list[dict]:
+    """Scenario for `close 5`: open, on board in Todo, parent epic #7. `head` rules win (first match)."""
+    child = {"body": CHILD_BODY, "option": OPTION_IDS["todo"], **(child or {})}
+    return [*(head or []), _issue_rule(5, **child), _issue_rule(7, body=epic_body), ITEM_EDIT_OK, EDIT_OK, CLOSE_OK]
+
+
+def _write_order(fake_gh) -> list[list[str]]:
+    return [c["argv"][:2] for c in _writes(fake_gh)]
+
+
+def _warnings(result: subprocess.CompletedProcess) -> list[str]:
+    return [line for line in result.stderr.splitlines() if line.startswith("Warning:")]
+
+
+def _close(fake_gh, ref: str = "5") -> subprocess.CompletedProcess:
+    return _run(fake_gh.repo, "close", ref)
+
+
+class TestClose:
+    """#121 — LLD §1.4: board -> epic tick -> issue close, idempotent, sub-step failures only warn."""
+
+    def test_runs_board_epic_close_in_order_and_prints_closed(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules())
+        _ok(_close(fake_gh), "closed:#5\n")
+        assert _write_order(fake_gh) == [["project", "item-edit"], ["issue", "edit"], ["issue", "close"]]  # I14
+
+    def test_accepts_hash_reference(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules())
+        _ok(_close(fake_gh, "#5"), "closed:#5\n")
+
+    def test_board_item_moved_to_done(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules())
+        _close(fake_gh)
+        edit = _only(_calls(fake_gh, "project", "item-edit"))["argv"]
+        assert _flag(edit, "--project-id") == PROJECT_ENV["PROJECT_ID"]
+        assert _flag(edit, "--id") == "PVTI_item"
+        assert _flag(edit, "--field-id") == PROJECT_ENV["FIELD_ID"]
+        assert _flag(edit, "--single-select-option-id") == DONE_ID
+
+    def test_epic_checkbox_ticked_for_this_issue_only(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules())
+        _close(fake_gh)
+        assert _epic_body_written(fake_gh) == "## Tasks\n- [x] #5 the task\n- [ ] #55 other task\n"
+
+    def test_issue_closed_with_gh_issue_close(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules())
+        _close(fake_gh)
+        assert _only(_calls(fake_gh, "issue", "close"))["argv"][:3] == ["issue", "close", "5"]
+
+    def test_close_does_not_print_epic_message(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules())
+        result = _close(fake_gh)
+        assert "Epic #7" not in result.stdout + result.stderr
+
+    # --- I15: idempotence and silent skips
+
+    def test_fully_closed_issue_makes_no_write_call(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(child={"state": "CLOSED", "option": DONE_ID}, epic_body="- [x] #5 the task\n"))
+        _ok(_close(fake_gh), "closed:#5\n")
+        assert _writes(fake_gh) == []  # I15
+
+    def test_second_close_after_first_state_is_noop(self, fake_gh):
+        """Same result observed twice: a no-write scenario stays a no-write scenario."""
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(child={"state": "CLOSED", "option": DONE_ID}, epic_body="- [x] #5 the task\n"))
+        _close(fake_gh)
+        _ok(_close(fake_gh), "closed:#5\n")
+        assert _writes(fake_gh) == []
+
+    def test_already_done_skips_board_only(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(child={"option": DONE_ID}))
+        _ok(_close(fake_gh), "closed:#5\n")
+        assert _write_order(fake_gh) == [["issue", "edit"], ["issue", "close"]]
+
+    def test_not_on_board_skips_board_silently(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(child={"on_board": False}))
+        _ok(_close(fake_gh), "closed:#5\n")
+        assert _write_order(fake_gh) == [["issue", "edit"], ["issue", "close"]]
+
+    def test_item_on_other_project_counts_as_not_on_board(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(child={"project_id": "PVT_other"}))
+        _ok(_close(fake_gh), "closed:#5\n")
+        assert _calls(fake_gh, "project", "item-edit") == []
+
+    def test_no_project_env_skips_board_silently(self, fake_gh):
+        fake_gh.rules(_full_rules())
+        _ok(_close(fake_gh), "closed:#5\n")
+        assert _write_order(fake_gh) == [["issue", "edit"], ["issue", "close"]]
+
+    def test_no_project_env_does_not_request_board_fields(self, fake_gh):
+        fake_gh.rules(_full_rules())
+        _close(fake_gh)
+        queries = [" ".join(c["argv"]) for c in _calls(fake_gh, "api", "graphql")]
+        assert queries and all("projectItems" not in q for q in queries)
+
+    def test_project_env_requests_board_fields(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules())
+        _close(fake_gh)
+        assert any("projectItems" in " ".join(c["argv"]) for c in _calls(fake_gh, "api", "graphql"))
+
+    @pytest.mark.parametrize("body", ["## Summary\nNo parent here\n", "", "## Parent epic\n\nnone\n"])
+    def test_no_parent_epic_skips_epic_step_silently(self, fake_gh, body):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(child={"body": body}))
+        _ok(_close(fake_gh), "closed:#5\n")
+        assert _calls(fake_gh, "issue", "edit") == []
+        assert _write_order(fake_gh) == [["project", "item-edit"], ["issue", "close"]]
+
+    def test_epic_already_ticked_skips_write_silently(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(epic_body="- [x] #5 the task\n"))
+        _ok(_close(fake_gh), "closed:#5\n")
+        assert _calls(fake_gh, "issue", "edit") == []
+
+    def test_epic_without_matching_line_skips_write_silently(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(epic_body="- [ ] #55 only other\n"))
+        _ok(_close(fake_gh), "closed:#5\n")
+        assert _calls(fake_gh, "issue", "edit") == []
+
+    def test_already_closed_skips_close_silently(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(child={"state": "CLOSED"}))
+        _ok(_close(fake_gh), "closed:#5\n")
+        assert _calls(fake_gh, "issue", "close") == []
+        assert _write_order(fake_gh) == [["project", "item-edit"], ["issue", "edit"]]
+
+    # --- unknown ref
+
+    def test_unknown_ref_exits_1_with_not_found(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules([_missing_rule(5)])
+        _not_found(_close(fake_gh), 5)
+        assert _writes(fake_gh) == []
+
+    def test_unknown_ref_without_project_env(self, fake_gh):
+        fake_gh.rules([_missing_rule(5)])
+        _not_found(_close(fake_gh), 5)
+
+    # --- I16: each sub-step fails in turn
+
+    @pytest.mark.parametrize(
+        ("step", "failing"),
+        [
+            pytest.param("board", _fail("project", "item-edit"), id="board"),
+            pytest.param("epic", _fail("issue", "edit", "7"), id="epic-write"),
+            pytest.param("epic", _fail("api", "graphql", contains=["number=7"]), id="epic-read"),
+            pytest.param("issue close", _fail("issue", "close"), id="issue-close"),
+        ],
+    )
+    def test_failing_step_warns_once_exits_0_and_later_steps_run(self, fake_gh, step, failing):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(head=[failing]))
+        result = _close(fake_gh)
+        assert result.returncode == 0, result.stderr  # I16
+        assert result.stdout == "closed:#5\n"
+        warnings = _warnings(result)
+        assert len(warnings) == 1, result.stderr
+        assert warnings[0].startswith(f"Warning: close #5: {step} failed"), warnings
+        assert len(result.stderr.strip().splitlines()) == 1, result.stderr
+        # every step was still attempted
+        assert _calls(fake_gh, "project", "item-edit")
+        assert _calls(fake_gh, "issue", "close", "5")
+        if step != "epic":
+            assert _calls(fake_gh, "issue", "edit", "7")
+
+    def test_board_failure_still_ticks_and_closes(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(head=[_fail("project", "item-edit")]))
+        _close(fake_gh)
+        assert _write_order(fake_gh) == [["project", "item-edit"], ["issue", "edit"], ["issue", "close"]]
+
+    def test_epic_failure_still_closes_issue(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(head=[_fail("issue", "edit", "7")]))
+        result = _close(fake_gh)
+        assert result.returncode == 0
+        assert _calls(fake_gh, "issue", "close", "5")
+
+    def test_all_steps_failing_gives_three_warnings_and_exit_0(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(head=[_fail("project", "item-edit"), _fail("issue", "edit", "7"),
+                                        _fail("issue", "close")]))
+        result = _close(fake_gh)
+        assert (result.returncode, result.stdout) == (0, "closed:#5\n")
+        assert len(_warnings(result)) == 3
+        assert [w.split(" failed")[0] for w in _warnings(result)] == [
+            "Warning: close #5: board", "Warning: close #5: epic", "Warning: close #5: issue close"]
+
+    def test_failing_close_step_on_already_closed_issue_does_not_warn(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(_full_rules(child={"state": "CLOSED"}, head=[_fail("issue", "close")]))
+        _ok(_close(fake_gh), "closed:#5\n")
+
+
+class TestCheckEpicCheckboxShim:
+    """#121 — check-epic-checkbox.py keeps CLI (`--issue N`, body on stdin) and messages (LLD §1.4)."""
+
+    @staticmethod
+    def _shim_run(fake_gh, body: str = CHILD_BODY, *args: str) -> subprocess.CompletedProcess:
+        argv = args or ("--issue", "5")
+        return subprocess.run([sys.executable, str(EPIC_SHIM), *argv], cwd=fake_gh.repo, input=body,
+                              capture_output=True, text=True, timeout=30)
+
+    @staticmethod
+    def _load(path: pathlib.Path, name: str):
+        sys.path.insert(0, str(BIN_DIR))
+        try:
+            spec = importlib.util.spec_from_file_location(name, path)
+            assert spec is not None and spec.loader is not None
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[name] = module  # dataclasses resolve annotations through sys.modules
+            spec.loader.exec_module(module)
+            return module
+        finally:
+            sys.path.remove(str(BIN_DIR))
+
+    def test_prints_checked_off_on_stdout(self, fake_gh):
+        fake_gh.rules([_issue_rule(7, body=EPIC_BODY), EDIT_OK])
+        _ok(self._shim_run(fake_gh), "Epic #7: checked off #5\n")
+        assert _epic_body_written(fake_gh) == "## Tasks\n- [x] #5 the task\n- [ ] #55 other task\n"
+
+    def test_already_ticked_message_on_stdout(self, fake_gh):
+        fake_gh.rules([_issue_rule(7, body="- [x] #5 the task\n"), EDIT_OK])
+        _ok(self._shim_run(fake_gh), "Epic #7: checkbox for #5 already ticked or not found\n")
+        assert _calls(fake_gh, "issue", "edit") == []
+
+    def test_no_parent_prints_to_stderr_and_exits_0(self, fake_gh):
+        result = self._shim_run(fake_gh, "## Summary\nnothing\n")
+        _ok(result, "", "No parent epic found for issue #5\n")
+        assert fake_gh.calls() == []
+
+    def test_failed_read_exits_1_on_stderr(self, fake_gh):
+        fake_gh.rules([_fail("api", "graphql", contains=["number=7"])])
+        result = self._shim_run(fake_gh)
+        assert (result.returncode, result.stdout, result.stderr) == (1, "", "Failed to read epic #7\n")
+
+    def test_missing_epic_is_a_failed_read(self, fake_gh):
+        fake_gh.rules([_missing_rule(7)])
+        result = self._shim_run(fake_gh)
+        assert (result.returncode, result.stdout, result.stderr) == (1, "", "Failed to read epic #7\n")
+
+    def test_failed_update_exits_1_with_gh_stderr(self, fake_gh):
+        fake_gh.rules([_issue_rule(7, body=EPIC_BODY), _fail("issue", "edit", stderr="boom")])
+        result = self._shim_run(fake_gh)
+        assert result.returncode == 1
+        assert result.stdout == ""
+        assert result.stderr.startswith("Failed to update epic #7: boom")
+
+    def test_requires_issue_flag(self, fake_gh):
+        result = self._shim_run(fake_gh, CHILD_BODY, "--bogus")
+        assert result.returncode == 2
+        assert fake_gh.calls() == []
+
+    def test_extract_parent_epic_behaviour_kept(self):
+        mod = self._load(EPIC_SHIM, "check_epic_checkbox_shim")
+        assert mod._extract_parent_epic("## Summary\n## Parent epic\n\n#42\n\nnotes") == "42"
+        assert mod._extract_parent_epic("## Summary\nNo parent epic here") == ""
+
+    def test_tick_checkbox_behaviour_kept(self):
+        mod = self._load(EPIC_SHIM, "check_epic_checkbox_shim")
+        body = "- [ ] #55 Fix\n- [ ] #56 Add"
+        assert mod._tick_checkbox(body, "55") == "- [x] #55 Fix\n- [ ] #56 Add"
+        assert mod._tick_checkbox("- [x] #55 Fix", "55") == "- [x] #55 Fix"
+
+    def test_backend_tick_checkbox_respects_word_boundary(self):
+        backend = self._load(GITHUB_BACKEND, "_tracker_github_under_test")
+        assert backend.tick_checkbox("- [ ] #5 a\n- [ ] #55 b", "5") == "- [x] #5 a\n- [ ] #55 b"
+
+    def test_backend_tick_parent_checkbox_no_parent(self):
+        backend = self._load(GITHUB_BACKEND, "_tracker_github_under_test")
+        outcome, message = backend.tick_parent_checkbox(5, "no parent here")
+        assert outcome == "no-parent"
+        assert message == "No parent epic found for issue #5"
