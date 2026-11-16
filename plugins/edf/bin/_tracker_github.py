@@ -17,9 +17,9 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
-from _tracker_contract import TrackerError, normalise_status
+from _tracker_contract import Issue, TrackerError, issue_json, normalise_status
 
-# TODO(#120, #121): replace these stubs with the GitHub implementation.
+# TODO(#121): replace the close stub with the GitHub implementation.
 _NOT_IMPLEMENTED = "not implemented"
 
 _BOARD_VARS = ("REPO", "PROJECT_NUMBER", "PROJECT_ID", "FIELD_ID",
@@ -30,7 +30,8 @@ _NOT_FOUND = "Could not resolve to an Issue"
 _TYPES = ("task", "epic")
 
 _BASE_FIELDS = "number title body state labels(first:50){nodes{name}}"
-# Board fields need the read:project token scope; only status (board lookups) requests them.
+# Board fields need the read:project token scope; only status, and view/list when project.env
+# exists, request them.
 ISSUE_FIELDS = (
     _BASE_FIELDS + " "
     "projectItems(first:10){nodes{id project{id} fieldValues(first:20){nodes{"
@@ -40,6 +41,11 @@ _QUERY = ("query($owner:String!,$name:String!,$number:Int!){{repository(owner:$o
           "issue(number:$number){{{fields}}}}}}}")
 ISSUE_QUERY = _QUERY.format(fields=ISSUE_FIELDS)
 _PLAIN_ISSUE_QUERY = _QUERY.format(fields=_BASE_FIELDS)
+_ISSUES_QUERY = ("query($owner:String!,$name:String!,$first:Int!,$states:[IssueState!],$labels:[String!]){{"
+                 "repository(owner:$owner,name:$name){{issues(first:$first,states:$states,labels:$labels,"
+                 "orderBy:{{field:CREATED_AT,direction:DESC}}){{nodes{{{fields}}}}}}}}}")
+ISSUES_QUERY = _ISSUES_QUERY.format(fields=ISSUE_FIELDS)
+_PLAIN_ISSUES_QUERY = _ISSUES_QUERY.format(fields=_BASE_FIELDS)
 
 
 class _ParityExit(Exception):
@@ -409,23 +415,105 @@ def status(args: argparse.Namespace, ctx: object) -> int:
     return 0
 
 
-# ---------------------------------------------------------------- not yet ported (#120, #121)
+# ---------------------------------------------------------------- view, list, edit, comment
+
+
+def _derive_status(node: dict, board: Board | None) -> str:
+    """LLD Open question 1: closed is done; open takes its board column, else todo."""
+    if node["state"] == "CLOSED":
+        return "done"
+    if board is not None:
+        _, option = _board_item(board, node)
+        for name, option_id in board.options.items():
+            if option is not None and option == option_id:
+                return name
+    return "todo"
+
+
+def parent_from_body(body: str) -> str | None:
+    match = re.search(r"## Parent epic\s*\n+#(\d+)", body)
+    return f"#{match.group(1)}" if match else None
+
+
+def children_from_body(body: str) -> list[str]:
+    refs = re.findall(r"^\s*- \[[ xX]\] #(\d+)\b", body, re.M)
+    return [f"#{n}" for n in dict.fromkeys(refs)]
+
+
+def _to_issue(node: dict, board: Board | None) -> Issue:
+    labels = [label["name"] for label in node["labels"]["nodes"]]
+    body = node.get("body") or ""
+    return Issue(ref=f"#{node['number']}", title=node["title"], body=body, labels=labels,
+                 status=_derive_status(node, board), parent=parent_from_body(body),
+                 children=children_from_body(body) if "epic" in labels else [])
+
+
+# Justification: view, edit and comment share the "#N not found" existence check (AC5).
+def _require_issue(ref: str, *, board: bool = False) -> tuple[int, dict]:
+    number = _parse_ref(ref)
+    node = _fetch_issue(number, board=board)
+    if node is None:
+        raise TrackerError(f"#{number} not found")
+    return number, node
 
 
 def view(args: argparse.Namespace, ctx: object) -> int:
-    raise TrackerError(_NOT_IMPLEMENTED)
+    board = load_board(getattr(ctx, "repo_root", None), strict=False)
+    _, node = _require_issue(args.ref, board=board is not None)
+    print(issue_json(_to_issue(node, board)))
+    return 0
 
 
 def list_issues(args: argparse.Namespace, ctx: object) -> int:
-    raise TrackerError(_NOT_IMPLEMENTED)
+    wanted = normalise_status(args.status) if args.status is not None else None
+    query = ["api", "graphql", "-F", "owner={owner}", "-F", "name={repo}", "-F", "first=100",
+             "-f", f"states[]={'CLOSED' if wanted == 'done' else 'OPEN'}"]
+    if args.label:
+        query += ["-f", f"labels[]={args.label}"]
+    board = load_board(getattr(ctx, "repo_root", None), strict=False)
+    result = _gh([*query, "-f", f"query={ISSUES_QUERY if board else _PLAIN_ISSUES_QUERY}"])
+    if result.returncode != 0:
+        raise TrackerError(f"gh api graphql failed: {result.stderr.strip()}")
+    try:
+        nodes = json.loads(result.stdout)["data"]["repository"]["issues"]["nodes"]
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        raise TrackerError("unexpected gh api graphql response") from e
+    issues = [_to_issue(node, board) for node in nodes]
+    print(issue_json([i for i in issues if wanted is None or i.status == wanted]))
+    return 0
 
 
 def edit(args: argparse.Namespace, ctx: object) -> int:
-    raise TrackerError(_NOT_IMPLEMENTED)
+    number, node = _require_issue(args.ref)
+    current = {label["name"] for label in node["labels"]["nodes"]}
+    remove = [label for label in args.remove_label if label in current]  # I12
+    edit_args = ["issue", "edit", str(number)]
+    if args.title is not None:
+        edit_args += ["--title", args.title]
+    if args.body is not None:
+        edit_args += ["--body-file", "-"]
+    if args.add_label:
+        edit_args += ["--add-label", ",".join(args.add_label)]
+    if remove:
+        edit_args += ["--remove-label", ",".join(remove)]
+    if len(edit_args) > 3:
+        result = _gh(edit_args, stdin=args.body)
+        if result.returncode != 0:
+            raise TrackerError(f"gh issue edit failed: {result.stderr.strip()}")
+    print(f"updated:#{number}")
+    return 0
 
 
 def comment(args: argparse.Namespace, ctx: object) -> int:
-    raise TrackerError(_NOT_IMPLEMENTED)
+    number, _ = _require_issue(args.ref)
+    result = _gh(["issue", "comment", str(number), "--body-file", "-"], stdin=args.body)
+    if result.returncode != 0:
+        raise TrackerError(f"gh issue comment failed: {result.stderr.strip()}")
+    print(f"commented:#{number}")
+    return 0
+
+
+# ---------------------------------------------------------------- not yet ported (#121)
 
 
 def close(args: argparse.Namespace, ctx: object) -> int:

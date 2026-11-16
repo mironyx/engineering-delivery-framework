@@ -4,10 +4,10 @@ Covers LLD v3 E3.1 §1.1: tracker selection from the environment (worktree-safe
 .env root), Jira config validation, the error contract (I1, I2, I4, I5), the
 pinned grammar, and the shared contract helpers (status vocabulary, Issue JSON).
 
-The GitHub backend's view/list/edit/comment/close are stubs (TrackerError("not
-implemented")), so a request for those that passes parsing and config validation is
-observed as "Error: not implemented". create and status are real since #119; their
-grammar tests observe the gh calls they make instead (behaviour: test_tracker_github.py).
+The GitHub backend's close is a stub (TrackerError("not implemented")), so a close request
+that passes parsing and config validation is observed as "Error: not implemented". create and
+status are real since #119, view/list/edit/comment since #120; their grammar tests observe the
+gh calls they make instead (behaviour: test_tracker_github.py).
 """
 
 from __future__ import annotations
@@ -41,6 +41,11 @@ NOT_IMPLEMENTED = "Error: not implemented"
 JIRA_UNAVAILABLE = "Error: Jira backend is not available in this EDF version"
 NO_DUP_RULE = {"argv_prefix": ["issue", "list"], "stdout": ""}
 CREATED_RULE = {"argv_prefix": ["issue", "create"], "stdout": "https://github.com/owner/repo/issues/42\n"}
+ISSUE_1 = {"number": 1, "title": "T", "body": "", "state": "OPEN",
+           "labels": {"nodes": [{"name": "a"}, {"name": "c"}]}, "projectItems": {"nodes": []}}
+ISSUE_RULE = {"argv_prefix": ["api", "graphql"], "argv_contains": ["number=1"],
+              "stdout": json.dumps({"data": {"repository": {"issue": ISSUE_1}}})}
+LIST_RULE = {"argv_prefix": ["api", "graphql"], "stdout": json.dumps({"data": {"repository": {"issues": {"nodes": []}}}})}
 
 
 # ---------------------------------------------------------------- helpers
@@ -440,7 +445,11 @@ class TestGrammar:
         ],
     )
     def test_edit_with_a_change_flag_reaches_backend(self, fake_gh, flags):
-        _assert_error(_run(fake_gh.repo, "edit", "1", *flags), NOT_IMPLEMENTED)
+        # #120: edit is real; the request reaches gh issue edit (behaviour: test_tracker_github.py).
+        fake_gh.rules([ISSUE_RULE, {"argv_prefix": ["issue", "edit"], "stdout": ""}])
+        result = _run(fake_gh.repo, "edit", "1", *flags)
+        assert (result.returncode, result.stdout) == (0, "updated:#1\n"), result.stderr
+        assert [c["argv"][:3] for c in fake_gh.calls() if c["argv"][0] == "issue"] == [["issue", "edit", "1"]]
 
     def test_edit_rejects_abbreviated_flag(self, fake_gh):
         result = _run(fake_gh.repo, "edit", "1", "--tit", "T")
@@ -475,18 +484,31 @@ class TestGrammar:
         assert fake_gh.calls() == []
 
     @pytest.mark.parametrize(
-        "argv",
+        ("argv", "rules", "expected"),
         [
-            pytest.param(["view", "1"], id="view"),
-            pytest.param(["view", "PROJ-12"], id="view-opaque-ref"),
-            pytest.param(["list"], id="list"),
-            pytest.param(["list", "--status", "todo", "--label", "bug"], id="list-filters"),
-            pytest.param(["comment", "1", "--body", "B"], id="comment"),
-            pytest.param(["close", "1"], id="close"),
+            # #120: view/list/comment are real; each is observed by the gh call it makes.
+            pytest.param(["view", "1"], [ISSUE_RULE], '"ref": "#1"', id="view"),
+            pytest.param(["list"], [LIST_RULE], "[]", id="list"),
+            pytest.param(["list", "--status", "todo", "--label", "bug"], [LIST_RULE], "[]", id="list-filters"),
+            pytest.param(["comment", "1", "--body", "B"],
+                         [ISSUE_RULE, {"argv_prefix": ["issue", "comment"], "stdout": ""}], "commented:#1",
+                         id="comment"),
         ],
     )
-    def test_valid_requests_reach_github_backend(self, fake_gh, argv):
-        _assert_error(_run(fake_gh.repo, *argv), NOT_IMPLEMENTED)
+    def test_valid_requests_reach_github_backend(self, fake_gh, argv, rules, expected):
+        fake_gh.rules(rules)
+        result = _run(fake_gh.repo, *argv)
+        assert result.returncode == 0, result.stderr
+        assert expected in result.stdout
+        assert fake_gh.calls(), "request never reached gh"
+
+    def test_opaque_ref_reaches_github_backend(self, fake_gh):
+        # The entry point keeps REF opaque; the GitHub backend rejects a non-numeric one itself.
+        _assert_error(_run(fake_gh.repo, "view", "PROJ-12"), "Error: invalid GitHub reference 'PROJ-12'")
+        assert fake_gh.calls() == []
+
+    def test_close_reaches_github_backend(self, fake_gh):
+        _assert_error(_run(fake_gh.repo, "close", "1"), NOT_IMPLEMENTED)
 
     @pytest.mark.parametrize(
         "argv",
