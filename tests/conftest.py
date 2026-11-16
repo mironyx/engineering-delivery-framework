@@ -83,6 +83,38 @@ def fake_gh(tmp_path, monkeypatch):
     return handle
 
 
+@pytest.fixture(scope="session")
+def _fake_jira_cert(tmp_path_factory):
+    """One throwaway TLS certificate per session. A missing openssl fails the test run — never skips."""
+    from tests.fixtures.fake_jira import FakeJiraSetupError, generate_certificate
+
+    try:
+        return generate_certificate(tmp_path_factory.mktemp("fake_jira_tls"))
+    except FakeJiraSetupError as exc:
+        pytest.fail(str(exc), pytrace=False)
+
+
+@pytest.fixture
+def fake_jira(_fake_jira_cert, monkeypatch):
+    """Stateful fake Jira over HTTPS on localhost; points JIRA_* and SSL_CERT_FILE at it.
+
+    See tests/fixtures/fake_jira.py. Needs `openssl` (fails, does not skip, without it).
+    """
+    if sys.platform == "win32":
+        pytest.skip("fake_jira is POSIX only, like fake_gh")
+    from tests.fixtures.fake_jira import FakeJira
+
+    cert, key = _fake_jira_cert
+    server = FakeJira(cert, key)
+    server.start()
+    for name, value in server.env.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("SSL_CERT_FILE", str(cert))
+    yield server
+    server.stop()
+    assert not server.errors, f"fake_jira handler crashed:\n{server.errors[0]}"
+
+
 @pytest.fixture
 def run_script(bin_dir):
     def _run(script_name, stdin_text=None, args=None):
