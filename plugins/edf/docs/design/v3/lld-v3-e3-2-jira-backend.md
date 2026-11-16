@@ -29,9 +29,7 @@ only (ADR-0041): `urllib.request` for HTTP, no third-party packages.
 Each is decided below so `/feature` is not blocked; confirm or overturn at review.
 
 1. **Task-list checkboxes.** `taskList`/`taskItem` are absent from Atlassian's documented ADF node
-   list (the node index lists blockquote, bulletList, codeBlock, date, doc, emoji, expand,
-   hardBreak, heading, inlineCard, listItem, media*, orderedList, panel, paragraph, rule,
-   status, table*, text). Decision: `- [ ] x` / `- [x] x` become a `bulletList` item whose
+   index (see External Surfaces). Decision: `- [ ] x` / `- [x] x` become a `bulletList` item whose
    paragraph text starts with the literal `[ ] ` or `[x] `, and convert back exactly. The UI
    shows plain brackets, not clickable boxes. Revisit only if the `SCRUM` smoke run shows
    `taskList` is accepted and worth the risk.
@@ -48,8 +46,11 @@ Each is decided below so `/feature` is not blocked; confirm or overturn at revie
    exactly in code. Jira's index is eventually consistent, so an issue created moments earlier
    in the same run can be missed. Accepted at `/architect` volume (sequential creates, distinct
    titles); the `SCRUM` smoke run checks it.
-5. **`status` for a Jira status outside the fixed mapping.** `view`/`list` report such an issue
-   by status category: `done` → `done`, `indeterminate` → `in progress`, `new` → `todo`.
+5. **`status` for a Jira status outside the fixed mapping.** The requirements glossary says other
+   statuses are ignored; `view`/`list` instead report such an issue by status category (`done` →
+   `done`, `indeterminate` → `in progress`, `new` → `todo`) so every issue has one of the four
+   values. `list --status` filters on that same derived value (as GitHub does), never on the raw
+   name, so the filter and the reported status always agree.
 6. **HTTPS in tests without a production seam.** `JIRA_HOST` must be `https://`, and tests must
    not weaken that. The `fake_jira` fixture serves TLS on `localhost` with a certificate it
    generates with `openssl` at session start and trusts through `SSL_CERT_FILE`, which
@@ -74,8 +75,7 @@ bodies and comments read properly in Jira's UI and in FCS (C3.4).
 
 ### Behavioural Flows
 
-The converter is two pure functions with no collaborators. No sequence diagram: the signal
-(more than two components interacting) is absent.
+Two pure functions with no collaborators.
 
 The mapping is the contract:
 
@@ -89,8 +89,9 @@ The mapping is the contract:
 | `- [ ] x`, `- [x] x` | `bulletList` item, text `[ ] x` / `[x] x` (Open question 1) |
 | fenced code with language | `codeBlock` `attrs.language`, unmarked text |
 | GFM pipe table | `table` → `tableRow` → `tableHeader` (first row) / `tableCell` → `paragraph` |
-| soft line break inside a paragraph | `hardBreak` |
-| anything else (raw HTML, block quote, image, rule) | `paragraph` with the source text, unchanged |
+| soft line break inside a paragraph | joined with one space (hard-wrapped design text must not show as ragged lines in Jira) |
+| explicit hard break (trailing backslash) | `hardBreak` |
+| anything else (raw HTML, block quote, image, rule) | `paragraph` holding the source lines as one literal text node — no inline parsing |
 
 ADF → Markdown: the same nodes in reverse; any other node renders as its concatenated text
 content (a block becomes a paragraph), so nothing is dropped. Text is escaped so that
@@ -105,6 +106,7 @@ content (a block becomes a paragraph), so nothing is dropped. Text is escaped so
 | A3 | The module is pure: no I/O, no network | Test: `grep -E '^\s*(import|from) (os|sys|socket|subprocess|urllib|http)'` on `_adf.py` returns nothing |
 | A4 | No input raises; unsupported input becomes text | Test: fuzz-lite list of malformed inputs (unclosed fence, ragged table, lone `|`) returns a `doc` |
 | A5 | Code block text and language survive byte for byte | Test: round trip a fence containing backticks, tabs and a trailing blank line |
+| A6 | Fidelity: `adf_to_md(md_to_adf(x)) == x` for a canonical corpus, including identifiers with underscores (`snake_case_name`), `2 * 3 * 4` and `a_b *c* d_e` | Test over the corpus; emphasis follows GFM flanking, so `_` never emphasises inside a word |
 
 ### Acceptance Criteria
 
@@ -125,6 +127,9 @@ describe("md_to_adf")
   it("keeps code block language and content")
   it("makes the first table row header cells")
   it("turns raw HTML into a plain paragraph")
+  it("keeps an image as literal text")
+  it("does not emphasise underscores inside identifiers")
+  it("joins soft line breaks with a space and keeps explicit hard breaks")
 describe("adf_to_md")
   it("renders an undocumented node as its text content")
   it("treats a null description as an empty body")
@@ -150,9 +155,11 @@ later task depends on, and registers `"jira"` in the dispatch table.
 
 ### Behavioural Flows
 
+Sequence diagrams carry no `click` or `link` (a `click` is a fatal parse error there). The Structural
+Overview below is the navigation path.
+
 ```mermaid
 sequenceDiagram
-    %% No click (fatal parse error here) and no link directive (convention).
     participant S as Skill
     participant T as tracker.py
     participant B as _tracker_jira
@@ -229,8 +236,8 @@ classDiagram
 | J1 | The token appears only in the `Authorization` header of requests; in no stdout, stderr or error message, even when Jira echoes it | Test: run every error path with token `tok-SECRET`; the fake echoes the header in an error body; assert the string is absent from captured output |
 | J2 | A redirect is never followed, so credentials cannot reach another host | Test: fake answers 302 to another path; its log shows exactly one request; stderr is `Error: Jira request failed (302)` |
 | J3 | No retry: a 429 or 5xx produces exactly one request | Test: fake request count is 1 |
-| J4 | Only `_jira_client.py` imports `urllib` or `http.client` | Test: `grep -rE '^\s*(import|from) (urllib|http)' plugins/edf/bin/_tracker_jira.py plugins/edf/bin/_adf.py` is empty |
-| J5 | `JIRA_HOST` without `https://` makes no request | Existing E3.1 test (I-select) stays green; client constructor also asserts the scheme |
+| J4 | Only `_jira_client.py` imports `urllib` or `http.client` | Test: `grep -E '^\s*(import|from) (urllib|http)' plugins/edf/bin/_tracker_jira.py plugins/edf/bin/_adf.py` is empty (scoped to the tracker modules) |
+| J5 | `JIRA_HOST` without `https://` makes no request | Existing E3.1 test stays green: `tracker.py` rejects it before the backend loads. The client adds no second check, and `_jira_client.py` must not contain the text `JIRA_` (E3.1's `test_jira_vars_only_in_tracker_modules`) |
 | J6 | Every request is bounded by a timeout | Test: fake sleeps past the timeout; error is `Jira request failed: cannot reach <host>`, not a hang |
 
 ### Acceptance Criteria
@@ -273,7 +280,6 @@ File a Task or Epic, skipping an open issue with the same title, validating the 
 
 ```mermaid
 sequenceDiagram
-    %% No click (fatal parse error here) and no link directive (convention).
     participant S as Skill
     participant B as _tracker_jira
     participant A as _adf
@@ -327,6 +333,7 @@ describe("jira create")
   it("errors 'parent KEY not found' and writes nothing")
   it("prints the dry-run block and writes nothing")
   it("survives quotes, backslashes and JQL keywords in the title")
+  it("creates with a raw-HTML body")
   it("ignores --add-to-board and --board-status")
   it("rejects an unknown --type with the GitHub backend's message")
 ```
@@ -349,7 +356,6 @@ epics, rank order, at most 100.
 
 ```mermaid
 sequenceDiagram
-    %% No click (fatal parse error here) and no link directive (convention).
     participant S as Skill
     participant B as _tracker_jira
     participant C as JiraClient
@@ -377,7 +383,7 @@ sequenceDiagram
 | # | Invariant | Verification |
 |---|-----------|-------------|
 | V1 | `view` and each `list` element have exactly `ref, title, body, labels, status, parent, children`, in that order | Test: `list(json.loads(out).keys())` equals the tuple, same assertion as GitHub |
-| V2 | `list` returns at most 100 items and requests no more than needed | Test: 130 issues in the fake → 100 returned; request log shows `maxResults` ≤ 100 |
+| V2 | `list` returns at most 100 items, and `--status` filters on the same derived status that is printed | Tests: 130 issues in the fake → 100 returned; an `In Review` issue appears under `--status "in progress"` and not under `--status todo` |
 | V3 | `status` is always one of the four EDF values | Test: an issue in an unmapped status (`In Review`, category indeterminate) → `in progress` |
 | V4 | `children` is `[]` unless the issue type is Epic | Test: Task with sub-issues returns `[]` |
 | V5 | `list` order is the fake's rank order | Test: reordered rank in the fake changes the output order |
@@ -397,6 +403,7 @@ describe("jira view")
   it("returns an empty body for a null description")
   it("errors 'KEY not found' for an unknown key")
   it("accepts a lower-case key")
+  it("round-trips a full-subset body through create and view")
 describe("jira list")
   it("filters by status and label in JQL")
   it("treats open as status category not Done")
@@ -520,7 +527,8 @@ Verified 2026-11-16 against Atlassian's official OpenAPI document for Jira Cloud
 | Rate limiting: 429 with `Retry-After`; no retry here (non-goal) | n/a | https://developer.atlassian.com/cloud/jira/platform/rate-limiting/ | Yes | Yes |
 | JQL text search `summary ~ "\"phrase\""` and special-character escaping inside it | n/a | https://support.atlassian.com/jira-software-cloud/docs/jql-fields/ | **Unverified — recall-based.** Design does not depend on it: matches are re-checked by exact summary in code. Settled by the `SCRUM` smoke run | Yes |
 | JQL string quoting (`"…"`, backslash escapes) | n/a | https://support.atlassian.com/jira-software-cloud/docs/advanced-search-reference-jql-syntax/ | **Unverified — recall-based.** Same mitigation | Yes |
-| Python `urllib.request`, `ssl`, `http.server` (stdlib) | the interpreter `hooks/run-python.sh` selects | https://docs.python.org/3/library/urllib.request.html | Yes — `build_opener` with a `HTTPRedirectHandler` subclass whose `redirect_request` returns `None` stops redirect following | No (`query-feature-cost.py` uses `urllib.request`) |
+| Python `urllib.request` (`build_opener`, `HTTPRedirectHandler`) | stdlib; the repo declares no minimum Python, the E3.1 modules need ≥ 3.9 (PEP 585 generics under `from __future__ import annotations`) | https://docs.python.org/3/library/urllib.request.html | Yes — a `HTTPRedirectHandler` subclass whose `redirect_request` returns `None` stops redirect following | No (`query-feature-cost.py`, `append-checkpoint.py`) |
+| Python `ssl` (client default context, server `SSLContext.wrap_socket(server_side=True)`) and `http.server.ThreadingHTTPServer` | stdlib, same interpreter | https://docs.python.org/3/library/ssl.html, https://docs.python.org/3/library/http.server.html | Yes — documented APIs; the fixture is their first use in the repo | Yes |
 | OpenSSL `SSL_CERT_FILE` as a trust anchor for `ssl.create_default_context()` | OpenSSL 3.x (installed 3.5.5) | https://docs.python.org/3/library/ssl.html#ssl.SSLContext.load_default_certs | Yes — Python loads OpenSSL's default verify paths, which honour the variable | Yes |
 
 ## Reused helpers — DO NOT re-implement
@@ -562,7 +570,11 @@ md_to_adf(markdown: str) -> dict
   - _table(rows) -> dict: first row tableHeader, rest tableCell; each cell wraps one paragraph;
     ragged rows padded with empty cells
   - _inline(text: str) -> list[dict]: tokenises `` `code` ``, `**strong**`, `*em*`/`_em_`, `[t](u)`,
-    and backslash escapes; unmatched delimiters stay literal text; adjacent plain runs merged
+    and backslash escapes; emphasis follows GFM flanking (the opener touches non-space on its inner
+    side, and `_` never opens or closes inside a word); `![alt](u)` stays literal text; unmatched
+    delimiters stay literal; adjacent plain runs merged
+  - unsupported blocks (raw HTML, block quote, rule) → one paragraph with one literal text node of
+    the source lines; `adf_to_md` escapes it like any text, so A1 holds
 
 adf_to_md(doc: dict | None) -> str
   - None, {} or a doc with no content → ""
@@ -571,7 +583,7 @@ adf_to_md(doc: dict | None) -> str
   - _escape(text: str) -> str: backslash-escapes `\ * _ ` [ ] |` (pipe only inside table cells)
     and a block-leading `#`, `-`, `+`, `N.`
   - fenced code uses a fence one backtick longer than the longest run in the content
-  - hardBreak → "\n"; listItem nesting → two spaces per level
+  - hardBreak → backslash + newline; listItem nesting → two spaces per level
 ```
 
 Marks on a text node are emitted in the order `link`, `strong`, `em`, `code`; a `code` mark never
@@ -590,7 +602,9 @@ plugins/edf/bin/tracker.py               — register "jira" in _BACKENDS; drop 
 tests/fixtures/fake_jira.py              — new: stateful fake Jira (HTTPS, http.server)
 tests/conftest.py                        — add the `fake_jira` fixture beside `fake_gh`
 tests/test_jira_client.py                — new
-tests/test_tracker.py                    — update the test asserting "Jira backend is not available"
+tests/test_tracker.py                    — update `test_valid_jira_config_reports_backend_unavailable`; move the
+                                           valid-config case of `test_token_never_printed` onto `fake_jira`
+                                           (otherwise it calls example.atlassian.net once Tasks 5–7 land)
 CLAUDE.md                                — Coding Principles: record the respx exception (ADR-0041)
 ```
 
@@ -599,7 +613,7 @@ CLAUDE.md                                — Coding Principles: record the respx
 ```text
 class JiraClient:
     def __init__(self, cfg: JiraConfig, *, timeout: float = 30.0)
-        # asserts cfg.host.startswith("https://") (J5); builds the header once
+        # builds the Authorization header once; no scheme check (tracker.py owns it, J5)
     def request(self, method: str, path: str, *, query: dict[str, str] | None = None,
                 body: dict | None = None) -> tuple[int, dict | None]
         # path must start with "/rest/api/3/". Returns (status, parsed JSON or None) for 2xx and 404.
@@ -675,7 +689,7 @@ Under Coding Principles, below the respx line:
 
 ```text
 plugins/edf/bin/_tracker_jira.py     — add create and its helpers
-tests/test_tracker_jira.py           — new in Task 3: create tests (Tasks 4 and 5 append)
+tests/test_tracker_jira.py           — new in Task 5: create tests (Tasks 6 and 7 append)
 ```
 
 ### Functions
@@ -695,8 +709,9 @@ create(args, ctx) -> int
 
 _find_open_by_title(client, space, title) -> str | None
   - jql = f'project = {_jql_str(space)} AND statusCategory != Done AND summary ~ {_jql_phrase(title)}'
-  - POST /rest/api/3/search/jql {"jql": jql, "fields": ["summary"], "maxResults": 50}
-  - return the first key whose fields.summary == title exactly, else None
+  - _search_all(client, jql, fields=["summary"], limit=100, keep=lambda f: f["summary"] == title)
+  - return the first key kept, else None; a title with more than 100 phrase matches is outside the
+    accepted limit
 
 _jql_str(value: str) -> str       # '"' + value with \ → \\, " → \", \n → \\n, \r, \t escaped + '"'
 _jql_phrase(value: str) -> str    # _jql_str('"' + _escape_text_search(value) + '"'): phrase search; the
@@ -732,22 +747,26 @@ _status_of(fields: dict) -> str
     "in progress", else "todo"                                          (Open question 5)
 
 _to_issue(key: str, fields: dict, children: list[str]) -> Issue
-  - body = adf_to_md(fields.get("description")); parent = fields["parent"]["key"] or None;
+  - body = adf_to_md(fields.get("description")); parent = (fields.get("parent") or {}).get("key");
     children only when fields["issuetype"]["name"] == "Epic"
 
 view(args, ctx) -> int
   - key = _parse_ref(args.ref, space); GET /rest/api/3/issue/{key}?fields=<_FIELDS>
   - (404, _) → TrackerError(f"{key} not found")
-  - Epic → _children(client, space, key) via POST /search/jql "parent = KEY ORDER BY Rank ASC"
+  - Epic → _search_all(client, f'project = {_jql_str(space)} AND parent = {key} ORDER BY Rank ASC',
+    fields=["summary"], limit=100) → child keys
   - print(issue_json(_to_issue(...)))
 
 list_issues(args, ctx) -> int
   - wanted = normalise_status(args.status) if args.status else None
-  - clauses = [project = SPACE]; wanted == "done" → statusCategory = Done; wanted given otherwise →
-    status = "<mapped name>"; no wanted → statusCategory != Done; label → labels = "<L>"
+  - clauses: project; label → labels = "<L>"; wanted == "done" → statusCategory = Done, otherwise
+    statusCategory != Done — JQL only narrows, the status filter is applied in code
   - jql = " AND ".join(clauses) + " ORDER BY Rank ASC"
-  - _search_all(client, jql, fields=_FIELDS, limit=100) -> list[dict]  # POST /search/jql, follow
-    nextPageToken until `limit` reached or the token is absent; maxResults = min(100, remaining)
+  - _search_all(client, jql, fields=_FIELDS, limit=100, keep=lambda f: wanted is None or
+    _status_of(f) == wanted) -> list[dict]
+      # POST /search/jql, maxResults 100 per page; follows nextPageToken, keeps the items that pass
+      # `keep`, stops at `limit` kept items, when the token is absent, or after 20 pages (guard
+      # against a repeating token)
   - print(issue_json([...])) — children are [] for list (Epic children only via view)
   - failures raise TrackerError via the client
 ```
@@ -784,8 +803,9 @@ status(args, ctx) -> int
   - _transition_to(client, space, key, target)
   - print(f"{key} → {target}")
 
-_transition_to(client, space, key, target) -> bool   # True if a transition was made
-  - GET issue fields=status; 404 → not found; name equal to _STATUS_NAMES[target] → return False
+_transition_to(client, space, key, target, fields: dict | None = None) -> bool   # True if a transition was made
+  - fields = fields or (GET issue fields=status; 404 → not found); name equal to
+    _STATUS_NAMES[target] → return False
   - GET /rest/api/3/issue/{key}/transitions; pick the transition with to.name == the mapped name;
     found → POST {"transition": {"id": id}} → True
   - not found → GET /rest/api/3/project/{space}/statuses; if no status has the mapped name →
@@ -794,18 +814,18 @@ _transition_to(client, space, key, target) -> bool   # True if a transition was 
 
 close(args, ctx) -> int
   - GET issue fields=status; 404 → not found; statusCategory.key == "done" → print(f"closed:{key}"); return 0
-  - _transition_to(..., "done"); print(f"closed:{key}")
+  - _transition_to(..., "done", fields=<the fields just read>); print(f"closed:{key}")
 ```
 
 `add_to_board` on `status` is accepted and ignored (Open question 2).
 
 ## kb/ additions
 
-Append to the `## Issue tracker access` section of `plugins/edf/kb/architecture.md` (Task 2):
+Append to the `## Issue tracker access` section of `plugins/edf/kb/architecture.md` (Task 4):
 
 ```markdown
-Only `bin/_jira_client.py` may import `urllib` or `http.client`, and only `bin/_tracker_jira.py`
-may call it. Bodies and comments pass through `bin/_adf.py` (`md_to_adf`, `adf_to_md`); no other
+Among the tracker modules only `bin/_jira_client.py` may import `urllib` or `http.client`, and
+only `bin/_tracker_jira.py` may call it. Bodies and comments pass through `bin/_adf.py` (`md_to_adf`, `adf_to_md`); no other
 code builds ADF. Jira tests use the `fake_jira` fixture (local HTTPS server), not patching.
 ```
 
@@ -831,117 +851,153 @@ code builds ADF. Jira tests use the `fake_jira` fixture (local HTTPS server), no
 
 ## Tasks
 
-### Task 1: Markdown↔ADF converter
+### Task 1: Markdown → ADF
 
-**Issue title:** Markdown↔ADF converter
+**Issue title:** Markdown to ADF conversion
 **Layer:** BE
 **Depends on:** —
 **Stories:** 1.3 (round-trip), 1.2 (unsupported Markdown survives)
 **HLD reference:** [v3-design.md §C3.4](v3-design.md#c34-markdownadf-converter)
 
-**What:** Add the pure `md_to_adf` / `adf_to_md` module for the Supported Markdown subset, with round-trip tests.
+**What:** Add `md_to_adf` and the node/mark allow-lists to `_adf.py` for the Supported Markdown subset.
 
 **Acceptance criteria:**
-- [ ] Every Supported Markdown construct round-trips (headings, nested lists, code with language, links, tables, task-list text).
-- [ ] Only documented ADF nodes and marks are emitted.
-- [ ] Unsupported Markdown and unknown ADF nodes become text, never dropped; no input raises.
+- [ ] Every Supported construct maps per the §1.1 table; only documented nodes and marks are emitted.
+- [ ] Emphasis follows GFM flanking; unsupported blocks and images survive as literal text; no input raises.
 - [ ] The module imports nothing that performs I/O.
 
-**BDD specs:** see §1.1.
+**BDD specs:** the `md_to_adf` group in §1.1.
 
 **Files to create/modify:**
-- `plugins/edf/bin/_adf.py` — converter
-- `tests/test_adf.py` — round-trip, node/mark allow-list, purity and malformed-input tests
+- `plugins/edf/bin/_adf.py` — `md_to_adf`, `ALLOWED_NODES`, `ALLOWED_MARKS`
+- `tests/test_adf.py` — mapping, allow-list, purity, malformed-input tests
 
-### Task 2: Jira client, fake server and registration
+### Task 2: ADF → Markdown and round-trip
 
-**Issue title:** Jira HTTP client, fake Jira fixture and backend registration
+**Issue title:** ADF to Markdown conversion and round-trip tests
+**Layer:** BE
+**Depends on:** Task 1
+**Stories:** 1.3 (AC2, AC3)
+**HLD reference:** [v3-design.md §C3.4](v3-design.md#c34-markdownadf-converter)
+
+**What:** Add `adf_to_md` with escaping, unknown-node-to-text and null handling, plus the round-trip, stability and fidelity tests.
+
+**Acceptance criteria:**
+- [ ] The whole subset round-trips; `adf_to_md(md_to_adf(x)) == x` on the canonical corpus (A6) and the second round trip is stable (A1).
+- [ ] Unknown ADF nodes render as their text content; a null description is an empty body.
+- [ ] Code block text and language survive byte for byte (A5).
+
+**BDD specs:** the `adf_to_md` and `round trip` groups in §1.1.
+
+**Files to create/modify:**
+- `plugins/edf/bin/_adf.py` — `adf_to_md`
+- `tests/test_adf.py` — round-trip and fidelity tests
+
+### Task 3: Fake Jira fixture
+
+**Issue title:** fake_jira HTTPS test fixture
 **Layer:** BE
 **Depends on:** —
+**Stories:** 1.1 (test infrastructure for every Jira AC)
+**HLD reference:** [v3-design.md §C3.3](v3-design.md#c33-jira-backend)
+
+**What:** Add the stateful fake Jira server (TLS via a generated certificate, spec-shaped endpoints, JQL grammar parser, paging, fault injection) and its `fake_jira` fixture, with tests that exercise the fake itself.
+
+**Acceptance criteria:**
+- [ ] Serves the endpoints in External Surfaces with the spec's status codes; rejects JQL outside the emitted grammar with 400.
+- [ ] Fixture sets `JIRA_*` and `SSL_CERT_FILE`; fails loudly (does not skip) when `openssl` is missing.
+- [ ] Fault injection (status, echoed auth header, redirect, delay) and a request log work.
+
+**BDD specs:** the `fake_jira` section of §1.2 (self-tests: pagination, rank order, transitions, JQL rejection).
+
+**Files to create/modify:**
+- `tests/fixtures/fake_jira.py` — server
+- `tests/conftest.py` — `fake_jira` fixture
+- `tests/test_fake_jira.py` — self-tests
+
+### Task 4: Jira client and registration
+
+**Issue title:** Jira HTTP client and backend registration
+**Layer:** BE
+**Depends on:** Task 3
 **Stories:** 1.1 (AC6, AC7)
 **HLD reference:** [v3-design.md §C3.3](v3-design.md#c33-jira-backend)
 
-**What:** Add `JiraClient` with named errors, redaction, no retry and no redirect; the `fake_jira` HTTPS fixture; the `_tracker_jira.py` stub module with shared helpers; register `"jira"` in `_BACKENDS`; record the respx exception in `CLAUDE.md`.
+**What:** Add `JiraClient` (named errors, redaction, no retry, no redirect, timeout), the `_tracker_jira.py` stub module with shared helpers, register `"jira"` in `_BACKENDS`, and record the respx exception.
 
 **Acceptance criteria:**
-- [ ] 401/403 and 429/5xx produce the named errors; the token appears in no output even when Jira echoes it.
-- [ ] No retry and no redirect following; a timeout fails with a named error.
+- [ ] 401/403 and 429/5xx produce the named errors; the token is absent from all output even when Jira echoes it; one request per call; redirects not followed; a timeout fails with a named error.
 - [ ] With all four variables set, `tracker.py` dispatches to the Jira backend (stub operations fail with `not implemented`).
-- [ ] The test asserting "Jira backend is not available" is updated; `CLAUDE.md` records the exception; `kb/architecture.md` has the Jira lines.
+- [ ] `test_valid_jira_config_reports_backend_unavailable` is updated, the valid case of `test_token_never_printed` runs against `fake_jira`, and `_jira_client.py` contains no `JIRA_`.
+- [ ] `CLAUDE.md` records the exception; `kb/architecture.md` has the Jira lines.
 
-**BDD specs:** see §1.2.
+**BDD specs:** the `jira client` and `registration` groups in §1.2.
 
 **Files to create/modify:**
-- `plugins/edf/bin/_jira_client.py` — `JiraClient`
-- `plugins/edf/bin/_tracker_jira.py` — stub and shared helpers
-- `plugins/edf/bin/tracker.py` — registration
-- `tests/fixtures/fake_jira.py`, `tests/conftest.py` — fixture
-- `tests/test_jira_client.py`, `tests/test_tracker.py` — tests
-- `CLAUDE.md`, `plugins/edf/kb/architecture.md` — doc lines
+- `plugins/edf/bin/_jira_client.py`, `plugins/edf/bin/_tracker_jira.py`, `plugins/edf/bin/tracker.py`
+- `tests/test_jira_client.py`, `tests/test_tracker.py`
+- `CLAUDE.md`, `plugins/edf/kb/architecture.md`
 
-### Task 3: Jira create
+### Task 5: Jira create
 
 **Issue title:** Jira backend create
 **Layer:** BE
-**Depends on:** Task 1, Task 2
+**Depends on:** Task 1, Task 4
 **Stories:** 1.2 (Jira AC1–AC8)
 **HLD reference:** [v3-design.md §C3.3](v3-design.md#c33-jira-backend)
 
 **What:** Implement `create` with exact-title duplicate detection, parent validation, Task/Epic type and dry-run.
 
 **Acceptance criteria:**
-- [ ] Creates a Task with ADF body and labels, printing `created:SCRUM-<n>`; `exists:` for an open duplicate; a closed duplicate does not block.
-- [ ] `--type epic` creates an Epic; `--parent` sets `parent`; a missing parent errors before any write.
-- [ ] `--dry-run` writes nothing.
+- [ ] Creates a Task with ADF body and labels (`created:SCRUM-<n>`); `exists:` for an open duplicate; a closed duplicate does not block; a raw-HTML body creates.
+- [ ] `--type epic` creates an Epic; `--parent` sets `parent`; a missing parent errors before any write; `--dry-run` writes nothing.
 - [ ] Hostile titles raise no JQL error and match only the exact title.
 
-**BDD specs:** see §1.3.
+**BDD specs:** §1.3.
 
 **Files to create/modify:**
-- `plugins/edf/bin/_tracker_jira.py` — `create`, `_find_open_by_title`, `_jql_str`, `_jql_phrase`
+- `plugins/edf/bin/_tracker_jira.py` — `create`, `_find_open_by_title`, `_search_all`, `_jql_str`, `_jql_phrase`
 - `tests/test_tracker_jira.py` — create tests
 
-### Task 4: Jira view and list
+### Task 6: Jira view and list
 
 **Issue title:** Jira backend view and list
 **Layer:** BE
-**Depends on:** Task 3
+**Depends on:** Task 2, Task 5
 **Stories:** 1.3 (Jira AC1–AC8)
 **HLD reference:** [v3-design.md §C3.3](v3-design.md#c33-jira-backend)
 
-**What:** Implement `view` and `list` in the shared seven-key shape with status mapping, epic children, rank order and the 100 cap.
+**What:** Implement `view` and `list` in the shared seven-key shape with derived status, epic children, rank order and the 100 cap.
 
 **Acceptance criteria:**
-- [ ] `view` prints the seven keys in order; Markdown body round-trips; unknown key errors `SCRUM-<n> not found`.
+- [ ] `view` prints the seven keys in order; a full-subset body round-trips through create and view; unknown key errors `SCRUM-<n> not found`.
 - [ ] An epic's `children` are its child keys; other issues have `[]`.
-- [ ] `list --status`/`--label` filter in JQL, order by rank, cap at 100 across pages.
-- [ ] An unmapped Jira status is reported by category.
+- [ ] `list --status`/`--label` filter, in rank order, at most 100 across pages; `--status` filters on the printed status.
 
-**BDD specs:** see §1.4.
+**BDD specs:** §1.4.
 
 **Files to create/modify:**
-- `plugins/edf/bin/_tracker_jira.py` — `view`, `list_issues`, helpers
+- `plugins/edf/bin/_tracker_jira.py` — `view`, `list_issues`, `_status_of`, `_to_issue`
 - `tests/test_tracker_jira.py` — view/list tests
 
-### Task 5: Jira edit, comment, status and close
+### Task 7: Jira edit, comment, status and close
 
 **Issue title:** Jira backend edit, comment, status and close
 **Layer:** BE
-**Depends on:** Task 4
+**Depends on:** Task 6
 **Stories:** 1.4 (Jira AC1–AC5), 1.5 (Jira AC1–AC5), 2.2 (AC4 mechanics)
 **HLD reference:** [v3-design.md §C3.3](v3-design.md#c33-jira-backend)
 
 **What:** Implement label and body edits, comments and workflow transitions with the no-op and named-error cases; `close` is the idempotent transition to Done.
 
 **Acceptance criteria:**
-- [ ] `edit` replaces the body (ADF) and adds/removes labels in one `PUT`; an absent remove-label is skipped; prints `updated:SCRUM-<n>`.
-- [ ] `comment` posts an ADF comment and prints `commented:SCRUM-<n>`.
+- [ ] `edit` replaces the body (ADF) and adds/removes labels in one `PUT`, skipping absent remove-labels; `updated:SCRUM-<n>`.
+- [ ] `comment` posts an ADF comment; `commented:SCRUM-<n>`.
 - [ ] `status` transitions, no-ops on the current status, names a missing `Blocked` status, names current and target when no transition leads there, and lists the four values for an unknown status.
-- [ ] `close` moves to Done and is a no-op on an issue already Done.
-- [ ] Unknown keys error `SCRUM-<n> not found` with nothing written.
-- [ ] `/qa`-style manual smoke run against `SCRUM` recorded in the PR (create epic and task, view, status, close; token absent from output).
+- [ ] `close` moves to Done and is a no-op on an issue already Done; unknown keys error with nothing written.
+- [ ] A manual smoke run against `SCRUM` is recorded in the PR: create an epic and a task, view, status, close, a hostile-title create (`"`, `\`, `OR`, `*`), an immediate duplicate create, and a check that the token is absent from all output.
 
-**BDD specs:** see §1.5.
+**BDD specs:** §1.5.
 
 **Files to create/modify:**
 - `plugins/edf/bin/_tracker_jira.py` — `edit`, `comment`, `status`, `close`, `_transition_to`
@@ -955,21 +1011,24 @@ code builds ADF. Jira tests use the `fake_jira` fixture (local HTTPS server), no
 
 ```mermaid
 graph LR
-  T1["T1 · Markdown↔ADF converter\n(BE)"] --> T3["T3 · Jira create\n(BE)"]
-  T2["T2 · Jira client + fake + registration\n(BE)"] --> T3
-  T3 --> T4["T4 · Jira view/list\n(BE)"]
-  T4 --> T5["T5 · Jira edit/comment/status/close\n(BE)"]
+  T1["T1 · Markdown to ADF\n(BE)"] --> T2["T2 · ADF to Markdown\n(BE)"]
+  T1 --> T5["T5 · Jira create\n(BE)"]
+  T3["T3 · fake_jira fixture\n(BE)"] --> T4["T4 · Jira client + registration\n(BE)"]
+  T4 --> T5
+  T2 --> T6["T6 · Jira view/list\n(BE)"]
+  T5 --> T6
+  T6 --> T7["T7 · Jira edit/comment/status/close\n(BE)"]
 ```
 
 ### Execution Waves
 
 | Wave | Tasks | Blocked by | Notes |
 |------|-------|------------|-------|
-| 1 | Task 1, Task 2 | — | Disjoint files (`_adf.py` vs `_jira_client.py`, fixtures, `tracker.py`, `CLAUDE.md`) — parallelisable |
-| 2 | Task 3 | Wave 1 (Task 1, Task 2) | First fill of `_tracker_jira.py` operations |
-| 3 | Task 4 | Wave 2 (Task 3) | Same file as Task 3 |
-| 4 | Task 5 | Wave 3 (Task 4) | Same file as Task 3 and 4 |
+| 1 | Task 1, Task 3 | — | Disjoint files (`_adf.py` vs fixture files) — parallelisable |
+| 2 | Task 2, Task 4 | Wave 1 (Task 1 / Task 3) | Disjoint files (`_adf.py` vs `_jira_client.py`, `tracker.py`, `CLAUDE.md`) — parallelisable |
+| 3 | Task 5 | Wave 2 (Task 4), Wave 1 (Task 1) | Fills `_tracker_jira.py` |
+| 4 | Task 6 | Wave 3 (Task 5), Task 2 | Same file as Task 5 |
+| 5 | Task 7 | Wave 4 (Task 6) | Same file as Tasks 5 and 6 |
 
-Tasks 3–5 write the same two files (`_tracker_jira.py`, `tests/test_tracker_jira.py`), so they cannot
-share a wave. E3.3 also edits `CLAUDE.md` and `tests/`; only Task 2 here touches `CLAUDE.md`, so merge
-Task 2 first or rebase on whichever lands first.
+Tasks 5–7 write the same two files, so they cannot share a wave. E3.3 also edits `CLAUDE.md` and
+`tests/`; only Task 4 here touches `CLAUDE.md`, so merge Task 4 first or rebase on whichever lands first.
