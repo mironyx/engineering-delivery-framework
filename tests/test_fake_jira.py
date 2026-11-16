@@ -333,3 +333,9 @@ def test_faults_apply_in_order_one_per_request(fake_jira):
     fake_jira.fail_next(500)
     codes = [call(fake_jira, "GET", f"{API}/project/SCRUM/statuses")[0] for _ in range(3)]
     assert codes == [429, 500, 200]
+
+
+def test_malformed_edit_payload_is_400_not_a_dropped_connection(fake_jira):
+    key = fake_jira.add_issue()
+    status, _, _ = call(fake_jira, "PUT", f"{API}/issue/{key}", {"update": {"labels": [1]}})
+    assert status == 400

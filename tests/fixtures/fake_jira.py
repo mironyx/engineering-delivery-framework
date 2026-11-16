@@ -31,8 +31,10 @@ import re
 import shutil
 import ssl
 import subprocess
+import sys
 import threading
 import time
+import traceback
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -165,6 +167,7 @@ class FakeJira:
         self._comment_id = 10000
         self._faults: deque[dict] = deque()
         self._calls: list[dict] = []
+        self.errors: list[str] = []  # tracebacks from unexpected handler failures
         self.set_workflow()
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(str(cert), str(key))
@@ -328,7 +331,10 @@ class FakeJira:
         if bad:
             return 400, {"errorMessages": [], "errors": {f: f"Field '{f}' cannot be set." for f in bad}}
         labels = list(fields.get("labels", issue["labels"]))
-        for op in update.get("labels") or []:
+        ops = update.get("labels") or []
+        if not all(isinstance(op, dict) for op in ops):
+            return 400, _errors("update.labels entries must be objects with add or remove.")
+        for op in ops:
             if "add" in op and op["add"] not in labels:
                 labels.append(op["add"])
             if "remove" in op and op["remove"] in labels:
@@ -432,8 +438,12 @@ class _TlsServer(ThreadingHTTPServer):
         # Handshake in the handler thread, so one bad client cannot stall accept().
         return self._context.wrap_socket(sock, server_side=True, do_handshake_on_connect=False), addr
 
-    def handle_error(self, request, client_address):  # clients that time out or reject the cert are expected
-        pass
+    def handle_error(self, request, client_address):
+        # Clients that time out, hang up or reject the cert are expected; anything else is a fake bug
+        # and is recorded so the fixture fails the test instead of leaving a dropped connection.
+        exc = sys.exc_info()[1]
+        if not isinstance(exc, (ssl.SSLError, ConnectionError, TimeoutError)):
+            self.fake.errors.append("".join(traceback.format_exception(exc)))
 
 
 class _Handler(BaseHTTPRequestHandler):

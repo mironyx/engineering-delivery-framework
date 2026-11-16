@@ -112,6 +112,7 @@ def fake_jira(_fake_jira_cert, monkeypatch):
     monkeypatch.setenv("SSL_CERT_FILE", str(cert))
     yield server
     server.stop()
+    assert not server.errors, f"fake_jira handler crashed:\n{server.errors[0]}"
 
 
 @pytest.fixture
