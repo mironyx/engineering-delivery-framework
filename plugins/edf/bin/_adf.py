@@ -479,17 +479,24 @@ def adf_to_md(doc: dict | None) -> str:
     """Render an ADF document as Markdown; None or an empty doc gives ''. Never raises on odd nodes."""
     if not isinstance(doc, dict):
         return ""
-    return _join_blocks(doc.get("content") or [])
+    return _join_blocks(_kids(doc))
 
 
+# Justification: one place drops non-dict children, so no renderer needs its own guard for odd input.
+def _kids(node: dict) -> list[dict]:
+    content = node.get("content")
+    return [c for c in content if isinstance(c, dict)] if isinstance(content, list) else []
+
+
+# Justification: joins rendered blocks with one blank line and skips empty ones.
 def _join_blocks(nodes: list) -> str:
-    return "\n\n".join(out for out in (_block(n) for n in nodes if isinstance(n, dict)) if out)
+    return "\n\n".join(out for out in (_block(n) for n in nodes) if out)
 
 
 # Justification: one dispatch by node type; anything unknown degrades to its text, never dropped.
 def _block(node: dict) -> str:
     kind = node.get("type")
-    content = node.get("content") or []
+    content = _kids(node)
     if kind == "heading":
         level = _level((node.get("attrs") or {}).get("level"))
         return f"{'#' * level} {_inlines(content, flat=True)}".rstrip()
@@ -514,7 +521,7 @@ def _text_of(node: dict) -> str:
     own = node.get("text")
     if isinstance(own, str):
         return own
-    children = node.get("content") or []
+    children = _kids(node)
     sep = " " if any(c.get("content") is not None for c in children) else ""
     return sep.join(_text_of(c) for c in children)
 
@@ -522,13 +529,15 @@ def _text_of(node: dict) -> str:
 # Justification: keeps literal quote/HTML/rule paragraphs raw so they re-parse to themselves.
 def _paragraph_md(content: list) -> str:
     if len(content) == 1 and content[0].get("type") == "text" and not content[0].get("marks"):
-        text = content[0].get("text", "")
+        text = content[0].get("text")
+        text = text if isinstance(text, str) else ""
         # A literal paragraph made from a block quote or raw HTML re-parses to itself when emitted as is.
         if (_RAW_LEAD.match(text) or (_RULE.match(text) and "\n" not in text)) and not _BLANK_LINE.search(text):
             return text
     return _inlines(content, lead=True)
 
 
+# Justification: renders a run of inline nodes; flags carry block/cell/list context.
 def _inlines(
     content: list, *, lead: bool = False, cell: bool = False, task: bool = False, item: bool = False, flat: bool = False
 ) -> str:
@@ -549,13 +558,13 @@ def _inline_node(node: dict, lead: bool, cell: bool, task: bool, flat: bool) -> 
         out = _code_md(text)
         marks.pop("strong", None)
         marks.pop("em", None)
-        return _wrap_link(_wrap(out, marks, plain=False), marks)
+        return _wrap_link(_wrap(out, marks), marks)
     body = _escape(text, lead=lead and not marks, cell=cell, task=task, flat=flat)
-    return _wrap_link(_wrap(body, marks, plain=True), marks)
+    return _wrap_link(_wrap(body, marks), marks)
 
 
 # Justification: delimiters must hug non-space text, so edge whitespace moves outside them.
-def _wrap(body: str, marks: dict, *, plain: bool) -> str:
+def _wrap(body: str, marks: dict) -> str:
     wraps = [d for kind, d in _MARK_WRAP if kind in marks and kind != "code"]
     if not wraps or not body.strip():
         return body
@@ -566,6 +575,7 @@ def _wrap(body: str, marks: dict, *, plain: bool) -> str:
     return head + core + tail
 
 
+# Justification: link mark is always the outermost wrapper, so it is applied last.
 def _wrap_link(body: str, marks: dict) -> str:
     link = marks.get("link")
     if not link:
@@ -639,7 +649,7 @@ def _delimiter(text: str, i: int, j: int, ch: str) -> bool:
 
 # Justification: fence length is derived from content so no content line can close it early (A5).
 def _code_block(node: dict) -> str:
-    code = "".join(_text_of(c) for c in node.get("content") or [])
+    code = "".join(_text_of(c) for c in _kids(node))
     lang = str((node.get("attrs") or {}).get("language") or "")
     if re.search(r"[\s`]", lang):
         lang = ""
@@ -653,16 +663,16 @@ def _list_lines(node: dict, indent: int) -> list[str]:
     ordered = node.get("type") == "orderedList"
     lines: list[str] = []
     pad = " " * indent
-    for n, item in enumerate(node.get("content") or [], 1):
+    for n, item in enumerate(_kids(node), 1):
         marker = f"{n}." if ordered else "-"
         texts: list[str] = []
-        children = item.get("content") or []
+        children = _kids(item)
         sublists = [c for c in children if c.get("type") in ("bulletList", "orderedList")]
         for child in children:
             if child in sublists:
                 continue
             if child.get("type") == "paragraph":
-                texts.append(_inlines(child.get("content") or [], task=not texts, item=not texts))
+                texts.append(_inlines(_kids(child), task=not texts, item=not texts))
             else:
                 texts.append(_escape(_text_of(child)))
         lines.append(f"{pad}{marker} {' '.join(texts)}".rstrip() if texts else f"{pad}{marker}")
@@ -672,8 +682,9 @@ def _list_lines(node: dict, indent: int) -> list[str]:
     return lines
 
 
+# Justification: tables need a header, separator and padded rows; kept apart from block dispatch.
 def _table_md(rows: list) -> str:
-    grid = [[_inlines(_cell_inlines(c), cell=True) for c in r.get("content") or []] for r in rows]
+    grid = [[_inlines(_cell_inlines(c), cell=True) for c in _kids(r)] for r in rows]
     width = max((len(r) for r in grid), default=0)
     if not width:
         return ""
@@ -685,7 +696,7 @@ def _table_md(rows: list) -> str:
 # Justification: a cell holds block children; their inline content is flattened into one line.
 def _cell_inlines(cell: dict) -> list:
     out: list = []
-    for child in cell.get("content") or []:
+    for child in _kids(cell):
         if out:
             out.append({"type": "text", "text": " "})
         out += child.get("content") or [{"type": "text", "text": _text_of(child)}]
