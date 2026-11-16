@@ -38,7 +38,6 @@ UNKNOWN_OP_MSG = (
 )
 EDIT_NEEDS_MSG = "Error: edit needs one of --title, --body, --add-label, --remove-label"
 NOT_IMPLEMENTED = "Error: not implemented"
-JIRA_UNAVAILABLE = "Error: Jira backend is not available in this EDF version"
 NO_DUP_RULE = {"argv_prefix": ["issue", "list"], "stdout": ""}
 CREATED_RULE = {"argv_prefix": ["issue", "create"], "stdout": "https://github.com/owner/repo/issues/42\n"}
 ISSUE_1 = {"number": 1, "title": "T", "body": "", "state": "OPEN",
@@ -241,10 +240,10 @@ class TestJiraConfigValidation:
         assert fake_gh.calls() == []
 
     @pytest.mark.parametrize("argv", [p for p in VALID_OPS if p.id != "tracker"])
-    def test_valid_jira_config_reports_backend_unavailable(self, fake_gh, monkeypatch, argv):
-        _set_env(monkeypatch, FULL_JIRA)
+    def test_valid_jira_config_dispatches_to_stub_backend(self, fake_gh, fake_jira, argv):
+        """#131: a valid config reaches the Jira backend (stub ops fail `not implemented`); no gh call."""
         result = _run(fake_gh.repo, *argv)
-        _assert_error(result, JIRA_UNAVAILABLE)
+        _assert_error(result, NOT_IMPLEMENTED)
         assert fake_gh.calls() == []
 
     @pytest.mark.parametrize(
@@ -253,13 +252,17 @@ class TestJiraConfigValidation:
             pytest.param(_without("JIRA_EMAIL"), id="no-email"),
             pytest.param(_without("JIRA_SPACE"), id="no-space"),
             pytest.param({**FULL_JIRA, "JIRA_HOST": "http://example.atlassian.net"}, id="http-host"),
-            pytest.param(FULL_JIRA, id="valid"),
+            pytest.param(None, id="valid"),  # None: served by the fake_jira fixture
         ],
     )
     @pytest.mark.parametrize("argv", VALID_OPS)
     @pytest.mark.parametrize("source", ["os", "dotenv"])
-    def test_token_never_printed(self, fake_gh, monkeypatch, env, argv, source):
+    def test_token_never_printed(self, fake_gh, monkeypatch, request, env, argv, source):
         """I2: the JIRA_API_TOKEN value appears in neither stream."""
+        token = TOKEN
+        if env is None:  # valid config: run against the local fake, never example.atlassian.net
+            env = request.getfixturevalue("fake_jira").env
+            token = env["JIRA_API_TOKEN"]
         if source == "os":
             _set_env(monkeypatch, env)
         else:
@@ -269,8 +272,8 @@ class TestJiraConfigValidation:
         # (or succeed), never via a crash whose output happens to omit the token.
         assert "Traceback" not in result.stderr
         assert result.returncode in (0, 1)
-        assert TOKEN not in result.stdout
-        assert TOKEN not in result.stderr
+        assert token not in result.stdout
+        assert token not in result.stderr
 
 
 class TestNoEarlyBackendImport:

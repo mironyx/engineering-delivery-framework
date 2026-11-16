@@ -21,3 +21,6 @@ may call `gh issue`, `gh project` or `gh api …/issues`; only `tracker.py` read
 Environment values come from `_edf_env.resolve` (OS env, then `.env`; empty means unset).
 Backends raise `_tracker_contract.TrackerError`; tests drive `gh` through the `fake_gh`
 fixture, never by patching `subprocess`.
+Among the tracker modules only `bin/_jira_client.py` may import `urllib` or `http.client`, and
+only `bin/_tracker_jira.py` may call it. Bodies and comments pass through `bin/_adf.py` (`md_to_adf`, `adf_to_md`); no other
+code builds ADF. Jira tests use the `fake_jira` fixture (local HTTPS server), not patching.

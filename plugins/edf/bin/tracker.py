@@ -37,7 +37,7 @@ from _tracker_contract import TrackerError  # noqa: E402
 _OPS = ("tracker", "create", "view", "list", "edit", "comment", "status", "close")
 _OP_FUNCS = {"create": "create", "view": "view", "list": "list_issues", "edit": "edit",
              "comment": "comment", "status": "status", "close": "close"}
-_BACKENDS = {"github": "_tracker_github"}  # E3.2 adds "jira": "_tracker_jira"
+_BACKENDS = {"github": "_tracker_github", "jira": "_tracker_jira"}
 _JIRA_COMPANIONS = ("JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_SPACE")
 _CREATE_VALUE_FLAGS = {"--title": "title", "--body": "body", "--labels": "labels", "--type": "type",
                        "--parent": "parent", "--board-status": "board_status"}
@@ -184,8 +184,6 @@ def _resolve_context(env_root: pathlib.Path, repo_root: pathlib.Path | None) -> 
 
 
 def _load_backend(name: str) -> ModuleType:
-    if name not in _BACKENDS:
-        raise TrackerError("Jira backend is not available in this EDF version")
     return importlib.import_module(_BACKENDS[name])
 
 
