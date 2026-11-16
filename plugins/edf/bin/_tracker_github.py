@@ -520,13 +520,14 @@ def tick_checkbox(body: str, child: str) -> str:
 
 def tick_parent_checkbox(child: int, body: str) -> tuple[str, str]:
     """Tick `child` in its parent epic. Returns (outcome, message); raises TrackerError on failure."""
-    match = re.search(r"## Parent epic\s*\n+#(\d+)", body)
-    if match is None:
+    parent = parent_from_body(body)
+    if parent is None:
         return "no-parent", f"No parent epic found for issue #{child}"
-    epic = int(match.group(1))
+    epic = int(parent[1:])
     try:
         node = _fetch_issue(epic, board=False)
     except TrackerError:
+        # TODO(#121): the cause is dropped to keep the old "Failed to read epic" text byte-identical.
         node = None
     if node is None:
         raise TrackerError(f"Failed to read epic #{epic}")

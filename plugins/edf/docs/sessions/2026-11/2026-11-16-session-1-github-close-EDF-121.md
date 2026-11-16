@@ -16,9 +16,11 @@
 | 6 | 2026-11-16T18:31:04Z | $1.05 | 6,103 in / 24,579 out | diag unavailable (uv absent); justification ok [models: claude-sonnet-5-5 $1.05, claude-haiku-5-5 $0.00] |
 | 6b | 2026-11-16T18:31:04Z | $1.05 | 6,103 in / 24,579 out | evaluator: PASS — brief: used as-is [models: claude-sonnet-5-5 $1.05, claude-haiku-5-5 $0.00] |
 | 8 | 2026-11-16T18:31:25Z | $1.08 | 6,107 in / 25,351 out | [PR #127](https://github.com/mironyx/engineering-delivery-framework/pull/127) [models: claude-sonnet-5-5 $1.07, claude-haiku-5-5 $0.00] |
+| 9 | 2026-11-16T18:32:38Z | $1.38 | 6,128 in / 28,838 out | review: 2 warnings — 1 fixed, 1 deferred (TODO) [models: claude-sonnet-5-5 $1.38, claude-haiku-5-5 $0.00] |
 
 ## Concerns & Deferred Items
 - `tests/test_tracker.py::test_close_reaches_github_backend` asserted the stub; updated to the real not-found path (outside LLD file list).
 - Test loader in `test_tracker_github.py` now registers module in `sys.modules` (dataclass import under py3.14).
 - Evaluator silent risk: non-not-found fetch failure in `close` exits 1 with Error (treated as fatal, LLD silent); epic read cause swallowed to match old message.
 - No lint/diag tooling available (uv absent); ruff/pyflakes not installed — only tests run.
+- pr-review: parent regex duplication fixed (parent_from_body); swallowed epic-read cause deferred (TODO in tick_parent_checkbox, old-message parity).
