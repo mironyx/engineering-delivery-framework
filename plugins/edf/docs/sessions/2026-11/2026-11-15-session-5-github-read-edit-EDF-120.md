@@ -15,6 +15,8 @@
 | 6 | 2026-11-16T01:32:50Z | $3.31 | 4,358 in / 34,593 out | diag pass — exporter/CodeScene unavailable, Sonar no project; justification ok [models: claude-opus-5-5 $3.31, claude-haiku-5-5 $0.00] |
 | 6b | 2026-11-16T01:34:43Z | $3.87 | 5,548 in / 40,852 out | evaluator: PASS WITH WARNINGS — token-scope fix + 6 tests; 1 deferred — brief: used as-is [models: claude-opus-5-5 $3.87, claude-haiku-5-5 $0.00] |
 | 8 | 2026-11-16T01:35:16Z | $3.97 | 5,552 in / 42,304 out | [PR #126](https://github.com/mironyx/engineering-delivery-framework/pull/126) [models: claude-opus-5-5 $3.97, claude-haiku-5-5 $0.00] |
+| 9 | 2026-11-16T01:39:24Z | $6.05 | 90,028 in / 70,361 out | review clean — 1 blocker dismissed (trailer), 2 warns fixed (test merge), 1 accepted [models: claude-opus-5-5 $6.03, claude-haiku-5-5 $0.02] |
+| 10 | 2026-11-16T01:39:24Z | $6.05 | 90,028 in / 70,361 out | report done — no CI in repo; PR marked ready [models: claude-opus-5-5 $6.03, claude-haiku-5-5 $0.02] |
 
 ## Concerns & Deferred Items
 - 10 #118 grammar tests in `tests/test_tracker.py` asserted the stub's `Error: not implemented` for view/list/edit/comment; rewritten to observe the gh call via fake_gh rules (as #119 did for create/status). Grammar assertions unchanged; `close` keeps the stub check until #121.
