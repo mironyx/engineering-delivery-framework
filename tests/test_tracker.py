@@ -7,7 +7,7 @@ pinned grammar, and the shared contract helpers (status vocabulary, Issue JSON).
 The GitHub backend's close is a stub (TrackerError("not implemented")), so a close request
 that passes parsing and config validation is observed as "Error: not implemented". create and
 status are real since #119, view/list/edit/comment since #120; their grammar tests observe the
-gh calls they make instead (behaviour: test_tracker_github.py, test_tracker_github_read_edit.py).
+gh calls they make instead (behaviour: test_tracker_github.py).
 """
 
 from __future__ import annotations
@@ -445,7 +445,7 @@ class TestGrammar:
         ],
     )
     def test_edit_with_a_change_flag_reaches_backend(self, fake_gh, flags):
-        # #120: edit is real; the request reaches gh issue edit (behaviour: test_tracker_github_read_edit.py).
+        # #120: edit is real; the request reaches gh issue edit (behaviour: test_tracker_github.py).
         fake_gh.rules([ISSUE_RULE, {"argv_prefix": ["issue", "edit"], "stdout": ""}])
         result = _run(fake_gh.repo, "edit", "1", *flags)
         assert (result.returncode, result.stdout) == (0, "updated:#1\n"), result.stderr
