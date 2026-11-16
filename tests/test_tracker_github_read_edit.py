@@ -518,3 +518,40 @@ class TestComment:
         assert result.stderr.startswith("Error: ")
         assert "HTTP 500" in result.stderr
         assert _only(_writes(fake_gh))["argv"][:3] == ["issue", "comment", "5"]
+
+
+class TestTokenScope:
+    """Board fields need the read:project scope; they are requested only when project.env exists."""
+
+    @staticmethod
+    def _queries(fake_gh) -> list[str]:
+        return [" ".join(c["argv"]) for c in _calls(fake_gh, "api", "graphql")]
+
+    @pytest.mark.parametrize(
+        ("argv", "rules"),
+        [
+            pytest.param(["edit", "5", "--title", "T"], [_issue_rule(5), EDIT_OK], id="edit"),
+            pytest.param(["comment", "5", "--body", "B"], [_issue_rule(5), COMMENT_OK], id="comment"),
+            pytest.param(["view", "5"], [_issue_rule(5)], id="view-without-project-env"),
+            pytest.param(["list"], [_list_rule([])], id="list-without-project-env"),
+        ],
+    )
+    def test_does_not_request_board_fields(self, fake_gh, argv, rules):
+        fake_gh.rules(rules)
+        result = _run(fake_gh.repo, *argv)
+        assert result.returncode == 0, result.stderr
+        assert all("projectItems" not in q for q in self._queries(fake_gh))
+
+    @pytest.mark.parametrize(
+        ("argv", "rules"),
+        [
+            pytest.param(["view", "5"], [_issue_rule(5)], id="view"),
+            pytest.param(["list"], [_list_rule([])], id="list"),
+        ],
+    )
+    def test_requests_board_fields_with_project_env(self, fake_gh, argv, rules):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules(rules)
+        result = _run(fake_gh.repo, *argv)
+        assert result.returncode == 0, result.stderr
+        assert any("projectItems" in q for q in self._queries(fake_gh))

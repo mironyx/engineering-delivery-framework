@@ -11,5 +11,14 @@
 |------|-----------|--------------------|----------------------|------|
 | 3c | 2026-11-15T22:03:11Z | $0.73 | 2,891 in / 2,429 out | pressure: standard — ~90 src lines, 1 src file, 1 test file [models: claude-opus-5-5 $0.73, claude-haiku-5-5 $0.00] |
 | 4dF | 2026-11-15T22:07:28Z | $1.85 | 4,320 in / 27,597 out | implementation complete — 52/52 new tests pass; full suite run (see 5) [models: claude-opus-5-5 $1.85, claude-haiku-5-5 $0.00] |
+| 5 | 2026-11-16T01:32:28Z | $2.97 | 4,338 in / 32,277 out | green on attempt 2 — 944 passed, 18 skipped (python3 -m pytest; uv missing) [models: claude-opus-5-5 $2.97, claude-haiku-5-5 $0.00] |
+| 6 | 2026-11-16T01:32:50Z | $3.31 | 4,358 in / 34,593 out | diag pass — exporter/CodeScene unavailable, Sonar no project; justification ok [models: claude-opus-5-5 $3.31, claude-haiku-5-5 $0.00] |
+| 6b | 2026-11-16T01:34:43Z | $3.87 | 5,548 in / 40,852 out | evaluator: PASS WITH WARNINGS — token-scope fix + 6 tests; 1 deferred — brief: used as-is [models: claude-opus-5-5 $3.87, claude-haiku-5-5 $0.00] |
 
 ## Concerns & Deferred Items
+- 10 #118 grammar tests in `tests/test_tracker.py` asserted the stub's `Error: not implemented` for view/list/edit/comment; rewritten to observe the gh call via fake_gh rules (as #119 did for create/status). Grammar assertions unchanged; `close` keeps the stub check until #121.
+- Verification ran with `python3 -m pytest` directly (uv missing, so `run-tests.sh`/`run-lint.sh` fail); Python lint not run.
+- Step 6 diag: `.diagnostics/` missing (worktree) and CodeScene MCP unavailable — both skipped. SonarQube skipped: no SonarQube project exists for this repo (only `mironyx_feature-comprehension-score`). Justification check ok; no subprocess patching in tests.
+- Evaluator PASS WITH WARNINGS. Fixed: edit/comment fetched `projectItems` (needs `read:project`); now edit/comment never request board fields and view/list request them only when `project.env` exists (`_tracker_github.py` `_require_issue`, `_PLAIN_ISSUES_QUERY`); 6 tests in `TestTokenScope`.
+- Deferred: `list --status "in progress"` with no `project.env` returns `[]` with no warning, since every open issue derives to `todo` (LLD Open question 1, accepted behaviour). Raise at E3.3 if `/feature` relies on it.
+- Deviation: added `_require_issue` (shared not-found check for view/edit/comment) and `_PLAIN_ISSUES_QUERY` (not in the LLD); both justified in code.

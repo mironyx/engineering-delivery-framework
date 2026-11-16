@@ -30,7 +30,8 @@ _NOT_FOUND = "Could not resolve to an Issue"
 _TYPES = ("task", "epic")
 
 _BASE_FIELDS = "number title body state labels(first:50){nodes{name}}"
-# Board fields need the read:project token scope; only status (board lookups) requests them.
+# Board fields need the read:project token scope; only status, and view/list when project.env
+# exists, request them.
 ISSUE_FIELDS = (
     _BASE_FIELDS + " "
     "projectItems(first:10){nodes{id project{id} fieldValues(first:20){nodes{"
@@ -40,9 +41,11 @@ _QUERY = ("query($owner:String!,$name:String!,$number:Int!){{repository(owner:$o
           "issue(number:$number){{{fields}}}}}}}")
 ISSUE_QUERY = _QUERY.format(fields=ISSUE_FIELDS)
 _PLAIN_ISSUE_QUERY = _QUERY.format(fields=_BASE_FIELDS)
-ISSUES_QUERY = ("query($owner:String!,$name:String!,$first:Int!,$states:[IssueState!],$labels:[String!]){{"
-                "repository(owner:$owner,name:$name){{issues(first:$first,states:$states,labels:$labels,"
-                "orderBy:{{field:CREATED_AT,direction:DESC}}){{nodes{{{fields}}}}}}}}}").format(fields=ISSUE_FIELDS)
+_ISSUES_QUERY = ("query($owner:String!,$name:String!,$first:Int!,$states:[IssueState!],$labels:[String!]){{"
+                 "repository(owner:$owner,name:$name){{issues(first:$first,states:$states,labels:$labels,"
+                 "orderBy:{{field:CREATED_AT,direction:DESC}}){{nodes{{{fields}}}}}}}}}")
+ISSUES_QUERY = _ISSUES_QUERY.format(fields=ISSUE_FIELDS)
+_PLAIN_ISSUES_QUERY = _ISSUES_QUERY.format(fields=_BASE_FIELDS)
 
 
 class _ParityExit(Exception):
@@ -446,17 +449,18 @@ def _to_issue(node: dict, board: Board | None) -> Issue:
 
 
 # Justification: view, edit and comment share the "#N not found" existence check (AC5).
-def _require_issue(ref: str) -> tuple[int, dict]:
+def _require_issue(ref: str, *, board: bool = False) -> tuple[int, dict]:
     number = _parse_ref(ref)
-    node = _fetch_issue(number)
+    node = _fetch_issue(number, board=board)
     if node is None:
         raise TrackerError(f"#{number} not found")
     return number, node
 
 
 def view(args: argparse.Namespace, ctx: object) -> int:
-    _, node = _require_issue(args.ref)
-    print(issue_json(_to_issue(node, load_board(getattr(ctx, "repo_root", None), strict=False))))
+    board = load_board(getattr(ctx, "repo_root", None), strict=False)
+    _, node = _require_issue(args.ref, board=board is not None)
+    print(issue_json(_to_issue(node, board)))
     return 0
 
 
@@ -466,14 +470,14 @@ def list_issues(args: argparse.Namespace, ctx: object) -> int:
              "-f", f"states[]={'CLOSED' if wanted == 'done' else 'OPEN'}"]
     if args.label:
         query += ["-f", f"labels[]={args.label}"]
-    result = _gh([*query, "-f", f"query={ISSUES_QUERY}"])
+    board = load_board(getattr(ctx, "repo_root", None), strict=False)
+    result = _gh([*query, "-f", f"query={ISSUES_QUERY if board else _PLAIN_ISSUES_QUERY}"])
     if result.returncode != 0:
         raise TrackerError(f"gh api graphql failed: {result.stderr.strip()}")
     try:
         nodes = json.loads(result.stdout)["data"]["repository"]["issues"]["nodes"]
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         raise TrackerError("unexpected gh api graphql response") from e
-    board = load_board(getattr(ctx, "repo_root", None), strict=False)
     issues = [_to_issue(node, board) for node in nodes]
     print(issue_json([i for i in issues if wanted is None or i.status == wanted]))
     return 0
