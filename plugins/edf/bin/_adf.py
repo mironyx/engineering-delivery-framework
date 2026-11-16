@@ -479,7 +479,22 @@ def adf_to_md(doc: dict | None) -> str:
     """Render an ADF document as Markdown; None or an empty doc gives ''. Never raises on odd nodes."""
     if not isinstance(doc, dict):
         return ""
-    return _join_blocks(_kids(doc))
+    try:
+        return _join_blocks(_kids(doc))
+    except Exception as exc:  # noqa: BLE001 — the contract is "no input raises"
+        warnings.warn(f"adf_to_md fell back to plain text: {exc!r}", RuntimeWarning, stacklevel=2)
+        return _text_of(doc)
+
+
+# Justification: foreign documents may carry wrong-typed attrs/marks; one accessor keeps readers simple.
+def _attrs(node: dict) -> dict:
+    attrs = node.get("attrs")
+    return attrs if isinstance(attrs, dict) else {}
+
+
+# Justification: companion of _attrs for list-valued fields such as marks.
+def _list_of(value: object) -> list:
+    return value if isinstance(value, list) else []
 
 
 # Justification: one place drops non-dict children, so no renderer needs its own guard for odd input.
@@ -498,7 +513,7 @@ def _block(node: dict) -> str:
     kind = node.get("type")
     content = _kids(node)
     if kind == "heading":
-        level = _level((node.get("attrs") or {}).get("level"))
+        level = _level(_attrs(node).get("level"))
         return f"{'#' * level} {_inlines(content, flat=True)}".rstrip()
     if kind == "paragraph":
         return _paragraph_md(content)
@@ -553,7 +568,7 @@ def _inline_node(node: dict, lead: bool, cell: bool, task: bool, flat: bool) -> 
     if node.get("type") == "hardBreak":
         return " " if cell or flat else "\\\n"
     text = _text_of(node)
-    marks = {m.get("type"): m for m in node.get("marks") or [] if isinstance(m, dict)}
+    marks = {m.get("type"): m for m in _list_of(node.get("marks")) if isinstance(m, dict)}
     if "code" in marks:
         out = _code_md(text)
         marks.pop("strong", None)
@@ -580,7 +595,7 @@ def _wrap_link(body: str, marks: dict) -> str:
     link = marks.get("link")
     if not link:
         return body
-    href = str((link.get("attrs") or {}).get("href", ""))
+    href = str(_attrs(link).get("href", ""))
     href = re.sub(r"([\\()])", r"\\\1", href).replace(" ", "%20")
     return f"[{body}]({href})"
 
@@ -650,7 +665,7 @@ def _delimiter(text: str, i: int, j: int, ch: str) -> bool:
 # Justification: fence length is derived from content so no content line can close it early (A5).
 def _code_block(node: dict) -> str:
     code = "".join(_text_of(c) for c in _kids(node))
-    lang = str((node.get("attrs") or {}).get("language") or "")
+    lang = str(_attrs(node).get("language") or "")
     if re.search(r"[\s`]", lang):
         lang = ""
     longest = max((len(r) for r in _BACKTICKS.findall(code)), default=0)
@@ -699,5 +714,5 @@ def _cell_inlines(cell: dict) -> list:
     for child in _kids(cell):
         if out:
             out.append({"type": "text", "text": " "})
-        out += child.get("content") or [{"type": "text", "text": _text_of(child)}]
+        out += _kids(child) or [{"type": "text", "text": _text_of(child)}]
     return out

@@ -1034,3 +1034,18 @@ class TestAdfToMdOddInput:
     def test_non_numeric_heading_level_and_none_child_do_not_raise(self):  # #129 evaluator risk
         doc = adoc({"type": "heading", "attrs": {"level": "x"}, "content": [txt("h")]}, None)
         assert adf_to_md(doc) == "# h"
+
+    @pytest.mark.parametrize(
+        "doc",
+        [
+            adoc({"type": "table", "content": [{"type": "tableRow", "content": [{"type": "tableCell", "content": [para(None)]}]}]}),
+            adoc(para({"type": "text", "text": "a", "marks": 5})),
+            adoc(para({"type": "text", "text": "a", "marks": [{"type": "link", "attrs": "x"}]})),
+            adoc({"type": "heading", "attrs": "x", "content": [txt("h")]}),
+            adoc({"type": "codeBlock", "attrs": [1], "content": [txt("c")]}),
+            adoc(para({"type": "text", "text": None})),
+        ],
+        ids=["cell-none", "marks-int", "link-attrs-str", "heading-attrs-str", "code-attrs-list", "text-none"],
+    )
+    def test_wrong_typed_fields_never_raise(self, doc):  # #129 review: nothing raises
+        assert isinstance(adf_to_md(doc), str)
