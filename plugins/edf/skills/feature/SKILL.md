@@ -51,7 +51,7 @@ files, stop and tell the user.
 - If `$ARGUMENTS` contains an issue ref (not prefixed with `epic`): use that ref directly. Refs are opaque (`#123`, `123`, `SCRUM-123`) — never build one by concatenation.
 - If no arguments: run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status todo --label kind:task` and use the first ref in the result. If the list is empty, stop with `No Todo items` — before creating a branch.
 
-**Guard:** Check whether the selected issue has the `epic` label (`bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>` → `labels`). If it does, stop: "Issue <ref> is an epic. Use `/feature epic <N>` to pick a task within it, or `/feature <task-number>` for a specific task."
+**Guard:** Check whether the selected issue has the `epic` label (`bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>` → `labels`). If it does, stop: "Issue <ref> is an epic. Use `/feature epic <ref>` to pick a task within it, or `/feature <task-ref>` for a specific task."
 
 **Validate the issue has enough context:**
 

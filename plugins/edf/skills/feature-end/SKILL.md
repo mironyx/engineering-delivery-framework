@@ -254,7 +254,7 @@ branch after the merge (Step 6.6).
    push it, then wait for CI on the new head before merging:
    ```bash
    git add <specific-files>
-   git commit -m "fix: <what> #<issue-ref>"
+   git commit -m "fix: <what> <issue-ref>"
    git push
    ```
    If nothing is left, do not push.
