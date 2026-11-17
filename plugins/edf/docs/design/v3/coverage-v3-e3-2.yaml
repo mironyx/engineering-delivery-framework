@@ -36,23 +36,26 @@ entries:
   - req: REQ-tracker-script-edit-and-comment
     lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-write-ops
     issue: 134
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/bin/_tracker_jira.py
+    status: Implemented
     lld_revision: r1
     # Story 1.4 AC1-AC5 on Jira.
 
   - req: REQ-tracker-script-change-status
     lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-write-ops
     issue: 134
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/bin/_tracker_jira.py
+    status: Implemented
     lld_revision: r1
     # Story 1.5 Jira AC1-AC5 (transitions, missing Blocked).
 
   - req: REQ-pipeline-on-jira-jira-references-in-prs-and-logs
     lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-write-ops
     issue: 134
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/bin/_tracker_jira.py
+    status: Implemented
     lld_revision: r1
     # Story 2.2 AC4 mechanics only: Jira close -> Done, idempotent. The rest of Story 2.2 is E3.3.

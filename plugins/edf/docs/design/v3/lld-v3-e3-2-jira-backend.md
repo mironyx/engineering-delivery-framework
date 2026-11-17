@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.5 |
+| Version | 0.6 |
 | Status | Revised |
 | Author | LS / Claude |
 | Created | 2026-11-16 |
@@ -19,6 +19,7 @@
 | Revised | 2026-11-17 — Issue #129: §1.1 `adf_to_md` decomposition |
 | Revised | 2026-11-17 — Issue #132: §1.2 `fake_jira` JQL escapes, §1.3 `create` guards |
 | Revised | 2026-11-17 — Issue #133: §1.3 `_search_all` returns issue dicts, §1.4 `view`/`list` detail |
+| Revised | 2026-11-17 — Issue #134: §1.5 `_not_found` helper, 404 on the transition `POST` |
 
 ---
 
@@ -820,6 +821,8 @@ tests/test_tracker_jira.py           — append write-operation tests
 ### Functions
 
 ```text
+_not_found(key) -> TrackerError                 # f"{key} not found"; shared by every 404 below
+
 edit(args, ctx) -> int
   - key = _parse_ref(...)
   - remove = args.remove_label; if remove: GET issue fields=labels (404 → not found), keep only labels present
@@ -839,7 +842,7 @@ _transition_to(client, space, key, target, fields: dict | None = None) -> bool  
   - fields = fields or (GET issue fields=status; 404 → not found); name equal to
     _STATUS_NAMES[target] → return False
   - GET /rest/api/3/issue/{key}/transitions; pick the transition with to.name == the mapped name;
-    found → POST {"transition": {"id": id}} → True
+    found → POST {"transition": {"id": id}} (404 → not found) → True
   - not found → GET /rest/api/3/project/{space}/statuses; if no status has the mapped name →
     TrackerError(f'space {space} has no "{name}" status — add it to the workflow')
     else TrackerError(f'no transition from "{current}" to "{name}"')
