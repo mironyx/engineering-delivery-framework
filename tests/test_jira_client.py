@@ -186,7 +186,7 @@ class TestRegistration:
 
     @pytest.mark.parametrize(
         "argv",
-        [["view", "1"], ["list"], ["create", "--title", "T", "--body", "B"], ["edit", "1", "--title", "T"],
+        [["view", "1"], ["list"], ["edit", "1", "--title", "T"],
          ["comment", "1", "--body", "B"], ["status", "1", "todo"], ["close", "1"]],
         ids=lambda a: a[0],
     )

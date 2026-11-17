@@ -102,9 +102,12 @@ def _unquote(raw: str) -> str:
     out, i, inner = [], 0, raw[1:-1]
     while i < len(inner):
         if inner[i] == "\\":
-            if inner[i + 1] not in '"\\':
+            if inner[i + 1] not in '"\\nrt':
                 raise JqlError(f"unsupported escape \\{inner[i + 1]}")
             i += 1
+            out.append({"n": "\n", "r": "\r", "t": "\t"}.get(inner[i], inner[i]))
+            i += 1
+            continue
         out.append(inner[i])
         i += 1
     return "".join(out)
@@ -407,7 +410,7 @@ class FakeJira:
         checks = {
             ("project", "="): lambda v: v == self.space,
             ("issuetype", "="): lambda v: issue["type"] == v,
-            ("summary", "~"): lambda v: v.strip('"').lower() in issue["summary"].lower(),
+            ("summary", "~"): lambda v: re.sub(r"\\(.)", r"\1", v[1:-1] if v[:1] == v[-1:] == '"' else v).lower() in issue["summary"].lower(),
             ("status", "="): lambda v: issue["status"] == v,
             ("statusCategory", "="): lambda v: self.statuses.get(issue["status"]) == "done",
             ("statusCategory", "!="): lambda v: self.statuses.get(issue["status"]) != "done",
