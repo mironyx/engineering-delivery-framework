@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.4 |
+| Version | 0.3 |
 | Status | Revised |
 | Author | LS / Claude |
 | Created | 2026-11-16 |

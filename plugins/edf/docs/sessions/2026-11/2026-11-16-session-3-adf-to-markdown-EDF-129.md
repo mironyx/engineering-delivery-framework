@@ -58,7 +58,7 @@
 
 ### LLD updated
 File: plugins/edf/docs/design/v3/lld-v3-e3-2-jira-backend.md §1.1
-Version: 0.3 → 0.4
+Version: 0.2 → 0.3
 
 ## Cost retrospective
 - PR-creation cost $2.06 (step 8); step 10 checkpoint $2.89, so ~$0.83 post-PR (review rework). `query-feature-cost.py --stage final` reported only $0.3583 (2 sessions) — undercounts; the prom file path it used is `feature-comprehension-score/monitoring/...`, not this repo. The `ai-cost-final` labels are therefore unreliable.
