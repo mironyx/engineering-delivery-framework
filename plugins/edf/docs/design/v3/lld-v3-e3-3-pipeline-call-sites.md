@@ -4,9 +4,10 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.5 |
+| Version | 0.6 |
 | Status | Revised |
 | Author | LS / Claude |
+| Revised | 2026-11-17 — Issue #150: §1.4 guard tests, repoint scope, removed live-gh dry-run cases |
 | Revised | 2026-11-17 — Issue #148: §1.1 Cost labels (`_tracker`/`_stale` helpers, best-effort config guard) |
 | Revised | 2026-11-17 — Issue #145: §1.3 gh-issue-manager, kickoff epic creation |
 | Revised | 2026-11-17 — Issue #147: §1.3 T5 notes |
@@ -609,8 +610,8 @@ The agent shows two literal `create` commands (GitHub, and Jira with `--parent`)
 ```text
 tests/
   test_issue_access_guard.py — the guard (new)
-  test_shell_scripts.py, test_utils.py — repointed at tracker.py GitHub backend, same expected output
-  test_tracker_github.py — drop the shim cases (CREATE_SHIM / STATUS_SHIM, around L615 and L801–827)
+  test_shell_scripts.py, test_utils.py — repointed at tracker.py / the GitHub backend helpers, same expected output
+  test_tracker_github.py — shim cases dropped: CREATE_SHIM / STATUS_SHIM / EPIC_SHIM, TestShims, the shim half of the golden matrix
 plugins/edf/bin/ — delete gh-create-issue.sh, gh-project-status.sh, check-epic-checkbox.py
   (parse-project-item-id.py stays: it parses project items, is not issue access, and test_parsers.py uses it)
 ```
@@ -627,7 +628,13 @@ PATTERNS = [r"gh\s+issue\b", r"gh\s+project\b",
             r"gh-create-issue|gh-project-status|check-epic-checkbox"]
 def scan(root: pathlib.Path) -> list[str]:               # ["relpath:line", ...]
 def test_no_issue_access_outside_github_backend() -> None
+def test_exclusion_list_is_only_the_github_backend() -> None
+def test_shims_are_gone_and_unreferenced() -> None        # shims absent; README.md (outside the roots) names none
 ```
+
+> **Implementation note (issue #150):** the two live-`gh` dry-run cases in `test_shell_scripts.py` were removed, not
+> repointed: against a real repo `create` dedupes onto an existing issue, so they are not reproducible. The
+> `create-dry-run*` goldens cover the output hermetically. `test_cross_references.py` needed no change.
 
 > **Constraint:** `plugins/edf/docs/` and `CLAUDE.md` are not scanned (they describe the rule). Prose mentions of
 > "gh issue" inside migrated skills must be reworded, not excluded.
