@@ -39,7 +39,7 @@ flowchart TD
 
     S6_COMMIT --> S7(("S7: Gate 2 — second drift scan<br/>Check plan covers HLD")) --> S7_GATE(["fa:fa-hand-o-right Gate 2: Review matrix,<br/>patch as needed"])
 
-    S7_GATE --> S8["S8: Create epic issues<br/>gh-create-issue.sh per epic<br/>with REQ- anchors"]
+    S7_GATE --> S8["S8: Create epic issues<br/>tracker.py create --type epic per epic<br/>with REQ- anchors"]
 
     S8 --> S9["S9: Update CLAUDE.md<br/>Initial mode only — fill<br/>template blocks"]
 

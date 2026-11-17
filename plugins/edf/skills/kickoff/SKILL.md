@@ -320,13 +320,14 @@ docs/design/<version>/<version>-design.md#<anchor>
 - #<other-epic-issue> (or "none")
 
 ## Tasks
-- [ ] (to be filled by edf:architect)
+- [ ] (to be filled by edf:architect — GitHub only; omit this section on Jira, where children link by `--parent`)
 EOF
 )
-RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
+RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py create \
   --title "Epic E<n>.<m>: <name>" \
   --body "$BODY" \
-  --labels "epic,version:<version>,area:<area>" \
+  --type epic \
+  --labels "version:<version>,area:<area>" \
   --add-to-board)
 ```
 

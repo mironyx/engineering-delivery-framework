@@ -4,9 +4,10 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.2 |
-| Status | Draft |
+| Version | 0.3 |
+| Status | Revised |
 | Author | LS / Claude |
+| Revised | 2026-11-17 — Issue #145: §1.3 gh-issue-manager, kickoff epic creation |
 | Created | 2026-11-17 |
 | Epic | [#116](https://github.com/mironyx/engineering-delivery-framework/issues/116) |
 | Parent | [v3-design.md](v3-design.md) (v0.4) — [C3.5](v3-design.md#c35-feature-identity-resolver), [C3.6](v3-design.md#c36-epic-progress-reader), [C3.7](v3-design.md#c37-pipeline-call-sites), [C3.8](v3-design.md#c38-issue-access-guard) |
@@ -575,6 +576,7 @@ Detects the backend with `tracker.py tracker`. Task creation passes `--parent <e
 edit uses `tracker.py edit <epic> --body`. On Jira the `### Tasks` checklist is dropped from `epic_body` (children
 link by `parent`, ADR-0018 revision); the dependency graph and waves table keep their substituted refs. On
 GitHub the checklist and `#N` substitution are unchanged. Model stays `haiku` (mechanical).
+The agent shows two literal `create` commands (GitHub, and Jira with `--parent`) and runs one, because a `haiku` agent copies a bracketed optional flag verbatim. `kickoff` creates epics with `--type epic` and no `epic` in `--labels` (the backend adds the label); its epic stub's `## Tasks` line is marked GitHub-only. The coverage-manifest backfill in `architect` writes the returned ref (`#N` or a Jira key) into `issue:`.
 
 > **Constraint:** Skills prose stays backend-agnostic: no `if Jira` branches in skills beyond the two the HLD
 > names (epic body checklist in `gh-issue-manager`/`architect`, and the Jira PR line, which `create-feature-pr.sh` owns).
