@@ -15,7 +15,7 @@ Epic/phase → add /kickoff. New project → add /discovery.
 ## Task Tracking
 
 <!-- Project-specific board and issue tracking setup. Examples:
-- Board: `gh project item-list <number> --owner <org>`
+- Board: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status todo`
 - Issues: source of truth. No work without an issue.
 - Columns: Todo (priority-ordered), Blocked, In Progress, Done.
 -->

@@ -53,7 +53,7 @@ measured instead of assumed.
 this order:**
 1. Every file in `requirements_paths` — the contract of record
 2. The LLD at `lld_path` (if not "none") — refinement
-3. The issue body: `gh issue view <issue_number>`
+3. The issue body: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <issue_number>` (JSON; read `body`)
 
 If `brief_path` was never provided at all, record `Brief usage: none provided`.
 

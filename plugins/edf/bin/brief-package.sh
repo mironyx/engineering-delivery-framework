@@ -4,13 +4,15 @@
 # section the issue references), and the matching requirements section(s) —
 # to a git-ignored file, and print only that file's path.
 #
+# The issue is read through tracker.py view, so any tracker's ref works.
+#
 # Mirrors review-package.sh's pattern: large project documents (a 1000+ line
 # requirements doc, a multi-section LLD) get read once here and handed to
 # test-author/feature-evaluator/pr-review agents as a path, instead of each
 # agent re-reading the full documents independently.
 #
 # Usage:
-#   ${CLAUDE_PLUGIN_ROOT}/bin/brief-package.sh --issue <number> \
+#   ${CLAUDE_PLUGIN_ROOT}/bin/brief-package.sh --issue <ref> \
 #     --lld <path-or-"none"> \
 #     --requirements <path> [--requirements <path> ...] \
 #     [--out <file>]
@@ -67,7 +69,7 @@ set -euo pipefail
 
 usage() {
   cat >&2 <<'EOF'
-usage: brief-package.sh --issue <number> --lld <path|none> \
+usage: brief-package.sh --issue <ref> --lld <path|none> \
          --requirements <path> [--requirements <path> ...] [--out <file>]
 EOF
 }
@@ -104,29 +106,32 @@ if [[ -z "$ISSUE" || -z "$LLD_PATH" ]]; then
   exit 1
 fi
 
-if [[ ! "$ISSUE" =~ ^[0-9]+$ ]]; then
-  echo "--issue expects a number, got: $ISSUE" >&2
-  exit 1
-fi
+ISSUE="${ISSUE#\#}"  # refs are opaque (12, #12, SCRUM-12); the leading # is not part of a file name
 
 if ! REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null); then
   echo "brief-package.sh: not inside a git repository" >&2
   exit 1
 fi
 
-if ! ISSUE_TITLE=$(gh issue view "$ISSUE" --json title -q '.title' 2>/dev/null); then
-  echo "brief-package.sh: cannot read issue #${ISSUE} (is gh authenticated?)" >&2
-  exit 1
-fi
-if ! ISSUE_BODY=$(gh issue view "$ISSUE" --json body -q '.body' 2>/dev/null); then
-  echo "brief-package.sh: cannot read issue #${ISSUE} body (is gh authenticated?)" >&2
-  exit 1
-fi
-
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PY=(bash "$SCRIPT_DIR/../hooks/run-python.sh")
 TMP_ISSUE_BODY=$(mktemp)
 TMP_PART_A=$(mktemp)
-trap 'rm -f "$TMP_ISSUE_BODY" "$TMP_PART_A"' EXIT
-printf '%s\n' "$ISSUE_BODY" > "$TMP_ISSUE_BODY"
+TMP_ERR=$(mktemp)
+trap 'rm -f "$TMP_ISSUE_BODY" "$TMP_PART_A" "$TMP_ERR"' EXIT
+if ! ISSUE_JSON=$("${PY[@]}" "$SCRIPT_DIR/tracker.py" view "$ISSUE" 2>"$TMP_ERR"); then
+  echo "brief-package.sh: cannot read issue ${ISSUE}: $(cat "$TMP_ERR")" >&2
+  exit 1
+fi
+# One parse: the body lands in a file (it is multi-line), the title and ref come back on stdout.
+mapfile -t ISSUE_HEAD < <(printf '%s' "$ISSUE_JSON" | "${PY[@]}" -c '
+import json, sys
+d = json.load(sys.stdin)
+open(sys.argv[1], "w").write(d["body"] + "\n")
+print(d["ref"]); print(d["title"])' "$TMP_ISSUE_BODY")
+ISSUE_REF="${ISSUE_HEAD[0]}"
+ISSUE_TITLE="${ISSUE_HEAD[1]}"
+ISSUE_BODY=$(cat "$TMP_ISSUE_BODY")
 
 # --- Section extraction helpers ---
 
@@ -397,7 +402,7 @@ if [[ -z "$OUT" ]]; then
 fi
 
 {
-  echo "# Brief — Issue #${ISSUE}: ${ISSUE_TITLE}"
+  echo "# Brief — Issue ${ISSUE_REF}: ${ISSUE_TITLE}"
   echo
   echo "## Issue"
   echo
