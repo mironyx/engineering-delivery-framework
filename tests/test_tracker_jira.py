@@ -129,3 +129,22 @@ class TestJqlEscaping:
 
     def test_jql_phrase_wraps_in_phrase_quotes_and_escapes_specials(self):
         assert _jql_phrase("a+b") == '"\\"a\\\\+b\\""'
+
+
+class TestRobustness:
+    def test_repeating_next_page_token_terminates(self, fake_jira, tmp_path):
+        from _jira_client import JiraClient
+        from _tracker_jira import _search_all
+        from tracker import JiraConfig
+
+        env = fake_jira.env
+        client = JiraClient(JiraConfig(env["JIRA_HOST"], env["JIRA_EMAIL"], env["JIRA_API_TOKEN"], env["JIRA_SPACE"]))
+        client.request = lambda *a, **k: (200, {"issues": [], "nextPageToken": "x", "isLast": False})
+        assert _search_all(client, 'project = "SCRUM"', fields=["summary"], limit=100) == []
+
+    def test_create_response_without_key_is_a_tracker_error(self, fake_jira, tmp_path):
+        fake_jira.fail_next(200, "{}")  # search answer without issues
+        fake_jira.fail_next(201, "{}")  # create answer without key
+        r = _create(tmp_path)
+        assert r.returncode == 1
+        assert r.stderr.strip() == "Error: Jira returned an unreadable response"

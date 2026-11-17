@@ -35,6 +35,7 @@ def _parse_ref(ref: str, space: str) -> str:
     return f"{space.upper()}-{match.group(2)}"
 
 
+_MAX_PAGES = 20  # guard against a repeating nextPageToken (LLD §1.4)
 _TYPES = {"task": "Task", "epic": "Epic"}
 _TEXT_SEARCH_SPECIALS = re.compile(r'([+\-&|!(){}\[\]^~*?\\:"])')
 
@@ -57,7 +58,7 @@ def _search_all(client: JiraClient, jql: str, *, fields: list[str], limit: int,
                 keep: Callable[[dict], bool] = lambda _fields: True) -> list[str]:
     keys: list[str] = []
     token: str | None = None
-    while True:
+    for _ in range(_MAX_PAGES):
         body: dict = {"jql": jql, "fields": fields, "maxResults": min(limit, 100)}
         if token:
             body["nextPageToken"] = token
@@ -66,7 +67,8 @@ def _search_all(client: JiraClient, jql: str, *, fields: list[str], limit: int,
         keys += [i["key"] for i in data.get("issues", []) if keep(i.get("fields") or {})]
         token = data.get("nextPageToken")
         if not token or data.get("isLast") or len(keys) >= limit:
-            return keys[:limit]
+            break
+    return keys[:limit]
 
 
 # Justification: the duplicate check needs the phrase search plus the exact in-code comparison
@@ -115,7 +117,10 @@ def create(args, ctx) -> int:
     if parent_key:
         fields["parent"] = {"key": parent_key}
     _, data = client.request("POST", "/rest/api/3/issue", body={"fields": fields})
-    print(f"created:{(data or {})['key']}")
+    key = (data or {}).get("key")
+    if not key:
+        raise TrackerError("Jira returned an unreadable response")
+    print(f"created:{key}")
     return 0
 
 
