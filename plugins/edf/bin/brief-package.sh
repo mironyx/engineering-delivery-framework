@@ -127,8 +127,12 @@ fi
 mapfile -t ISSUE_HEAD < <(printf '%s' "$ISSUE_JSON" | "${PY[@]}" -c '
 import json, sys
 d = json.load(sys.stdin)
-open(sys.argv[1], "w").write(d["body"] + "\n")
+open(sys.argv[1], "w").write((d["body"] or "") + "\n")
 print(d["ref"]); print(d["title"])' "$TMP_ISSUE_BODY")
+if [[ ${#ISSUE_HEAD[@]} -ne 2 ]]; then
+  echo "brief-package.sh: unexpected tracker output for issue ${ISSUE} (missing ref/title/body)" >&2
+  exit 1
+fi
 ISSUE_REF="${ISSUE_HEAD[0]}"
 ISSUE_TITLE="${ISSUE_HEAD[1]}"
 ISSUE_BODY=$(cat "$TMP_ISSUE_BODY")
@@ -398,7 +402,7 @@ if [[ -z "$OUT" ]]; then
   # Self-ignoring scratch directory: keeps briefs (and review packages) out
   # of `git status` without modifying the project's tracked .gitignore.
   printf '*\n' > "$PKG_DIR/.gitignore"
-  OUT="$PKG_DIR/brief-${ISSUE}.md"
+  OUT="$PKG_DIR/brief-${ISSUE//[^A-Za-z0-9._-]/_}.md"
 fi
 
 {

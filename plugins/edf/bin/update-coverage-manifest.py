@@ -25,10 +25,12 @@ import sys
 
 def extract_epic_slug() -> str:
     body = sys.stdin.read()
-    try:
-        body = json.loads(body)["body"]
-    except (ValueError, KeyError, TypeError):
-        pass  # a bare issue body, not tracker.py view JSON
+    if body.lstrip().startswith("{"):  # tracker.py view JSON; anything else is a bare body
+        try:
+            body = json.loads(body).get("body") or ""
+        except ValueError:
+            print("update-coverage-manifest.py: stdin looks like JSON but does not parse", file=sys.stderr)
+            return ""
     m = re.search(r"lld-([a-z0-9-]+)-[a-z0-9-]+\.md", body)
     return m.group(1) if m else ""
 
