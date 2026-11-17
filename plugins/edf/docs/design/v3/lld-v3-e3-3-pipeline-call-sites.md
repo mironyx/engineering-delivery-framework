@@ -4,9 +4,10 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.4 |
+| Version | 0.5 |
 | Status | Revised |
 | Author | LS / Claude |
+| Revised | 2026-11-17 — Issue #148: §1.1 Cost labels (`_tracker`/`_stale` helpers, best-effort config guard) |
 | Revised | 2026-11-17 — Issue #145: §1.3 gh-issue-manager, kickoff epic creation |
 | Revised | 2026-11-17 — Issue #147: §1.3 T5 notes |
 | Created | 2026-11-17 |
@@ -480,7 +481,11 @@ def set_pr_labels(pr: int, add: list[str], remove: list[str]) -> None:
 `gh` versions (cli/cli#11983) that would silently drop the labels.
 Tests: new `tests/test_query_feature_cost.py` on `fake_gh` / `fake_jira` — stale-label removal and the single `edit`
 call on both backends, GitHub-only `label create`, PR-label route, Jira run makes no `gh` call.
-Failure policy is unchanged: best-effort, output suppressed, never blocks the PR.
+Failure policy is unchanged: best-effort, output suppressed, never blocks the PR — including a bad backend
+configuration, which makes `apply_labels` return without labelling (the PR-label JSON parse is guarded the same way).
+Internals: `_tracker(*args)` runs `tracker.py` as a subprocess; `_stale(existing, new)` picks same-prefix labels that
+differ from the new ones and serves both the issue (`view` labels) and the PR (`gh pr view` labels) side.
+`set_pr_labels` takes the caller-computed `remove` list; it never reads labels itself.
 
 <a id="LLD-v3-e3-3-epic-progress"></a>
 
