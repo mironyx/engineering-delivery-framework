@@ -130,6 +130,22 @@ error telling you to add it.
 OAuth. Team-managed (next-gen) spaces only; company-managed spaces link epics
 differently and are not supported.
 
+**Setting up a new project on Jira.** `/setup` does not configure Jira yet, so
+add the variables by hand:
+
+1. In Jira, use a team-managed space whose workflow has To Do, In Progress,
+   Blocked and Done, and whose issue types include Epic. Create an API token.
+2. In the project repo, add `.env` to `.gitignore` *before* adding the token.
+3. Add `JIRA_HOST`, `JIRA_EMAIL`, `JIRA_API_TOKEN` and `JIRA_SPACE` to `.env`
+   (or the OS environment).
+4. Log in to the GitHub CLI (`gh auth login`). Issues live in Jira, but pull
+   requests, CI and the repository stay on GitHub.
+5. Run `/setup` for everything else (`kb/`, `CLAUDE.md`, scripts), then check
+   the backend with
+   `bash <plugin>/hooks/run-python.sh <plugin>/bin/tracker.py tracker`. It
+   prints `jira` when the variables are picked up and names any that are
+   missing.
+
 ### Model configuration
 
 EDF agents fall into two groups. Agents that exercise judgement (`feature-evaluator`, `hld-review`, `lld-review`, `qa-executor`, `qa-explorer`, `requirements-design-drift`, `requirements-review`, `test-author`) use `model: inherit`, so they run on whatever model your session is using — run Opus and your reviewers are Opus, run Sonnet and they are Sonnet. Nothing to configure.
