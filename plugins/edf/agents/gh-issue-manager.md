@@ -38,14 +38,14 @@ TMP=$(mktemp)
 cat > "$TMP" <<'ENDOFBODY'
 <task body>
 ENDOFBODY
-$TRACKER create \
-  --title "<task title>" \
-  --body "$(cat "$TMP")" \
-  --labels "<labels>" \
-  [--parent "<epic_ref>"] \
-  --add-to-board
+# GitHub
+$TRACKER create --title "<task title>" --body "$(cat "$TMP")" --labels "<labels>" --add-to-board
+# Jira (same, plus the parent epic)
+$TRACKER create --title "<task title>" --body "$(cat "$TMP")" --labels "<labels>" --parent "<epic_ref>" --add-to-board
 rm "$TMP"
 ```
+
+Run exactly one of the two `create` commands, chosen by the backend from step 0.
 
 Capture the result line (`created:<ref>` or `exists:<ref>`) and build a mapping `{T1: <ref>, T2: <ref>, …}`. A bare all-digit GitHub value is rendered `#<n>`; a Jira key is used as is. On any non-zero exit, stop and report the `created:`/`exists:` lines collected so far plus the error line.
 

@@ -438,18 +438,18 @@ graph LR
 <from implementation plan>
 ```
 
-The agent substitutes `T1` → `#<created-issue-number>`, `T2` → `<created-issue-ref>`, … in **both** the Tasks checklist (GitHub only) and the dependency-graph node labels before running `tracker.py edit`.
+The agent substitutes `T1` → `<created-issue-ref>`, `T2` → `<created-issue-ref>`, … in **both** the Tasks checklist (GitHub only) and the dependency-graph node labels before running `tracker.py edit`.
 
 #### 4. Coverage manifest backfill
 
-After `edf:gh-issue-manager` returns the mapping `{T1: <ref>, T2: <ref>, …}` (or the parent skill reads it from the agent's output), edit `docs/design/v<N>/coverage-<epic-id>.yaml` and replace each `issue: null` with the corresponding real number. Match by the LLD section anchor: every task in the LLD has one section anchor, and every coverage entry's `lld:` field points at one of those anchors — that's the join key.
+After `edf:gh-issue-manager` returns the mapping `{T1: <ref>, T2: <ref>, …}` (or the parent skill reads it from the agent's output), edit `docs/design/v<N>/coverage-<epic-id>.yaml` and replace each `issue: null` with the corresponding real ref (`#<n>` on GitHub, `SCRUM-<n>`-style key on Jira). Match by the LLD section anchor: every task in the LLD has one section anchor, and every coverage entry's `lld:` field points at one of those anchors — that's the join key.
 
 ```yaml
 epic: <epic-id>
 entries:
   - req: REQ-<anchor-from-requirements>
     lld: lld-<epic-id>-<short-name>.md#LLD-<epic-id>-<section-slug>
-    issue: <number>
+    issue: <ref>
     files: []
     status: Approved # Draft | Approved | Implemented | Revised
     lld_revision: r1 # latest LLD revision shipped; bumped by edf:lld-sync
