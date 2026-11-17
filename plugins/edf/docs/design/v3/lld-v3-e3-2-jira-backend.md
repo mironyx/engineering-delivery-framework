@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.3 |
+| Version | 0.4 |
 | Status | Revised |
 | Author | LS / Claude |
 | Created | 2026-11-16 |
@@ -17,6 +17,7 @@
 | Epic id | `v3-e3-2` |
 | Revised | 2026-11-16 — Issue #131: §1.2 `JiraClient` private helpers |
 | Revised | 2026-11-17 — Issue #129: §1.1 `adf_to_md` decomposition |
+| Revised | 2026-11-17 — Issue #132: §1.2 `fake_jira` JQL escapes, §1.3 `create` guards |
 
 ---
 
@@ -674,7 +675,7 @@ and the function-scoped fixture sets `JIRA_HOST=https://localhost:<port>`, `JIRA
   other endpoint gets `501` so a typo fails the test instead of reading as a missing issue.
 - JQL: the fake parses only the grammar `emit` produces — `project = "K"`, `issuetype`,
   `summary ~ "<phrase>"`, `status = "<name>"`, `statusCategory = Done|!= Done`, `labels = "<v>"`,
-  `parent = KEY`, joined by `AND`, optional `ORDER BY Rank ASC`, string escapes `\"` and `\\`. Anything
+  `parent = KEY`, joined by `AND`, optional `ORDER BY Rank ASC`, string escapes `\"`, `\\`, `\n`, `\r` and `\t`. The `summary ~` match removes the text-search backslash escapes before its case-insensitive substring comparison. Anything
   else returns 400 with `errorMessages`, so a malformed query fails the test rather than matching
   everything.
 - Search requires a `project =` clause (unbounded queries are `400`), returns issues in `rank` order,
@@ -734,6 +735,12 @@ _find_open_by_title(client, space, title) -> str | None
   - _search_all(client, jql, fields=["summary"], limit=100, keep=lambda f: f["summary"] == title)
   - return the first key kept, else None; a title with more than 100 phrase matches is outside the
     accepted limit
+  - POST /rest/api/3/issue answering 2xx without `key` → TrackerError("Jira returned an unreadable
+    response") (the issue may exist; the caller sees an error, not a traceback)
+
+_search_all(client, jql, *, fields, limit, keep) -> list[str]
+  - follows `nextPageToken` for at most 20 pages (`_MAX_PAGES`, guard against a repeating token),
+    keeping only items for which `keep(item["fields"])` is true, and returns at most `limit` keys
 
 _jql_str(value: str) -> str       # '"' + value with \ → \\, " → \", \n → \\n, \r, \t escaped + '"'
 _jql_phrase(value: str) -> str    # _jql_str('"' + _escape_text_search(value) + '"'): phrase search; the

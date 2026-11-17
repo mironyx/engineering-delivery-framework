@@ -11,15 +11,16 @@ entries:
     lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-client
     issue: 131
     files: []
-    status: Approved
+    status: Revised
     lld_revision: r1
     # Story 1.1 Jira AC6 (401/403), AC7 (429/5xx), redaction. Selection logic: E3.1.
 
   - req: REQ-tracker-script-create-issue
     lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-create
     issue: 132
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/bin/_tracker_jira.py
+    status: Implemented
     lld_revision: r1
     # Story 1.2 Jira AC1-AC6, AC7 (dry-run), AC8 (JQL escaping).
 
