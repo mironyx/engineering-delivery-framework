@@ -27,3 +27,51 @@
 - Added JSON-stdin support to `--extract-epic-slug` so `/feature-end` (T7) can pipe `tracker.py view` straight in.
 - Evaluator PASS WITH WARNINGS (0 adversarial tests): guard test checks only `gh issue view`/`gh project item-list` (full guard is §1.4, later PR); two silent risks accepted — `--extract-epic-slug` swallows malformed JSON like a bare body, and brief header parse has no explicit error check after tracker success.
 - pr-review (4 warnings): fixed filename sanitising, header-parse length check, narrowed JSON fallback in `--extract-epic-slug`. Deferred: `_run_brief` test helper to dedupe shim/env boilerplate in brief-package tests (maintainability, tests/test_shell_scripts.py).
+
+## Work completed
+- [PR #155](https://github.com/mironyx/engineering-delivery-framework/pull/155): `brief-package.sh` reads the issue via one `tracker.py view` call (opaque refs, sanitised file name).
+- Agents `feature-evaluator`, `test-author` and `starters/CLAUDE.md.template` point at `tracker.py`; `update-coverage-manifest.py` accepts `view` JSON.
+- Tests: 8 new/repointed in `tests/test_shell_scripts.py`; version 0.10.83.
+
+## Decisions made
+- Dropped the numeric `--issue` check rather than keeping it for GitHub: refs are opaque (LLD §1.3).
+- `--extract-epic-slug` takes `view` JSON so T7 needs no extra parsing step.
+
+## Review feedback addressed
+- [silent-swallow] brief-package.sh header parse — fixed in 2179289 (length check).
+- [bug] brief-package.sh output file name — fixed in 2179289 (sanitised).
+- [silent-swallow] update-coverage-manifest.py JSON fallback — fixed in 2179289 (narrowed).
+- [maintainability] tests/test_shell_scripts.py shim boilerplate — deferred (see Concerns).
+
+## LLD Sync report
+## LLD Sync — Issue #147: Migrate agents, bin scripts and starters template to the tracker script
+
+### Corrections (spec was wrong)
+- None.
+
+### Additions (not in spec)
+- `--extract-epic-slug` accepts `tracker.py view` JSON; `brief-package.sh` strips a leading `#` from the ref for its file name. Recorded under §1.3 area split.
+
+### Omissions (in spec but not built)
+- None.
+
+### Confirmations (notable)
+- `feature-evaluator`, `test-author`, `CLAUDE.md.template` migrated as specified.
+
+### LLD updated
+File: plugins/edf/docs/design/v3/lld-v3-e3-3-pipeline-call-sites.md §1.3
+Version: 0.3 → 0.4
+
+## Cost retrospective
+| Bucket | Cost |
+|--------|------|
+| 3c → 5 (design, tests, implementation) | $0.59 |
+| 5 → 8 (evaluator, commit/PR) | $0.25 |
+| 8 → 9 (review, fixes) | $0.31 |
+| Final total | $1.92 |
+- Drivers: test-author stand-in ($0.50 in 3c→4bF) was the largest single step; post-PR work was small (review fixes ~$0.31).
+- Next time: five source files forced Standard track for ~15 lines of change; weigh that when slicing similar migration tasks.
+
+## Next steps
+- Add `_run_brief` helper in tests/test_shell_scripts.py to dedupe shim boilerplate.
+- T7 (#149) can pipe `tracker.py view` into `update-coverage-manifest.py --extract-epic-slug`.

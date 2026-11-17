@@ -4,10 +4,11 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.3 |
+| Version | 0.4 |
 | Status | Revised |
 | Author | LS / Claude |
 | Revised | 2026-11-17 — Issue #145: §1.3 gh-issue-manager, kickoff epic creation |
+| Revised | 2026-11-17 — Issue #147: §1.3 T5 notes |
 | Created | 2026-11-17 |
 | Revised | 2026-11-17 — Issue #144: §1.2 `_child_statuses` signature (no `repo`), shared `_BOARD_FIELDS`, reader error path |
 | Epic | [#116](https://github.com/mironyx/engineering-delivery-framework/issues/116) |
@@ -574,6 +575,8 @@ non-zero exit, stop and print them; `/feature` on an empty `list` prints `No Tod
 | T3 planning | `skills/kickoff/*`, `skills/architect/*`, `agents/gh-issue-manager.md` |
 | T4 other skills | `skills/{bug,backlog,baseline,create-plan,frontend-architect,lld,lld-sync,pr-review,refactor-architect,requirements,retro,setup}/*` |
 | T5 bin, agents, starters | `agents/{feature-evaluator,test-author}.md`, `bin/brief-package.sh`, `bin/update-coverage-manifest.py`, `starters/CLAUDE.md.template` |
+
+T5 as built: `brief-package.sh` reads the issue with one `tracker.py view` call (title, body and ref from the JSON), so `--issue` takes any ref and the leading `#` is stripped before it is used in the `.edf/brief-<ref>.md` file name. `update-coverage-manifest.py --extract-epic-slug` accepts the `view` JSON on stdin as well as a bare body, so T7 pipes `tracker.py view <ref>` straight into it.
 | T7 implementation | `skills/feature/*`, `skills/feature-core/*`, `skills/feature-end/*`, `skills/feature-team/*` (SKILL.md and flowchart.md each; their `FEATURE_ID` derivation text → `feature-id.py id <ref>`) |
 
 `bin/query-feature-cost.py` and `create-feature-pr.sh` are not call-site migrations: Tasks 6 and 1 own them.
