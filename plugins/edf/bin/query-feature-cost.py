@@ -6,7 +6,7 @@ Usage:
 
 Arguments:
   feature_id     Optional. Feature ID to look up, e.g. EDF-55. When omitted, derived from
-                 --issue plus a prefix taken from $EDF_FEATURE_PREFIX or the repo name
+                 --issue plus a prefix from the feature-identity resolver
                  (e.g. "engineering-delivery-framework" -> "EDF").
   --issue N      GitHub issue number; if given, applies stage-namespaced cost labels.
                  Required when feature_id is omitted.
@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 import os
 
 import _edf_env
+import _feature_id
 
 _PROM_HOST = os.environ.get("WINDOWS_IP", "localhost")
 _PROM_PORT = os.environ.get("PROM_PORT", "9090")
@@ -264,27 +265,10 @@ def apply_labels(issue: int, metrics: UsageMetrics, stage: str, pr: int | None =
 
 
 def _derive_feature_prefix() -> str:
-    """Derive a feature-id prefix.
-
-    Precedence: $EDF_FEATURE_PREFIX env var → .env in repo root → derivation.
-    """
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--git-common-dir"],
-            capture_output=True, text=True, check=True,
-        )
-        root = pathlib.Path(result.stdout.strip()).parent.resolve()
+        return _feature_id.derive_feature_prefix(_feature_id.main_checkout_root())
     except (subprocess.CalledProcessError, FileNotFoundError):
         return "FEAT"
-
-    prefix = _edf_env.resolve("EDF_FEATURE_PREFIX", root)
-    if prefix:
-        return prefix
-    name = root.name
-    parts = [p for p in name.replace("_", "-").split("-") if p]
-    if len(parts) >= 2:
-        return "".join(p[0].upper() for p in parts)
-    return name.upper() or "FEAT"
 
 
 def main() -> None:

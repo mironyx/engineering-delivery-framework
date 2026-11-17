@@ -30,6 +30,8 @@ import sys
 import time
 
 import _edf_env
+import _feature_id
+from _tracker_contract import TrackerError
 
 
 def git_root() -> pathlib.Path:
@@ -54,23 +56,6 @@ def derive_project_key(root: pathlib.Path) -> str:
     # The drive-letter "c:\" maps to "c--", so replace ":\\" first.
     path_str = path_str.replace(":\\", "--")
     return path_str.replace("\\", "-").replace("/", "-").replace(":", "")
-
-
-def derive_feature_prefix(root: pathlib.Path) -> str:
-    """Derive a feature-id prefix.
-
-    Precedence: $EDF_FEATURE_PREFIX env var → .env in repo root → derivation.
-    Derivation: "engineering-delivery-framework" -> "EDF", "myproject" -> "MYPROJECT".
-    """
-    prefix = _edf_env.resolve("EDF_FEATURE_PREFIX", root)
-    if prefix:
-        return prefix
-    # Derive from repo name
-    name = root.name
-    parts = [p for p in name.replace("_", "-").split("-") if p]
-    if len(parts) >= 2:
-        return "".join(p[0].upper() for p in parts)
-    return name.upper() or "FEAT"
 
 
 # Shortened tags for skills with no GitHub issue to key off. Unlisted skills
@@ -164,11 +149,11 @@ def _first_user_message_text(jsonl_path: pathlib.Path) -> str:
     return ""
 
 
-def find_session_jsonl(claude_dir: pathlib.Path, issue_hint: str | None = None, feature_prefix: str = "") -> pathlib.Path | None:
+def find_session_jsonl(claude_dir: pathlib.Path, feature_id: str | None = None, issue_number: str | None = None) -> pathlib.Path | None:
     all_jsonl = sorted(claude_dir.glob("*.jsonl"), key=os.path.getmtime, reverse=True)
     if not all_jsonl:
         return None
-    if not issue_hint or len(all_jsonl) == 1:
+    if not feature_id or len(all_jsonl) == 1:
         return all_jsonl[0]
 
     # Parallel mode: each teammate's spawn prompt contains "issue #N" and "<prefix>-N" as
@@ -176,9 +161,9 @@ def find_session_jsonl(claude_dir: pathlib.Path, issue_hint: str | None = None, 
     # tool-call payloads later in the file), so we must only match against the FIRST user
     # message — which for teammates is the spawn prompt, and for the lead is the human's
     # input. On Windows (no /proc), this fallback is the primary detection path.
-    search_terms = [f"issue #{issue_hint}"]
-    if feature_prefix:
-        search_terms.append(f"{feature_prefix}-{issue_hint}")
+    search_terms = [feature_id]
+    if issue_number:  # GitHub only: Jira spawn prompts say "issue SCRUM-42", which feature_id matches
+        search_terms.append(f"issue #{issue_number}")
     cutoff = time.time() - 600  # only consider sessions started in the last 10 minutes
     recent = [f for f in all_jsonl if os.path.getmtime(f) > cutoff]
 
@@ -249,20 +234,23 @@ def main() -> None:
     root = git_root()
     project_key = derive_project_key(root)
 
-    feature_prefix = ""
     if args.skill:
         feature_id = f"{derive_skill_tag(args.skill)}-{short_task_id()}"
     else:
-        feature_prefix = derive_feature_prefix(root)
-        feature_id = f"{feature_prefix}-{args.issue}"
+        try:
+            feature_id = _feature_id.resolve_feature_id(args.issue, root)
+        except TrackerError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
 
+    issue_number = args.issue.lstrip("#") if args.issue and args.issue.lstrip("#").isdigit() else None
     claude_dir = pathlib.Path.home() / ".claude" / "projects" / project_key
     env_session_id = os.environ.get("CLAUDE_CODE_SESSION_ID")
 
     # Old method: search for JSONL (kept for comparison during validation)
     jsonl_path = (
         find_session_jsonl_via_proc(claude_dir)
-        or find_session_jsonl(claude_dir, issue_hint=args.issue, feature_prefix=feature_prefix)
+        or find_session_jsonl(claude_dir, feature_id if args.issue else None, issue_number)
     )
     old_session_id = jsonl_path.stem if jsonl_path else None
 

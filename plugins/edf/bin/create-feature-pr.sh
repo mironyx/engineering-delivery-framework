@@ -11,7 +11,7 @@
 #     --tests-total "<N (M test files)>" \
 #     [--dry-run]
 #
-# --issue may repeat: a PR fixing several issues gets one `Closes #N` line per issue.
+# --issue may repeat: a PR fixing several issues gets one `Closes #N` (GitHub) or `Jira: KEY` line per issue.
 # The first issue is the primary one — it names the feature ID for cost tracking.
 # --dry-run prints the PR body and exits without calling gh.
 #
@@ -58,7 +58,6 @@ if [[ ${#ISSUES[@]} -eq 0 ]]; then
   exit 1
 fi
 ISSUE="${ISSUES[0]}"
-CLOSES_LINES="$(printf 'Closes #%s\n' "${ISSUES[@]}")"
 
 for var in TITLE SUMMARY TESTS_ADDED TESTS_TOTAL; do
   if [[ -z "${!var}" ]]; then
@@ -69,19 +68,9 @@ done
 
 DESIGN_REF="${DESIGN_REF:-N/A}"
 
-# --- Derive feature ID ---
-FEATURE_PREFIX="${EDF_FEATURE_PREFIX:-}"
-if [[ -z "$FEATURE_PREFIX" ]]; then
-  REPO=$(gh repo view --json name -q '.name' 2>/dev/null || basename "$(dirname "$(git rev-parse --git-common-dir)")")
-  NORMALIZED=$(echo "$REPO" | tr '_' '-' | tr ' ' '-')
-  if echo "$NORMALIZED" | grep -q '-'; then
-    FEATURE_PREFIX=$(echo "$NORMALIZED" | awk -F- '{for(i=1;i<=NF;i++) if(length($i)) printf toupper(substr($i,1,1)); print ""}')
-  else
-    FEATURE_PREFIX=$(echo "$REPO" | tr '[:lower:]' '[:upper:]')
-  fi
-  [[ -z "$FEATURE_PREFIX" ]] && FEATURE_PREFIX="FEAT"
-fi
-FEATURE_ID="${FEATURE_PREFIX}-${ISSUE}"
+# --- Derive feature ID and issue lines (aborts before any PR on invalid config/ref) ---
+FEATURE_ID=$("${PLUGIN_ROOT}/hooks/run-python.sh" "${PLUGIN_ROOT}/bin/feature-id.py" id "$ISSUE") || exit 1
+ISSUE_LINES=$("${PLUGIN_ROOT}/hooks/run-python.sh" "${PLUGIN_ROOT}/bin/feature-id.py" reference-lines "${ISSUES[@]}") || exit 1
 
 # --- Create PR with placeholder Usage section ---
 PR_BODY="$(cat <<EOF
@@ -89,7 +78,7 @@ PR_BODY="$(cat <<EOF
 ${SUMMARY}
 
 ## Issue
-${CLOSES_LINES}
+${ISSUE_LINES}
 
 ## Design reference
 ${DESIGN_REF}

@@ -35,6 +35,8 @@ import urllib.request
 from datetime import datetime, timezone
 
 import _edf_env
+import _feature_id
+from _tracker_contract import TrackerError
 
 _PROM_HOST = os.environ.get("WINDOWS_IP", "localhost")
 _PROM_PORT = os.environ.get("PROM_PORT", "9090")
@@ -54,17 +56,6 @@ def git_root() -> pathlib.Path:
     if not p.is_absolute():
         p = pathlib.Path.cwd() / p
     return p.parent
-
-
-def derive_feature_prefix(root: pathlib.Path) -> str:
-    prefix = _edf_env.resolve("EDF_FEATURE_PREFIX", root)
-    if prefix:
-        return prefix
-    name = root.name
-    parts = [p for p in name.replace("_", "-").split("-") if p]
-    if len(parts) >= 2:
-        return "".join(p[0].upper() for p in parts)
-    return name.upper() or "FEAT"
 
 
 def _extract_session_id(line: str, feature_id: str) -> str | None:
@@ -223,10 +214,17 @@ def main() -> None:
     parser.add_argument("--session-log", help="Path to the session log .md file (default: found from --issue)")
     parser.add_argument("--step", required=True, choices=STEPS, help="Step label")
     parser.add_argument("--note", required=True, help="Checkpoint note text")
-    parser.add_argument("--issue", type=int, help="Issue number for Prometheus cost lookup")
+    parser.add_argument("--issue", help="Issue ref (number or Jira key) for log lookup and Prometheus cost")
     args = parser.parse_args()
 
     root = git_root()
+    feature_id = None
+    if args.issue is not None:
+        try:
+            feature_id = _feature_id.resolve_feature_id(args.issue, root)
+        except TrackerError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
     if args.session_log:
         session_log = pathlib.Path(args.session_log)
     elif args.issue is not None:
@@ -235,7 +233,7 @@ def main() -> None:
         import subprocess
         toplevel = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                                   capture_output=True, text=True).stdout.strip()
-        session_log = find_session_log(pathlib.Path(toplevel or "."), f"{derive_feature_prefix(root)}-{args.issue}")
+        session_log = find_session_log(pathlib.Path(toplevel or "."), feature_id)
     else:
         print("Pass --session-log or --issue", file=sys.stderr)
         sys.exit(1)
@@ -247,12 +245,9 @@ def main() -> None:
     # Current UTC timestamp — captured NOW, not by the caller
     now = datetime.now(timezone.utc)
     timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    feature_id = None
 
     # Query cost if issue provided
-    if args.issue is not None:
-        prefix = derive_feature_prefix(root)
-        feature_id = f"{prefix}-{args.issue}"
+    if feature_id is not None:
         prom_dir = _edf_env.prom_dir(root)
         cost_data = query_cost(feature_id, prom_dir)
         models = query_models(feature_id)

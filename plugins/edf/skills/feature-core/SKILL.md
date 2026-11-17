@@ -191,9 +191,9 @@ later.
 
 1. Derive the feature ID:
    ```bash
-   FEATURE_ID="${EDF_FEATURE_PREFIX}-<issue-number>"
+   FEATURE_ID=$(bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/feature-id.py id <issue-ref>)
    ```
-   Read `${EDF_FEATURE_PREFIX}` from the project `.env`; it was set during `/setup`.
+   The resolver returns the Jira key on Jira, or `<prefix>-<n>` on GitHub. Never derive the ID in prose.
 2. Derive the slug from the issue title (kebab-case, 2-4 words).
 3. Determine N: count existing session logs for today in `docs/sessions/YYYY-MM/` and increment.
 4. Create the file at `docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md`:
