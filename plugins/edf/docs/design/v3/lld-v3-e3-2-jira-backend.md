@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.2 |
+| Version | 0.4 |
 | Status | Revised |
 | Author | LS / Claude |
 | Created | 2026-11-16 |
@@ -16,6 +16,7 @@
 | Depends on | [lld-v3-e3-1-tracker-script.md](lld-v3-e3-1-tracker-script.md) — contract, dispatch, `fake_gh` pattern |
 | Epic id | `v3-e3-2` |
 | Revised | 2026-11-16 — Issue #131: §1.2 `JiraClient` private helpers |
+| Revised | 2026-11-17 — Issue #129: §1.1 `adf_to_md` decomposition |
 
 ---
 
@@ -576,11 +577,19 @@ md_to_adf(markdown: str) -> dict
     delimiters stay literal; adjacent plain runs merged
   - unsupported blocks (raw HTML, block quote, rule) → one paragraph with one literal text node of
     the source lines; `adf_to_md` escapes it like any text, so A1 holds
+  - a raw `\n` inside one text node cannot come from `md_to_adf`, so A1 does not cover it:
+    `adf_to_md` keeps the lines (hardBreak) in paragraphs and flattens to a space in headings and cells
 
 adf_to_md(doc: dict | None) -> str
   - None, {} or a doc with no content → ""
-  - _render_block(node, depth) -> str; unknown block → _text_of(node) as a paragraph
-  - _render_inline(node) -> str; unknown inline → its text content
+  - _block(node) -> str: one dispatch by node type; unknown block → _text_of(node) as a paragraph
+  - _inlines(content, flat) / _inline_node(node, ...) -> str: marks applied by _wrap / _wrap_link;
+    unknown inline → its text content
+  - helpers: _list_lines (nesting; sibling sub-lists in one item render at decreasing indents so
+    they do not merge on re-parse), _table_md, _code_block, _code_md, _escape_line
+  - foreign input never raises: _kids drops non-dict children, _attrs / _list_of tolerate wrong-typed
+    attrs and marks, _level clamps a non-numeric heading level; a RuntimeWarning plus plain text is
+    the backstop
   - _escape(text: str) -> str: backslash-escapes `\ * _ ` [ ] |` (pipe only inside table cells)
     and a block-leading `#`, `-`, `+`, `N.`
   - fenced code uses a fence one backtick longer than the longest run in the content
