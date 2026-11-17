@@ -107,6 +107,8 @@ is a secret: if you use `.env`, make sure `.env` is listed in `.gitignore` — t
 `.env`, keep `JIRA_API_TOKEN` in the OS environment instead.
 
 - **GitHub stays the default.** With `JIRA_HOST` unset, nothing changes for you.
+  To go back to GitHub later, unset `JIRA_HOST` (and remove the other `JIRA_*`
+  values); EDF then uses the GitHub backend again.
 - **Fail loudly.** If `JIRA_HOST` is set but `JIRA_EMAIL`, `JIRA_API_TOKEN` or
   `JIRA_SPACE` is missing, EDF stops with an error naming the missing variable.
   It never falls back to GitHub silently.
