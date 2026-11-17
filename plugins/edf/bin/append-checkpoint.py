@@ -9,7 +9,7 @@ Usage:
   py bin/append-checkpoint.py --issue 1016 --step 5 --note "green on attempt 2"
 
 --session-log is optional: without it the log is found from the issue, as the
-newest docs/sessions/**/*-<FEATURE_ID>.md. The session log must already exist
+newest <docs-dir>/sessions/**/*-<FEATURE_ID>.md (<docs-dir> = $EDF_DOCS_DIR, default docs). The session log must already exist
 with a ## Cost checkpoints table header.
 
 --step must be one of STEPS below; a mistyped label would silently break the
@@ -176,8 +176,9 @@ def post_annotation(grafana_url: str, token: str, payload: dict) -> None:
         print(f"Grafana annotation skipped: {e}", file=sys.stderr)
 
 
-def find_session_log(root: pathlib.Path, feature_id: str) -> pathlib.Path | None:
-    logs = list((root / "docs" / "sessions").glob(f"**/*-{feature_id}.md"))
+def find_session_log(root: pathlib.Path, feature_id: str,
+                     docs_dir: str = "docs") -> pathlib.Path | None:
+    logs = list((root / docs_dir / "sessions").glob(f"**/*-{feature_id}.md"))
     return max(logs, key=lambda p: p.stat().st_mtime) if logs else None
 
 
@@ -221,12 +222,13 @@ def main() -> None:
         import subprocess
         toplevel = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                                   capture_output=True, text=True).stdout.strip()
-        session_log = find_session_log(pathlib.Path(toplevel or "."), feature_id)
+        session_log = find_session_log(pathlib.Path(toplevel or "."), feature_id,
+                                       _edf_env.docs_dir(root))
     else:
         print("Pass --session-log or --issue", file=sys.stderr)
         sys.exit(1)
     if session_log is None or not session_log.exists():
-        print(f"Session log not found: {session_log or 'no docs/sessions/**/*-<FEATURE_ID>.md for this issue'}",
+        print(f"Session log not found: {session_log or 'no <docs-dir>/sessions/**/*-<FEATURE_ID>.md for this issue'}",
               file=sys.stderr)
         sys.exit(1)
 

@@ -42,3 +42,12 @@ def prom_dir(root: pathlib.Path) -> pathlib.Path:
     if override:
         return pathlib.Path(override)
     return root / "monitoring" / "textfile_collector"
+
+
+def docs_dir(root: pathlib.Path) -> str:
+    """Repo-relative docs directory holding sessions/ and design/ (default: `docs`).
+
+    Precedence: $EDF_DOCS_DIR → `.env` key EDF_DOCS_DIR → `docs`. Projects whose docs
+    live elsewhere (e.g. the plugin source repo: `plugins/edf/docs`) set it once in `.env`.
+    """
+    return (resolve("EDF_DOCS_DIR", root) or "docs").strip("/")
