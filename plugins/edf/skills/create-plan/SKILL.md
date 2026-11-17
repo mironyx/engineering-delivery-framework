@@ -29,7 +29,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-ses
 1. **Read the input** fully. Also read everything it references: ADRs in
    `docs/adr/`, requirements in `docs/requirements/`, existing LLDs in
    `docs/design/`, and relevant source files.
-2. **Check existing state**: `gh issue list --state open --limit 50` and a scan
+2. **Check existing state**: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list` and a scan
    of `docs/design/` to avoid duplicating epics, tasks, or LLDs that already
    exist. Note anything the new work supersedes.
 3. **Clarify before writing**: present your understanding and any open questions

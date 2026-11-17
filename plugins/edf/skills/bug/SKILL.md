@@ -43,7 +43,7 @@ Determine what the user is reporting:
    behaviour, or affected area.
 2. **File path** — the user suspects this file is involved. Read it as a
    starting point.
-3. **Issue number** — read the issue with `gh issue view <number>`. Extract
+3. **Issue reference** — read the issue with `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>`. Extract
    whatever symptom or context exists.
 4. **Conversation context** — if `$ARGUMENTS` is empty, look at recent
    messages for error logs, stack traces, or behaviour descriptions.
@@ -56,7 +56,7 @@ ask the user to clarify before proceeding.
 Before investigating, check whether this bug is already tracked:
 
 ```bash
-gh issue list --state open --limit 50 --json number,title,labels
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list
 ```
 
 Search for issues that match the symptom. If a matching issue exists:
@@ -160,10 +160,11 @@ decision (new pattern, new dependency), or touches a cross-cutting concern
 **If enriching an existing issue** (found in Step 2):
 
 ```bash
-gh issue edit <number> --body "$(cat <<'EOF'
+BODY=$(cat <<'EOF'
 [enriched body — preserves existing content, adds investigation results]
 EOF
-)"
+)
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py edit <ref> --body "$BODY"
 ```
 
 **If creating a new issue:**
@@ -237,21 +238,23 @@ EOF
 )
 
 # Code-only or LLD gap class:
-RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
+RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py create \
   --title "fix: [concise bug title]" \
   --body "$BODY" \
   --labels "kind:task" \
   --add-to-board)
 
 # Missing functionality, or architectural decision needed:
-RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
+RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py create \
   --title "fix: [concise bug title]" \
   --body "$BODY" \
   --labels "kind:task,needs-design" \
   --add-to-board)
 ```
 
-Parse the result — `RESULT` is either `created:<number>` or `exists:<number>`.
+Parse the result — `RESULT` is either `created:<ref>` or `exists:<ref>`. The ref is opaque
+(`123` on GitHub, `SCRUM-123` on Jira); render a bare number as `#<n>`. On a non-zero exit, stop and
+print the `Error:` line.
 
 ### Step 7: Report
 

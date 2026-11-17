@@ -52,8 +52,8 @@ minor updates, edit them directly rather than re-running this skill.
 - `docs/discovery/v{N}-discovery.md` — structured discovery document (preferred)
 - Freeform brief — a prompt argument describing what needs building (for
   smaller projects)
-- GitHub issue(s) — one or more issue numbers (`#215` or `#214,#215`). Fetched
-  via `gh issue view`. Multiple issues are treated as related features within a
+- Tracker issue(s) — one or more issue refs (`#215`, `#214,#215` or `SCRUM-12`). Fetched
+  via `tracker.py view`. Multiple issues are treated as related features within a
   single requirements doc.
 - Human feedback via `[Review]` inline comments in an existing requirements doc
 
@@ -103,8 +103,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-ses
 ```
 
 1. Determine the input source:
-   - If `$ARGUMENTS` matches `#\d+` or a comma-separated list of `#\d+`,
-     treat as GitHub issue input. Run `gh issue view <number>` for each
+   - If `$ARGUMENTS` matches `#\d+`, a Jira key (`[A-Z][A-Z0-9]+-\d+`) or a comma-separated list of them,
+     treat as tracker issue input. Run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>` for each
      issue to fetch title, body, and labels. Multiple issues are treated as
      related features within a single requirements doc.
    - If `$ARGUMENTS` contains a file path, use that.

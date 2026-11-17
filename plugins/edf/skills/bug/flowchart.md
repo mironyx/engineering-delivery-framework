@@ -10,7 +10,7 @@ flowchart TD
     S1_AMBIG -->|"Yes"| STOP_ASK(["fa:fa-hand-o-right Ask user to clarify"])
     S1_AMBIG -->|"No"| S2
 
-    S2["S2: Check existing issues<br/>gh issue list --state open"] --> S2_EXISTS{"Match found?"}
+    S2["S2: Check existing issues<br/>tracker.py list"] --> S2_EXISTS{"Match found?"}
     S2_EXISTS -->|"Yes, has root cause"| STOP_DUP(["fa:fa-ban Already tracked as #N"])
     S2_EXISTS -->|"Yes, lacks detail"| S2_ENRICH["Will enrich existing #N"]
     S2_EXISTS -->|"No"| S3

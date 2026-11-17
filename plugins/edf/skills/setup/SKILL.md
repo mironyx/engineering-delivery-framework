@@ -304,7 +304,7 @@ Check if `.github/project.env` exists. If not, tell the user:
 > EDF board-aware skills (`/feature-team`, `/backlog`, `/retro`) need a
 > GitHub project board configured in `.github/project.env`. To set this up:
 > 1. Create the project board in GitHub
-> 2. Run `gh project field-list <number> --owner <owner>`
+> 2. List the board's fields and options (GitHub's project field-list command, in the project docs)
 > 3. Fill in `.github/project.env` with the field and option IDs
 >
 > Skipping for now — board skills will report a configuration error until

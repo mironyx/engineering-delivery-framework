@@ -40,8 +40,8 @@ If any of these are missing, stop and ask. Do not guess.
 
 **Epic mode:**
 
-1. Read the epic issue: `gh issue view <number>`. Extract the task list and scope.
-2. For each task issue, read the issue body: `gh issue view <task-number>`.
+1. Read the epic issue: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <epic-ref>` (its `children` lists the tasks). Extract the task list and scope.
+2. For each task issue, read the issue body: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <task-ref>`.
 3. Read the resolved HLD. Identify relevant sections.
 4. Read existing LLDs in `docs/design/` (search recursively — old LLDs are flat, new ones are in `v{N}/` folders) to understand the established format and avoid duplication.
 5. Read relevant ADRs from `docs/adr/`.

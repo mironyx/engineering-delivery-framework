@@ -1,6 +1,6 @@
 ---
 name: refactor-architect
-description: Decompose a refactor (smell, tech debt, audit finding, or freeform intent) into well-formed GitHub issue(s). Produces one task issue by default, or an epic + N task issues for refactors too large for a single PR. The parallel of /architect for refactor work — same decomposition discipline, reuses /architect's GH-issue-body templates and gh-issue-manager dispatch; only the refactor-specific bits live here. Does not author new LLDs (refactors update existing ones via the sweep mechanism). Use when there is a structural smell, duplicated pattern, contract impedance, or tech debt that needs filing — not when there is a feature to build (use /architect) or a bug symptom to investigate (use /bug).
+description: Decompose a refactor (smell, tech debt, audit finding, or freeform intent) into well-formed tracker issue(s). Produces one task issue by default, or an epic + N task issues for refactors too large for a single PR. The parallel of /architect for refactor work — same decomposition discipline, reuses /architect's GH-issue-body templates and gh-issue-manager dispatch; only the refactor-specific bits live here. Does not author new LLDs (refactors update existing ones via the sweep mechanism). Use when there is a structural smell, duplicated pattern, contract impedance, or tech debt that needs filing — not when there is a feature to build (use /architect) or a bug symptom to investigate (use /bug).
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 ---
 
@@ -37,8 +37,8 @@ This skill **reuses** `/architect`'s GitHub-issue-body templates, agent dispatch
 | GH issue task body | Owns the canonical template | Reuses `/architect`'s template + refactor-specific section deltas (see Step 6) |
 | GH epic body | Owns the canonical template | Reuses `/architect`'s template + uses `kind:lld-sweep` label |
 | Decomposition | Per-plan-section, see `/architect` Step 2b | Default one issue; escalate by PR size (see Step 4) |
-| Issue creation | `edf:gh-issue-manager` (batch) / `${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh` (single) | Same — see Step 6 |
-| Board placement | Todo column via `${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh` / agent | Same |
+| Issue creation | `edf:gh-issue-manager` (batch) / `tracker.py create` (single) | Same — see Step 6 |
+| Board placement | Todo column via `tracker.py create --add-to-board` / agent | Same |
 
 If a behaviour isn't named below, it inherits from `/architect`. Maintenance happens in one place.
 
@@ -187,10 +187,10 @@ See `/architect` SKILL.md §"Epic body template". Apply these deltas for refacto
 
 #### Issue creation — reuse /architect's machinery verbatim
 
-- **Single task issue** → `${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh` (deduplicates and adds to board). See `/architect` for invocation form.
+- **Single task issue** → `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py create --add-to-board` (deduplicates and adds to board; result `created:<ref>` / `exists:<ref>`). See `/architect` for invocation form.
 - **Epic + tasks (batch)** → dispatch the `edf:gh-issue-manager` Agent with the `epic_number`, `tasks: [...]`, and `epic_body` payload. See `/architect` SKILL.md §"Step 4 sub-step 3" for the exact agent prompt format. Use `T1`, `T2`, … placeholders in cross-task `Depends on` references; the agent substitutes real numbers.
 
-Board placement (Todo column) is handled by `${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh` and `edf:gh-issue-manager` automatically.
+Board placement (Todo column) is handled by `tracker.py create --add-to-board` and `edf:gh-issue-manager` automatically.
 
 ### Step 7: Stop
 

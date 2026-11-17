@@ -20,7 +20,7 @@ flowchart TD
 
     S6 --> S7["S7: Produce spec<br/>docs/design/frontend-system.md<br/>All decisions + Bootstrap Tasks"]
 
-    S7 --> S8["S8: Create bootstrap issues<br/>gh-create-issue.sh per task<br/>Install deps, globals.css,<br/>tailwind.config, layout updates"]
+    S7 --> S8["S8: Create bootstrap issues<br/>tracker.py create per task<br/>Install deps, globals.css,<br/>tailwind.config, layout updates"]
 
     S8 --> S9["S9: Commit spec"]
     S9 --> S10["S10: Report and stop"]

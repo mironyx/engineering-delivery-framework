@@ -40,7 +40,7 @@ flowchart TD
     S5B --> S6
 
     S6["S6: Author bodies + create issues<br/>Reuse /architect templates<br/>with refactor-specific deltas"] --> S6_CREATE{"Batch?"}
-    S6_CREATE -->|"Single"| S6_SINGLE["gh-create-issue.sh"]
+    S6_CREATE -->|"Single"| S6_SINGLE["tracker.py create"]
     S6_CREATE -->|"Epic+tasks"| S6_AGENT(("edf:gh-issue-manager"))
 
     S6_SINGLE --> S7

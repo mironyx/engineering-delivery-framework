@@ -100,8 +100,8 @@ From the numstat table printed in Step 1 (never from a fresh diff command), comp
   surface, not once per PR.
 
 Then fetch in parallel:
-- **Issue body:** extract linked issue from PR body (`Closes #N`, `Fixes #N`, `Resolves #N`).
-  Fetch `gh issue view <N>` for acceptance criteria and design doc paths. (PR mode only)
+- **Issue body:** extract linked issue from PR body (`Closes #N`, `Fixes #N`, `Resolves #N`, or `Jira: <KEY>`).
+  Fetch `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>` for acceptance criteria and design doc paths. (PR mode only)
 - **Commits:** `gh pr view <number> --json commits` (PR mode) or `git log main..HEAD --oneline`
   (local mode).
 

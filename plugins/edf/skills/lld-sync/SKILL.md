@@ -23,7 +23,7 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
 
 ## Process
 
-Check the issue's labels: `gh issue view <number> --json labels`.
+Check the issue's labels: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>` (the `labels` field).
 
 - **Refactor mode** if the issue body has a `## Trigger` section (per the cross-cutting-refactor-lld-discipline ADR), or if the issue has `kind:refactor` label. Behaviour is preserved by definition (no Rev N blocks). The process is **directive** — apply the sweep targets the issue body lists.
 - **Feature mode** otherwise. Process is **reactive** — analyse what was built vs spec; existing behaviour.
@@ -33,7 +33,7 @@ Refactor-mode adjustments per step are tagged **[refactor]**. When unmarked, bot
 ### Step 1: Gather context
 
 1. Determine the issue number from `$ARGUMENTS` or from `git log --oneline -10 | grep -oP '#\d+'`.
-2. Read the issue body: `gh issue view <number>`.
+2. Read the issue body: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>`.
    - Extract `## Design references` (plural — multi-target list, refactor task bodies). If absent, fall back to legacy `## Design reference` (singular — feature tasks predating the refactor ADR) or scan for an inline LLD reference (e.g. `§2.2 Task 3`).
    - Extract the **acceptance criteria** and **BDD specs**.
    - **[refactor]** Read every listed LLD anchor; the task body's `## Design references` enumerates all sections this PR sweeps. Treat the list as exhaustive.
@@ -48,7 +48,7 @@ Refactor-mode adjustments per step are tagged **[refactor]**. When unmarked, bot
    - Each deviation note explains what the LLD recommended, what was built instead, and why.
      Use these as the primary source for **Corrections** in Step 2.
 4a. Read PR comments:
-   - `gh api repos/:owner/:repo/issues/<pr-number>/comments --jq '.[].body'`.
+   - `gh pr view <pr-number> --json comments --jq '.comments[].body'`.
    - PR comments often contain review findings (`edf:pr-review` output), discussion threads about
      design decisions, and feedback that was addressed during implementation.
    - Scan for design-relevant content: contract mismatches, type corrections, decisions about
@@ -179,7 +179,7 @@ Step 3b handles `lld_revision` and `status` for both cases.
 
 ### Step 3d (refactor mode only): Refactor LLD lifecycle at epic close
 
-If the issue is in refactor mode AND its parent epic (per `## Parent epic` in the body, or via `gh issue view <epic_n>`) has `epic` + (`kind:refactor` or `kind:lld-sweep`) labels AND **the parent epic's task checklist is now fully closed** (every `- [x]` line links to a closed issue), handle refactor LLD retirement per the cross-cutting-refactor-lld-discipline ADR §"Refactor LLD lifecycle". Otherwise (epic still has open tasks), skip this step.
+If the issue is in refactor mode AND its parent epic (per `## Parent epic` in the body, or via `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <epic-ref>`) has `epic` + (`kind:refactor` or `kind:lld-sweep`) labels AND **the parent epic's task checklist is now fully closed** (every ref in the epic's `children` has status `done` in `tracker.py list --status done`), handle refactor LLD retirement per the cross-cutting-refactor-lld-discipline ADR §"Refactor LLD lifecycle". Otherwise (epic still has open tasks), skip this step.
 
 If retirement applies:
 

@@ -231,12 +231,12 @@ docs/design/frontend-system.md
 - [ ] [criterion]
 EOF
 )
-RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh \
+RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py create \
   --title "<task title>" \
   --body "$BODY" \
   --labels "area:frontend,kind:task" \
   --add-to-board)
-# RESULT is "created:<number>" or "exists:<number>"
+# RESULT is "created:<ref>" or "exists:<ref>"; on a non-zero exit stop and list the refs created so far
 ```
 
 ### Step 9: Commit the design system doc
