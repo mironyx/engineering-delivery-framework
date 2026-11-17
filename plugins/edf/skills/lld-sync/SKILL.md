@@ -16,8 +16,8 @@ they close the Theory Building loop: design informs implementation, implementati
 
 ## Arguments
 
-`$ARGUMENTS` is the issue number (e.g., `52`). If omitted, infer from the current branch name
-(`feat/<slug>` → look for `Closes #N` in the most recent PR or branch commits).
+`$ARGUMENTS` is the issue ref (e.g., `52` or `SCRUM-52`). If omitted, infer from the current branch name
+(`feat/<slug>` → look for `Closes #N` or `Jira: <KEY>` in the most recent PR or branch commits).
 
 A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing any step — gather context, mode detection, delta analysis, LLD/kb/manifest updates, or the sync report.
 

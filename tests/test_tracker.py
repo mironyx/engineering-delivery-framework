@@ -13,6 +13,7 @@ gh calls they make instead (behaviour: test_tracker_github.py).
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -51,12 +52,16 @@ LIST_RULE = {"argv_prefix": ["api", "graphql"], "stdout": json.dumps({"data": {"
 
 
 def _run(cwd: pathlib.Path, *args: str) -> subprocess.CompletedProcess:
+    # The suite masks JIRA_* with empty values (conftest); these tests exercise .env
+    # reading in a temporary repo, so drop the masks and let the repo's own .env speak.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("JIRA_") or v}
     return subprocess.run(
         [sys.executable, str(TRACKER), *args],
         cwd=cwd,
         capture_output=True,
         text=True,
         timeout=30,
+        env=env,
     )
 
 

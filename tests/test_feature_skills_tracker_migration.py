@@ -40,3 +40,9 @@ def test_feature_team_epic_reads_remaining_from_epic_progress():
 
 def test_feature_core_derives_feature_id_via_resolver():
     assert "feature-id.py id" in _text("feature-core")
+
+
+def test_feature_core_pr_body_check_uses_reference_lines_not_closes_only():
+    text = _text("feature-core")
+    assert "grep -c 'Closes #<N>'" not in text
+    assert "feature-id.py reference-lines" in text

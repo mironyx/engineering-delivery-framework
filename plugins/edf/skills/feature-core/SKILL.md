@@ -618,15 +618,17 @@ PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]*$')
 ```
 
 **One PR for several issues** (the user asked to combine them): repeat `--issue` once per
-issue — the script writes one `Closes #N` line each. The first issue is the primary one.
+issue — the script writes one reference line each (`Closes #N` on GitHub, `Jira: <KEY>` on Jira).
+The first issue is the primary one.
 If the script warns that main is not green, note it in the Step 10 report — this PR's CI
 will inherit that failure.
 
 If you deviated from the LLD (Step 3b), patch the PR body to add a `## Design deviations` section.
 
 **PR body patch guard:** When editing the PR body, **append** to the existing body — never replace it.
-The `create-feature-pr.sh` script auto-generates a `Closes #<N>` reference in the PR body.
-Replacing the body silently drops that reference, which means the GitHub issue won't auto-close on merge.
+The `create-feature-pr.sh` script auto-generates a reference line in the PR body (`Closes #<N>` on
+GitHub, `Jira: <KEY>` on Jira). Replacing the body silently drops it, which means the GitHub issue
+won't auto-close on merge and `/feature-end` can no longer find the PR for the issue.
 
 How to append safely:
 ```bash
@@ -642,9 +644,10 @@ gh api repos/$(gh repo view --json nameWithOwner -q '.nameWithOwner')/pulls/<pr-
 Note: the file must contain the **full** body (existing + appended). Read the existing body first,
 concatenate, then push.
 
-After patching, verify the closing reference is intact:
+After patching, verify the reference line is intact:
 ```bash
-gh pr view <pr-number> --json body -q '.body' | grep -c 'Closes #<N>'
+REF_LINE=$(bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/feature-id.py reference-lines <issue-ref>)
+gh pr view <pr-number> --json body -q '.body' | grep -cF "$REF_LINE"
 ```
 Must return `>= 1`. If not, fix immediately.
 
