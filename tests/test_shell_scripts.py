@@ -1011,6 +1011,24 @@ class TestParkDocs:
         assert not (repo / "plugins" / "x" / "docs" / "sessions" / "log-EDF-7.md").exists()
         assert "docs/lld.md" in run("status", "--porcelain").stdout  # root docs/ untouched
 
+    def test_jira_key_ref_parks_and_lands_with_key_in_commit_message(self, tmp_path):
+        repo, run = self._repos(tmp_path)
+        run("checkout", "-qb", "feat")
+        (repo / "docs" / "session-log-SCRUM-7.md").write_text("log\n")
+        parked = _bash(BIN_DIR / "park-docs.sh", "park", "SCRUM-7", cwd=repo)
+        assert parked.returncode == 0, parked.stderr
+        assert parked.stdout.startswith("park: parked 1")
+        run("checkout", "-q", "main")
+        landed = _bash(BIN_DIR / "park-docs.sh", "land", "SCRUM-7", cwd=repo)
+        assert landed.returncode == 0, landed.stderr
+        subject = run("log", "-1", "--format=%s", "origin/main").stdout
+        assert "SCRUM-7" in subject and "#SCRUM" not in subject
+
+    def test_rejects_malformed_ref(self, tmp_path):
+        repo, _ = self._repos(tmp_path)
+        bad = _bash(BIN_DIR / "park-docs.sh", "park", "x; rm -rf /", cwd=repo)
+        assert bad.returncode == 2
+
     def test_land_does_not_pick_another_issues_stash(self, tmp_path):
         repo, run = self._repos(tmp_path)
         (repo / "docs" / "lld.md").write_text("for 71\n")

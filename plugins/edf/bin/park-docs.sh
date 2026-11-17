@@ -7,8 +7,8 @@
 # head that merges is not the head CI verified.
 #
 # Usage:
-#   park-docs.sh park <issue>   # stash uncommitted docs-dir and kb/ changes (incl. untracked)
-#   park-docs.sh land <issue>   # on the up-to-date base branch: restore, commit all docs/ and kb/
+#   park-docs.sh park <ref>     # stash uncommitted docs-dir and kb/ changes (incl. untracked)
+#   park-docs.sh land <ref>     # on the up-to-date base branch: restore, commit all docs/ and kb/
 #                               # changes (incl. post-merge manifest/kb edits), push
 #
 # The stash lives in the shared object store, so a stash parked in a /feature-team
@@ -17,10 +17,13 @@ set -uo pipefail
 
 MODE="${1:-}"
 ISSUE="${2:-}"
-if [[ -z "$MODE" || -z "$ISSUE" || ! "$ISSUE" =~ ^[0-9]+$ ]]; then
-  echo "Usage: park-docs.sh <park|land> <issue-number>" >&2
+ISSUE="${ISSUE#\#}"   # accept #12; refs are opaque: 12 (GitHub) or SCRUM-12 (Jira)
+if [[ -z "$MODE" || -z "$ISSUE" ]] || ! [[ "$ISSUE" =~ ^([0-9]+|[A-Za-z][A-Za-z0-9]*-[0-9]+)$ ]]; then
+  echo "Usage: park-docs.sh <park|land> <issue-ref>   (12, #12 or SCRUM-12)" >&2
   exit 2
 fi
+# GitHub numbers are written #12 in commit messages; Jira keys are used as they are.
+if [[ "$ISSUE" =~ ^[0-9]+$ ]]; then ISSUE_LABEL="#${ISSUE}"; else ISSUE_LABEL="$ISSUE"; fi
 TAG="edf-docs-${ISSUE}"
 # Docs dir: $EDF_DOCS_DIR, then .env in the main checkout, then `docs` (see _edf_env.docs_dir).
 MAIN_ROOT="$(dirname "$(git rev-parse --git-common-dir 2>/dev/null)")"
@@ -56,7 +59,7 @@ case "$MODE" in
     cd "$(git rev-parse --show-toplevel)" || exit 1
     ref="$(find_stash)"
     if [[ -z "$ref" ]]; then
-      echo "land: nothing parked for #$ISSUE ($TAG not found)"
+      echo "land: nothing parked for $ISSUE_LABEL ($TAG not found)"
       exit 0
     fi
     if ! git stash pop "$ref" >/dev/null; then
@@ -69,7 +72,7 @@ case "$MODE" in
       echo "land: restored $TAG but nothing differs from $(git branch --show-current) — no commit"
       exit 0
     fi
-    git commit -q -m "docs: session log and LLD sync #${ISSUE}" || { echo "land: FAILED — commit" >&2; exit 1; }
+    git commit -q -m "docs: session log and LLD sync ${ISSUE_LABEL}" || { echo "land: FAILED — commit" >&2; exit 1; }
     # One retry after a rebase: parallel teammates land on the same base branch.
     if ! git push -q 2>/dev/null && ! { git pull --rebase -q 2>/dev/null && git push -q 2>/dev/null; }; then
       echo "land: committed $(git rev-parse --short HEAD) but push was rejected (protected branch?) — push it via a docs PR" >&2
