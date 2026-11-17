@@ -17,6 +17,7 @@
 | 6b | 2026-11-17T17:36:19Z | $1.29 | 5,346 in / 27,006 out | evaluator: PASS WITH WARNINGS (0 adversarial tests) — brief: used as-is [models: claude-sonnet-5-5 $1.29, claude-haiku-5-5 $0.00] |
 | 8 | 2026-11-17T17:36:39Z | $1.32 | 5,350 in / 27,792 out | [PR #155](https://github.com/mironyx/engineering-delivery-framework/pull/155) [models: claude-sonnet-5-5 $1.32, claude-haiku-5-5 $0.00] |
 | 9 | 2026-11-17T17:37:35Z | $1.63 | 6,644 in / 33,374 out | review: 4 warnings, 3 fixed, 1 deferred (test helper dedupe) [models: claude-sonnet-5-5 $1.63, claude-haiku-5-5 $0.00] |
+| 10 | 2026-11-17T17:37:46Z | $1.67 | 6,648 in / 34,000 out | report done; ci: none; PR marked ready [models: claude-sonnet-5-5 $1.67, claude-haiku-5-5 $0.00] |
 
 ## Concerns & Deferred Items
 - `edf:test-author` agent type unregistered at spawn time; used a `general-purpose` stand-in following `agents/test-author.md`.
