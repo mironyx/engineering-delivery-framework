@@ -15,6 +15,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
@@ -592,3 +593,15 @@ def close(args: argparse.Namespace, ctx: object) -> int:
         _step(number, "issue close", lambda: _gh(["issue", "close", str(number)]))
     print(f"closed:#{number}")
     return 0
+
+
+def set_pr_labels(pr: int, add: list[str], remove: list[str]) -> None:
+    """GitHub-only: DELETE/POST repos/{owner}/{repo}/issues/{pr}/labels. Best-effort, failures swallowed.
+
+    Not `gh pr edit --add-label`: it has a reported failure on some gh versions (cli/cli#11983).
+    """
+    base = "repos/{owner}/{repo}/issues/%d/labels" % pr
+    for name in remove:
+        _gh(["api", f"{base}/{urllib.parse.quote(name, safe='')}", "--method", "DELETE"])
+    for name in add:
+        _gh(["api", base, "--method", "POST", "-f", f"labels[]={name}"])

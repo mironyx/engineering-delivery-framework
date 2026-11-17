@@ -1,4 +1,4 @@
-"""Query Prometheus for feature cost/tokens and optionally tag the GitHub issue.
+"""Query Prometheus for feature cost/tokens and optionally label the issue and PR.
 
 Usage:
   py bin/query-feature-cost.py <feature_id> [--issue N] [--pr N] [--stage pr|final]
@@ -8,7 +8,7 @@ Arguments:
   feature_id     Optional. Feature ID to look up, e.g. EDF-55. When omitted, derived from
                  --issue plus a prefix from the feature-identity resolver
                  (e.g. "engineering-delivery-framework" -> "EDF").
-  --issue N      GitHub issue number; if given, applies stage-namespaced cost labels.
+  --issue N      Issue reference (#N, N or Jira key); if given, applies stage-namespaced cost labels.
                  Required when feature_id is omitted.
   --pr N         GitHub PR number; if given, also applies labels to PR and outputs time-to-PR.
   --stage        Label stage: 'pr' (at PR creation) or 'final' (post-merge). Default: pr.
@@ -30,10 +30,14 @@ import os
 
 import _edf_env
 import _feature_id
+import _tracker_github
+import tracker
+from _tracker_contract import TrackerError
 
 _PROM_HOST = os.environ.get("WINDOWS_IP", "localhost")
 _PROM_PORT = os.environ.get("PROM_PORT", "9090")
 PROM = f"http://{_PROM_HOST}:{_PROM_PORT}/api/v1/query"
+TRACKER = pathlib.Path(__file__).resolve().parent / "tracker.py"
 
 
 def git_root() -> pathlib.Path:
@@ -200,81 +204,67 @@ def build_time_line(feature_id: str, pr: int) -> str:
     return f"\n- **Time to PR:** {format_duration(elapsed)}"
 
 
-def _fetch_existing_labels(issue: int) -> list[dict]:
-    result = subprocess.run(
-        ["gh", "issue", "view", str(issue), "--json", "labels"],
-        capture_output=True, text=True,
-    )
-    return json.loads(result.stdout).get("labels", []) if result.returncode == 0 else []
+# Justification: view and edit share one tracker.py subprocess runner (credentials live only there).
+def _tracker(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run([sys.executable, str(TRACKER), *args], capture_output=True, text=True)
 
 
-def _fetch_pr_labels(pr: int) -> list[dict]:
+def _fetch_existing_labels(ref: str) -> list[str]:
+    result = _tracker("view", ref)
+    if result.returncode != 0:
+        return []
+    try:
+        return list(json.loads(result.stdout).get("labels", []))
+    except (json.JSONDecodeError, AttributeError):
+        return []
+
+
+def _fetch_pr_labels(pr: int) -> list[str]:
     result = subprocess.run(
         ["gh", "pr", "view", str(pr), "--json", "labels"],
         capture_output=True, text=True,
     )
-    return json.loads(result.stdout).get("labels", []) if result.returncode == 0 else []
+    if result.returncode != 0:
+        return []
+    return [lbl["name"] for lbl in json.loads(result.stdout).get("labels", [])]
 
 
-def _remove_stale_labels(issue: int, existing: list[dict], prefix: str, new_label: str) -> None:
-    for lbl in existing:
-        if lbl["name"].startswith(f"{prefix}:") and lbl["name"] != new_label:
-            subprocess.run(
-                ["gh", "issue", "edit", str(issue), "--remove-label", lbl["name"]],
-                capture_output=True,
-            )
+# Justification: issue and PR label cleanup share the same stale-prefix rule.
+def _stale(existing: list[str], new_labels: list[tuple[str, str]]) -> list[str]:
+    """Existing labels that share a prefix with a new label but differ from it."""
+    return [name for name in existing
+            if any(name.startswith(f"{prefix}:") and name != label for prefix, label in new_labels)]
 
 
-def _remove_stale_pr_labels(pr: int, existing: list[dict], prefix: str, new_label: str) -> None:
-    for lbl in existing:
-        if lbl["name"].startswith(f"{prefix}:") and lbl["name"] != new_label:
-            encoded = urllib.parse.quote(lbl["name"], safe="")
-            subprocess.run(
-                ["gh", "api", f"repos/{{owner}}/{{repo}}/issues/{pr}/labels/{encoded}",
-                 "--method", "DELETE"],
-                capture_output=True,
-            )
-
-
-def _add_pr_label(pr: int, label: str) -> None:
-    subprocess.run(
-        ["gh", "api", f"repos/{{owner}}/{{repo}}/issues/{pr}/labels",
-         "--method", "POST", "-f", f"labels[]={label}"],
-        capture_output=True,
-    )
-
-
-def apply_labels(issue: int, metrics: UsageMetrics, stage: str, pr: int | None = None) -> None:
+def apply_labels(ref: str, metrics: UsageMetrics, stage: str, pr: int | None = None) -> None:
+    """Best-effort: one tracker `edit` for the issue, set_pr_labels for the PR; never raises."""
     labels = [
         (f"ai-cost-{stage}",       f"ai-cost-{stage}:{metrics.cost:.4f}"),
         (f"input-tokens-{stage}",  f"input-tokens-{stage}:{int(metrics.inp)}"),
         (f"output-tokens-{stage}", f"output-tokens-{stage}:{int(metrics.out)}"),
     ]
-    existing_issue = _fetch_existing_labels(issue)
-    existing_pr = _fetch_pr_labels(pr) if pr is not None else []
-    targets = f"issue #{issue}" + (f", PR #{pr}" if pr is not None else "")
-
-    for prefix, label in labels:
-        subprocess.run(["gh", "label", "create", label, "--color", "0075ca", "--force"], capture_output=True)
-        _remove_stale_labels(issue, existing_issue, prefix, label)
-        subprocess.run(["gh", "issue", "edit", str(issue), "--add-label", label], capture_output=True)
-        if pr is not None:
-            _remove_stale_pr_labels(pr, existing_pr, prefix, label)
-            _add_pr_label(pr, label)
+    add = [label for _, label in labels]
+    if tracker.active_backend(_feature_id.main_checkout_root()) == "github":
+        for label in add:
+            subprocess.run(["gh", "label", "create", label, "--color", "0075ca", "--force"], capture_output=True)
+    remove = _stale(_fetch_existing_labels(ref), labels)
+    edit = ["edit", ref]
+    for label in add:
+        edit += ["--add-label", label]
+    for label in remove:
+        edit += ["--remove-label", label]
+    _tracker(*edit)
+    if pr is not None:
+        _tracker_github.set_pr_labels(pr, add, _stale(_fetch_pr_labels(pr), labels))
+    targets = f"issue {ref}" + (f", PR #{pr}" if pr is not None else "")
+    for label in add:
         print(f"Label applied: {label} -> {targets}")
-
-
-def _derive_feature_prefix() -> str:
-    try:
-        return _feature_id.derive_feature_prefix(_feature_id.main_checkout_root())
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return "FEAT"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("feature_id", nargs="?", help="e.g. EDF-55. Derived from --issue if omitted.")
-    parser.add_argument("--issue", type=int, help="GitHub issue number for cost label")
+    parser.add_argument("--issue", help="Issue reference (#N, N or a Jira key) for cost labels")
     parser.add_argument("--pr", type=int, help="GitHub PR number to also apply cost labels to")
     parser.add_argument("--stage", choices=["pr", "final"], default="pr",
                         help="Label stage suffix: 'pr' at PR creation, 'final' post-merge")
@@ -283,7 +273,11 @@ def main() -> None:
     if not args.feature_id:
         if args.issue is None:
             parser.error("either feature_id or --issue must be provided")
-        args.feature_id = f"{_derive_feature_prefix()}-{args.issue}"
+        try:
+            args.feature_id = _feature_id.resolve_feature_id(args.issue, _feature_id.main_checkout_root())
+        except TrackerError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
 
     session_ids = read_session_ids(args.feature_id)
     sessions_note = f" ({len(session_ids)} sessions)" if len(session_ids) > 1 else ""
