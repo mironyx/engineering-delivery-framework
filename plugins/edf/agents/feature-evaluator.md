@@ -128,7 +128,7 @@ given at all:**
 2. The LLD at `lld_path` — refinement of the requirements. **If `lld_path` is `"none"`,
    skip this source entirely** — there is no LLD for this issue; derive criteria from
    requirements and the issue body only.
-3. The issue body: `gh issue view <issue_number>` — often the narrowest scope.
+3. The issue body: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <issue_number>` (JSON; read `body`) — often the narrowest scope.
 4. If `coverage_manifest` is provided, not `"none"`, and the file exists, read it — it
    records the formal REQ- → LLD- → issue mapping per ADR-0026. Use it to confirm which
    REQ- anchors this issue is expected to cover, rather than re-deriving that mapping

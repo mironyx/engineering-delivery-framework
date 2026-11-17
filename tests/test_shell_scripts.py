@@ -4,6 +4,7 @@ These tests invoke shell scripts directly via bash. They test argument validatio
 and dry-run modes — not live GitHub operations.
 """
 
+import json
 import os
 import pathlib
 import shutil
@@ -240,6 +241,31 @@ _LLD_FIXTURE = (
 _REQ_FIXTURE = BIN_DIR.parent / "docs" / "requirements" / "v1-requirements.md"
 
 
+def _write_graphql_gh_shim(fake_bin, title, body_file, log_file=None):
+    """Fake `gh` answering `gh api graphql` with the issue envelope the tracker
+    GitHub backend parses (data.repository.issue). Any other gh call fails."""
+    fake_bin.mkdir(exist_ok=True)
+    envelope_py = (
+        "import json,sys;"
+        "print(json.dumps({'data':{'repository':{'issue':{'number':999999,"
+        f"'title':{title!r},'body':open(sys.argv[1]).read(),'state':'OPEN',"
+        "'labels':{'nodes':[]},'projectItems':{'nodes':[]}}}}}))"
+    )
+    log = f"echo \"$*\" >> '{_to_msys2_path(log_file)}'\n" if log_file else ""
+    shim = fake_bin / "gh"
+    shim.write_text(
+        "#!/usr/bin/env bash\n"
+        + log
+        + "case \"$1 $2\" in\n"
+        "  'api graphql')\n"
+        f"    python3 -c \"{envelope_py}\" '{_to_msys2_path(body_file)}' ;;\n"
+        "  *) exit 1 ;;\n"
+        "esac\n"
+    )
+    shim.chmod(0o755)
+    return shim
+
+
 class TestBriefPackage:
     def test_no_args_shows_usage(self):
         result = _bash(BIN_DIR / "brief-package.sh")
@@ -251,10 +277,24 @@ class TestBriefPackage:
         assert result.returncode == 1
         assert "usage:" in result.stderr
 
-    def test_issue_requires_a_number(self):
-        result = _bash(BIN_DIR / "brief-package.sh", "--issue", "abc", "--lld", "none")
+    def test_bogus_ref_fails_with_clear_message(self, tmp_path):
+        # Refs are opaque (12, #12, SCRUM-12): no numeric pre-check, but an
+        # unreadable ref must fail with exit 1 and a clear message.
+        fake_bin = tmp_path / "fakebin"
+        fake_bin.mkdir()
+        gh_shim = fake_bin / "gh"
+        gh_shim.write_text("#!/usr/bin/env bash\nexit 1\n")
+        gh_shim.chmod(0o755)
+        env = dict(os.environ)
+        env["PATH"] = f"{_to_msys2_path(fake_bin)}:{env.get('PATH', '')}"
+        result = subprocess.run(
+            [_BASH_EXE, _to_msys2_path(BIN_DIR / "brief-package.sh"),
+             "--issue", "abc", "--lld", "none", "--out", str(tmp_path / "b.md")],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
         assert result.returncode == 1
-        assert "expects a number" in result.stderr
+        assert "cannot read issue" in result.stderr
+        assert "expects a number" not in result.stderr
 
     def test_unknown_option(self):
         result = _bash(BIN_DIR / "brief-package.sh", "--bogus")
@@ -332,42 +372,44 @@ class TestBriefPackage:
         assert "## Acceptance criteria" in body
         assert "## What to change" in body
 
-    @gh_required
     def test_full_issue_body_included_even_with_no_ac_heading(self, tmp_path):
-        # Issue #1 (merged) has no "## Acceptance criteria" heading at all —
-        # a case the old AC-only extraction had to special-case. Now the
-        # whole body is always included verbatim, so there is nothing to
-        # fall back from: the content is just there.
+        # A body with no "## Acceptance criteria" heading: the whole body is
+        # always included verbatim, so there is nothing to fall back from.
+        fake_bin = tmp_path / "fakebin"
+        body_file = tmp_path / "body.txt"
+        body_file.write_text("Schema foundations summary.\n\n## Test plan\n- run it\n")
+        _write_graphql_gh_shim(fake_bin, "Schema foundations", body_file)
+        env = dict(os.environ)
+        env["PATH"] = f"{_to_msys2_path(fake_bin)}:{env.get('PATH', '')}"
         out = tmp_path / "brief.md"
-        result = _bash(
-            BIN_DIR / "brief-package.sh",
-            "--issue", "1", "--lld", "none",
-            "--out", str(out),
+        result = subprocess.run(
+            [_BASH_EXE, _to_msys2_path(BIN_DIR / "brief-package.sh"),
+             "--issue", "1", "--lld", "none", "--out", str(out)],
+            capture_output=True, text=True, timeout=30, env=env,
         )
-        assert result.returncode == 0
+        assert result.returncode == 0, result.stderr
         body = out.read_text()
         assert "schema foundations" in body.lower()
         assert "## Test plan" in body
 
-    @gh_required
     def test_lld_falls_back_to_full_file_when_no_anchor_referenced(self, tmp_path):
-        # Issue #1 has no "## Design reference" section and no "#LLD-..."
-        # anchor anywhere in its body — resolution must fail closed to the
-        # full LLD file, not an empty section.
+        # No "## Design reference" section and no "#LLD-..." anchor anywhere in
+        # the body: resolution must fail closed to the full LLD file.
+        fake_bin = tmp_path / "fakebin"
+        body_file = tmp_path / "body.txt"
+        body_file.write_text("Plain issue with no design reference.\n")
+        _write_graphql_gh_shim(fake_bin, "No anchors", body_file)
+        env = dict(os.environ)
+        env["PATH"] = f"{_to_msys2_path(fake_bin)}:{env.get('PATH', '')}"
         out = tmp_path / "brief.md"
-        result = _bash(
-            BIN_DIR / "brief-package.sh",
-            "--issue", "1",
-            "--lld", str(_LLD_FIXTURE),
-            "--out", str(out),
+        result = subprocess.run(
+            [_BASH_EXE, _to_msys2_path(BIN_DIR / "brief-package.sh"),
+             "--issue", "1", "--lld", str(_LLD_FIXTURE), "--out", str(out)],
+            capture_output=True, text=True, timeout=30, env=env,
         )
-        assert result.returncode == 0
+        assert result.returncode == 0, result.stderr
         assert "lld: fallback-full-file" in result.stdout
-
-        body = out.read_text()
-        # A marker from near the end of the real file — proof the whole
-        # thing was included, not just an early section.
-        assert "## Execution Order" in body
+        assert "## Execution Order" in out.read_text()
 
     @gh_required
     def test_part_a_task_number_matching_is_boundary_exact(self, tmp_path):
@@ -408,12 +450,11 @@ class TestBriefPackage:
         assert "DECOY-PART-A-BODY-2-30" not in body
         assert "DECOY-PART-A-BODY-12-3" not in body
 
-    @gh_required
     def test_resolves_every_design_reference_anchor_and_unions_their_reqs(self, tmp_path):
         # No real closed issue in this repo names more than one LLD-<anchor> in its
         # "## Design reference" section, so the redesign's "every anchor, not just
         # the first" resolution and the requirements union across every resolved
-        # anchor have no real issue-body fixture. Shims only the `gh issue view`
+        # anchor have no real issue-body fixture. Shims only the tracker's `gh api graphql`
         # transport with a synthetic body naming two real, already-anchored
         # sections of the real LLD fixture; the LLD-file and coverage-manifest
         # extraction underneath stays entirely real.
@@ -426,16 +467,7 @@ class TestBriefPackage:
             "[b](y#LLD-v1-e1-2-packaging-security)\n\n"
             "## Acceptance criteria\n- [ ] does a thing\n"
         )
-        gh_shim = fake_bin / "gh"
-        gh_shim.write_text(
-            "#!/usr/bin/env bash\n"
-            "case \"$*\" in\n"
-            "  *'--json title'*) echo 'Synthetic multi-anchor issue' ;;\n"
-            f"  *'--json body'*) cat '{_to_msys2_path(body_file)}' ;;\n"
-            "  *) exit 1 ;;\n"
-            "esac\n"
-        )
-        gh_shim.chmod(0o755)
+        _write_graphql_gh_shim(fake_bin, 'Synthetic multi-anchor issue', body_file)
 
         env = dict(os.environ)
         env["PATH"] = f"{_to_msys2_path(fake_bin)}:{env.get('PATH', '')}"
@@ -467,7 +499,6 @@ class TestBriefPackage:
         # Bounded: neither Part A section bleeds into the next story's.
         assert "## 2.5 Diagram click-through overlay" not in body
 
-    @gh_required
     def test_design_reference_section_present_but_anchorless_does_not_widen_search(self, tmp_path):
         # Regression guard for a pr-review finding: a "## Design reference" section
         # that exists but names no #LLD-... anchor must NOT fall back to a
@@ -485,16 +516,7 @@ class TestBriefPackage:
             "## Concerns\n"
             "See also lld-v1-e1-2-review-feedback.md#LLD-v1-e1-2-command-wiring for prior art.\n"
         )
-        gh_shim = fake_bin / "gh"
-        gh_shim.write_text(
-            "#!/usr/bin/env bash\n"
-            "case \"$*\" in\n"
-            "  *'--json title'*) echo 'Synthetic anchorless-design-reference issue' ;;\n"
-            f"  *'--json body'*) cat '{_to_msys2_path(body_file)}' ;;\n"
-            "  *) exit 1 ;;\n"
-            "esac\n"
-        )
-        gh_shim.chmod(0o755)
+        _write_graphql_gh_shim(fake_bin, 'Synthetic anchorless-design-reference issue', body_file)
 
         env = dict(os.environ)
         env["PATH"] = f"{_to_msys2_path(fake_bin)}:{env.get('PATH', '')}"
@@ -515,6 +537,61 @@ class TestBriefPackage:
 
         body = out.read_text()
         assert "## Execution Order" in body  # proof the whole file was included
+
+    @pytest.mark.parametrize("ref,expected", [("12", "12"), ("#12", "12")])
+    def test_ref_forms_read_issue_once_via_tracker(self, tmp_path, ref, expected):
+        # One tracker call (one `gh api graphql`), no `gh issue view`; output
+        # file is named without any leading '#'.
+        fake_bin = tmp_path / "fakebin"
+        body_file = tmp_path / "body.txt"
+        body_file.write_text("## What\nSYNTHETIC-BODY-MARKER\n")
+        log = tmp_path / "gh.log"
+        _write_graphql_gh_shim(fake_bin, "Synthetic tracker issue", body_file, log)
+        env = dict(os.environ)
+        env["PATH"] = f"{_to_msys2_path(fake_bin)}:{env.get('PATH', '')}"
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        result = subprocess.run(
+            [_BASH_EXE, _to_msys2_path(BIN_DIR / "brief-package.sh"),
+             "--issue", ref, "--lld", "none"],
+            capture_output=True, text=True, timeout=30, env=env, cwd=repo,
+        )
+        assert result.returncode == 0, result.stderr
+        out = repo / ".edf" / f"brief-{expected}.md"
+        assert result.stdout.splitlines()[0] == f"brief: {out}"
+        assert "  lld: none" in result.stdout
+        assert "  requirements: none" in result.stdout
+        text = out.read_text()
+        assert "Synthetic tracker issue" in text.splitlines()[0]
+        assert "SYNTHETIC-BODY-MARKER" in text
+        calls = log.read_text().splitlines()
+        assert len(calls) == 1, calls
+        assert calls[0].startswith("api graphql")
+        assert "issue view" not in log.read_text()
+
+    def test_non_numeric_ref_is_accepted_when_tracker_resolves_it(self, tmp_path):
+        # Refs are opaque: the numeric-only check is gone, so a ref the shim
+        # cannot resolve fails at the tracker, not at argument validation.
+        fake_bin = tmp_path / "fakebin"
+        fake_bin.mkdir()
+        gh_shim = fake_bin / "gh"
+        gh_shim.write_text("#!/usr/bin/env bash\nexit 1\n")
+        gh_shim.chmod(0o755)
+        env = dict(os.environ)
+        env["PATH"] = f"{_to_msys2_path(fake_bin)}:{env.get('PATH', '')}"
+        result = subprocess.run(
+            [_BASH_EXE, _to_msys2_path(BIN_DIR / "brief-package.sh"),
+             "--issue", "SCRUM-12", "--lld", "none", "--out", str(tmp_path / "b.md")],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        assert result.returncode == 1
+        assert "expects a number" not in result.stderr
+        assert "cannot read issue" in result.stderr
+
+    def test_script_source_has_no_gh_issue_view(self):
+        assert "gh issue view" not in (BIN_DIR / "brief-package.sh").read_text()
+
 
     @gh_required
     def test_default_output_path_is_self_ignoring(self):
@@ -551,6 +628,37 @@ class TestBriefPackage:
             assert ".edf" not in status.stdout
         finally:
             expected.unlink(missing_ok=True)
+
+# ── EDF-147: no raw issue-access patterns in migrated files ──────────────────
+
+_PLUGIN_DIR = BIN_DIR.parent
+_MIGRATED_FILES = [
+    BIN_DIR / "brief-package.sh",
+    _PLUGIN_DIR / "agents" / "feature-evaluator.md",
+    _PLUGIN_DIR / "agents" / "test-author.md",
+    BIN_DIR / "update-coverage-manifest.py",
+    _PLUGIN_DIR / "starters" / "CLAUDE.md.template",
+]
+
+
+class TestMigratedFilesUseTracker:
+    @pytest.mark.parametrize("path", _MIGRATED_FILES, ids=lambda p: p.name)
+    @pytest.mark.parametrize("pattern", ["gh issue view", "gh project item-list"])
+    def test_no_raw_issue_access_pattern(self, path, pattern):
+        assert pattern not in path.read_text(encoding="utf-8")
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            _PLUGIN_DIR / "agents" / "feature-evaluator.md",
+            _PLUGIN_DIR / "agents" / "test-author.md",
+            _PLUGIN_DIR / "starters" / "CLAUDE.md.template",
+        ],
+        ids=lambda p: p.name,
+    )
+    def test_mentions_tracker_script(self, path):
+        assert "tracker.py" in path.read_text(encoding="utf-8")
+
 
 # ── gh-project-status.sh ─────────────────────────────────────────────────────
 
@@ -930,3 +1038,20 @@ class TestCreateFeaturePrMultiIssue:
         )
         assert result.returncode == 0, result.stderr
         assert "Closes #1373\nCloses #1374\n" in result.stdout
+
+
+# ── update-coverage-manifest.py --extract-epic-slug (#147) ───────────────────
+
+
+class TestExtractEpicSlug:
+    def test_tracker_view_json_gives_same_slug_as_bare_body(self):
+        def run(stdin):
+            return subprocess.run(
+                [sys.executable, str(BIN_DIR / "update-coverage-manifest.py"), "--extract-epic-slug"],
+                input=stdin, capture_output=True, text=True, timeout=30,
+            ).stdout.strip()
+
+        body = "see lld-v1-e1-2-review-feedback.md"
+        bare = run(body)
+        assert bare
+        assert run(json.dumps({"ref": "#1", "body": body})) == bare

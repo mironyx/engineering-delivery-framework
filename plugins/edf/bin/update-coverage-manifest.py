@@ -2,11 +2,12 @@
 """Coverage manifest helpers for /feature-end Step 6.4.
 
 Two operations:
-  --extract-epic-slug   Read issue body from stdin, print epic slug or empty.
+  --extract-epic-slug   Read the issue from stdin (the JSON `tracker.py view` prints, or a
+                        bare body), print epic slug or empty.
   --verify-anchors      Verify every lld: anchor in a manifest resolves.
 
 Usage:
-  gh issue view <N> --json body --jq .body | update-coverage-manifest.py --extract-epic-slug
+  tracker.py view <ref> | update-coverage-manifest.py --extract-epic-slug
   update-coverage-manifest.py --verify-anchors <path-to>/coverage-<slug>.yaml
 
 --verify-anchors resolves each manifest entry's lld: file relative to the manifest's
@@ -16,6 +17,7 @@ given project (e.g. nested under plugins/<name>/ in a plugin monorepo).
 """
 
 import argparse
+import json
 import pathlib
 import re
 import sys
@@ -23,6 +25,12 @@ import sys
 
 def extract_epic_slug() -> str:
     body = sys.stdin.read()
+    if body.lstrip().startswith("{"):  # tracker.py view JSON; anything else is a bare body
+        try:
+            body = json.loads(body).get("body") or ""
+        except ValueError:
+            print("update-coverage-manifest.py: stdin looks like JSON but does not parse", file=sys.stderr)
+            return ""
     m = re.search(r"lld-([a-z0-9-]+)-[a-z0-9-]+\.md", body)
     return m.group(1) if m else ""
 
