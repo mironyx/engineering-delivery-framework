@@ -30,11 +30,11 @@ _TYPES = ("task", "epic")
 _BASE_FIELDS = "number title body state labels(first:50){nodes{name}}"
 # Board fields need the read:project token scope; only status, and view/list when project.env
 # exists, request them.
-ISSUE_FIELDS = (
-    _BASE_FIELDS + " "
+_BOARD_FIELDS = (
     "projectItems(first:10){nodes{id project{id} fieldValues(first:20){nodes{"
     "... on ProjectV2ItemFieldSingleSelectValue{optionId field{... on ProjectV2SingleSelectField{id}}}}}}}"
 )
+ISSUE_FIELDS = _BASE_FIELDS + " " + _BOARD_FIELDS
 _QUERY = ("query($owner:String!,$name:String!,$number:Int!){{repository(owner:$owner,name:$name){{"
           "issue(number:$number){{{fields}}}}}}}")
 ISSUE_QUERY = _QUERY.format(fields=ISSUE_FIELDS)
@@ -428,7 +428,6 @@ def _derive_status(node: dict, board: Board | None) -> str:
     return "todo"
 
 
-_CHILD_BOARD_FIELDS = ISSUE_FIELDS[len(_BASE_FIELDS) + 1:]
 _MAX_CHILDREN = 100
 
 
@@ -438,7 +437,7 @@ def _child_statuses(children: list[str], board: Board | None) -> dict[str, str]:
     refs = children[:_MAX_CHILDREN]
     if not refs:
         return {}
-    fields = "state" + (" " + _CHILD_BOARD_FIELDS if board is not None else "")
+    fields = "state" + (" " + _BOARD_FIELDS if board is not None else "")
     aliases = " ".join(f"c{i}:issue(number:{_parse_ref(ref)}){{{fields}}}" for i, ref in enumerate(refs))
     query = f"query($owner:String!,$name:String!){{repository(owner:$owner,name:$name){{{aliases}}}}}"
     result = _gh(["api", "graphql", "-F", "owner={owner}", "-F", "name={repo}", "-f", f"query={query}"])

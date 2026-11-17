@@ -31,8 +31,12 @@ def main(argv: list[str] | None = None) -> int:
     if result.returncode != 0:
         print(result.stderr.strip() or "Error: tracker view failed", file=sys.stderr)
         return 1
-    issue = json.loads(result.stdout)
-    statuses = {child: issue["child_statuses"].get(child, "unknown") for child in issue["children"]}
+    try:
+        issue = json.loads(result.stdout)
+        statuses = {child: issue["child_statuses"].get(child, "unknown") for child in issue["children"]}
+    except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
+        print("Error: unexpected tracker view output", file=sys.stderr)
+        return 1
     if args.remaining:
         for child, status in statuses.items():
             if status != "done":
