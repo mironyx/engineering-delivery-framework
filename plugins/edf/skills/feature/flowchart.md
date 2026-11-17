@@ -10,15 +10,17 @@ flowchart TD
     S0_CHK -->|"No"| STOP_DIRTY(["fa:fa-ban Stop: uncommitted changes"])
     S0_CHK -->|"Yes"| S1
 
-    S1{"S1: Arguments?"} -->|"epic N"| S1_EPIC["Read epic, pick first<br/>unchecked task"]
+    S1{"S1: Arguments?"} -->|"epic ref"| S1_EPIC["epic-progress.py --remaining,<br/>pick first ref"]
     S1 -->|"issue number"| S1_DIRECT["Use issue directly"]
-    S1 -->|"none"| S1_TOP["gh issue list<br/>--label kind:task<br/>--state open --limit 1"]
+    S1 -->|"none"| S1_TOP["tracker.py list<br/>--status todo<br/>--label kind:task"]
 
+    S1_TOP --> S1_NONE{"Any Todo?"}
+    S1_NONE -->|"No"| STOP_NONE(["fa:fa-ban No Todo items<br/>(before any branch)"])
+    S1_NONE -->|"Yes"| S1_GUARD
     S1_EPIC --> S1_EMPTY{"Tasks remain?"}
     S1_EMPTY -->|"No"| STOP_EPIC_DONE(["fa:fa-ban Epic has no remaining tasks"])
     S1_EMPTY -->|"Yes"| S1_GUARD
     S1_DIRECT --> S1_GUARD
-    S1_TOP --> S1_GUARD
 
     S1_GUARD{"Epic label?"} -->|"Yes"| STOP_EPIC(["fa:fa-ban Use /feature epic N"])
     S1_GUARD -->|"No"| S1_VALIDATE["Validate: design ref,<br/>BDD specs, acceptance criteria"]
@@ -27,7 +29,7 @@ flowchart TD
     S1_VALIDATE_CHK -->|"Yes"| S1_TAG["Tag session<br/>tag-session.py"]
 
     S1_TAG --> S2["S2: Create feature branch<br/>feat/slug from origin/main"]
-    S2 --> S2_BOARD["Move issue to In Progress<br/>gh-project-status.sh"]
+    S2 --> S2_BOARD["Move issue to In Progress<br/>tracker.py status"]
 
     S2_BOARD --> S3(("S3: edf:feature-core<br/>Hand off to core<br/>implementation cycle"))
 
@@ -44,5 +46,5 @@ flowchart TD
     class S0,S1_EPIC,S1_DIRECT,S1_TOP,S1_VALIDATE,S1_TAG,S2,S2_BOARD process
     class S3 agent
     class S0_CHK,S1,S1_EMPTY,S1_GUARD,S1_VALIDATE_CHK decision
-    class STOP_DIRTY,STOP_EPIC_DONE,STOP_EPIC,STOP_CONTEXT stop
+    class STOP_DIRTY,STOP_NONE,STOP_EPIC_DONE,STOP_EPIC,STOP_CONTEXT stop
 ```

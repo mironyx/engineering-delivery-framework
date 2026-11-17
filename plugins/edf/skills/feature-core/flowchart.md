@@ -10,7 +10,7 @@ flowchart TD
 
     %% ── Shared preamble ──
     subgraph PREAMBLE["Shared Preamble"]
-        S3["S3: Read issue body<br/>gh issue view"] --> S3_EPIC{"Epic label?"}
+        S3["S3: Read issue<br/>tracker.py view"] --> S3_EPIC{"Epic label?"}
         S3_EPIC -->|"Yes"| STOP_EPIC(["fa:fa-ban Stop: use /feature epic"])
         S3_EPIC -->|"No"| S3_READ["Read referenced docs,<br/>LLDs, source files"]
         S3_READ --> S3A["S3a: Read LLD<br/>External Surfaces table"]
