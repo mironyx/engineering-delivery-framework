@@ -407,3 +407,242 @@ class TestList:
         fake_jira.add_issue("A")
         _list(tmp_path)
         assert _writes(fake_jira) == []
+
+
+# ---- #134 — Jira backend edit, comment, status, close (LLD v3-e3-2 §1.5, invariants W1-W6) ----
+
+
+def _edit(cwd, ref, *args):
+    return _run(cwd, "edit", ref, *args)
+
+
+def _comment(cwd, ref, body="A **note**"):
+    return _run(cwd, "comment", ref, "--body", body)
+
+
+def _status(cwd, ref, status, *extra):
+    return _run(cwd, "status", ref, status, *extra)
+
+
+def _close(cwd, ref):
+    return _run(cwd, "close", ref)
+
+
+def _puts(fake):
+    return [c for c in fake.calls() if c["method"] == "PUT"]
+
+
+def _transition_posts(fake):
+    return [c for c in fake.calls() if c["method"] == "POST" and c["path"].endswith("/transitions")]
+
+
+def _not_found(result, key):
+    assert result.returncode == 1
+    assert result.stderr.strip() == f"Error: {key} not found"
+
+
+class TestEdit:
+    def test_replaces_body_as_adf_and_prints_updated(self, fake_jira, tmp_path):  # W4
+        key = fake_jira.add_issue("T")
+        r = _edit(tmp_path, key, "--body", "New **body**")
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == f"updated:{key}"
+        sent = _puts(fake_jira)[0]["body"]["fields"]["description"]
+        assert sent["type"] == "doc"
+        assert fake_jira.issue(key)["description"]["type"] == "doc"
+
+    def test_adds_and_removes_labels_in_one_put_and_leaves_others(self, fake_jira, tmp_path):
+        key = fake_jira.add_issue("T", labels=["b", "keep"])
+        r = _edit(tmp_path, key, "--add-label", "a", "--remove-label", "b")
+        assert r.stdout.strip() == f"updated:{key}"
+        assert sorted(fake_jira.issue(key)["labels"]) == ["a", "keep"]
+        assert len(_puts(fake_jira)) == 1
+        ops = _puts(fake_jira)[0]["body"]["update"]["labels"]
+        assert {"add": "a"} in ops and {"remove": "b"} in ops
+
+    def test_skips_removal_of_a_label_the_issue_lacks(self, fake_jira, tmp_path):  # W1
+        key = fake_jira.add_issue("T", labels=["keep"])
+        r = _edit(tmp_path, key, "--add-label", "a", "--remove-label", "ghost")
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == f"updated:{key}"
+        for put in _puts(fake_jira):
+            ops = put["body"].get("update", {}).get("labels", [])
+            assert not any(op.get("remove") == "ghost" for op in ops)
+        assert sorted(fake_jira.issue(key)["labels"]) == ["a", "keep"]
+
+    def test_removing_only_an_absent_label_succeeds_with_no_change(self, fake_jira, tmp_path):  # W1
+        key = fake_jira.add_issue("T", labels=["keep"])
+        r = _edit(tmp_path, key, "--remove-label", "ghost")
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == f"updated:{key}"
+        assert fake_jira.issue(key)["labels"] == ["keep"]
+        assert not any(op.get("remove") == "ghost" for p in _puts(fake_jira)
+                       for op in p["body"].get("update", {}).get("labels", []))
+
+    def test_removes_only_the_present_labels_among_several(self, fake_jira, tmp_path):  # W1
+        key = fake_jira.add_issue("T", labels=["x", "y"])
+        _edit(tmp_path, key, "--remove-label", "x", "--remove-label", "ghost")
+        assert fake_jira.issue(key)["labels"] == ["y"]
+        removes = [op["remove"] for p in _puts(fake_jira) for op in p["body"]["update"]["labels"] if "remove" in op]
+        assert removes == ["x"]
+
+    def test_renames_the_issue_with_title(self, fake_jira, tmp_path):
+        key = fake_jira.add_issue("Old")
+        r = _edit(tmp_path, key, "--title", "New title")
+        assert r.stdout.strip() == f"updated:{key}"
+        assert fake_jira.issue(key)["summary"] == "New title"
+
+    def test_edit_without_remove_label_does_not_read_the_issue(self, fake_jira, tmp_path):
+        key = fake_jira.add_issue("T")
+        assert _edit(tmp_path, key, "--add-label", "a").stdout.strip() == f"updated:{key}"
+        assert [c for c in fake_jira.calls() if c["method"] == "GET"] == []
+
+    def test_unknown_key_errors_before_writing(self, fake_jira, tmp_path):  # W6
+        r = _edit(tmp_path, "SCRUM-99", "--body", "x")
+        _not_found(r, "SCRUM-99")
+        assert r.stdout == ""
+        # LLD §1.5: without --remove-label the only request is the PUT that Jira rejects with 404,
+        # so nothing is persisted (the call log records attempts, not outcomes).
+        assert [(c["method"], c["path"]) for c in _writes(fake_jira)] == [("PUT", "/rest/api/3/issue/SCRUM-99")]
+
+    def test_unknown_key_with_remove_label_errors_before_writing(self, fake_jira, tmp_path):  # W6
+        r = _edit(tmp_path, "SCRUM-99", "--remove-label", "a")
+        _not_found(r, "SCRUM-99")
+        assert _writes(fake_jira) == []
+
+    def test_accepts_lowercase_ref(self, fake_jira, tmp_path):
+        key = fake_jira.add_issue("T")
+        r = _edit(tmp_path, key.lower(), "--title", "Z")
+        assert r.stdout.strip() == f"updated:{key}"
+
+
+class TestComment:
+    def test_posts_adf_comment_and_prints_commented(self, fake_jira, tmp_path):  # W4
+        key = fake_jira.add_issue("T")
+        r = _comment(tmp_path, key, "A **note**")
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == f"commented:{key}"
+        post = next(c for c in fake_jira.calls() if c["path"].endswith("/comment"))
+        assert post["body"]["body"]["type"] == "doc"
+        assert len(fake_jira.issue(key)["comments"]) == 1
+
+    def test_comment_does_not_read_first(self, fake_jira, tmp_path):
+        key = fake_jira.add_issue("T")
+        assert _comment(tmp_path, key).stdout.strip() == f"commented:{key}"
+        assert [c for c in fake_jira.calls() if c["method"] == "GET"] == []
+
+    def test_unknown_key_errors_and_writes_nothing(self, fake_jira, tmp_path):  # W6
+        r = _comment(tmp_path, "SCRUM-99")
+        _not_found(r, "SCRUM-99")
+        assert r.stdout == ""
+        assert fake_jira.calls() == [] or all(c["path"].endswith("/SCRUM-99/comment") for c in fake_jira.calls())
+
+
+class TestStatus:
+    def test_moves_via_the_transition_to_the_mapped_status(self, fake_jira, tmp_path):
+        key = fake_jira.add_issue("T")
+        r = _status(tmp_path, key, "in progress")
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == f"{key} → in progress"
+        assert fake_jira.issue(key)["status"] == "In Progress"
+        assert len(_transition_posts(fake_jira)) == 1
+
+    @pytest.mark.parametrize("start,raw,expected_name", [
+        ("To Do", "blocked", "Blocked"), ("In Progress", "done", "Done"),
+        ("Done", "todo", "To Do"), ("Blocked", "in progress", "In Progress"),
+    ])
+    def test_moves_between_all_four_statuses(self, fake_jira, tmp_path, start, raw, expected_name):
+        key = fake_jira.add_issue("T", status=start)
+        r = _status(tmp_path, key, raw)
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == f"{key} → {raw}"
+        assert fake_jira.issue(key)["status"] == expected_name
+
+    def test_status_value_is_case_insensitive(self, fake_jira, tmp_path):
+        key = fake_jira.add_issue("T")
+        assert _status(tmp_path, key, "DONE").returncode == 0
+        assert fake_jira.issue(key)["status"] == "Done"
+
+    def test_is_a_no_op_when_already_in_the_target_status(self, fake_jira, tmp_path):  # W2
+        key = fake_jira.add_issue("T", status="In Progress")
+        r = _status(tmp_path, key, "in progress")
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == f"{key} → in progress"
+        assert _transition_posts(fake_jira) == []
+        assert _writes(fake_jira) == []
+
+    def test_names_the_missing_blocked_status(self, fake_jira, tmp_path):  # W5
+        fake_jira.set_workflow(with_blocked=False)
+        key = fake_jira.add_issue("T")
+        r = _status(tmp_path, key, "blocked")
+        assert r.returncode == 1
+        assert r.stderr.strip() == 'Error: space SCRUM has no "Blocked" status — add it to the workflow'
+        assert _transition_posts(fake_jira) == []
+
+    def test_names_current_and_target_when_no_transition_leads_there(self, fake_jira, tmp_path):  # W5
+        fake_jira.set_workflow(transitions={"To Do": ["In Progress"], "In Progress": ["Done"],
+                                            "Blocked": ["To Do"], "Done": ["To Do"]})
+        key = fake_jira.add_issue("T", status="To Do")
+        r = _status(tmp_path, key, "done")
+        assert r.returncode == 1
+        assert r.stderr.strip() == 'Error: no transition from "To Do" to "Done"'
+        assert "has no" not in r.stderr
+        assert _transition_posts(fake_jira) == []
+
+    def test_lists_the_four_values_for_an_unknown_status(self, fake_jira, tmp_path):
+        key = fake_jira.add_issue("T")
+        r = _status(tmp_path, key, "wip")
+        assert r.returncode == 1
+        assert r.stderr.strip() == "Error: unknown status 'wip'. Use: todo | blocked | \"in progress\" | done"
+        assert _writes(fake_jira) == []
+
+    def test_unknown_key_errors_and_writes_nothing(self, fake_jira, tmp_path):  # W6
+        r = _status(tmp_path, "SCRUM-99", "done")
+        _not_found(r, "SCRUM-99")
+        assert _writes(fake_jira) == []
+
+    def test_add_to_board_is_accepted_and_ignored(self, fake_jira, tmp_path):
+        key = fake_jira.add_issue("T")
+        r = _status(tmp_path, key, "done", "--add-to-board")
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == f"{key} → done"
+        assert r.stderr == ""
+        assert fake_jira.issue(key)["status"] == "Done"
+
+
+class TestClose:
+    def test_transitions_to_done_and_prints_closed(self, fake_jira, tmp_path):
+        key = fake_jira.add_issue("T", status="In Progress")
+        r = _close(tmp_path, key)
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == f"closed:{key}"
+        assert fake_jira.issue(key)["status"] == "Done"
+
+    def test_is_a_no_op_for_an_issue_already_done(self, fake_jira, tmp_path):  # W3
+        key = fake_jira.add_issue("T", status="Done")
+        r = _close(tmp_path, key)
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == f"closed:{key}"
+        assert _writes(fake_jira) == []
+        assert all(c["method"] == "GET" and c["path"].endswith(f"/issue/{key}") for c in fake_jira.calls())
+
+    def test_closing_twice_is_idempotent(self, fake_jira, tmp_path):  # W3
+        key = fake_jira.add_issue("T")
+        assert _close(tmp_path, key).stdout.strip() == f"closed:{key}"
+        writes_after_first = len(_writes(fake_jira))
+        assert _close(tmp_path, key).stdout.strip() == f"closed:{key}"
+        assert len(_writes(fake_jira)) == writes_after_first
+
+    def test_unknown_key_errors_with_nothing_written(self, fake_jira, tmp_path):  # W6
+        r = _close(tmp_path, "SCRUM-99")
+        _not_found(r, "SCRUM-99")
+        assert r.stdout == ""
+        assert _writes(fake_jira) == []
+
+    def test_close_without_a_done_transition_names_current_and_target(self, fake_jira, tmp_path):  # W5
+        fake_jira.set_workflow(transitions={"To Do": ["In Progress"], "In Progress": ["To Do"],
+                                            "Blocked": ["To Do"], "Done": ["To Do"]})
+        key = fake_jira.add_issue("T")
+        r = _close(tmp_path, key)
+        assert r.returncode == 1
+        assert r.stderr.strip() == 'Error: no transition from "To Do" to "Done"'
