@@ -4,10 +4,10 @@ This plugin ships two kinds of scripts:
 
 | Kind | Location | Runtime | Examples |
 |---|---|---|---|
-| **Plugin scripts** | `${CLAUDE_PLUGIN_ROOT}/bin/` | Claude Code | `gh-create-issue.sh`, `tag-session.py`, `query-feature-cost.py`, `create-feature-pr.sh` |
+| **Plugin scripts** | `${CLAUDE_PLUGIN_ROOT}/bin/` | Claude Code | `tracker.py`, `tag-session.py`, `query-feature-cost.py`, `create-feature-pr.sh` |
 | **Project scripts** | `${CLAUDE_PLUGIN_ROOT}/starters/scripts/` | Claude Code, CI | `run-tests.sh`, `run-lint.sh` |
 
-Plugin scripts are invoked via `${CLAUDE_PLUGIN_ROOT}/bin/<name>` — prefix `.sh` scripts with `bash` (e.g., `bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh`) to avoid execute-bit issues in plugin caches. Python scripts are invoked through `run-python.sh`. Project scripts follow the same convention: prefix with `bash` and use `${CLAUDE_PLUGIN_ROOT}` (e.g., `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh ts ...`). `${CLAUDE_PLUGIN_ROOT}` is resolved by Claude Code in skill markdown — it is never expected to be available as a shell variable.
+Plugin scripts are invoked via `${CLAUDE_PLUGIN_ROOT}/bin/<name>` — prefix `.sh` scripts with `bash` (e.g., `bash ${CLAUDE_PLUGIN_ROOT}/bin/create-feature-pr.sh`) to avoid execute-bit issues in plugin caches. Python scripts are invoked through `run-python.sh`. Project scripts follow the same convention: prefix with `bash` and use `${CLAUDE_PLUGIN_ROOT}` (e.g., `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh ts ...`). `${CLAUDE_PLUGIN_ROOT}` is resolved by Claude Code in skill markdown — it is never expected to be available as a shell variable.
 
 ## Project scripts
 

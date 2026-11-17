@@ -90,7 +90,7 @@ def _argparser(op: str) -> _ArgumentParser:
     return parser
 
 
-# Justification: create's output is parity-bound to gh-create-issue.sh's while/case loop, which
+# Justification: create's output is parity-bound to the original shell while/case loop, which
 # argparse cannot reproduce (abbreviations, dash-leading values, message wording) — LLD §1.1.
 def _parse_create(rest: list[str]) -> argparse.Namespace:
     args = argparse.Namespace(**{dest: None for dest in _CREATE_VALUE_FLAGS.values()},
@@ -114,7 +114,7 @@ def _parse_create(rest: list[str]) -> argparse.Namespace:
 
 
 # Justification: status keeps S raw (one argv element, e.g. "in progress"); the backend
-# normalises it after its own config checks, for gh-project-status.sh parity — LLD §1.1.
+# normalises it after its own config checks, for parity with the original shell script — LLD §1.1.
 def _parse_status(rest: list[str]) -> argparse.Namespace:
     add_to_board = "--add-to-board" in rest
     positional = [a for a in rest if a != "--add-to-board"]

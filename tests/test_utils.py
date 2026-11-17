@@ -17,7 +17,7 @@ tag_session = __import__("tag-session")
 extract_session_id = __import__("extract-session-id")
 query_feature_cost = __import__("query-feature-cost")
 update_coverage_manifest = __import__("update-coverage-manifest")
-check_epic_checkbox = __import__("check-epic-checkbox")
+tracker_github = __import__("_tracker_github")
 edf_env = __import__("_edf_env")
 
 
@@ -111,27 +111,25 @@ class TestUpdateCoverageManifest:
         assert slug == ""
 
 
-# ── check-epic-checkbox ──────────────────────────────────────────────────────
+# ── tracker GitHub backend: epic checkbox helpers ──
 
 
-class TestCheckEpicCheckbox:
+class TestEpicCheckbox:
     def test_extract_parent_epic(self):
         body = "## Summary\n## Parent epic\n\n#42\n\nSome notes"
-        epic = check_epic_checkbox._extract_parent_epic(body)
-        assert epic == "42"
+        assert tracker_github.parent_from_body(body) == "#42"
 
     def test_no_epic(self):
         body = "## Summary\nNo parent epic here"
-        epic = check_epic_checkbox._extract_parent_epic(body)
-        assert epic == ""
+        assert not tracker_github.parent_from_body(body)
 
     def test_tick_checkbox(self):
         body = "- [ ] #55 Fix login bug\n- [ ] #56 Add tests"
-        updated = check_epic_checkbox._tick_checkbox(body, "55")
+        updated = tracker_github.tick_checkbox(body, "55")
         assert "- [x] #55 Fix login bug" in updated
         assert "- [ ] #56 Add tests" in updated
 
     def test_tick_already_ticked(self):
         body = "- [x] #55 Fix login bug"
-        updated = check_epic_checkbox._tick_checkbox(body, "55")
+        updated = tracker_github.tick_checkbox(body, "55")
         assert updated == body  # No change needed
