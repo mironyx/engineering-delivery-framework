@@ -46,7 +46,7 @@ If `$ARGUMENTS` starts with `review`, extract the issue number and run the revie
 
 ### Review Step 1: Read the issue and its design artefacts
 
-Run `gh issue view <number>` to get the issue body. Then read all linked artefacts:
+Run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>` to get the issue body (JSON: `title`, `body`, `labels`, `status`, `parent`, `children`). Then read all linked artefacts:
 
 - LLD sections referenced in the issue body (`docs/design/`)
 - ADRs referenced (`docs/adr/`)
@@ -186,11 +186,11 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-ses
 
 **Before creating anything**, check what already exists:
 
-1. **Issues:** Run `gh issue list --state open --limit 100` to see all open issues. Do not create issues that already exist.
+1. **Issues:** Run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list` (narrow with `--status` / `--label`) to see all open issues. Do not create issues that already exist.
 2. **Design docs:** Check `docs/design/`, `docs/adr/`, and `docs/requirements/` for existing coverage of each item.
 3. **Source of truth rule:** Design detail must live in version-controlled repo docs (`docs/design/`, `docs/adr/`, `docs/requirements/`), not only in GitHub issue bodies. Issue bodies should reference repo docs, not replace them. If an item has detail only in an issue body, it needs a repo doc artefact (LLD section, design doc update, or requirements update).
-4. **Issue structure check:** For each existing issue that this run will enrich or create tasks for, run `gh issue view <number> --json labels,title` and check:
-   - If the issue contains **multiple stories** (i.e. the decomposition assessment in Step 2b will produce ≥ 2 task issues), the issue must carry the `epic` label. If it does not, flag this in the Step 2 summary table under a "Label fix needed" column and correct it before producing any artefacts — use `gh issue edit <number> --add-label "epic" --remove-label "kind:task"` and update the title to `epic: <name>` format.
+4. **Issue structure check:** For each existing issue that this run will enrich or create tasks for, run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>` and check its `labels` and `title`:
+   - If the issue contains **multiple stories** (i.e. the decomposition assessment in Step 2b will produce ≥ 2 task issues), the issue must carry the `epic` label. If it does not, flag this in the Step 2 summary table under a "Label fix needed" column and correct it before producing any artefacts — use `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py edit <ref> --add-label epic --remove-label kind:task` and update the title to `epic: <name>` format.
    - If the issue is a single-task item, it should carry `kind:task` and have a `## Parent epic` section. If no parent epic exists, flag it and ask the user whether to create one or proceed without.
    - **Never enrich a multi-story issue without first fixing its label.** Enriching a `kind:task` issue with story tables creates the exact structural inconsistency this check is designed to prevent.
 
@@ -289,7 +289,7 @@ Rationale: schema files in `<schema-dir>` are textually shared across tasks, and
 
 For each in-scope epic, read:
 
-- Referenced GitHub issues: `gh issue view <number>`
+- Referenced issues: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>`
 - Referenced design docs in `docs/design/`
 - Referenced ADRs in `docs/adr/`
 - Relevant source files in `src/`
@@ -303,7 +303,7 @@ Process epics in the order listed in the plan. For each epic, run these sub-step
 
 1. **ADR** — produce any cross-cutting decisions first (LLD may reference them).
 2. **LLD** — delegate to `edf:lld`; this produces the LLD file, the task list, and a draft coverage manifest with `issue: null`.
-3. **Task issues** — read the LLD's `## Tasks` section and dispatch the `edf:gh-issue-manager` agent to create GitHub issues and update the epic body.
+3. **Task issues** — read the LLD's `## Tasks` section and dispatch the `edf:gh-issue-manager` agent to create the task issues and update the epic body.
 4. **Coverage manifest backfill** — patch the manifest with real issue numbers.
 5. **Design doc update** — edit any pre-existing design docs (only when the decision logic flagged this).
 
@@ -333,7 +333,7 @@ After `edf:lld` returns: read the produced LLD to extract task definitions for t
 
 #### 3. Task issues (from LLD task breakdown)
 
-Read the LLD's `## Tasks` section. Each task entry becomes one GitHub issue.
+Read the LLD's `## Tasks` section. Each task entry becomes one tracker issue.
 
 Pre-assemble the task bodies and the updated epic body (see templates below) using **placeholder task IDs** (`T1`, `T2`, …). The `edf:gh-issue-manager` agent will substitute real `#N` numbers into both the Tasks checklist and the dependency-graph nodes after creating the issues.
 
@@ -361,7 +361,7 @@ Agent({
 })
 ```
 
-The agent runs `gh issue create` per task (via `${CLAUDE_PLUGIN_ROOT}/bin/gh-create-issue.sh`, which deduplicates and adds to the board), captures each result (`created:<N>` or `exists:<N>`), substitutes the real numbers everywhere `T1`/`T2`/… appear in `epic_body`, and runs `gh issue edit <epic_number> --body ...`. No per-issue confirmations.
+The agent runs `tracker.py create` per task (with `--parent <epic_ref>` on Jira; the script deduplicates and adds to the board), captures each result (`created:<ref>` or `exists:<ref>`), substitutes the real refs everywhere `T1`/`T2`/… appear in `epic_body`, and runs `tracker.py edit <epic_ref> --body ...`. On Jira the `### Tasks` checklist is dropped from the epic body (children link by `--parent`); on GitHub it is kept. No per-issue confirmations.
 
 ##### Task body template
 
@@ -438,11 +438,11 @@ graph LR
 <from implementation plan>
 ```
 
-The agent substitutes `T1` → `#<created-issue-number>`, `T2` → `#<created-issue-number>`, … in **both** the Tasks checklist and the dependency-graph node labels before running `gh issue edit`.
+The agent substitutes `T1` → `#<created-issue-number>`, `T2` → `<created-issue-ref>`, … in **both** the Tasks checklist (GitHub only) and the dependency-graph node labels before running `tracker.py edit`.
 
 #### 4. Coverage manifest backfill
 
-After `edf:gh-issue-manager` returns the mapping `{T1: #N, T2: #M, …}` (or the parent skill reads it from the agent's output), edit `docs/design/v<N>/coverage-<epic-id>.yaml` and replace each `issue: null` with the corresponding real number. Match by the LLD section anchor: every task in the LLD has one section anchor, and every coverage entry's `lld:` field points at one of those anchors — that's the join key.
+After `edf:gh-issue-manager` returns the mapping `{T1: <ref>, T2: <ref>, …}` (or the parent skill reads it from the agent's output), edit `docs/design/v<N>/coverage-<epic-id>.yaml` and replace each `issue: null` with the corresponding real number. Match by the LLD section anchor: every task in the LLD has one section anchor, and every coverage entry's `lld:` field points at one of those anchors — that's the join key.
 
 ```yaml
 epic: <epic-id>

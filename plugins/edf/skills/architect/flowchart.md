@@ -21,7 +21,7 @@ flowchart TD
     subgraph ARTEFACTS["Artefact Production (per epic)"]
         S4_1["1. ADR — cross-cutting<br/>decisions first"] --> S4_2
         S4_2(("2. /lld — delegate LLD<br/>epic N vX --non-interactive")) --> S4_3
-        S4_3(("3. edf:gh-issue-manager<br/>Create task issues,<br/>update epic body")) --> S4_4
+        S4_3(("3. edf:gh-issue-manager<br/>tracker.py create (--parent on Jira)<br/>per task, tracker.py edit epic body")) --> S4_4
         S4_4["4. Coverage manifest backfill<br/>Patch issue: null → real numbers"] --> S4_5
         S4_5["5. Design doc update<br/>Only if decision logic<br/>flagged it"]
     end
