@@ -19,3 +19,47 @@
 
 ## Concerns & Deferred Items
 - `tests/test_feature_skills_tracker_migration.py` is a per-skill check; the repo-wide guard is §1.4 (separate issue).
+
+## Work completed
+- [PR #157](https://github.com/mironyx/engineering-delivery-framework/pull/157): `feature`, `feature-core`, `feature-end`, `feature-team` SKILL.md and flowcharts moved to `tracker.py`, `epic-progress.py`, `feature-id.py`.
+- `tests/test_feature_skills_tracker_migration.py`: 12 tests locking the ACs. Plugin 0.10.85 (re-bumped if #148 lands first).
+
+## Decisions made
+- `/feature-end` PR lookup uses `feature-id.py reference-lines` so it matches Jira PR bodies too (see PR Design deviations).
+- Docs committed on the PR branch, not parked, per the lead's instruction for this wave.
+
+## Review feedback addressed
+- [maintainability] feature-end/SKILL.md commit template — fixed in follow-up commit (`#<issue-ref>` → `<issue-ref>`).
+- [maintainability] feature/SKILL.md epic-guard message — fixed in the same commit (`<N>` → `<ref>`).
+
+## LLD Sync report
+## LLD Sync — Issue #149: Migrate feature, feature-core, feature-end and feature-team to the tracker script
+
+### Corrections (spec was wrong)
+- PR lookup: LLD/skill searched `closes #<n>` → built `reference-lines` search — Jira bodies carry `Jira: KEY`.
+
+### Additions (not in spec)
+- `/feature-team` epic close uses `comment` then `close`.
+
+### Omissions (in spec but not built)
+- None. The repo-wide guard test stays with §1.4.
+
+### Confirmations (notable)
+- `close` runs once, only after the merge state is `MERGED`; `No Todo items` stops before any branch.
+
+### LLD updated
+File: plugins/edf/docs/design/v3/lld-v3-e3-3-pipeline-call-sites.md §1.3 (T7 as built)
+Version: 0.4 → 0.5
+
+## Cost retrospective
+| Bucket | Cost |
+|--------|------|
+| 3c → 5 (implementation) | $0.06 |
+| 5 → 8 (PR) | $0.04 |
+| 8 → 9 (review) | $0.32 |
+| Total at final | $1.20 |
+
+- Review was the biggest bucket (a subagent run); the diff was small, so a single Agent Q path was right.
+
+## Next steps
+- §1.4 issue-access guard and shim removal.

@@ -10,6 +10,7 @@
 | Revised | 2026-11-17 — Issue #148: §1.1 Cost labels (`_tracker`/`_stale` helpers, best-effort config guard) |
 | Revised | 2026-11-17 — Issue #145: §1.3 gh-issue-manager, kickoff epic creation |
 | Revised | 2026-11-17 — Issue #147: §1.3 T5 notes |
+| Revised | 2026-11-17 — Issue #149: §1.3 T7 notes |
 | Created | 2026-11-17 |
 | Revised | 2026-11-17 — Issue #144: §1.2 `_child_statuses` signature (no `repo`), shared `_BOARD_FIELDS`, reader error path |
 | Epic | [#116](https://github.com/mironyx/engineering-delivery-framework/issues/116) |
@@ -583,6 +584,8 @@ non-zero exit, stop and print them; `/feature` on an empty `list` prints `No Tod
 
 T5 as built: `brief-package.sh` reads the issue with one `tracker.py view` call (title, body and ref from the JSON), so `--issue` takes any ref and the leading `#` is stripped before it is used in the `.edf/brief-<ref>.md` file name. `update-coverage-manifest.py --extract-epic-slug` accepts the `view` JSON on stdin as well as a bare body, so T7 pipes `tracker.py view <ref>` straight into it.
 | T7 implementation | `skills/feature/*`, `skills/feature-core/*`, `skills/feature-end/*`, `skills/feature-team/*` (SKILL.md and flowchart.md each; their `FEATURE_ID` derivation text → `feature-id.py id <ref>`) |
+
+T7 as built: `/feature` takes the first ref of `list --status todo --label kind:task` and stops with `No Todo items` before any branch exists; its `epic <ref>` mode and `/feature-team epic <ref>` read remaining tasks from `epic-progress.py --remaining`. `/feature-end` finds its PR by searching the body for the `feature-id.py reference-lines <ref>` line (`Closes #N` or `Jira: KEY`), not for `closes #N`, and calls `close <ref>` once, in the cleanup chain that runs only after the merge state is `MERGED`. `/feature-team` closes a finished epic with `comment` then `close`.
 
 `bin/query-feature-cost.py` and `create-feature-pr.sh` are not call-site migrations: Tasks 6 and 1 own them.
 
