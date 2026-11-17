@@ -46,18 +46,6 @@ PROM = f"http://{_PROM_HOST}:{_PROM_PORT}/api/v1/query"
 STEPS = ("3c", "4bF", "4dF", "5", "6", "6b", "7", "8", "9", "9b", "10")
 
 
-def git_root() -> pathlib.Path:
-    import subprocess
-    common = subprocess.run(
-        ["git", "rev-parse", "--git-common-dir"],
-        capture_output=True, text=True, check=True,
-    ).stdout.strip()
-    p = pathlib.Path(common)
-    if not p.is_absolute():
-        p = pathlib.Path.cwd() / p
-    return p.parent
-
-
 def _extract_session_id(line: str, feature_id: str) -> str | None:
     if not (line.startswith("claude_session_feature{") and f'feature_id="{feature_id}"' in line):
         return None
@@ -217,7 +205,7 @@ def main() -> None:
     parser.add_argument("--issue", help="Issue ref (number or Jira key) for log lookup and Prometheus cost")
     args = parser.parse_args()
 
-    root = git_root()
+    root = _feature_id.main_checkout_root()
     feature_id = None
     if args.issue is not None:
         try:
@@ -228,8 +216,8 @@ def main() -> None:
     if args.session_log:
         session_log = pathlib.Path(args.session_log)
     elif args.issue is not None:
-        # Search the current checkout, not git_root(): in a /feature-team worktree
-        # the log lives in the worktree, while git_root() is the main repo.
+        # Search the current checkout, not main_checkout_root(): in a /feature-team worktree
+        # the log lives in the worktree, while main_checkout_root() is the main repo.
         import subprocess
         toplevel = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                                   capture_output=True, text=True).stdout.strip()

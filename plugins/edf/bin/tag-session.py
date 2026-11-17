@@ -25,24 +25,12 @@ import datetime
 import json
 import os
 import pathlib
-import subprocess
 import sys
 import time
 
 import _edf_env
 import _feature_id
 from _tracker_contract import TrackerError
-
-
-def git_root() -> pathlib.Path:
-    # Use --git-common-dir so this works correctly from linked worktrees:
-    # in a worktree, --show-toplevel returns the worktree root (wrong),
-    # but --git-common-dir returns the main .git dir, whose parent is the main repo.
-    result = subprocess.run(
-        ["git", "rev-parse", "--git-common-dir"],
-        capture_output=True, text=True, check=True,
-    )
-    return pathlib.Path(result.stdout.strip()).parent.resolve()
 
 
 def derive_project_key(root: pathlib.Path) -> str:
@@ -231,7 +219,7 @@ def main() -> None:
     if bool(args.issue) == bool(args.skill):
         parser.error("provide exactly one of: issue number, or --skill <name>")
 
-    root = git_root()
+    root = _feature_id.main_checkout_root()
     project_key = derive_project_key(root)
 
     if args.skill:

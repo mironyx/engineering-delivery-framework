@@ -21,10 +21,16 @@ _ISSUE_KEY = re.compile(r"([A-Za-z][A-Za-z0-9_]*)-([0-9]+)")
 _GITHUB_NUMBER = re.compile(r"#?([0-9]+)")
 
 
+# Justification: the one main-checkout lookup, shared by feature-id.py, tag-session and append-checkpoint.
 def main_checkout_root() -> pathlib.Path:
     """Main checkout root (parent of the common .git dir) — shared by linked worktrees."""
-    common = subprocess.run(["git", "rev-parse", "--git-common-dir"],
-                            capture_output=True, text=True, check=True).stdout.strip()
+    try:
+        result = subprocess.run(["git", "rev-parse", "--git-common-dir"], capture_output=True, text=True)
+    except OSError as e:
+        raise TrackerError("git is not installed or not on PATH") from e
+    if result.returncode != 0:
+        raise TrackerError("not inside a git repository")
+    common = result.stdout.strip()
     path = pathlib.Path(common)
     if not path.is_absolute():
         path = pathlib.Path.cwd() / path
@@ -47,6 +53,7 @@ def derive_feature_prefix(root: pathlib.Path) -> str:
     return name.upper() or "FEAT"
 
 
+# Justification: shared by resolve_feature_id and issue_reference_lines (one Jira key normaliser).
 def _jira_key(ref: str) -> str:
     match = _ISSUE_KEY.fullmatch(ref)
     if not match:
@@ -54,6 +61,7 @@ def _jira_key(ref: str) -> str:
     return f"{match.group(1).upper()}-{match.group(2)}"
 
 
+# Justification: shared by resolve_feature_id and issue_reference_lines (one GitHub ref normaliser).
 def _github_number(ref: str) -> str:
     match = _GITHUB_NUMBER.fullmatch(ref)
     if not match:
