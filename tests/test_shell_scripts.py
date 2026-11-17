@@ -53,54 +53,44 @@ def _gh_available():
         return False
 
 
+def _tracker(*args, cwd=None):
+    """Run tracker.py (the GitHub backend) with arguments."""
+    return subprocess.run(
+        [sys.executable, str(BIN_DIR / "tracker.py"), *args],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=cwd,
+        stdin=subprocess.DEVNULL,
+    )
+
+
 gh_required = pytest.mark.skipif(not _gh_available(), reason="gh CLI not authenticated")
 
 
-# ── gh-create-issue.sh ───────────────────────────────────────────────────────
+# ── tracker.py create ────────────────────────────────────────────────────────
 
 
-class TestGhCreateIssue:
+class TestTrackerCreate:
     def test_missing_title(self):
-        result = _bash(BIN_DIR / "gh-create-issue.sh", "--body", "test body")
+        result = _tracker("create", "--body", "test body")
         assert result.returncode != 0
         assert "title" in result.stderr.lower()
 
     def test_missing_body(self):
-        result = _bash(BIN_DIR / "gh-create-issue.sh", "--title", "test title")
+        result = _tracker("create", "--title", "test title")
         assert result.returncode != 0
         assert "body" in result.stderr.lower()
 
     def test_unknown_option(self):
-        result = _bash(BIN_DIR / "gh-create-issue.sh", "--unknown-flag")
+        result = _tracker("create", "--unknown-flag")
         assert result.returncode != 0
 
-    @gh_required
-    def test_dry_run_output(self):
-        result = _bash(
-            BIN_DIR / "gh-create-issue.sh",
-            "--title", "Test Issue",
-            "--body", "Issue body content",
-            "--dry-run",
-        )
-        assert result.returncode == 0
-        assert "dry-run: would create issue" in result.stdout
-        assert "Test Issue" in result.stdout
-        assert "Issue body content" in result.stdout
-
-    @gh_required
-    def test_dry_run_with_labels(self):
-        result = _bash(
-            BIN_DIR / "gh-create-issue.sh",
-            "--title", "Labeled Issue",
-            "--body", "Body",
-            "--labels", "bug,high-priority",
-            "--dry-run",
-        )
-        assert result.returncode == 0
-        assert "bug,high-priority" in result.stdout
+    # Dry-run output is covered hermetically by the create-dry-run goldens in test_tracker_github.py
+    # (a live-gh dry run dedupes against real issues and is not reproducible).
 
     def test_no_args(self):
-        result = _bash(BIN_DIR / "gh-create-issue.sh")
+        result = _tracker("create")
         assert result.returncode != 0
 
 
@@ -660,12 +650,12 @@ class TestMigratedFilesUseTracker:
         assert "tracker.py" in path.read_text(encoding="utf-8")
 
 
-# ── gh-project-status.sh ─────────────────────────────────────────────────────
+# ── tracker.py status ──────────────────────────────────────────────────────
 
 
-class TestGhProjectStatus:
+class TestTrackerStatus:
     def test_no_args_shows_usage(self):
-        result = _bash(BIN_DIR / "gh-project-status.sh")
+        result = _tracker("status")
         assert result.returncode != 0
 
     def test_missing_config_file_in_repo(self, tmp_path):
@@ -673,7 +663,7 @@ class TestGhProjectStatus:
         # location. From inside a git repo with no .github/project.env, it must look
         # at the *repo's* .github/, not the plugin's.
         subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
-        result = _bash(BIN_DIR / "gh-project-status.sh", "add", "42", cwd=tmp_path)
+        result = _tracker("status", "42", "todo", "--add-to-board", cwd=tmp_path)
         assert result.returncode != 0
         # The error message should reference the repo's .github path
         assert str(tmp_path).replace("\\", "/").lower() in result.stderr.replace("\\", "/").lower() \
@@ -682,7 +672,7 @@ class TestGhProjectStatus:
     def test_outside_git_repo_fails_clearly(self, tmp_path):
         # When invoked from outside any git repo, the script must fail with a clear
         # message rather than silently looking at the plugin's directory.
-        result = _bash(BIN_DIR / "gh-project-status.sh", "add", "42", cwd=tmp_path)
+        result = _tracker("status", "42", "todo", "--add-to-board", cwd=tmp_path)
         assert result.returncode != 0
         assert "git repository" in result.stderr.lower()
 

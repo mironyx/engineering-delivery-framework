@@ -2,8 +2,8 @@
 
 Covers LLD v3 E3.1 §1.2: byte-identical parity with the pre-port gh-create-issue.sh and
 gh-project-status.sh (I6, golden matrix in tests/fixtures/tracker_golden/), the new
-`--type epic` and `--parent` flags, `--dry-run`, title quoting, the status port, the shims,
-and the no-shell rule (I8). Every test drives the public CLI (`tracker.py` or a shim) under
+`--type epic` and `--parent` flags, `--dry-run`, title quoting, the status port,
+and the no-shell rule (I8). Every test drives the public CLI (`tracker.py`) under
 the fake `gh` (tests/fixtures/fake_gh.py) and asserts on stdout, stderr, exit code and the
 fake `gh` call log.
 
@@ -34,8 +34,6 @@ TESTS_DIR = pathlib.Path(__file__).resolve().parent
 BIN_DIR = TESTS_DIR.parent / "plugins" / "edf" / "bin"
 TRACKER = BIN_DIR / "tracker.py"
 GITHUB_BACKEND = BIN_DIR / "_tracker_github.py"
-CREATE_SHIM = BIN_DIR / "gh-create-issue.sh"
-STATUS_SHIM = BIN_DIR / "gh-project-status.sh"
 GOLDEN_DIR = TESTS_DIR / "fixtures" / "tracker_golden"
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="fake_gh needs a POSIX shell")
@@ -134,11 +132,6 @@ def _run(cwd: pathlib.Path, *args: str, timeout: float = 30) -> subprocess.Compl
                           timeout=timeout, stdin=subprocess.DEVNULL)
 
 
-def _shim(cwd: pathlib.Path, script: pathlib.Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["bash", str(script), *args], cwd=cwd, capture_output=True, text=True, timeout=30,
-                          stdin=subprocess.DEVNULL)
-
-
 def _write_project_env(root: pathlib.Path, text: str | None = None) -> pathlib.Path:
     (root / ".github").mkdir(exist_ok=True)
     path = root / ".github" / "project.env"
@@ -204,7 +197,6 @@ def _golden_params() -> list:
     params = []
     for path in sorted(GOLDEN_DIR.glob("*.json")):
         golden = json.loads(path.read_text(encoding="utf-8"))
-        params.append(pytest.param(golden, "shim", id=f"{path.stem}-shim"))
         if golden["tracker_argv"] is not None:
             params.append(pytest.param(golden, "port", id=f"{path.stem}-tracker"))
     return params
@@ -222,16 +214,13 @@ def test_golden_matrix_is_recorded():
 
 @pytest.mark.parametrize(("golden", "mode"), GOLDEN_PARAMS)
 def test_golden_parity(golden, mode, fake_gh, tmp_path):
-    """#119 I6 / AC1 — shim and `tracker.py` reproduce the pre-port bash bytes."""
+    """#119 I6 / AC1 — `tracker.py` reproduces the pre-port bash bytes."""
     fake_gh.rules(golden["rules"])
     base = tmp_path / f"golden-{mode}"
     base.mkdir()
     cwd = recorder.prepare_cwd(base, golden["setup"])
     script = BIN_DIR / golden["script"]
-    if mode == "shim":
-        cmd = ["bash", str(script), *golden["argv"]]
-    else:
-        cmd = [sys.executable, str(TRACKER), *golden["tracker_argv"]]
+    cmd = [sys.executable, str(TRACKER), *golden["tracker_argv"]]
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
 
     def expand(text: str) -> str:
@@ -610,11 +599,6 @@ class TestCreateQuoting:
         search = _flag(_only(_calls(fake_gh, "issue", "list"))["argv"], "--search")
         assert search == f'in:title "{self.TRICKY}"'
 
-    def test_tricky_title_through_shim(self, fake_gh):
-        fake_gh.rules([NO_DUP, CREATED])
-        _ok(_shim(fake_gh.repo, CREATE_SHIM, "--title", self.TRICKY, "--body", BODY), "created:42\n")
-        assert _flag(_only(_calls(fake_gh, "issue", "create"))["argv"], "--title") == self.TRICKY
-
     def test_tricky_title_lands_intact_in_epic_checklist(self, fake_gh):
         fake_gh.rules([_issue_rule(7, body="## Tasks\n"), NO_DUP, CREATED, EDIT_OK])
         _ok(_run(fake_gh.repo, "create", "--title", self.TRICKY, "--body", BODY, "--parent", "#7"), "created:42\n")
@@ -791,41 +775,6 @@ class TestBoardAddReply:
         result = _run(fake_gh.repo, "status", "42", "todo", "--add-to-board")
         assert (result.returncode, result.stdout) == (1, "")
         assert result.stderr == "unexpected gh project item-add reply: oops\n"
-
-
-class TestShims:
-    """#119 — the bash scripts are shims onto tracker.py (Open question 4 changes)."""
-
-    def test_status_shim_remove_prints_usage(self, fake_gh):
-        _write_project_env(fake_gh.repo)
-        result = _shim(fake_gh.repo, STATUS_SHIM, "remove", "42")
-        assert result.returncode == 1
-        assert result.stdout == (
-            f"Usage: {STATUS_SHIM} <issue-number> <status>\n"
-            f"       {STATUS_SHIM} add <issue-number> [status]\n"
-            f"       {STATUS_SHIM} remove <issue-number>\n"
-            'Status: todo | blocked | "in progress" | done\n'
-        )
-        assert _writes(fake_gh) == []
-
-    def test_status_shim_prints_usage_before_missing_config(self, fake_gh):
-        result = _shim(fake_gh.repo, STATUS_SHIM, "42")
-        assert result.returncode == 1
-        assert result.stdout.startswith(f"Usage: {STATUS_SHIM} <issue-number> <status>\n")
-
-    def test_create_shim_value_flag_without_value(self, fake_gh):
-        result = _shim(fake_gh.repo, CREATE_SHIM, "--body", "B", "--title")
-        assert (result.returncode, result.stdout, result.stderr) == (1, "", "Error: --title needs a value\n")
-
-    def test_create_shim_forwards_new_flags(self, fake_gh):
-        fake_gh.rules([_issue_rule(7, body="## Tasks\n"), NO_DUP, CREATED, EDIT_OK])
-        _ok(_shim(fake_gh.repo, CREATE_SHIM, *BASE, "--type", "epic", "--parent", "#7"), "created:42\n")
-        assert _flag(_only(_calls(fake_gh, "issue", "create"))["argv"], "--label") == "epic"
-
-    def test_status_shim_unknown_status(self, fake_gh):
-        _write_project_env(fake_gh.repo)
-        result = _shim(fake_gh.repo, STATUS_SHIM, "42", "bogus")
-        assert (result.returncode, result.stdout, result.stderr) == (1, "", UNKNOWN_STATUS_MSG + "\n")
 
 
 # ---------------------------------------------------------------- gh never reads the caller's stdin
@@ -1443,7 +1392,6 @@ class TestTokenScope:
 
 # ---------------------------------------------------------------- close (#121)
 
-EPIC_SHIM = BIN_DIR / "check-epic-checkbox.py"
 CLOSE_OK = {"argv_prefix": ["issue", "close"], "stdout": ""}
 CHILD_BODY = "## Summary\nx\n\n## Parent epic\n\n#7\n"
 EPIC_BODY = "## Tasks\n- [ ] #5 the task\n- [ ] #55 other task\n"
@@ -1663,14 +1611,8 @@ class TestClose:
         _ok(_close(fake_gh), "closed:#5\n")
 
 
-class TestCheckEpicCheckboxShim:
-    """#121 — check-epic-checkbox.py keeps CLI (`--issue N`, body on stdin) and messages (LLD §1.4)."""
-
-    @staticmethod
-    def _shim_run(fake_gh, body: str = CHILD_BODY, *args: str) -> subprocess.CompletedProcess:
-        argv = args or ("--issue", "5")
-        return subprocess.run([sys.executable, str(EPIC_SHIM), *argv], cwd=fake_gh.repo, input=body,
-                              capture_output=True, text=True, timeout=30)
+class TestTickCheckbox:
+    """#121 — backend tick helpers."""
 
     @staticmethod
     def _load(path: pathlib.Path, name: str):
@@ -1684,54 +1626,6 @@ class TestCheckEpicCheckboxShim:
             return module
         finally:
             sys.path.remove(str(BIN_DIR))
-
-    def test_prints_checked_off_on_stdout(self, fake_gh):
-        fake_gh.rules([_issue_rule(7, body=EPIC_BODY), EDIT_OK])
-        _ok(self._shim_run(fake_gh), "Epic #7: checked off #5\n")
-        assert _epic_body_written(fake_gh) == "## Tasks\n- [x] #5 the task\n- [ ] #55 other task\n"
-
-    def test_already_ticked_message_on_stdout(self, fake_gh):
-        fake_gh.rules([_issue_rule(7, body="- [x] #5 the task\n"), EDIT_OK])
-        _ok(self._shim_run(fake_gh), "Epic #7: checkbox for #5 already ticked or not found\n")
-        assert _calls(fake_gh, "issue", "edit") == []
-
-    def test_no_parent_prints_to_stderr_and_exits_0(self, fake_gh):
-        result = self._shim_run(fake_gh, "## Summary\nnothing\n")
-        _ok(result, "", "No parent epic found for issue #5\n")
-        assert fake_gh.calls() == []
-
-    def test_failed_read_exits_1_on_stderr(self, fake_gh):
-        fake_gh.rules([_fail("api", "graphql", contains=["number=7"])])
-        result = self._shim_run(fake_gh)
-        assert (result.returncode, result.stdout, result.stderr) == (1, "", "Failed to read epic #7\n")
-
-    def test_missing_epic_is_a_failed_read(self, fake_gh):
-        fake_gh.rules([_missing_rule(7)])
-        result = self._shim_run(fake_gh)
-        assert (result.returncode, result.stdout, result.stderr) == (1, "", "Failed to read epic #7\n")
-
-    def test_failed_update_exits_1_with_gh_stderr(self, fake_gh):
-        fake_gh.rules([_issue_rule(7, body=EPIC_BODY), _fail("issue", "edit", stderr="boom")])
-        result = self._shim_run(fake_gh)
-        assert result.returncode == 1
-        assert result.stdout == ""
-        assert result.stderr.startswith("Failed to update epic #7: boom")
-
-    def test_requires_issue_flag(self, fake_gh):
-        result = self._shim_run(fake_gh, CHILD_BODY, "--bogus")
-        assert result.returncode == 2
-        assert fake_gh.calls() == []
-
-    def test_extract_parent_epic_behaviour_kept(self):
-        mod = self._load(EPIC_SHIM, "check_epic_checkbox_shim")
-        assert mod._extract_parent_epic("## Summary\n## Parent epic\n\n#42\n\nnotes") == "42"
-        assert mod._extract_parent_epic("## Summary\nNo parent epic here") == ""
-
-    def test_tick_checkbox_behaviour_kept(self):
-        mod = self._load(EPIC_SHIM, "check_epic_checkbox_shim")
-        body = "- [ ] #55 Fix\n- [ ] #56 Add"
-        assert mod._tick_checkbox(body, "55") == "- [x] #55 Fix\n- [ ] #56 Add"
-        assert mod._tick_checkbox("- [x] #55 Fix", "55") == "- [x] #55 Fix"
 
     def test_backend_tick_checkbox_respects_word_boundary(self):
         backend = self._load(GITHUB_BACKEND, "_tracker_github_under_test")

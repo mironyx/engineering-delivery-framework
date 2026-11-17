@@ -49,7 +49,7 @@ Use an absolute path in `.env` when the directory is outside this repo.
 - **25 skills** — `/edf:feature`, `/edf:feature-core`, `/edf:feature-end`, `/edf:feature-team`, `/edf:test`, `/edf:diag`, `/edf:qa`, `/edf:pr-review`, `/edf:architect`, `/edf:refactor-architect`, `/edf:frontend-architect`, `/edf:kickoff`, `/edf:discovery`, `/edf:requirements`, `/edf:create-plan`, `/edf:lld`, `/edf:lld-sync`, `/edf:create-adr`, `/edf:create-mermaid-diagram`, `/edf:bug`, `/edf:backlog`, `/edf:baseline`, `/edf:drift-scan`, `/edf:retro`, `/edf:setup`
 - **14 agents** — ci-probe, diagnostics-checker, feature-evaluator, gh-issue-manager, hld-review, lld-review, qa-contracts, qa-coverage, qa-executor, qa-explorer, requirements-design-drift, requirements-review, test-author, test-runner
 - **3 hooks** — PostToolUse diagnostics + editor open, PreCompact session log
-- **15 utility scripts** — GitHub project management, session tagging, cost tracking, PR creation, review packaging, coverage manifest, test output summarizers (vitest, pytest)
+- **21 utility scripts** — issue tracker access (`tracker.py`), session tagging, cost tracking, PR creation, review packaging, coverage manifest, test output summarizers (vitest, pytest)
 
 ## Project configuration
 
@@ -66,7 +66,7 @@ Overrides are read in this order: OS environment → `.env` → derivation.
 
 ### `.github/project.env`
 
-GitHub project board configuration. Used by `gh-project-status.sh` and any skill that queries the board (`/feature-team`, `/backlog`, `/retro`). Create this file with:
+GitHub project board configuration. Used by `tracker.py` (GitHub backend) and any skill that queries the board (`/feature-team`, `/backlog`, `/retro`). Create this file with:
 
 ```
 REPO=owner/name
