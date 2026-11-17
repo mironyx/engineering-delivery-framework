@@ -39,11 +39,11 @@ If checkout fails due to uncommitted changes, stop and tell the user.
 
 ### Step 1: Parse arguments and collect issues
 
-If `epic <N>` is given:
-1. Read the epic issue: `gh issue view <N> --json title,body,labels`.
-2. Verify it has the `epic` label. If not, stop: "Issue #N is not an epic."
-3. Parse the task checklist from the body. Extract all unchecked task issue numbers.
-4. If no unchecked tasks, stop: "Epic #N has no remaining tasks."
+If `epic <ref>` is given:
+1. Read the epic: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>` (JSON with `title`, `body`, `labels`, `children`).
+2. Verify it has the `epic` label. If not, stop: "Issue <ref> is not an epic."
+3. Read the remaining tasks: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/epic-progress.py <ref> --remaining` — one ref per line, the children whose status is not done.
+4. If it prints nothing, stop: "Epic <ref> has no remaining tasks."
 5. Determine execution waves from the epic body, in this order of precedence:
    1. **`## Execution Order` section with a waves table** — use as authored (explicit `Wave | Issues | Blocked by` rows).
    2. **`## Dependency graph` section with a Mermaid diagram** — derive waves by topological sort: nodes with no incoming solid edges form Wave 1; once Wave 1 is complete, nodes whose remaining incoming edges all come from Wave 1 form Wave 2; continue until all nodes are placed. Treat dashed/soft-coupling edges (`-.->`) and external nodes (parenthesised `S63(["..."])`-style stadium nodes) as advisory — do not block on them. Any task whose only blockers are external/advisory belongs in Wave 1.
@@ -55,36 +55,29 @@ If `epic <N>` is given:
 
 6. Move the epic itself to In Progress on the project board:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh add <epic-number> "in progress"
+   bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py status <epic-ref> "in progress" --add-to-board
    ```
 7. Tag the lead's own session with the epic ID — the lead's orchestration work (wave
    planning, teammate coordination, review gating) is otherwise invisible to cost tracking;
    only the teammates' individual sessions get tagged today.
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <epic-number>
+   bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <epic-ref>
    ```
    **Non-epic modes (`-n N`, explicit issue numbers): skip this** — there is no single ID to
    tag the lead with yet.
 
-If `-n N` is given:
+If `-n N` is given, take the first N refs of the Todo task list:
 ```bash
-PROJECT_NUMBER=$(grep '^PROJECT_NUMBER=' .github/project.env | cut -d= -f2) && OWNER=$(grep '^REPO=' .github/project.env | cut -d= -f2 | cut -d/ -f1) && gh project item-list $PROJECT_NUMBER --owner $OWNER --format json --limit 300 \
-  | python3 -c "
-import json, sys
-items = json.load(sys.stdin)['items']
-todo = [i for i in items if i.get('status') == 'Todo']
-for i in todo[:N]:
-    print(i['content']['number'])
-"
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status todo --label kind:task
 ```
 
-If explicit issue numbers are given: use them directly.
+If explicit issue refs are given: use them directly (refs are opaque — `#12`, `12` or `SCRUM-12`).
 
-**Epic guard:** For all modes, check each collected issue for the `epic` label. If any issue is an epic, stop: "Issue #N is an epic, not a task. Use `/feature-team epic <N>` to implement its tasks."
+**Epic guard:** For all modes, check each collected issue for the `epic` label. If any issue is an epic, stop: "Issue <ref> is an epic, not a task. Use `/feature-team epic <ref>` to implement its tasks."
 
 For each issue number, read the title and design reference:
 ```bash
-gh issue view <N> --json title,body,labels
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>
 ```
 
 ### Step 2: Validate each issue
@@ -190,7 +183,7 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 >    ```
 > 3. Move issue to In Progress:
 >    ```bash
->    bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh add <N> "in progress"
+>    bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py status <N> "in progress" --add-to-board
 >    ```
 > 4. Run `edf:feature-core <N>`. This covers everything from reading the design through PR
 >    creation and review. Follow all coding principles in CLAUDE.md. Do not ask for
@@ -254,8 +247,8 @@ When all are received, summarise:
 
 **If running in `epic` mode**, close the epic itself now that all tasks are shipped:
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh <epic-number> done
-gh issue close <epic-number> --comment "All tasks shipped. Closing epic."
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py comment <epic-ref> --body "All tasks shipped. Closing epic."
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py close <epic-ref>
 ```
 
 ### Step 8: Write the team session log

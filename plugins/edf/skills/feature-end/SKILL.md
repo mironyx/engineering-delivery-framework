@@ -12,7 +12,7 @@ Finalises a feature branch after the PR has been reviewed and approved. Handles 
 
 **Usage:**
 - `/feature-end` — detects the PR from the current branch (original behaviour)
-- `/feature-end <issue-number>` — looks up the PR for the given issue. If an orphaned worktree exists (crashed teammate), switches into it and recovers. Otherwise checks out the branch (used by `edf:feature-team` lead when triggering remotely via message).
+- `/feature-end <issue-ref>` — looks up the PR for the given issue. If an orphaned worktree exists (crashed teammate), switches into it and recovers. Otherwise checks out the branch (used by `edf:feature-team` lead when triggering remotely via message).
 
 A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the wrap-up sequence, merge strategy, or cleanup steps.
 
@@ -33,12 +33,13 @@ user the PR awaits their review.
 If an issue number argument was provided:
 1. Find the PR for the issue:
    ```bash
-   gh pr list --search "closes #<issue-number>" --json number,title,baseRefName,state,url,headRefName --state open
+   REF_LINE=$(bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/feature-id.py reference-lines <issue-ref>)
+   gh pr list --search "\"$REF_LINE\" in:body" --json number,title,baseRefName,state,url,headRefName --state open
    ```
    If no open PR is found, try `--state merged` in case it was already merged. If still none, stop and report.
 2. Extract the head branch (`headRefName`) and read the session ID — PR body first, prom file as fallback:
    ```bash
-   OLD_SESSION_ID=$(gh pr view <pr-number> --json body --jq '.body' | bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/extract-session-id.py --issue <issue-number>)
+   OLD_SESSION_ID=$(gh pr view <pr-number> --json body --jq '.body' | bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/extract-session-id.py --issue <issue-ref>)
    ```
 3. Detect an orphaned worktree — a worktree on that branch left behind by a crashed teammate:
    ```bash
@@ -57,7 +58,7 @@ If an issue number argument was provided:
    - Switch into it and register this recovery session under the same feature ID for cost aggregation:
      ```bash
      cd "$ORPHAN_WORKTREE"
-     bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <issue-number> --cont
+     bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <issue-ref> --cont
      ```
    - Proceed with all remaining steps from inside the worktree. `IS_WORKTREE=yes` will be detected automatically in Step 5+6, which handles self-cleanup.
 5. **If no orphaned worktree is found** (normal mode — e.g. triggered by lead via SendMessage):
@@ -95,7 +96,7 @@ resolve them to absolute** (`REPO_ROOT=$(git rev-parse --show-toplevel)`) before
 issue (chore or infrastructure task), skip and note "lld-sync skipped — no LLD covers this
 issue" in the session log.
 
-- **Any change that touches files under an LLD:** Run `edf:lld-sync <issue-number>` to update
+- **Any change that touches files under an LLD:** Run `edf:lld-sync <issue-ref>` to update
   the LLD with implementation learnings. **Capture the structured sync report (Corrections /
   Additions / Omissions / Confirmations / LLD updated) — Step 2 copies it verbatim into the
   session log under `## LLD Sync report`.** Decisions narrative and review feedback narrative
@@ -171,7 +172,7 @@ git add docs/sessions/YYYY-MM/YYYY-MM-DD-session-N-<slug>-<FEATURE_ID>.md
 
 **Idempotency check:** Skip if the `ai-cost-final` label is already on the issue:
 ```bash
-gh issue view <issue-number> --json labels --jq '.labels[].name' | grep -q "^ai-cost-final" && echo "SKIP" || echo "RUN"
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <issue-ref> | python3 -c "import sys,json; print(chr(10).join(json.load(sys.stdin)['labels']))" | grep -q "^ai-cost-final" && echo "SKIP" || echo "RUN"
 ```
 If `SKIP`, note "cost already labelled" in the session log and proceed to Step 2.6.
 
@@ -247,13 +248,13 @@ branch after the merge (Step 6.6).
 
 1. Park everything uncommitted under `docs/` and `kb/`:
    ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/bin/park-docs.sh park <issue-number>
+   bash ${CLAUDE_PLUGIN_ROOT}/bin/park-docs.sh park <issue-ref>
    ```
 2. Run `git status`. Anything still uncommitted is code (e.g. a late review fix) — commit and
    push it, then wait for CI on the new head before merging:
    ```bash
    git add <specific-files>
-   git commit -m "fix: <what> #<issue-number>"
+   git commit -m "fix: <what> <issue-ref>"
    git push
    ```
    If nothing is left, do not push.
@@ -312,8 +313,7 @@ If the state is `MERGED`, proceed. If it is still `OPEN` (merge genuinely failed
 **All steps must run automatically without user approval — only stop for a real blocker.**
 ### Step 5 + 6: Clean up, sync, and update project board
 
-Read the issue state from the earlier `gh pr view` output (merged PRs close the issue automatically).
-Chain **all** of cleanup + board update into a **single Bash call** to minimise approval prompts:
+Chain **all** of cleanup + tracker close into a **single Bash call** to minimise approval prompts. The `close` runs only here, after Step 4 confirmed the PR is `MERGED` — a failed merge stops before it, so nothing is closed.
 
 **Worktree detection:** If running inside a linked worktree (parallel mode), the cleanup must
 happen from the main repo — you cannot remove a worktree from within itself. Detect and handle:
@@ -333,20 +333,17 @@ Then chain all cleanup in a **single Bash call**:
 cd "$MAIN_REPO" && git checkout <base-branch> && git pull --rebase \
   && { [ "$IS_WORKTREE" = "yes" ] && git worktree remove "$WORKTREE_PATH" --force 2>&1 || true; } \
   && { git branch -d <feature-branch> 2>&1 || true; } \
-  && { bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh <issue-number> done 2>&1 || true; } \
-  && { gh issue view <issue-number> --json body --jq '.body' | bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/check-epic-checkbox.py --issue <issue-number> 2>&1 || true; } \
-  && { gh issue close <issue-number> 2>&1 || true; }
+  && { bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py close <issue-ref> 2>&1 || true; }
 ```
 
 The `|| true` inside `{ }` groups ensures:
 - Not in a worktree — `git worktree remove` skipped cleanly.
 - A missing local branch does not abort the chain.
-- A board item already at Done (script exits 0 with no-op) continues cleanly.
-- An epic checkbox tick on a non-epic issue returns empty (script skips silently).
-- An already-closed issue (`gh issue close` 422) is silently ignored.
+- `close` marks the task done on the tracker in one call (board status, epic checklist tick and issue close on GitHub; the Done transition on Jira). An already-closed issue is a no-op. The parent epic is never touched on Jira.
+- If `close` prints an `Error:` line, report it in Step 7 — the merge already succeeded, so do not undo it.
 - If `cd` or `git pull` fails, the chain **stops** rather than running from the wrong directory.
 
-**Do not run separate Bash calls** for branch delete, board update, and issue close — they must be one call.
+**Do not run separate Bash calls** for branch delete and tracker close — they must be one call.
 
 ### Step 6.4: Update coverage manifest (per ADR-0026)
 
@@ -356,7 +353,7 @@ this feature implemented.
 
 1. Determine the epic slug and locate the manifest:
    ```bash
-   EPIC_SLUG=$(gh issue view <issue-number> --json body --jq '.body' | bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/update-coverage-manifest.py --extract-epic-slug)
+   EPIC_SLUG=$(bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <issue-ref> | bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/update-coverage-manifest.py --extract-epic-slug)
    # Search version-foldered first (ADR-0036), then legacy flat
    MANIFEST=$(ls docs/design/v*/coverage-${EPIC_SLUG}.yaml docs/design/coverage-${EPIC_SLUG}.yaml 2>/dev/null | head -1)
    ```
@@ -403,12 +400,12 @@ On the up-to-date base branch (Step 5+6 checked it out and pulled), restore the 
 and commit them, together with the Step 6.4/6.5 edits, in one commit:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/bin/park-docs.sh land <issue-number>
+bash ${CLAUDE_PLUGIN_ROOT}/bin/park-docs.sh land <issue-ref>
 ```
 
 - `land: committed and pushed …` — done.
 - `land: … push was rejected` — the base branch is protected. Push the commit to a
-  `docs/<issue-number>-wrap-up` branch and open a docs-only PR for it; report the link.
+  `docs/<issue-ref>-wrap-up` branch and open a docs-only PR for it; report the link.
 - `land: FAILED — stash … did not apply cleanly` — resolve the conflict in the named docs
   files, then `git add` + commit + push them yourself.
 
@@ -418,7 +415,7 @@ Summarise what was done:
 - PR merged (link)
 - Issue closed
 - Now on branch `<base-branch>`, up to date with remote
-- Suggested next item: run `gh issue list --label kind:task --state open --limit 3` and print the results. This is the only additional query allowed here.
+- Suggested next item: run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status todo --label kind:task`, print the first 3 refs with titles. This is the only additional query allowed here.
 
 
 ## Blocker policy

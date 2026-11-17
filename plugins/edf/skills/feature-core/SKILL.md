@@ -61,8 +61,8 @@ Execute sequentially. Do not skip steps. Do not ask for confirmation — only pa
 
 ### Step 3: Read design context
 
-1. Read the issue body: `gh issue view <issue-number>`.
-2. **Epic guard:** Check the issue labels. If the issue has the `epic` label, stop: "Issue #N is an epic, not a task. Use `/feature epic <N>` to pick a task within it."
+1. Read the issue: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <issue-ref>` (JSON with `title`, `body`, `labels`, `status`, `parent`, `children`).
+2. **Epic guard:** Check the issue labels. If the issue has the `epic` label, stop: "Issue <ref> is an epic, not a task. Use `/feature epic <ref>` to pick a task within it."
 3. Read all files referenced in the issue body (design docs, LLDs, type files, related source).
    **Path resolution:** Issue body paths are repo-root-relative (e.g. `docs/design/v1/lld-foo.md`).
    Resolve them to absolute before passing to sub-agents — sub-agents may not share your CWD.

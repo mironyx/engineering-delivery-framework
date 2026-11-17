@@ -47,42 +47,42 @@ files, stop and tell the user.
 
 **Determine the target issue:**
 
-- If `$ARGUMENTS` starts with `epic <N>`: read epic issue #N with `gh issue view <N>`. Parse the task checklist from the body. Pick the first unchecked task issue number. If all tasks are checked or no tasks exist, stop: "Epic #N has no remaining tasks."
-- If `$ARGUMENTS` contains an issue number (not prefixed with `epic`): use that issue directly.
-- If no arguments: run `gh issue list --label kind:task --state open --limit 1` and use the first result.
+- If `$ARGUMENTS` starts with `epic <ref>`: run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/epic-progress.py <ref> --remaining` and pick the first ref printed. If it prints nothing, stop: "Epic <ref> has no remaining tasks."
+- If `$ARGUMENTS` contains an issue ref (not prefixed with `epic`): use that ref directly. Refs are opaque (`#123`, `123`, `SCRUM-123`) — never build one by concatenation.
+- If no arguments: run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status todo --label kind:task` and use the first ref in the result. If the list is empty, stop with `No Todo items` — before creating a branch.
 
-**Guard:** Check whether the selected issue has the `epic` label (`gh issue view <number> --json labels`). If it does, stop: "Issue #N is an epic. Use `/feature epic <N>` to pick a task within it, or `/feature <task-number>` for a specific task."
+**Guard:** Check whether the selected issue has the `epic` label (`bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>` → `labels`). If it does, stop: "Issue <ref> is an epic. Use `/feature epic <ref>` to pick a task within it, or `/feature <task-ref>` for a specific task."
 
 **Validate the issue has enough context:**
 
-1. Read the issue body: `gh issue view <number>`.
+1. Read the issue: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <ref>` (JSON with `title`, `body`, `labels`, …).
 2. Check for:
    - Design doc or LLD section reference
    - BDD test specs or acceptance criteria
-   - If missing, stop and report: "Issue #N lacks [missing item]. Cannot proceed autonomously."
+   - If missing, stop and report: "Issue <ref> lacks [missing item]. Cannot proceed autonomously."
 
 Once the issue number is known, tag the session so it is identifiable in the IDE and in Grafana:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <issue-number>
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-session.py <ref>
 ```
 
 ### Step 2: Create feature branch
 
-1. Derive a short slug from the issue title (e.g., issue #123 "Add scoring engine" → `scoring-engine`).
+1. Derive a short slug from the issue title (e.g., "Add scoring engine" → `scoring-engine`).
 2. Fetch latest main and create the branch:
    ```bash
    git fetch origin main
    git checkout -b feat/<slug> origin/main
    ```
-3. Move the issue to In Progress: `bash ${CLAUDE_PLUGIN_ROOT}/bin/gh-project-status.sh <number> "in progress"`.
+3. Move the issue to In Progress: `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py status <ref> "in progress" --add-to-board`.
 
 ### Step 3: Invoke feature-core
 
 With the branch checked out and the board item In Progress, hand off to the core implementation cycle:
 
 ```
-edf:feature-core <issue-number>
+edf:feature-core <ref>
 ```
 
 This covers: read design → TDD → full verification → diagnostics → commit → PR + CI probe → review → report.

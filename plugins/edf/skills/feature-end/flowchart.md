@@ -30,7 +30,7 @@ flowchart TD
     S4_CHK -->|"No"| STOP_MERGE(["fa:fa-ban Stop: merge failed"])
     S4_CHK -->|"Yes"| S5
 
-    S5["S5+6: Clean up & update board<br/>Delete branch, move to Done,<br/>close issue"] --> S6_4["S6.4: Update coverage manifest<br/>Flip status to Implemented,<br/>populate files:"]
+    S5["S5+6: Clean up & update board<br/>Delete branch,<br/>tracker.py close (after merge only)"] --> S6_4["S6.4: Update coverage manifest<br/>Flip status to Implemented,<br/>populate files:"]
     S6_4 --> S6_5["S6.5: kb/ coverage check"]
     S6_5 --> S6_6["S6.6: park-docs.sh land<br/>one docs commit on base, push"]
 

@@ -15,13 +15,13 @@ flowchart TD
 
     %% ── Step 1: Parse arguments ──
     S1{"S1: Mode?"} -->|"epic N"| S1_EPIC
-    S1 -->|"-n N"| S1_N["Query board for top N<br/>Todo items"]
+    S1 -->|"-n N"| S1_N["tracker.py list<br/>--status todo, first N"]
     S1 -->|"explicit numbers"| S1_DIRECT["Use issue numbers directly"]
 
     subgraph EPIC_MODE["Epic Mode"]
-        S1_EPIC["Read epic: gh issue view"] --> S1_EPIC_LABEL{"Has epic<br/>label?"}
+        S1_EPIC["Read epic: tracker.py view"] --> S1_EPIC_LABEL{"Has epic<br/>label?"}
         S1_EPIC_LABEL -->|"No"| STOP_NOT_EPIC(["fa:fa-ban Not an epic"])
-        S1_EPIC_LABEL -->|"Yes"| S1_EPIC_TASKS["Parse unchecked tasks<br/>from checklist"]
+        S1_EPIC_LABEL -->|"Yes"| S1_EPIC_TASKS["epic-progress.py<br/>--remaining"]
         S1_EPIC_TASKS --> S1_EPIC_EMPTY{"Unchecked<br/>tasks?"}
         S1_EPIC_EMPTY -->|"No"| STOP_NO_TASKS(["fa:fa-ban No remaining tasks"])
         S1_EPIC_EMPTY -->|"Yes"| S1_WAVES{"Wave info<br/>in body?"}
@@ -31,7 +31,7 @@ flowchart TD
         S1_WAVES_TABLE --> S1_EPIC_BOARD
         S1_WAVES_DAG --> S1_EPIC_BOARD
         S1_WAVES_NONE --> S1_EPIC_BOARD
-        S1_EPIC_BOARD["Move epic to In Progress<br/>gh-project-status.sh"] --> S1_EPIC_TAG["Tag lead session<br/>with epic ID<br/>tag-session.py"]
+        S1_EPIC_BOARD["Move epic to In Progress<br/>tracker.py status"] --> S1_EPIC_TAG["Tag lead session<br/>with epic ID<br/>tag-session.py"]
     end
 
     S1_EPIC_TAG --> S1_GUARD
@@ -40,7 +40,7 @@ flowchart TD
 
     S1_GUARD{"Any issue has<br/>epic label?"}
     S1_GUARD -->|"Yes"| STOP_EPIC_TASK(["fa:fa-ban Use epic mode instead"])
-    S1_GUARD -->|"No"| S1_READ["Read each issue:<br/>gh issue view --json title,body,labels"]
+    S1_GUARD -->|"No"| S1_READ["Read each issue:<br/>tracker.py view"]
 
     %% ── Steps 2-3: Validate & task list ──
     S1_READ --> S2["S2: Validate each issue<br/>Design ref + acceptance criteria"]
@@ -71,7 +71,7 @@ flowchart TD
     subgraph TEARDOWN["Steps 7-9: Teardown"]
         S7["S7: Final summary<br/>Issue → PR → merged<br/>Notes from feature-ends"]
         S7 --> S7_EPIC{"Epic mode?"}
-        S7_EPIC -->|"Yes"| S7_CLOSE["Close epic:<br/>gh-project-status done<br/>gh issue close"]
+        S7_EPIC -->|"Yes"| S7_CLOSE["Close epic:<br/>tracker.py comment<br/>tracker.py close"]
         S7_EPIC -->|"No"| S8
         S7_CLOSE --> S8["S8: Team session log<br/>docs/sessions/YYYY-MM/YYYY-MM-DD-team-...md"]
         S8 --> S9(("S9: SendMessage shutdown_request<br/>to ALL remaining teammates<br/>Parallel, same message"))
