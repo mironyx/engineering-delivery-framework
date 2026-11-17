@@ -178,17 +178,92 @@ def list_issues(args, ctx) -> int:
     return 0
 
 
+# Justification: edit, comment, status and close all treat a 404 as "nothing written"; one message.
+def _not_found(key: str) -> TrackerError:
+    return TrackerError(f"{key} not found")
+
+
 def edit(args, ctx) -> int:
-    raise TrackerError("not implemented")
+    key = _parse_ref(args.ref, _space(ctx))
+    client = _client(ctx)
+    remove = list(args.remove_label or [])
+    if remove:
+        code, data = client.request("GET", f"/rest/api/3/issue/{key}", query={"fields": "labels"})
+        if code == 404:
+            raise _not_found(key)
+        carried = set(((data or {}).get("fields") or {}).get("labels") or [])
+        remove = [label for label in remove if label in carried]
+    fields: dict = {}
+    if args.title is not None:
+        fields["summary"] = args.title
+    if args.body is not None:
+        fields["description"] = md_to_adf(args.body)
+    ops = [{"add": label} for label in args.add_label or []] + [{"remove": label} for label in remove]
+    payload: dict = {}
+    if fields:
+        payload["fields"] = fields
+    if ops:
+        payload["update"] = {"labels": ops}
+    if payload:
+        code, _ = client.request("PUT", f"/rest/api/3/issue/{key}", body=payload)
+        if code == 404:
+            raise _not_found(key)
+    print(f"updated:{key}")
+    return 0
 
 
 def comment(args, ctx) -> int:
-    raise TrackerError("not implemented")
+    key = _parse_ref(args.ref, _space(ctx))
+    code, _ = _client(ctx).request("POST", f"/rest/api/3/issue/{key}/comment", body={"body": md_to_adf(args.body)})
+    if code == 404:
+        raise _not_found(key)
+    print(f"commented:{key}")
+    return 0
+
+
+# Justification: status and close share the transition mechanics (LLD §1.5); named errors live here.
+def _transition_to(client: JiraClient, space: str, key: str, target: str, fields: dict | None = None) -> bool:
+    if fields is None:
+        code, data = client.request("GET", f"/rest/api/3/issue/{key}", query={"fields": "status"})
+        if code == 404:
+            raise _not_found(key)
+        fields = (data or {}).get("fields") or {}
+    name = _STATUS_NAMES[target]
+    current = (fields.get("status") or {}).get("name") or ""
+    if current == name:
+        return False
+    _, data = client.request("GET", f"/rest/api/3/issue/{key}/transitions")
+    match = next((t for t in (data or {}).get("transitions", []) if (t.get("to") or {}).get("name") == name), None)
+    if match:
+        code, _ = client.request("POST", f"/rest/api/3/issue/{key}/transitions", body={"transition": {"id": match["id"]}})
+        if code == 404:
+            raise _not_found(key)
+        return True
+    _, listing = client.request("GET", f"/rest/api/3/project/{space}/statuses")
+    known = {s.get("name") for group in (listing or []) for s in group.get("statuses", [])}
+    if name not in known:
+        raise TrackerError(f'space {space} has no "{name}" status — add it to the workflow')
+    raise TrackerError(f'no transition from "{current}" to "{name}"')
 
 
 def status(args, ctx) -> int:
-    raise TrackerError("not implemented")
+    target = normalise_status(args.status_raw)
+    space = _space(ctx)
+    key = _parse_ref(args.ref, space)
+    _transition_to(_client(ctx), space, key, target)
+    print(f"{key} → {target}")
+    return 0
 
 
 def close(args, ctx) -> int:
-    raise TrackerError("not implemented")
+    space = _space(ctx)
+    key = _parse_ref(args.ref, space)
+    client = _client(ctx)
+    code, data = client.request("GET", f"/rest/api/3/issue/{key}", query={"fields": "status"})
+    if code == 404:
+        raise _not_found(key)
+    fields = (data or {}).get("fields") or {}
+    if ((fields.get("status") or {}).get("statusCategory") or {}).get("key") != "done":
+        _transition_to(client, space, key, "done", fields=fields)
+    print(f"closed:{key}")
+    return 0

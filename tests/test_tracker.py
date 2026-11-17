@@ -240,10 +240,11 @@ class TestJiraConfigValidation:
         assert fake_gh.calls() == []
 
     @pytest.mark.parametrize("argv", [p for p in VALID_OPS if p.id not in ("tracker", "create", "view", "list")])
-    def test_valid_jira_config_dispatches_to_stub_backend(self, fake_gh, fake_jira, argv):
-        """#131: a valid config reaches the Jira backend (stub ops fail `not implemented`); no gh call."""
+    def test_valid_jira_config_dispatches_to_jira_backend(self, fake_gh, fake_jira, argv):
+        """#131/#134: a valid config reaches the implemented Jira backend; no gh call, no stub error."""
         result = _run(fake_gh.repo, *argv)
-        _assert_error(result, NOT_IMPLEMENTED)
+        assert result.returncode == 1
+        assert NOT_IMPLEMENTED not in result.stderr
         assert fake_gh.calls() == []
 
     @pytest.mark.parametrize(

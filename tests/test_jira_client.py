@@ -190,10 +190,10 @@ class TestRegistration:
          ["comment", "1", "--body", "B"], ["status", "1", "todo"], ["close", "1"]],
         ids=lambda a: a[0],
     )
-    def test_stub_operation_fails_not_implemented_with_no_gh_call(self, fake_gh, fake_jira, argv):
+    def test_write_operation_reaches_the_jira_backend_with_no_gh_call(self, fake_gh, fake_jira, argv):
         result = _run_tracker(fake_gh.repo, *argv)
         assert result.returncode == 1
-        assert result.stderr == "Error: not implemented\n"
+        assert result.stderr.startswith("Error: ") and "not implemented" not in result.stderr
         assert result.stdout == ""
         assert fake_gh.calls() == []
         assert "Jira backend is not available" not in result.stderr
