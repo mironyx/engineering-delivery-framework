@@ -226,7 +226,10 @@ def _fetch_pr_labels(pr: int) -> list[str]:
     )
     if result.returncode != 0:
         return []
-    return [lbl["name"] for lbl in json.loads(result.stdout).get("labels", [])]
+    try:
+        return [lbl["name"] for lbl in json.loads(result.stdout).get("labels", [])]
+    except (json.JSONDecodeError, AttributeError, KeyError, TypeError):
+        return []
 
 
 # Justification: issue and PR label cleanup share the same stale-prefix rule.
@@ -244,7 +247,11 @@ def apply_labels(ref: str, metrics: UsageMetrics, stage: str, pr: int | None = N
         (f"output-tokens-{stage}", f"output-tokens-{stage}:{int(metrics.out)}"),
     ]
     add = [label for _, label in labels]
-    if tracker.active_backend(_feature_id.main_checkout_root()) == "github":
+    try:
+        on_github = tracker.active_backend(_feature_id.main_checkout_root()) == "github"
+    except TrackerError:
+        return  # bad backend config: labels are best-effort, never block the PR
+    if on_github:
         for label in add:
             subprocess.run(["gh", "label", "create", label, "--color", "0075ca", "--force"], capture_output=True)
     remove = _stale(_fetch_existing_labels(ref), labels)

@@ -199,3 +199,10 @@ def test_source_has_no_gh_issue_access():
     src = (BIN_DIR / "query-feature-cost.py").read_text(encoding="utf-8")
     assert '"issue"' not in src
     assert "/issues/" not in src
+
+
+def test_bad_backend_config_does_not_raise_from_apply_labels(fake_gh, monkeypatch):
+    monkeypatch.chdir(fake_gh.repo)
+    monkeypatch.setenv("JIRA_HOST", "https://example.invalid")  # companions missing
+    cost.apply_labels("SCRUM-1", METRICS, "pr")
+    assert fake_gh.calls() == []
