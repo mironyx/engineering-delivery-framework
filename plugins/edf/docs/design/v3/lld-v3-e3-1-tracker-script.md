@@ -12,6 +12,7 @@
 | Revised | 2026-11-15 — Issue #119: §1.2 Part B (helpers, golden overrides, `--parent` dedup guard), Open question 4 |
 | Revised | 2026-11-16 — Issue #120: §1.3 Part B (board fields only when needed, `_require_issue`, query constants) |
 | Revised | 2026-11-16 — Issue #121: §1.4 Part B (`_step` signature, board fields only with project.env, epic read without board fields, fetch failure fatal) |
+| Revised | 2026-11-17 — Issue #144: `Issue.child_statuses` (eighth key, `{}` default); GitHub `view` fills it |
 | Epic | [#114](https://github.com/mironyx/engineering-delivery-framework/issues/114) |
 | Parent | [v3-design.md](v3-design.md) (v0.4) — [C3.1](v3-design.md#c31-tracker-script), [C3.2](v3-design.md#c32-github-backend) |
 | Requirements | [v3-requirements.md](../../requirements/v3-requirements.md) (v1.0) |

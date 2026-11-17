@@ -7,7 +7,7 @@ and the no-shell rule (I8). Every test drives the public CLI (`tracker.py` or a 
 the fake `gh` (tests/fixtures/fake_gh.py) and asserts on stdout, stderr, exit code and the
 fake `gh` call log.
 
-#120 (LLD §1.3, Open question 1): the seven-key issue JSON (I10), the single `list` query
+#120 (LLD §1.3, Open question 1): the eight-key issue JSON (I10; #144 adds child_statuses), the single `list` query
 capped at 100 (I11), absent remove-labels skipped (I12), bodies/comments on stdin (I13);
 `list` is one `gh api graphql` call over `repository.issues`.
 
@@ -59,7 +59,7 @@ BODY = "Line one\nLine two"
 BASE = ["--title", TITLE, "--body", BODY]
 UNKNOWN_STATUS_MSG = "Error: unknown status 'bogus'. Use: todo | blocked | \"in progress\" | done"
 PLACEHOLDER = "- [ ] (to be filled by edf:architect)"
-KEYS = ["ref", "title", "body", "labels", "status", "parent", "children"]
+KEYS = ["ref", "title", "body", "labels", "status", "parent", "children", "child_statuses"]
 OPTION_IDS = {
     "todo": PROJECT_ENV["STATUS_TODO"],
     "blocked": PROJECT_ENV["STATUS_BLOCKED"],
@@ -911,7 +911,7 @@ class TestNoShell:
 class TestView:
     """#120 — describe("github view")."""
 
-    def test_returns_seven_key_json_for_a_task_with_a_parent_epic(self, fake_gh):
+    def test_returns_eight_key_json_for_a_task_with_a_parent_epic(self, fake_gh):
         """#120 AC1 / I10 — exact keys in order; parent "#E"; children [] for a non-epic."""
         body = "## Parent epic\n#7\n\n## What\nDo the thing\n- [ ] #99 — not a child: not an epic\n"
         fake_gh.rules([_issue_rule(12, title="Add widget", body=body, labels=("kind:task", "backend"))])
@@ -925,6 +925,7 @@ class TestView:
             "status": "todo",
             "parent": "#7",
             "children": [],
+            "child_statuses": {},
         }
 
     def test_parent_is_null_without_a_parent_epic_section(self, fake_gh):
@@ -944,7 +945,7 @@ class TestView:
                 "- [ ] #21 — duplicate line\n"
                 "- [ ] T5 — not yet numbered\n"
                 "See #30 in prose\n")
-        fake_gh.rules([_issue_rule(7, body=body, labels=("epic",))])
+        fake_gh.rules([_issue_rule(7, body=body, labels=("epic",)), _children_rule([_node(n) for n in range(21, 25)])])
         issue = _ok_json(_run(fake_gh.repo, "view", "#7"))
         assert list(issue.keys()) == KEYS
         assert issue["children"] == ["#21", "#22", "#23", "#24"]
@@ -1025,13 +1026,147 @@ class TestView:
         assert _writes(fake_gh) == []
 
 
+# ---------------------------------------------------------------- view child_statuses (#144)
+
+
+def _children_rule(nodes: list[dict | None]) -> dict:
+    """The one aliased child query (LLD v3 E3.3 §1.2): data.repository.c0..cN, null for a missing issue.
+
+    Placed after the epic's own `number=` rule so the first-match-wins scenario tells them apart."""
+    repo = {f"c{i}": (None if n is None else {"state": n["state"], "projectItems": n["projectItems"]})
+            for i, n in enumerate(nodes)}
+    return {"argv_prefix": ["api", "graphql"], "stdout": json.dumps({"data": {"repository": repo}}) + "\n"}
+
+
+def _epic_body(children: list[int]) -> str:
+    return "## Tasks\n" + "".join(f"- [ ] #{n} — child {n}\n" for n in children)
+
+
+def _graphql_calls(fake_gh) -> list[dict]:
+    return _calls(fake_gh, "api", "graphql")
+
+
+class TestViewChildStatuses:
+    """#144 — describe("view child_statuses"), invariants I6-I9."""
+
+    def test_maps_closed_to_done_and_board_column_otherwise(self, fake_gh):
+        _write_project_env(fake_gh.repo)
+        fake_gh.rules([
+            _issue_rule(7, body=_epic_body([21, 22, 23]), labels=("epic",)),
+            _children_rule([_node(21, state="CLOSED"), _node(22, option=OPTION_IDS["in progress"]), _node(23)]),
+        ])
+        issue = _ok_json(_run(fake_gh.repo, "view", "#7"))
+        assert list(issue.keys()) == KEYS
+        assert issue["children"] == ["#21", "#22", "#23"]
+        assert issue["child_statuses"] == {"#21": "done", "#22": "in progress", "#23": "todo"}
+
+    def test_open_children_are_todo_without_project_env(self, fake_gh):
+        fake_gh.rules([_issue_rule(7, body=_epic_body([21, 22]), labels=("epic",)),
+                       _children_rule([_node(21, state="CLOSED"), _node(22)])])
+        assert _ok_json(_run(fake_gh.repo, "view", "#7"))["child_statuses"] == {"#21": "done", "#22": "todo"}
+
+    @pytest.mark.parametrize("count", [1, 20])
+    def test_epic_view_adds_exactly_one_graphql_call(self, fake_gh, count):
+        """#144 I7 — one lookup of the epic plus one aliased query, whatever the child count."""
+        numbers = list(range(100, 100 + count))
+        fake_gh.rules([_issue_rule(7, body=_epic_body(numbers), labels=("epic",)),
+                       _children_rule([_node(n) for n in numbers])])
+        issue = _ok_json(_run(fake_gh.repo, "view", "#7"))
+        assert len(issue["child_statuses"]) == count
+        assert len(fake_gh.calls()) == 2
+        assert len(_graphql_calls(fake_gh)) == 2
+
+    def test_call_count_is_equal_for_one_and_twenty_children(self, fake_gh):
+        counts = []
+        for count in (1, 20):
+            numbers = list(range(100, 100 + count))
+            fake_gh.rules([_issue_rule(7, body=_epic_body(numbers), labels=("epic",)),
+                           _children_rule([_node(n) for n in numbers])])
+            if fake_gh.log.exists():
+                fake_gh.log.unlink()
+            _ok_json(_run(fake_gh.repo, "view", "#7"))
+            counts.append(len(fake_gh.calls()))
+        assert counts[0] == counts[1]
+
+    def test_aliased_query_names_every_child(self, fake_gh):
+        numbers = [31, 32, 33]
+        fake_gh.rules([_issue_rule(7, body=_epic_body(numbers), labels=("epic",)),
+                       _children_rule([_node(n) for n in numbers])])
+        _ok_json(_run(fake_gh.repo, "view", "#7"))
+        query = " ".join(_graphql_calls(fake_gh)[1]["argv"])
+        assert all(f"c{i}" in query for i in range(3))
+        assert all(str(n) in query for n in numbers)
+
+    def test_epic_without_children_makes_no_extra_call(self, fake_gh):
+        fake_gh.rules([_issue_rule(7, body="No tasks yet", labels=("epic",))])
+        issue = _ok_json(_run(fake_gh.repo, "view", "#7"))
+        assert issue["child_statuses"] == {}
+        assert len(fake_gh.calls()) == 1
+
+    def test_non_epic_carries_empty_child_statuses_and_no_extra_call(self, fake_gh):
+        fake_gh.rules([_issue_rule(12, body=_epic_body([21]))])
+        issue = _ok_json(_run(fake_gh.repo, "view", "#12"))
+        assert issue["child_statuses"] == {}
+        assert len(fake_gh.calls()) == 1
+
+    def test_list_carries_empty_child_statuses_for_epics(self, fake_gh):
+        fake_gh.rules([_list_rule([_node(29, body=_epic_body([30]), labels=("epic",))])])
+        issues = _ok_json(_run(fake_gh.repo, "list"))
+        assert issues[0]["children"] == ["#30"]
+        assert issues[0]["child_statuses"] == {}
+        assert len(fake_gh.calls()) == 1
+
+    def test_null_alias_with_not_found_stderr_omits_the_ref_and_view_succeeds(self, fake_gh):
+        """#144 AC3 / open question 2 — gh exits 1 but stdout still carries data."""
+        rule = _children_rule([_node(21, state="CLOSED"), None, _node(23)])
+        rule["stderr"] = ("gh: Could not resolve to an Issue with the number of 22.\n"
+                          "gh: Could not resolve to an Issue with the number of 22.\n")
+        rule["exit"] = 1
+        fake_gh.rules([_issue_rule(7, body=_epic_body([21, 22, 23]), labels=("epic",)), rule])
+        result = _run(fake_gh.repo, "view", "#7")
+        assert result.returncode == 0, result.stderr
+        issue = json.loads(result.stdout)
+        assert issue["children"] == ["#21", "#22", "#23"]
+        assert issue["child_statuses"] == {"#21": "done", "#23": "todo"}
+        assert set(issue["child_statuses"]) <= set(issue["children"])  # I8
+
+    def test_null_alias_without_failure_is_also_omitted(self, fake_gh):
+        fake_gh.rules([_issue_rule(7, body=_epic_body([21, 22]), labels=("epic",)),
+                       _children_rule([None, _node(22)])])
+        assert _ok_json(_run(fake_gh.repo, "view", "#7"))["child_statuses"] == {"#22": "todo"}
+
+    def test_other_stderr_is_an_error_line_and_exit_1(self, fake_gh):
+        rule = _children_rule([_node(21), None])
+        rule.update(stderr="HTTP 502: Bad Gateway\n", exit=1)
+        fake_gh.rules([_issue_rule(7, body=_epic_body([21, 22]), labels=("epic",)), rule])
+        result = _run(fake_gh.repo, "view", "#7")
+        assert result.returncode == 1
+        assert result.stdout == ""
+        assert result.stderr.startswith("Error: ")
+        assert "HTTP 502" in result.stderr
+
+    def test_mixed_stderr_is_an_error_not_a_partial_result(self, fake_gh):
+        """Every non-empty stderr line must be a not-found line for the data to be trusted."""
+        rule = _children_rule([None, _node(22)])
+        rule.update(stderr="gh: Could not resolve to an Issue with the number of 21.\nHTTP 502: Bad Gateway\n", exit=1)
+        fake_gh.rules([_issue_rule(7, body=_epic_body([21, 22]), labels=("epic",)), rule])
+        result = _run(fake_gh.repo, "view", "#7")
+        assert result.returncode == 1
+        assert result.stderr.startswith("Error: ")
+
+    def test_child_lookup_makes_no_writes(self, fake_gh):
+        fake_gh.rules([_issue_rule(7, body=_epic_body([21]), labels=("epic",)), _children_rule([_node(21)])])
+        _ok_json(_run(fake_gh.repo, "view", "#7"))
+        assert _writes(fake_gh) == []
+
+
 # ---------------------------------------------------------------- list
 
 
 class TestList:
     """#120 — describe("github list")."""
 
-    def test_returns_an_array_of_seven_key_objects_in_server_order(self, fake_gh):
+    def test_returns_an_array_of_eight_key_objects_in_server_order(self, fake_gh):
         """#120 AC2 / I10 — same shape as view; newest first as returned by the query."""
         nodes = [
             _node(30, title="Newest", body="## Parent epic\n#7\n", labels=("kind:task",)),

@@ -10,7 +10,7 @@ Design reference: plugins/edf/docs/design/v3/lld-v3-e3-1-tracker-script.md §1.1
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 
 STATUSES: tuple[str, ...] = ("todo", "in progress", "blocked", "done")
@@ -38,6 +38,7 @@ class Issue:
     status: str
     parent: str | None
     children: list[str]
+    child_statuses: dict[str, str] = field(default_factory=dict)  # ref -> status; keys subset of children
 
 
 def issue_json(issue: Issue | list[Issue]) -> str:

@@ -16,7 +16,7 @@ import re
 import subprocess
 import sys
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from _tracker_contract import Issue, TrackerError, issue_json, normalise_status
 
@@ -428,6 +428,30 @@ def _derive_status(node: dict, board: Board | None) -> str:
     return "todo"
 
 
+_CHILD_BOARD_FIELDS = ISSUE_FIELDS[len(_BASE_FIELDS) + 1:]
+_MAX_CHILDREN = 100
+
+
+def _child_statuses(children: list[str], board: Board | None) -> dict[str, str]:
+    """One aliased GraphQL call for up to 100 children (no per-child calls); a node that does
+    not exist is omitted, so the reader shows it as unknown."""
+    refs = children[:_MAX_CHILDREN]
+    if not refs:
+        return {}
+    fields = "state" + (" " + _CHILD_BOARD_FIELDS if board is not None else "")
+    aliases = " ".join(f"c{i}:issue(number:{_parse_ref(ref)}){{{fields}}}" for i, ref in enumerate(refs))
+    query = f"query($owner:String!,$name:String!){{repository(owner:$owner,name:$name){{{aliases}}}}}"
+    result = _gh(["api", "graphql", "-F", "owner={owner}", "-F", "name={repo}", "-f", f"query={query}"])
+    stderr_lines = [line for line in result.stderr.splitlines() if line.strip()]
+    if result.returncode != 0 and not (stderr_lines and all(_NOT_FOUND in line for line in stderr_lines)):
+        raise TrackerError(f"gh api graphql failed: {result.stderr.strip()}")
+    try:
+        nodes = json.loads(result.stdout)["data"]["repository"]
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        raise TrackerError("unexpected gh api graphql response") from e
+    return {ref: _derive_status(nodes[f"c{i}"], board) for i, ref in enumerate(refs) if nodes.get(f"c{i}")}
+
+
 def parent_from_body(body: str) -> str | None:
     match = re.search(r"## Parent epic\s*\n+#(\d+)", body)
     return f"#{match.group(1)}" if match else None
@@ -458,7 +482,8 @@ def _require_issue(ref: str, *, board: bool = False) -> tuple[int, dict]:
 def view(args: argparse.Namespace, ctx: object) -> int:
     board = load_board(getattr(ctx, "repo_root", None), strict=False)
     _, node = _require_issue(args.ref, board=board is not None)
-    print(issue_json(_to_issue(node, board)))
+    issue = _to_issue(node, board)
+    print(issue_json(replace(issue, child_statuses=_child_statuses(issue.children, board))))
     return 0
 
 

@@ -140,11 +140,13 @@ def _status_of(fields: dict) -> str:
 
 
 # Justification: view and list build the seven-key Issue the same way (V1); complexity gate.
-def _to_issue(key: str, fields: dict, children: list[str]) -> Issue:
+def _to_issue(key: str, fields: dict, children: list[str],
+              child_statuses: dict[str, str] | None = None) -> Issue:
     is_epic = (fields.get("issuetype") or {}).get("name") == "Epic"
     return Issue(ref=key, title=fields.get("summary") or "", body=adf_to_md(fields.get("description")),
                  labels=list(fields.get("labels") or []), status=_status_of(fields),
-                 parent=(fields.get("parent") or {}).get("key"), children=children if is_epic else [])
+                 parent=(fields.get("parent") or {}).get("key"), children=children if is_epic else [],
+                 child_statuses=child_statuses if is_epic and child_statuses else {})
 
 
 def view(args, ctx) -> int:
@@ -158,10 +160,13 @@ def view(args, ctx) -> int:
     if fields is None:
         raise TrackerError("Jira returned an unreadable response")
     children: list[str] = []
+    child_statuses: dict[str, str] = {}
     if (fields.get("issuetype") or {}).get("name") == "Epic":
         jql = f"project = {_jql_str(space)} AND parent = {key} ORDER BY Rank ASC"
-        children = [i["key"] for i in _search_all(client, jql, fields=["summary"], limit=100)]
-    print(issue_json(_to_issue(key, fields, children)))
+        found = _search_all(client, jql, fields=["summary", "status"], limit=100)
+        children = [i["key"] for i in found]
+        child_statuses = {i["key"]: _status_of(i.get("fields") or {}) for i in found}
+    print(issue_json(_to_issue(key, fields, children, child_statuses)))
     return 0
 
 

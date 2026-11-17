@@ -154,7 +154,7 @@ class TestRobustness:
 # ---------------------------------------------------------------------------------------------
 # #133 — Jira backend `view` and `list` (LLD v3-e3-2 §1.4, invariants V1-V5)
 # ---------------------------------------------------------------------------------------------
-SEVEN_KEYS = ["ref", "title", "body", "labels", "status", "parent", "children"]
+EIGHT_KEYS = ["ref", "title", "body", "labels", "status", "parent", "children", "child_statuses"]
 
 
 def _view(cwd, ref):
@@ -180,11 +180,11 @@ def _view_json(result):
 
 
 class TestView:
-    def test_returns_seven_key_json_for_task_with_parent(self, fake_jira, tmp_path):  # V1, AC1
+    def test_returns_eight_key_json_for_task_with_parent(self, fake_jira, tmp_path):  # V1, AC1
         epic = fake_jira.add_issue("Epic", type="Epic")
         key = fake_jira.add_issue("Child", labels=["kind:task", "x"], parent=epic, description=_doc("hello"))
         data = _view_json(_view(tmp_path, key))
-        assert list(data.keys()) == SEVEN_KEYS
+        assert list(data.keys()) == EIGHT_KEYS
         assert data["ref"] == key
         assert data["title"] == "Child"
         assert "hello" in data["body"]
@@ -283,14 +283,82 @@ class TestView:
         assert (data["title"], data["labels"], data["parent"]) == ("Child", ["x", "y"], parent)
 
 
+class TestViewChildStatuses:
+    """#144 — Jira view fills child_statuses from the existing child search (+0 requests)."""
+
+    def test_maps_each_child_through_status_of(self, fake_jira, tmp_path):
+        epic = fake_jira.add_issue("Epic", type="Epic")
+        a = fake_jira.add_issue("A", parent=epic, status="Done")
+        b = fake_jira.add_issue("B", parent=epic, status="In Progress")
+        c = fake_jira.add_issue("C", parent=epic, status="To Do")
+        fake_jira.statuses["In Review"] = "indeterminate"
+        d = fake_jira.add_issue("D", parent=epic, status="In Review")
+        data = _view_json(_view(tmp_path, epic))
+        assert data["children"] == [a, b, c, d]
+        assert data["child_statuses"] == {a: "done", b: "in progress", c: "todo", d: "in progress"}
+        assert list(data["child_statuses"]) == data["children"]
+
+    def test_keys_are_a_subset_of_children(self, fake_jira, tmp_path):  # I8
+        epic = fake_jira.add_issue("Epic", type="Epic")
+        other = fake_jira.add_issue("Elsewhere")
+        fake_jira.add_issue("Sub", parent=other)
+        fake_jira.add_issue("Child", parent=epic)
+        data = _view_json(_view(tmp_path, epic))
+        assert set(data["child_statuses"]) <= set(data["children"])
+
+    @pytest.mark.parametrize("count", [1, 20])
+    def test_request_count_for_an_epic_view_does_not_depend_on_child_count(self, fake_jira, tmp_path, count):  # I7
+        epic = fake_jira.add_issue("Epic", type="Epic")
+        for n in range(count):
+            fake_jira.add_issue(f"C{n}", parent=epic)
+        before = len(fake_jira.calls())
+        data = _view_json(_view(tmp_path, epic))
+        assert len(data["child_statuses"]) == count
+        assert len(fake_jira.calls()) - before == 2  # the issue GET and one child search
+
+    def test_request_counts_are_equal_for_one_and_twenty_children(self, fake_jira, tmp_path):
+        counts = []
+        for count in (1, 20):
+            epic = fake_jira.add_issue(f"Epic {count}", type="Epic")
+            for n in range(count):
+                fake_jira.add_issue(f"C{count}-{n}", parent=epic)
+            before = len(fake_jira.calls())
+            _view_json(_view(tmp_path, epic))
+            counts.append(len(fake_jira.calls()) - before)
+        assert counts[0] == counts[1]
+
+    def test_child_search_requests_the_status_field(self, fake_jira, tmp_path):
+        epic = fake_jira.add_issue("Epic", type="Epic")
+        fake_jira.add_issue("C", parent=epic)
+        _view_json(_view(tmp_path, epic))
+        searches = [c for c in fake_jira.calls() if c["path"].endswith("/search/jql")]
+        assert len(searches) == 1
+        assert "status" in searches[0]["body"]["fields"]
+
+    def test_non_epic_has_empty_child_statuses(self, fake_jira, tmp_path):
+        task = fake_jira.add_issue("Task", type="Task")
+        fake_jira.add_issue("Sub", parent=task)
+        assert _view_json(_view(tmp_path, task))["child_statuses"] == {}
+
+    def test_epic_without_children_has_empty_child_statuses(self, fake_jira, tmp_path):
+        epic = fake_jira.add_issue("Epic", type="Epic")
+        assert _view_json(_view(tmp_path, epic))["child_statuses"] == {}
+
+    def test_list_carries_empty_child_statuses_for_epics(self, fake_jira, tmp_path):
+        epic = fake_jira.add_issue("Epic", type="Epic")
+        fake_jira.add_issue("Child", parent=epic, status="Done")
+        items = {i["ref"]: i for i in _view_json(_list(tmp_path))}
+        assert items[epic]["child_statuses"] == {}
+
+
 class TestList:
-    def test_each_element_has_seven_keys_in_order(self, fake_jira, tmp_path):  # V1
+    def test_each_element_has_eight_keys_in_order(self, fake_jira, tmp_path):  # V1
         epic = fake_jira.add_issue("Epic", type="Epic", labels=["epic"])
         fake_jira.add_issue("Child", parent=epic, description=_doc("hi"))
         items = _view_json(_list(tmp_path))
         assert len(items) == 2
         for item in items:
-            assert list(item.keys()) == SEVEN_KEYS
+            assert list(item.keys()) == EIGHT_KEYS
         assert items[1]["parent"] == epic
 
     def test_empty_result_is_empty_array(self, fake_jira, tmp_path):
