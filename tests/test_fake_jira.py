@@ -236,7 +236,7 @@ def test_search_honours_string_escapes(fake_jira):
     'project = "SCRUM" AND',
     'project = "SCRUM" ORDER BY Rank DESC',
     'project = "SCRUM" ORDER BY created ASC',
-    'project = "SCRUM" AND labels = "a\\n"',           # unsupported escape
+    'project = "SCRUM" AND labels = "a\\x"',           # unsupported escape
     'project = "SCRUM" ; drop',
     'project = "SCRUM" AND labels IN ("a")',
 ])

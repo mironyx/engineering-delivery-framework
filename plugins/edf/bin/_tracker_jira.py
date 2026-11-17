@@ -6,7 +6,9 @@ Design reference: plugins/edf/docs/design/v3/lld-v3-e3-2-jira-backend.md §1.2
 from __future__ import annotations
 
 import re
+from typing import Callable
 
+from _adf import md_to_adf
 from _jira_client import JiraClient
 from _tracker_contract import TrackerError
 
@@ -33,8 +35,88 @@ def _parse_ref(ref: str, space: str) -> str:
     return f"{space.upper()}-{match.group(2)}"
 
 
+_TYPES = {"task": "Task", "epic": "Epic"}
+_TEXT_SEARCH_SPECIALS = re.compile(r'([+\-&|!(){}\[\]^~*?\\:"])')
+
+
+# Justification: JQL string escaping is shared by every query this backend builds (create, list).
+def _jql_str(value: str) -> str:
+    escaped = (value.replace("\\", "\\\\").replace('"', '\\"')
+               .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t"))
+    return f'"{escaped}"'
+
+
+# Justification: `summary ~` is text search with its own special characters, escaped before the
+# JQL string escape; kept apart from _jql_str so each layer is tested on its own (C3).
+def _jql_phrase(value: str) -> str:
+    return _jql_str('"' + _TEXT_SEARCH_SPECIALS.sub(r"\\\1", value) + '"')
+
+
+# Justification: pagination loop shared by the duplicate check and list (T6); complexity gate.
+def _search_all(client: JiraClient, jql: str, *, fields: list[str], limit: int,
+                keep: Callable[[dict], bool] = lambda _fields: True) -> list[str]:
+    keys: list[str] = []
+    token: str | None = None
+    while True:
+        body: dict = {"jql": jql, "fields": fields, "maxResults": min(limit, 100)}
+        if token:
+            body["nextPageToken"] = token
+        _, data = client.request("POST", "/rest/api/3/search/jql", body=body)
+        data = data or {}
+        keys += [i["key"] for i in data.get("issues", []) if keep(i.get("fields") or {})]
+        token = data.get("nextPageToken")
+        if not token or data.get("isLast") or len(keys) >= limit:
+            return keys[:limit]
+
+
+# Justification: the duplicate check needs the phrase search plus the exact in-code comparison
+# (JQL `=` is unsupported on summary); keeping it out of create holds create under the gate.
+def _find_open_by_title(client: JiraClient, space: str, title: str) -> str | None:
+    jql = f"project = {_jql_str(space)} AND statusCategory != Done AND summary ~ {_jql_phrase(title)}"
+    found = _search_all(client, jql, fields=["summary"], limit=100,
+                        keep=lambda f: f.get("summary") == title)
+    return found[0] if found else None
+
+
+# Justification: dry-run block kept out of create's control flow; complexity gate.
+def _print_dry_run(args, labels: list[str], parent_key: str | None) -> None:
+    print("dry-run: would create issue")
+    print(f"  title:  {args.title}")
+    print(f"  labels: {','.join(labels) or '<none>'}")
+    if parent_key:
+        print(f"  parent: {parent_key}")
+    print("  body:")
+    for line in args.body.split("\n"):
+        print(f"    {line}")
+
+
 def create(args, ctx) -> int:
-    raise TrackerError("not implemented")
+    if args.type is not None and args.type not in _TYPES:
+        raise TrackerError(f"unknown type '{args.type}'. Use: task | epic")
+    issue_type = _TYPES[args.type or "task"]
+    labels = [name.strip() for name in (args.labels or "").split(",") if name.strip()]
+    space = _space(ctx)
+    client = _client(ctx)
+    parent_key = None
+    if args.parent is not None:
+        parent_key = _parse_ref(args.parent, space)
+        status, _ = client.request("GET", f"/rest/api/3/issue/{parent_key}", query={"fields": "summary"})
+        if status == 404:
+            raise TrackerError(f"parent {parent_key} not found")
+    existing = _find_open_by_title(client, space, args.title)
+    if existing:
+        print(f"exists:{existing}")
+        return 0
+    if args.dry_run:
+        _print_dry_run(args, labels, parent_key)
+        return 0
+    fields: dict = {"project": {"key": space}, "issuetype": {"name": issue_type}, "summary": args.title,
+                    "description": md_to_adf(args.body), "labels": labels}
+    if parent_key:
+        fields["parent"] = {"key": parent_key}
+    _, data = client.request("POST", "/rest/api/3/issue", body={"fields": fields})
+    print(f"created:{(data or {})['key']}")
+    return 0
 
 
 def view(args, ctx) -> int:
