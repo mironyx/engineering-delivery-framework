@@ -86,6 +86,48 @@ To set up a new repo:
 
 Without this file, board-aware skills will fail with a configuration error.
 
+### Using Jira instead of GitHub
+
+GitHub Issues and Projects are the default tracker. To track issues in Jira
+instead, set these four variables:
+
+- `JIRA_HOST` — your Jira Cloud site, e.g. `https://your-site.atlassian.net`.
+  Must start with `https://`. **Setting it is the only switch** — it selects
+  the Jira backend.
+- `JIRA_EMAIL` — the email of the Atlassian account that owns the API token.
+- `JIRA_API_TOKEN` — an [Atlassian API token][atlassian-tokens] for that
+  account. EDF never prints it.
+- `JIRA_SPACE` — the key of the Jira space (project), e.g. `SCRUM`.
+
+[atlassian-tokens]: https://id.atlassian.com/manage-profile/security/api-tokens
+
+Set them in the OS environment, or in a `.env` file in the repo root. The token
+is a secret: if you use `.env`, make sure `.env` is listed in `.gitignore` — the
+"commit this file" advice above does not apply to it. If your team commits
+`.env`, keep `JIRA_API_TOKEN` in the OS environment instead.
+
+- **GitHub stays the default.** With `JIRA_HOST` unset, nothing changes for you.
+- **Fail loudly.** If `JIRA_HOST` is set but `JIRA_EMAIL`, `JIRA_API_TOKEN` or
+  `JIRA_SPACE` is missing, EDF stops with an error naming the missing variable.
+  It never falls back to GitHub silently.
+- **Refs are Jira keys.** Skills and logs use the key (`SCRUM-123`) wherever
+  GitHub would use `#123`. Pull requests still go to GitHub; their body carries
+  `Jira: SCRUM-123` instead of `Closes #123`, and session logs are named
+  `…-SCRUM-123.md`.
+- **Epics link by parent.** A task is attached to its epic through Jira's parent
+  field, and the epic body has no Tasks checklist.
+
+**Workflow statuses.** The space's workflow must have **To Do**, **In
+Progress**, **Blocked** and **Done**. EDF maps them to its `todo`, `in
+progress`, `blocked` and `done`. Other statuses are mapped by their Jira
+category (done → `done`, in progress → `in progress`, anything else → `todo`).
+If the space has no Blocked status, moving an issue to `blocked` fails with an
+error telling you to add it.
+
+**Limits.** Jira Cloud with an API token only — no Server / Data Center and no
+OAuth. Team-managed (next-gen) spaces only; company-managed spaces link epics
+differently and are not supported.
+
 ### Model configuration
 
 EDF agents fall into two groups. Agents that exercise judgement (`feature-evaluator`, `hld-review`, `lld-review`, `qa-executor`, `qa-explorer`, `requirements-design-drift`, `requirements-review`, `test-author`) use `model: inherit`, so they run on whatever model your session is using — run Opus and your reviewers are Opus, run Sonnet and they are Sonnet. Nothing to configure.
