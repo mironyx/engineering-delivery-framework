@@ -8,9 +8,9 @@ from __future__ import annotations
 import re
 from typing import Callable
 
-from _adf import md_to_adf
+from _adf import adf_to_md, md_to_adf
 from _jira_client import JiraClient
-from _tracker_contract import TrackerError
+from _tracker_contract import Issue, TrackerError, issue_json, normalise_status
 
 _SPACE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
@@ -55,8 +55,8 @@ def _jql_phrase(value: str) -> str:
 
 # Justification: pagination loop shared by the duplicate check and list (T6); complexity gate.
 def _search_all(client: JiraClient, jql: str, *, fields: list[str], limit: int,
-                keep: Callable[[dict], bool] = lambda _fields: True) -> list[str]:
-    keys: list[str] = []
+                keep: Callable[[dict], bool] = lambda _fields: True) -> list[dict]:
+    found: list[dict] = []
     token: str | None = None
     for _ in range(_MAX_PAGES):
         body: dict = {"jql": jql, "fields": fields, "maxResults": min(limit, 100)}
@@ -64,11 +64,11 @@ def _search_all(client: JiraClient, jql: str, *, fields: list[str], limit: int,
             body["nextPageToken"] = token
         _, data = client.request("POST", "/rest/api/3/search/jql", body=body)
         data = data or {}
-        keys += [i["key"] for i in data.get("issues", []) if keep(i.get("fields") or {})]
+        found += [i for i in data.get("issues", []) if keep(i.get("fields") or {})]
         token = data.get("nextPageToken")
-        if not token or data.get("isLast") or len(keys) >= limit:
+        if not token or data.get("isLast") or len(found) >= limit:
             break
-    return keys[:limit]
+    return found[:limit]
 
 
 # Justification: the duplicate check needs the phrase search plus the exact in-code comparison
@@ -77,7 +77,7 @@ def _find_open_by_title(client: JiraClient, space: str, title: str) -> str | Non
     jql = f"project = {_jql_str(space)} AND statusCategory != Done AND summary ~ {_jql_phrase(title)}"
     found = _search_all(client, jql, fields=["summary"], limit=100,
                         keep=lambda f: f.get("summary") == title)
-    return found[0] if found else None
+    return found[0]["key"] if found else None
 
 
 # Justification: dry-run block kept out of create's control flow; complexity gate.
@@ -124,12 +124,58 @@ def create(args, ctx) -> int:
     return 0
 
 
+_FIELDS = ["summary", "description", "labels", "status", "parent", "issuetype"]
+_STATUS_NAMES = {"todo": "To Do", "in progress": "In Progress", "blocked": "Blocked", "done": "Done"}
+_CATEGORY_STATUS = {"done": "done", "indeterminate": "in progress"}
+
+
+# Justification: the one place a Jira status becomes an EDF status; view, list --status and
+# the printed value must agree (V2, V3), and T7 reads _STATUS_NAMES from here.
+def _status_of(fields: dict) -> str:
+    current = fields.get("status") or {}
+    for edf, name in _STATUS_NAMES.items():
+        if current.get("name") == name:
+            return edf
+    return _CATEGORY_STATUS.get((current.get("statusCategory") or {}).get("key"), "todo")
+
+
+# Justification: view and list build the seven-key Issue the same way (V1); complexity gate.
+def _to_issue(key: str, fields: dict, children: list[str]) -> Issue:
+    is_epic = (fields.get("issuetype") or {}).get("name") == "Epic"
+    return Issue(ref=key, title=fields.get("summary") or "", body=adf_to_md(fields.get("description")),
+                 labels=list(fields.get("labels") or []), status=_status_of(fields),
+                 parent=(fields.get("parent") or {}).get("key"), children=children if is_epic else [])
+
+
 def view(args, ctx) -> int:
-    raise TrackerError("not implemented")
+    space = _space(ctx)
+    key = _parse_ref(args.ref, space)
+    client = _client(ctx)
+    code, data = client.request("GET", f"/rest/api/3/issue/{key}", query={"fields": ",".join(_FIELDS)})
+    if code == 404:
+        raise TrackerError(f"{key} not found")
+    fields = (data or {}).get("fields")
+    if fields is None:
+        raise TrackerError("Jira returned an unreadable response")
+    children: list[str] = []
+    if (fields.get("issuetype") or {}).get("name") == "Epic":
+        jql = f"project = {_jql_str(space)} AND parent = {key} ORDER BY Rank ASC"
+        children = [i["key"] for i in _search_all(client, jql, fields=["summary"], limit=100)]
+    print(issue_json(_to_issue(key, fields, children)))
+    return 0
 
 
 def list_issues(args, ctx) -> int:
-    raise TrackerError("not implemented")
+    wanted = normalise_status(args.status) if args.status else None
+    clauses = [f"project = {_jql_str(_space(ctx))}"]
+    if args.label:
+        clauses.append(f"labels = {_jql_str(args.label)}")
+    clauses.append("statusCategory = Done" if wanted == "done" else "statusCategory != Done")
+    jql = " AND ".join(clauses) + " ORDER BY Rank ASC"
+    found = _search_all(_client(ctx), jql, fields=_FIELDS, limit=100,
+                        keep=lambda f: wanted is None or _status_of(f) == wanted)
+    print(issue_json([_to_issue(i["key"], i.get("fields") or {}, []) for i in found]))
+    return 0
 
 
 def edit(args, ctx) -> int:

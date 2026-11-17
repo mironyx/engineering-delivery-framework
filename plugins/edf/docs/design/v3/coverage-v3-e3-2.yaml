@@ -27,8 +27,9 @@ entries:
   - req: REQ-tracker-script-view-and-list-issues
     lld: lld-v3-e3-2-jira-backend.md#LLD-v3-e3-2-jira-view-list
     issue: 133
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/bin/_tracker_jira.py
+    status: Implemented
     lld_revision: r1
     # Story 1.3 Jira AC1-AC8. Round-trip ACs also rest on #LLD-v3-e3-2-adf-converter.
 
