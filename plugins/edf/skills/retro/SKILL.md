@@ -22,8 +22,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-ses
 
 - **Session logs** — Read all files in `docs/sessions/` since the last retro (search recursively — sessions are organised in `YYYY-MM/` monthly folders per ADR-0036). These capture completed work, decisions, and conversation summaries.
 - **Git history** — Run `git log --oneline` to see commit frequency, message quality, and whether atomic commits per task are happening.
-- **GitHub Issues** — Run `gh issue list --state all --json number,title,state,labels` to assess backlog health.
-- **Project board** — Run `PROJECT_NUMBER=$(grep '^PROJECT_NUMBER=' .github/project.env | cut -d= -f2) && OWNER=$(grep '^REPO=' .github/project.env | cut -d= -f2 | cut -d/ -f1) && gh project item-list $PROJECT_NUMBER --owner $OWNER` to check priority ordering and status accuracy.
+- **Tracker issues** — Run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list` (open) and `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status done` (closed) to assess backlog health.
+- **Board status** — Run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status todo` and compare with `--status "in progress"` to check priority ordering and status accuracy.
 - **Drift reports** — Read any drift reports in `docs/reports/drift/` generated since the last retro. Note whether any design↔code drift findings (Critical/Warning) were raised and whether they were resolved within the same or next session.
 - **kb/ coverage** — Compare new source files added since the last retro (`git log --oneline --since="<last retro date>" -- 'src/'`) against kb/architecture.md sections. Are there shared artifacts (helpers, components, tokens) added without kb/ entries? List them.
 - **Previous retro** — Read the most recent `docs/reports/retro/YYYY-MM-DD-process-retro.md` if one exists, to check whether previous actions were implemented.

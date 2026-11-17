@@ -12,11 +12,10 @@ Synthesises the state of the backlog from multiple signals and proposes next act
 
 This skill **never** mutates state:
 
-- No `gh issue create`, `gh issue edit`, `gh issue close`, `gh issue comment`.
-- No `gh-project-status.sh` calls that change status.
+- No `tracker.py` calls that write: `create`, `edit`, `comment`, `status`, `close`.
 - No edits to `docs/requirements/`, `docs/design/`, `docs/adr/`, or `CLAUDE.md`.
 
-Write only the report file in `docs/reports/`. The human reads the report and actions approved items manually (or invokes the relevant skill: `edf:feature`, `gh-create-issue.sh`, etc.).
+Write only the report file in `docs/reports/`. The human reads the report and actions approved items manually (or invokes the relevant skill: `edf:feature`, `edf:architect`, etc.).
 
 A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update it when changing the scoring formula, health checks, or report structure.
 
@@ -31,9 +30,10 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tag-ses
 Read broadly. Do not cap inputs arbitrarily — if a file is relevant, read it.
 
 **Board and issues:**
-- `PROJECT_NUMBER=$(grep '^PROJECT_NUMBER=' .github/project.env | cut -d= -f2) && OWNER=$(grep '^REPO=' .github/project.env | cut -d= -f2 | cut -d/ -f1) && gh project item-list $PROJECT_NUMBER --owner $OWNER --format json --limit 300` — full board snapshot.
-- `gh issue list --state open --limit 300 --json number,title,labels,updatedAt,createdAt,body,assignees` — every open issue, including bodies (needed for acceptance-criteria checks).
-- `gh issue list --state closed --limit 100 --json number,title,closedAt,labels` — recent closes, to compute "progress since last grooming".
+- `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list` — every open issue with ref, title, labels, body, status and parent (bodies are needed for acceptance-criteria checks). The `status` field is the board column on GitHub and the workflow status on Jira. Refs are opaque (`#123`, `SCRUM-123`) — report them as given, never as integers.
+- `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status todo` — the Todo queue, in rank order.
+- `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status done` — recent closes, to compute "progress since last grooming".
+- For an epic, `tracker.py view <epic-ref>` — its `children` lists the tasks; match them against the `list` output for status.
 
 **Requirements — read ALL files in `docs/requirements/`**, not just the current version. Include:
 - Current version (e.g. `v1-requirements.md`).

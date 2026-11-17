@@ -13,8 +13,7 @@ Produces a consolidated picture of what actually exists, reconciling code, close
 This skill **never** mutates state:
 
 - No edits to `docs/requirements/`, `docs/design/`, `docs/adr/`, or `CLAUDE.md`.
-- No `gh issue create`, `gh issue edit`, `gh issue close`.
-- No `gh-project-status.sh` calls.
+- No `tracker.py` calls that write: `create`, `edit`, `comment`, `status`, `close`.
 
 Write only the report file in `docs/reports/baseline/`.
 
@@ -71,7 +70,7 @@ This is informational, not a gate.
 - Scan `tests/` and co-located test files (suffix per `kb/conventions.md`). For each story you are uncertain about, check whether a test exists that exercises the specific AC. A test that asserts "only the participant's own assessments are returned" is stronger evidence of delivery than reading the query in isolation. Conversely, a missing test for a claimed AC is a signal to read the implementation more carefully before classifying as Delivered.
 
 **Closed issues and git history:**
-- `gh issue list --state closed --limit 300 --json number,title,labels,closedAt,body` — what was delivered.
+- `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status done` — what was delivered (ref, title, labels, body).
 - `git log --oneline --all` — commit history to trace what was built and when.
 
 **Reports:**
