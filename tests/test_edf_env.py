@@ -58,9 +58,15 @@ class TestResolve:
         monkeypatch.delenv("FOO", raising=False)
         assert _edf_env.resolve("FOO", repo) is None
 
-    def test_empty_env_falls_through_to_dotenv(self, repo, monkeypatch):
+    def test_empty_env_is_authoritative_and_masks_dotenv(self, repo, monkeypatch):
+        # Set-but-empty switches a .env value off (hermetic tests, one-off overrides).
         (repo / ".env").write_text("FOO=from_dotenv\n", encoding="utf-8")
         monkeypatch.setenv("FOO", "")
+        assert _edf_env.resolve("FOO", repo) is None
+
+    def test_unset_env_still_falls_through_to_dotenv(self, repo, monkeypatch):
+        (repo / ".env").write_text("FOO=from_dotenv\n", encoding="utf-8")
+        monkeypatch.delenv("FOO", raising=False)
         assert _edf_env.resolve("FOO", repo) == "from_dotenv"
 
 

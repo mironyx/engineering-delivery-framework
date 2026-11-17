@@ -35,9 +35,15 @@ def fixtures_dir():
 
 @pytest.fixture(autouse=True)
 def _scrub_jira_env(monkeypatch):
-    """A developer's own JIRA_* settings must never select Jira inside the suite."""
-    for key in [k for k in os.environ if k.startswith("JIRA_")]:
-        monkeypatch.delenv(key)
+    """A developer's own JIRA_* settings must never select Jira inside the suite.
+
+    Set-but-empty (not deleted): an empty OS variable masks the developer's `.env`, which
+    scripts launched from the repo checkout would otherwise read. Tests that want Jira
+    set their own values explicitly.
+    """
+    for key in {k for k in os.environ if k.startswith("JIRA_")} | {
+            "JIRA_HOST", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_SPACE"}:
+        monkeypatch.setenv(key, "")
 
 
 class FakeGh:

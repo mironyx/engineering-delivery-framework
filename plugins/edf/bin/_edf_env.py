@@ -25,10 +25,14 @@ def read_dotenv(root: pathlib.Path) -> dict[str, str]:
 
 
 def resolve(key: str, root: pathlib.Path) -> str | None:
-    """Return the value of `key` from OS env, falling back to .env in `root`."""
-    value = os.environ.get(key)
-    if value:
-        return value
+    """Return the value of `key` from OS env, falling back to .env in `root`.
+
+    A variable that is *set but empty* in the OS environment is authoritative: it
+    resolves to None and `.env` is not consulted. That is how a caller (or a hermetic
+    test) switches off a value a developer keeps in their own `.env`.
+    """
+    if key in os.environ:
+        return os.environ[key] or None
     return read_dotenv(root).get(key) or None
 
 
