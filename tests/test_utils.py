@@ -111,7 +111,7 @@ class TestUpdateCoverageManifest:
         assert slug == ""
 
 
-# ── tracker GitHub backend: epic checkbox helpers ──────────────────────────────────────────────────────
+# ── tracker GitHub backend: epic checkbox helpers ──
 
 
 class TestEpicCheckbox:

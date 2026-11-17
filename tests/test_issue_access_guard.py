@@ -57,12 +57,11 @@ def test_exclusion_list_is_only_the_github_backend() -> None:
 
 
 def test_shims_are_gone_and_unreferenced() -> None:
+    """The scan covers the scanned roots (incl. tracker.py); README.md sits outside them."""
     for rel in SHIMS:
         assert not (PLUGIN / rel).exists(), rel
-    for doc in (REPO / "README.md", PLUGIN / "bin" / "tracker.py"):
-        text = doc.read_text(encoding="utf-8")
-        for name in ("gh-create-issue", "gh-project-status", "check-epic-checkbox"):
-            assert name not in text, f"{doc.name} mentions {name}"
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    assert not _COMPILED[-1].search(readme)
 
 
 VIOLATIONS = {
