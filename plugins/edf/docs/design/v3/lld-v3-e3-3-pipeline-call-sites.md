@@ -529,8 +529,9 @@ def main(argv: list[str] | None = None) -> int
 
 #### Error handling
 
-`tracker.py view` non-zero → the reader prints the tracker's `Error:` line and exits 1. A GraphQL failure
-on the child query raises `TrackerError("gh api graphql failed: …")` as `view` does today.
+`tracker.py view` non-zero → the reader prints the tracker's `Error:` line and exits 1. In `_child_statuses`, on a
+non-zero `gh` exit: parse `data` and drop null aliases if every non-empty stderr line contains the existing
+`_NOT_FOUND` marker; otherwise raise `TrackerError("gh api graphql failed: …")` as `view` does today.
 
 <a id="LLD-v3-e3-3-call-site-migration"></a>
 
@@ -647,6 +648,8 @@ Add to `plugins/edf/kb/architecture.md` (reusable helpers):
   `FEATURE_ID` and the PR issue line are derived. Do not read `EDF_FEATURE_PREFIX` elsewhere.
 - `bin/epic-progress.py <epic> [--remaining]` — epic progress from `tracker.py view` (`child_statuses`).
   Do not parse epic checklists.
+- Exception to "all issue operations go through `bin/tracker.py`": `_tracker_github.set_pr_labels` (a GitHub-only
+  PR-label operation) is imported directly by `query-feature-cost.py`. No other direct backend import is allowed.
 ```
 
 ---
@@ -677,7 +680,7 @@ and `.claude-plugin/marketplace.json` (kept in sync) and updates README counts i
 
 **Files to create/modify:**
 - `plugins/edf/bin/_feature_id.py`, `feature-id.py` (new); `tracker.py`, `tag-session.py`, `append-checkpoint.py`, `create-feature-pr.sh`
-- `tests/test_feature_id.py` (new); existing tests of the three consumers adjusted only for the opaque-ref argument type
+- `tests/test_feature_id.py` (new; `TestDeriveFeaturePrefix` moves here from `test_utils.py`); `tests/test_tag_session.py`, `test_append_checkpoint.py`, `test_shell_scripts.py` (the `create-feature-pr.sh` cases) adjusted only for the opaque-ref argument type
 
 ### Task 2: Epic progress (`child_statuses` + reader)
 
@@ -760,6 +763,7 @@ and `.claude-plugin/marketplace.json` (kept in sync) and updates README counts i
 
 **Files to create/modify:**
 - `plugins/edf/agents/{feature-evaluator,test-author}.md`, `bin/brief-package.sh`, `bin/update-coverage-manifest.py`, `starters/CLAUDE.md.template`
+- `tests/test_shell_scripts.py` (the `brief-package.sh` fake-`gh` cases) — shared with Task 1; whichever merges second rebases
 
 ### Task 6: Cost labels through the tracker
 
@@ -846,7 +850,7 @@ graph LR
 
 | Wave | Tasks | Blocked by | Notes |
 |------|-------|------------|-------|
-| 1 | Task 1, Task 2, Task 3, Task 4, Task 5 | — | Disjoint files: T1 identity consumers in `bin/`, T2 backends, contract and docs, T3 planning skills, T4 other skills, T5 agents/bin/starters |
+| 1 | Task 1, Task 2, Task 3, Task 4, Task 5 | — | Disjoint source files: T1 identity consumers in `bin/`, T2 backends, contract and docs, T3 planning skills, T4 other skills, T5 agents/bin/starters. T1 and T5 both touch `tests/test_shell_scripts.py` in different test classes — rebase on merge |
 | 2 | Task 6, Task 7 | Wave 1 (Tasks 1, 2) | T6 edits `query-feature-cost.py` and `_tracker_github.py` (after T2 merged), T7 the four implementation skills — disjoint |
 | 3 | Task 8 | Wave 1 (Tasks 3, 4, 5), Wave 2 (Tasks 6, 7) | Guard needs every call site migrated |
 
