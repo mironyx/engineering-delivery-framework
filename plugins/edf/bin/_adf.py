@@ -464,3 +464,255 @@ def _merge(nodes: list[dict]) -> list[dict]:
                 continue
         out.append(node)
     return out
+
+
+# --------------------------------------------------------------------------- ADF to Markdown
+
+_BLOCK_LEAD = re.compile(r"^(?:#{1,6}(?:\s|$)|[-+*](?:\s|$)|\d{1,9}[.)](?:\s|$)|[>~])")
+_TASK_LEAD = re.compile(r"^\[[ x]\] ")
+_RAW_LEAD = re.compile(r"^ {0,3}(?:>|<[A-Za-z/!?])")
+_BLANK_LINE = re.compile(r"\n\s*\n")
+_MARK_WRAP = (("code", "`"), ("em", "*"), ("strong", "**"))
+
+
+def adf_to_md(doc: dict | None) -> str:
+    """Render an ADF document as Markdown; None or an empty doc gives ''. Never raises on odd nodes."""
+    if not isinstance(doc, dict):
+        return ""
+    try:
+        return _join_blocks(_kids(doc))
+    except Exception as exc:  # noqa: BLE001 — the contract is "no input raises"
+        warnings.warn(f"adf_to_md fell back to plain text: {exc!r}", RuntimeWarning, stacklevel=2)
+        return _text_of(doc)
+
+
+# Justification: foreign documents may carry wrong-typed attrs/marks; one accessor keeps readers simple.
+def _attrs(node: dict) -> dict:
+    attrs = node.get("attrs")
+    return attrs if isinstance(attrs, dict) else {}
+
+
+# Justification: companion of _attrs for list-valued fields such as marks.
+def _list_of(value: object) -> list:
+    return value if isinstance(value, list) else []
+
+
+# Justification: one place drops non-dict children, so no renderer needs its own guard for odd input.
+def _kids(node: dict) -> list[dict]:
+    content = node.get("content")
+    return [c for c in content if isinstance(c, dict)] if isinstance(content, list) else []
+
+
+# Justification: joins rendered blocks with one blank line and skips empty ones.
+def _join_blocks(nodes: list) -> str:
+    return "\n\n".join(out for out in (_block(n) for n in nodes) if out)
+
+
+# Justification: one dispatch by node type; anything unknown degrades to its text, never dropped.
+def _block(node: dict) -> str:
+    kind = node.get("type")
+    content = _kids(node)
+    if kind == "heading":
+        level = _level(_attrs(node).get("level"))
+        return f"{'#' * level} {_inlines(content, flat=True)}".rstrip()
+    if kind == "paragraph":
+        return _paragraph_md(content)
+    if kind in ("bulletList", "orderedList"):
+        return "\n".join(_list_lines(node, 0))
+    if kind == "codeBlock":
+        return _code_block(node)
+    if kind == "table":
+        return _table_md(content)
+    return _paragraph_md([{"type": "text", "text": _text_of(node)}])
+
+
+# Justification: Jira may send a non-numeric level; a heading must still render.
+def _level(value: object) -> int:
+    return min(max(value, 1), 6) if isinstance(value, int) else 1
+
+
+# Justification: concatenates the text under any node so unknown nodes lose nothing.
+def _text_of(node: dict) -> str:
+    own = node.get("text")
+    if isinstance(own, str):
+        return own
+    children = _kids(node)
+    sep = " " if any(c.get("content") is not None for c in children) else ""
+    return sep.join(_text_of(c) for c in children)
+
+
+# Justification: keeps literal quote/HTML/rule paragraphs raw so they re-parse to themselves.
+def _paragraph_md(content: list) -> str:
+    if len(content) == 1 and content[0].get("type") == "text" and not content[0].get("marks"):
+        text = content[0].get("text")
+        text = text if isinstance(text, str) else ""
+        # A literal paragraph made from a block quote or raw HTML re-parses to itself when emitted as is.
+        if (_RAW_LEAD.match(text) or (_RULE.match(text) and "\n" not in text)) and not _BLANK_LINE.search(text):
+            return text
+    return _inlines(content, lead=True)
+
+
+# Justification: renders a run of inline nodes; flags carry block/cell/list context.
+def _inlines(
+    content: list, *, lead: bool = False, cell: bool = False, task: bool = False, item: bool = False, flat: bool = False
+) -> str:
+    out: list[str] = []
+    for n, node in enumerate(content):
+        first = lead and n == 0
+        out.append(_inline_node(node, first or (item and n == 0 and _RULE.match(_text_of(node)) is not None), cell, task and n == 0, flat))
+    return "".join(out)
+
+
+# Justification: inline dispatch; a hard break is backslash + newline, anything unknown is its text.
+def _inline_node(node: dict, lead: bool, cell: bool, task: bool, flat: bool) -> str:
+    if node.get("type") == "hardBreak":
+        return " " if cell or flat else "\\\n"
+    text = _text_of(node)
+    marks = {m.get("type"): m for m in _list_of(node.get("marks")) if isinstance(m, dict)}
+    if "code" in marks:
+        out = _code_md(text)
+        marks.pop("strong", None)
+        marks.pop("em", None)
+        return _wrap_link(_wrap(out, marks), marks)
+    body = _escape(text, lead=lead and not marks, cell=cell, task=task, flat=flat)
+    return _wrap_link(_wrap(body, marks), marks)
+
+
+# Justification: delimiters must hug non-space text, so edge whitespace moves outside them.
+def _wrap(body: str, marks: dict) -> str:
+    wraps = [d for kind, d in _MARK_WRAP if kind in marks and kind != "code"]
+    if not wraps or not body.strip():
+        return body
+    core = body.strip(" \t")
+    head, tail = body[:len(body) - len(body.lstrip(" \t"))], body[len(core) + len(body) - len(body.lstrip(" \t")):]
+    for d in wraps:
+        core = d + core + d
+    return head + core + tail
+
+
+# Justification: link mark is always the outermost wrapper, so it is applied last.
+def _wrap_link(body: str, marks: dict) -> str:
+    link = marks.get("link")
+    if not link:
+        return body
+    href = str(_attrs(link).get("href", ""))
+    href = re.sub(r"([\\()])", r"\\\1", href).replace(" ", "%20")
+    return f"[{body}]({href})"
+
+
+# Justification: a code span needs a backtick fence longer than any run inside, padded at the edges.
+def _code_md(text: str) -> str:
+    text = text.replace("\n", " ")
+    runs = [len(r) for r in _BACKTICKS.findall(text)]
+    fence = "`" * next(n for n in range(1, len(text) + 3) if n not in runs)
+    pad = " " if text[:1] == "`" or text[-1:] == "`" or (text[:1] == text[-1:] == " " and text.strip()) else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
+
+
+# Justification: escaping is context-aware (flanking) so `snake_case` and `2 * 3` stay unescaped.
+def _escape(text: str, *, lead: bool = False, cell: bool = False, task: bool = False, flat: bool = False) -> str:
+    lines = text.split("\n")
+    out = []
+    for n, line in enumerate(lines):
+        out.append(_escape_line(line, lead=(lead if n == 0 else True), cell=cell, task=task and n == 0))
+    return " ".join(out) if cell or flat else "\\\n".join(out)
+
+
+# Justification: per-line escaping lets each line of a multi-line text re-check block-leading markers.
+def _escape_line(text: str, *, lead: bool, cell: bool, task: bool) -> str:
+    out: list[str] = []
+    skip_to = 0
+    if lead and not (task and _TASK_LEAD.match(text)):
+        digits = re.match(r"\d+", text)
+        if digits and _BLOCK_LEAD.match(text):
+            out.append(digits.group() + "\\")
+            skip_to = digits.end()
+        elif _BLOCK_LEAD.match(text) or text.startswith("~~~") or _RULE.match(text):
+            out.append("\\" + text[0])
+            skip_to = 1
+    n = len(text)
+    i = skip_to
+    while i < n:
+        c = text[i]
+        if c in "*_":
+            j = i
+            while j < n and text[j] == c:
+                j += 1
+            out.append(("\\" + c) * (j - i) if _delimiter(text, i, j, c) else text[i:j])
+            i = j
+            continue
+        if c == "[" and task and i == 0 and _TASK_LEAD.match(text):
+            out.append("[ ] " if text[1] == " " else "[x] ")
+            i = 4
+            continue
+        if c in "\\`[]" or (c == "|" and cell):
+            out.append("\\" + c)
+        elif lead and i == 0 and c == "~" and text.startswith("~~~"):
+            out.append("\\" + c)
+        else:
+            out.append(c)
+        i += 1
+    return "".join(out)
+
+
+# Justification: a run is risky if it could open or close emphasis in any neighbouring context.
+def _delimiter(text: str, i: int, j: int, ch: str) -> bool:
+    prevs = [text[i - 1]] if i else ["", "!"]
+    nexts = [text[j]] if j < len(text) else ["", "!"]
+    return any(any(_flanking(p, q, ch)) for p in prevs for q in nexts)
+
+
+# Justification: fence length is derived from content so no content line can close it early (A5).
+def _code_block(node: dict) -> str:
+    code = "".join(_text_of(c) for c in _kids(node))
+    lang = str(_attrs(node).get("language") or "")
+    if re.search(r"[\s`]", lang):
+        lang = ""
+    longest = max((len(r) for r in _BACKTICKS.findall(code)), default=0)
+    fence = "`" * max(3, longest + 1)
+    return f"{fence}{lang}\n{code}\n{fence}"
+
+
+# Justification: recursion over nested lists with an absolute indent keeps sibling sub-lists apart.
+def _list_lines(node: dict, indent: int) -> list[str]:
+    ordered = node.get("type") == "orderedList"
+    lines: list[str] = []
+    pad = " " * indent
+    for n, item in enumerate(_kids(node), 1):
+        marker = f"{n}." if ordered else "-"
+        texts: list[str] = []
+        children = _kids(item)
+        sublists = [c for c in children if c.get("type") in ("bulletList", "orderedList")]
+        for child in children:
+            if child in sublists:
+                continue
+            if child.get("type") == "paragraph":
+                texts.append(_inlines(_kids(child), task=not texts, item=not texts))
+            else:
+                texts.append(_escape(_text_of(child)))
+        lines.append(f"{pad}{marker} {' '.join(texts)}".rstrip() if texts else f"{pad}{marker}")
+        # Sibling sub-lists of one item must not merge on re-parse: earlier ones sit deeper than later ones.
+        for k, sub in enumerate(sublists):
+            lines += _list_lines(sub, indent + 2 * (len(sublists) - k))
+    return lines
+
+
+# Justification: tables need a header, separator and padded rows; kept apart from block dispatch.
+def _table_md(rows: list) -> str:
+    grid = [[_inlines(_cell_inlines(c), cell=True) for c in _kids(r)] for r in rows]
+    width = max((len(r) for r in grid), default=0)
+    if not width:
+        return ""
+    grid = [r + [""] * (width - len(r)) for r in grid]
+    fmt = lambda r: "| " + " | ".join(r) + " |"  # noqa: E731
+    return "\n".join([fmt(grid[0]), fmt(["---"] * width)] + [fmt(r) for r in grid[1:]])
+
+
+# Justification: a cell holds block children; their inline content is flattened into one line.
+def _cell_inlines(cell: dict) -> list:
+    out: list = []
+    for child in _kids(cell):
+        if out:
+            out.append({"type": "text", "text": " "})
+        out += _kids(child) or [{"type": "text", "text": _text_of(child)}]
+    return out

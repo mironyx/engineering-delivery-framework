@@ -2,7 +2,7 @@
 
 Covers LLD v3 E3.2 §1.1 `describe("md_to_adf")` and invariants A2 (allow-lists), A3 (purity),
 A4 (no input raises) and the md_to_adf half of A5 (code block text and language survive).
-`adf_to_md` and round trips are out of scope here (Task 2).
+Issue #129 appends the `adf_to_md` and round-trip classes (A1, A5, A6) at the end of the file.
 
 The module is pure, so every test calls the public function directly; there is no HTTP or SDK
 boundary to mock. `tests/conftest.py` puts plugins/edf/bin on sys.path.
@@ -17,7 +17,7 @@ import re
 import pytest
 
 import _adf
-from _adf import ALLOWED_MARKS, ALLOWED_NODES, md_to_adf
+from _adf import ALLOWED_MARKS, ALLOWED_NODES, adf_to_md, md_to_adf
 
 ADF_SOURCE = pathlib.Path(_adf.__file__)
 MARK_ORDER = ["link", "strong", "em", "code"]
@@ -601,3 +601,451 @@ class TestUnsafeLinks:
 
     def test_https_link_still_works(self):  # #128
         assert any("link" in marks_of(n) for n in find(md_to_adf("[a](https://x.io)"), "text"))
+
+
+# =========================================================================== adf_to_md (#129)
+#
+# Covers LLD v3 E3.2 §1.1 `describe("adf_to_md")` and `describe("round trip")`, and invariants
+# A1 (stability), A5 (code byte-for-byte) and A6 (fidelity). Escaping is asserted by behaviour
+# (the output re-parses to the same document), not by one particular escape spelling.
+
+
+def adoc(*blocks):
+    return {"version": 1, "type": "doc", "content": list(blocks)}
+
+
+def para(*inline):
+    return {"type": "paragraph", "content": list(inline)}
+
+
+def txt(text, *marks):
+    node = {"type": "text", "text": text}
+    if marks:
+        node["marks"] = [
+            {"type": "link", "attrs": {"href": m[1]}} if isinstance(m, tuple) else {"type": m} for m in marks
+        ]
+    return node
+
+
+def reparse(doc):
+    return md_to_adf(adf_to_md(doc))
+
+
+# Canonical Markdown: adf_to_md(md_to_adf(x)) == x (A6).
+CANONICAL = [
+    "# Title",
+    "## Sub",
+    "###### Six",
+    "Just a paragraph.",
+    "**b** and *i* and `c` and [t](http://x.io/a)",
+    "[**bold link**](http://x.io)",
+    "[`code link`](http://x.io)",
+    "snake_case_name",
+    "2 * 3 * 4",
+    "a_b *c* d_e",
+    "- a\n- b\n  - nested\n- c",
+    "1. one\n2. two\n  1. inner",
+    "- [ ] open\n- [x] done",
+    "- a\n\n1. b",
+    "```python\nprint('x')\n```",
+    "```\nplain\n```",
+    "line one\\\nline two",
+    "# H\n\ntext **b**\n\n- x\n- y\n\n```\ncode\n```",
+]
+
+HOSTILE = [
+    "*", "**", "_", "__", "[", "]", "`", "``", "|", "\\", "a\\b", "trailing\\",
+    "# h", "## h", "#", "- x", "-", "+ x", "* x", "1. x", "1) x", "12. x", "> q", "---", "***", "___",
+    "~~~", "<b>raw</b>", "![i](http://x.io/i.png)", "[a](b)", "[a]", "a [b] c", "a | b", "a|b|c",
+    "*a", "a*", "a * b", "_a", "a_", "snake_case", "a_b_c", "**a", "*a**", "`a", "a`b", "\\*x\\*",
+    "\\# h", "&amp;", "a\\\\b", "| a |", ]
+
+# A text node holding a raw newline is not something md_to_adf emits (soft breaks become a space,
+# hard breaks a hardBreak node), so A1 does not cover it; see TestNewlineInText.
+NEWLINE_TEXT = ["x\n- y", "x\n1. y", "x\n# y"]
+
+
+class TestAdfToMdNullAndEmpty:
+    @pytest.mark.parametrize(
+        "doc",
+        [None, {}, {"type": "doc"}, {"version": 1, "type": "doc", "content": []}, adoc(para())],
+        ids=["none", "empty-dict", "no-content-key", "empty-content", "empty-paragraph"],
+    )
+    def test_null_or_empty_doc_is_an_empty_body(self, doc):  # #129 "treats a null description as an empty body"
+        assert adf_to_md(doc) == ""
+
+    def test_returns_str(self):  # #129
+        assert isinstance(adf_to_md(md_to_adf("hello")), str)
+
+    def test_blank_markdown_round_trips_to_empty(self):  # #129
+        assert adf_to_md(md_to_adf("")) == ""
+
+    def test_block_without_content_key_does_not_raise(self):  # #129 nothing raises on Jira-shaped input
+        assert adf_to_md(adoc({"type": "paragraph"})) == ""
+        assert adf_to_md(adoc({"type": "bulletList"})) == ""
+
+    def test_does_not_mutate_its_input(self):  # #129
+        doc = md_to_adf("# T\n\n- a *b*\n\n```sh\nx\n```")
+        before = repr(doc)
+        adf_to_md(doc)
+        assert repr(doc) == before
+
+
+class TestAdfToMdUnknownNodes:
+    def test_unknown_block_renders_as_its_text_paragraph(self):  # #129 "renders an undocumented node as its text content"
+        panel = {"type": "panel", "attrs": {"panelType": "info"}, "content": [para(txt("note this"))]}
+        assert adf_to_md(adoc(panel)) == "note this"
+
+    def test_unknown_block_sits_between_known_blocks(self):  # #129 story 1.3 AC3
+        panel = {"type": "panel", "content": [para(txt("note"))]}
+        doc = adoc(
+            {"type": "heading", "attrs": {"level": 1}, "content": [txt("H")]}, panel, para(txt("after"))
+        )
+        assert adf_to_md(doc) == "# H\n\nnote\n\nafter"
+
+    def test_unknown_inline_renders_its_text(self):  # #129
+        mention = {"type": "mention", "attrs": {"id": "u1"}, "text": "@bob"}
+        assert adf_to_md(adoc(para(txt("hi "), mention, txt("!")))) == "hi @bob!"
+
+    def test_deeply_nested_unknown_node_keeps_all_text(self):  # #129 "nothing is dropped"
+        deep = {
+            "type": "expand",
+            "content": [{"type": "blockquote", "content": [para(txt("deep"), txt(" text"))]}],
+        }
+        out = adf_to_md(adoc(deep))
+        assert "deep" in out and "text" in out
+
+    def test_unknown_node_without_text_does_not_raise(self):  # #129
+        assert adf_to_md(adoc({"type": "rule"})).strip() == ""
+
+    def test_text_of_unknown_block_is_escaped_like_any_text(self):  # #129 A1 holds for fallbacks
+        panel = {"type": "panel", "content": [para(txt("# not a heading"))]}
+        out = md_to_adf(adf_to_md(adoc(panel)))
+        assert [b["type"] for b in out["content"]] == ["paragraph"]
+        assert text_of(out) == "# not a heading"
+
+
+class TestAdfToMdConstructs:
+    def test_headings_levels_1_to_6(self):  # #129
+        blocks = [{"type": "heading", "attrs": {"level": n}, "content": [txt(f"h{n}")]} for n in range(1, 7)]
+        expected = "\n\n".join("#" * n + f" h{n}" for n in range(1, 7))
+        assert adf_to_md(adoc(*blocks)) == expected
+
+    def test_paragraphs_are_separated_by_one_blank_line(self):  # #129
+        assert adf_to_md(adoc(para(txt("a")), para(txt("b")))) == "a\n\nb"
+
+    def test_no_trailing_newline(self):  # #129 canonical form is exact
+        assert not adf_to_md(md_to_adf("# T\n\ntext")).endswith("\n")
+
+    def test_inline_marks(self):  # #129
+        assert adf_to_md(adoc(para(txt("b", "strong")))) == "**b**"
+        assert adf_to_md(adoc(para(txt("i", "em")))) == "*i*"
+        assert adf_to_md(adoc(para(txt("c", "code")))) == "`c`"
+
+    def test_link_mark(self):  # #129
+        assert adf_to_md(adoc(para(txt("t", ("link", "http://x.io/a"))))) == "[t](http://x.io/a)"
+
+    @pytest.mark.parametrize(
+        "marks, expected",
+        [
+            (["strong", ("link", "http://x.io")], "[**t**](http://x.io)"),
+            ([("link", "http://x.io"), "strong"], "[**t**](http://x.io)"),
+            (["code", ("link", "http://x.io")], "[`t`](http://x.io)"),
+        ],
+    )
+    def test_mark_order_is_link_outermost_regardless_of_input_order(self, marks, expected):  # #129 mark order
+        assert adf_to_md(adoc(para(txt("t", *marks)))) == expected
+
+    @pytest.mark.parametrize(
+        "marks",
+        [["em", "strong"], ["strong", "em"], [("link", "http://x.io"), "em", "strong"], ["em", ("link", "http://x.io"), "strong"]],
+    )
+    def test_marks_render_in_link_strong_em_order(self, marks):  # #129 mark order via the re-parsed document
+        out = reparse(adoc(para(txt("t", *marks))))
+        node = find(out, "text")[0]
+        assert text_of(out) == "t"
+        assert marks_of(node) == [m for m in MARK_ORDER if m in marks_of(node)]
+        assert set(marks_of(node)) == {m if isinstance(m, str) else "link" for m in marks}
+
+    def test_inline_code_containing_backticks_survives(self):  # #129
+        doc = adoc(para(txt("a`b", "code")))
+        assert reparse(doc) == doc
+
+    def test_hard_break(self):  # #129 hardBreak -> backslash + newline
+        doc = adoc(para(txt("one"), {"type": "hardBreak"}, txt("two")))
+        assert adf_to_md(doc) == "one\\\ntwo"
+        assert reparse(doc) == doc
+
+    def test_bullet_list_nested(self):  # #129 two spaces per level
+        md = "- a\n- b\n  - c\n    - d\n- e"
+        assert adf_to_md(md_to_adf(md)) == md
+
+    def test_ordered_list_is_numbered_sequentially(self):  # #129
+        item = lambda t: {"type": "listItem", "content": [para(txt(t))]}  # noqa: E731
+        doc = adoc({"type": "orderedList", "content": [item("a"), item("b"), item("c")]})
+        assert adf_to_md(doc) == "1. a\n2. b\n3. c"
+
+    def test_mixed_nested_lists_round_trip(self):  # #129
+        md = "1. one\n  - sub\n  - sub2\n2. two"
+        doc = md_to_adf(md)
+        assert reparse(doc) == doc
+
+    def test_list_item_with_marks_and_links(self):  # #129
+        md = "- **b** [t](http://x.io) `c`"
+        assert adf_to_md(md_to_adf(md)) == md
+
+    def test_task_checkboxes_stay_literal_text(self):  # #129 Open question 1
+        assert adf_to_md(md_to_adf("- [ ] open\n- [x] done")) == "- [ ] open\n- [x] done"
+
+    def test_table_round_trips_structure(self):  # #129
+        doc = md_to_adf("| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |")
+        out = reparse(doc)
+        assert out == doc
+        assert [n["type"] for n in find(out, "tableHeader")] == ["tableHeader"] * 2
+        assert len(find(out, "tableCell")) == 4
+
+    def test_table_output_is_gfm_pipe_table(self):  # #129
+        lines = adf_to_md(md_to_adf("| a | b |\n|---|---|\n| 1 | 2 |")).split("\n")
+        assert len(lines) == 3
+        assert all(line.startswith("|") and line.endswith("|") for line in lines)
+        assert re.fullmatch(r"\|(\s*:?-+:?\s*\|)+", lines[1])
+
+    def test_table_cell_pipe_is_escaped(self):  # #129 "table incl. escaped pipes"
+        doc = md_to_adf("| a | b |\n|---|---|\n| x \\| y | 2 |")
+        assert "x | y" in text_of(doc)
+        out = adf_to_md(doc)
+        assert "\\|" in out
+        assert reparse(doc) == doc
+
+    def test_table_cell_with_marks_and_links(self):  # #129
+        doc = md_to_adf("| **a** | [l](http://x.io) |\n|---|---|\n| `c` | *e* |")
+        assert reparse(doc) == doc
+
+    def test_ragged_table_padded_cells_round_trip(self):  # #129
+        doc = md_to_adf("| a | b | c |\n|---|---|---|\n| 1 |")
+        assert reparse(doc) == doc
+
+    def test_pipe_outside_a_table_is_left_alone(self):  # #129 pipe escaped only inside cells
+        assert adf_to_md(adoc(para(txt("a | b")))) == "a | b"
+
+
+class TestAdfToMdEscaping:
+    @pytest.mark.parametrize("text", HOSTILE, ids=[repr(t) for t in HOSTILE])
+    def test_plain_text_paragraph_reparses_to_same_text(self, text):  # #129 "escapes markdown specials in text nodes"
+        doc = adoc(para(txt(text)))
+        assert reparse(doc) == doc
+
+    @pytest.mark.parametrize("text", ["# h", "- x", "+ x", "1. x", "*a*", "[a](b)", "`c`", "**b**"])
+    def test_specials_are_not_emitted_raw(self, text):  # #129 escaping actually happens
+        assert adf_to_md(adoc(para(txt(text)))) != text
+
+    @pytest.mark.parametrize("text", ["# h", "- x", "+ x", "1. x", "---", "> q"])
+    def test_block_leading_special_does_not_change_block_type(self, text):  # #129
+        out = reparse(adoc(para(txt(text))))
+        assert [b["type"] for b in out["content"]] == ["paragraph"]
+        assert text_of(out) == text
+
+    @pytest.mark.parametrize("text", HOSTILE, ids=[repr(t) for t in HOSTILE])
+    def test_hostile_text_inside_a_heading(self, text):  # #129
+        doc = adoc({"type": "heading", "attrs": {"level": 2}, "content": [txt(text)]})
+        assert reparse(doc) == doc
+
+    @pytest.mark.parametrize("text", HOSTILE, ids=[repr(t) for t in HOSTILE])
+    def test_hostile_text_inside_a_list_item(self, text):  # #129
+        item = {"type": "listItem", "content": [para(txt(text))]}
+        doc = adoc({"type": "bulletList", "content": [item]})
+        assert reparse(doc) == doc
+
+    @pytest.mark.parametrize("text", HOSTILE, ids=[repr(t) for t in HOSTILE])
+    def test_hostile_text_inside_a_table_cell(self, text):  # #129
+        cell = lambda kind, t: {"type": kind, "content": [para(txt(t))]}  # noqa: E731
+        row = lambda kind: {"type": "tableRow", "content": [cell(kind, text), cell(kind, "z")]}  # noqa: E731
+        doc = adoc({"type": "table", "content": [row("tableHeader"), row("tableCell")]})
+        assert reparse(doc) == doc
+
+    @pytest.mark.parametrize("text", HOSTILE, ids=[repr(t) for t in HOSTILE])
+    def test_hostile_text_with_marks(self, text):  # #129
+        for marks in (["strong"], ["em"], [("link", "http://x.io")]):
+            doc = adoc(para(txt("pre "), txt(text, *marks), txt(" post")))
+            assert text_of(reparse(doc)) == text_of(doc)
+
+    @pytest.mark.parametrize("text", HOSTILE, ids=[repr(t) for t in HOSTILE])
+    def test_hostile_text_never_gains_marks_or_structure(self, text):  # #129
+        out = reparse(adoc(para(txt(text))))
+        assert not any(marks_of(n) for n in find(out, "text"))
+        assert not find(out, "bulletList") and not find(out, "orderedList") and not find(out, "heading")
+
+    def test_identifiers_with_underscores_are_not_mangled(self):  # #129 A6
+        assert adf_to_md(adoc(para(txt("snake_case_name")))) == "snake_case_name"
+
+    def test_spaced_asterisks_are_not_mangled(self):  # #129 A6
+        assert adf_to_md(adoc(para(txt("2 * 3 * 4")))) == "2 * 3 * 4"
+
+
+class TestNewlineInText:
+    @pytest.mark.parametrize("text", NEWLINE_TEXT, ids=[repr(t) for t in NEWLINE_TEXT])
+    def test_newline_in_text_keeps_lines_and_gains_no_structure(self, text):  # #129 foreign docs
+        out = reparse(adoc(para(txt(text))))
+        assert [b["type"] for b in out["content"]] == ["paragraph"]
+        assert text_of(out) == text  # hardBreak counts as "\n" in text_of
+
+    @pytest.mark.parametrize("text", NEWLINE_TEXT, ids=[repr(t) for t in NEWLINE_TEXT])
+    def test_newline_in_text_survives_in_heading_list_and_cell(self, text):  # #129 foreign docs
+        item = {"type": "listItem", "content": [para(txt(text))]}
+        cell = {"type": "tableCell", "content": [para(txt(text))]}
+        head = {"type": "tableHeader", "content": [para(txt("h"))]}
+        doc = adoc(
+            {"type": "heading", "attrs": {"level": 2}, "content": [txt(text)]},
+            {"type": "bulletList", "content": [item]},
+            {"type": "table", "content": [{"type": "tableRow", "content": [head]}, {"type": "tableRow", "content": [cell]}]},
+        )
+        out = reparse(doc)
+        assert [b["type"] for b in out["content"]] == ["heading", "bulletList", "table"]
+        assert text_of(out["content"][0]) == text.replace("\n", " ")  # a heading is one line
+
+
+class TestFidelityA6:
+    @pytest.mark.parametrize("md", CANONICAL, ids=[m.split("\n")[0][:40] for m in CANONICAL])
+    def test_canonical_corpus_is_reproduced_exactly(self, md):  # #129 A6 adf_to_md(md_to_adf(x)) == x
+        assert adf_to_md(md_to_adf(md)) == md
+
+    def test_a6_underscore_identifier_gets_no_emphasis(self):  # #129 A6
+        doc = md_to_adf("snake_case_name")
+        assert marked("snake_case_name") == [("snake_case_name", [])]
+        assert adf_to_md(doc) == "snake_case_name"
+
+    def test_a6_mixed_underscore_and_star_emphasis(self):  # #129 A6 `a_b *c* d_e`
+        assert marked("a_b *c* d_e") == [("a_b ", []), ("c", ["em"]), (" d_e", [])]
+        assert adf_to_md(md_to_adf("a_b *c* d_e")) == "a_b *c* d_e"
+
+    def test_soft_wrapped_text_comes_back_on_one_line(self):  # #129 documented normalisation
+        assert adf_to_md(md_to_adf("line one\nline two")) == "line one line two"
+
+    def test_underscore_emphasis_comes_back_as_same_emphasis(self):  # #129 `_i_` is em either way
+        doc = md_to_adf("_i_ word")
+        assert reparse(doc) == doc
+        assert marked("_i_ word")[0] == ("i", ["em"])
+
+
+class TestCodeBlocksA5:
+    def test_simple_fence_exact(self):  # #129 A5
+        assert adf_to_md(md_to_adf("```python\nprint('x')\n```")) == "```python\nprint('x')\n```"
+
+    def test_language_survives(self):  # #129 A5
+        out = reparse(adoc({"type": "codeBlock", "attrs": {"language": "rust"}, "content": [txt("fn main() {}")]}))
+        assert out["content"][0]["attrs"]["language"] == "rust"
+
+    def test_no_language_stays_without_language(self):  # #129 A5
+        out = reparse(adoc({"type": "codeBlock", "content": [txt("x")]}))
+        assert not out["content"][0].get("attrs", {}).get("language")
+
+    def test_backticks_tabs_and_trailing_blank_line_survive(self):  # #129 A5
+        code = "```\n\tindented\t\n  two spaces\n\n"
+        doc = adoc({"type": "codeBlock", "attrs": {"language": "sh"}, "content": [txt(code)]})
+        out = reparse(doc)
+        block = out["content"][0]
+        assert block["type"] == "codeBlock"
+        assert text_of(block) == code
+        assert block["attrs"]["language"] == "sh"
+
+    def test_trailing_blank_line_from_markdown_survives(self):  # #129 A5 starting from Markdown
+        src = "```py\na\n\n```"
+        first = md_to_adf(src)
+        assert text_of(first) == "a\n"
+        assert text_of(reparse(first)) == "a\n"
+
+    def test_fence_is_longer_than_longest_backtick_run(self):  # #129 LLD fenced code rule
+        code = "a\n````\nb"
+        out = adf_to_md(adoc({"type": "codeBlock", "content": [txt(code)]}))
+        first = out.split("\n")[0]
+        assert set(first) == {"`"} and len(first) >= 5
+        assert code in out
+
+    @pytest.mark.parametrize("code", ["`", "``", "```", "a ``` b", "````\n```", "~~~", "\n\n", "\t", " x ", "x\\", "**b** [a](b) _c_"])
+    def test_code_text_is_byte_for_byte(self, code):  # #129 A5
+        doc = adoc({"type": "codeBlock", "attrs": {"language": "txt"}, "content": [txt(code)]})
+        out = reparse(doc)
+        assert len(out["content"]) == 1 and out["content"][0]["type"] == "codeBlock"
+        assert text_of(out["content"][0]) == code
+        assert out["content"][0]["attrs"]["language"] == "txt"
+
+    def test_empty_code_block_survives(self):  # #129 A5 edge
+        doc = adoc({"type": "codeBlock", "content": []})
+        out = reparse(doc)
+        assert out["content"][0]["type"] == "codeBlock"
+        assert text_of(out["content"][0]) == ""
+
+    def test_code_inside_list_context_does_not_leak(self):  # #129
+        md = "- a\n\n```\nx\n```"
+        doc = md_to_adf(md)
+        assert reparse(doc) == doc
+
+    def test_code_content_is_never_escaped(self):  # #129 A5
+        out = adf_to_md(adoc({"type": "codeBlock", "content": [txt("*a* _b_ [c](d) # e | f")]}))
+        assert "*a* _b_ [c](d) # e | f" in out
+
+
+class TestRoundTripA1:
+    @pytest.mark.parametrize("name", sorted(CORPUS))
+    def test_second_round_trip_is_stable_for_each_construct(self, name):  # #129 A1
+        first = md_to_adf(CORPUS[name])
+        assert md_to_adf(adf_to_md(first)) == first
+
+    @pytest.mark.parametrize("name", sorted(CORPUS))
+    def test_markdown_is_a_fixed_point_after_one_pass(self, name):  # #129 A1 (text form)
+        once = adf_to_md(md_to_adf(CORPUS[name]))
+        assert adf_to_md(md_to_adf(once)) == once
+
+    def test_whole_subset_in_one_document(self):  # #129 "is stable for the whole supported subset"
+        src = "\n\n".join(CORPUS.values())
+        first = md_to_adf(src)
+        assert md_to_adf(adf_to_md(first)) == first
+
+    @pytest.mark.parametrize("text", HOSTILE, ids=[repr(t) for t in HOSTILE])
+    def test_hostile_text_as_markdown_input_is_stable(self, text):  # #129 A1 "for any x"
+        first = md_to_adf(text)
+        assert md_to_adf(adf_to_md(first)) == first
+
+    @pytest.mark.parametrize("text", HOSTILE, ids=[repr(t) for t in HOSTILE])
+    def test_hostile_text_in_larger_markdown_is_stable(self, text):  # #129 A1
+        src = f"# {text}\n\n- {text}\n  - {text}\n\n1. {text}\n\n| {text} | b |\n|---|---|\n| c | {text} |\n\n{text}"
+        first = md_to_adf(src)
+        assert md_to_adf(adf_to_md(first)) == first
+
+    @pytest.mark.parametrize("src", MALFORMED)
+    def test_malformed_input_is_stable(self, src):  # #129 A1 + A4 together
+        first = md_to_adf(src)
+        assert md_to_adf(adf_to_md(first)) == first
+
+    def test_unsupported_constructs_survive_as_text(self):  # #129 story 1.2 / 1.3 AC4
+        for src in ("<div>raw <b>html</b></div>", "> quoted\n> text", "---", "![alt](http://x.io/i.png)"):
+            first = md_to_adf(src)
+            assert text_of(reparse(first)) == text_of(first)
+
+    def test_adf_to_md_output_only_reparses_to_allowed_nodes(self):  # #129 A2 through the round trip
+        for src in CORPUS.values():
+            for node in walk(reparse(md_to_adf(src))):
+                assert node["type"] in ALLOWED_NODES
+                for mark in node.get("marks", []) or []:
+                    assert mark["type"] in ALLOWED_MARKS
+
+
+class TestAdfToMdOddInput:
+    def test_non_numeric_heading_level_and_none_child_do_not_raise(self):  # #129 evaluator risk
+        doc = adoc({"type": "heading", "attrs": {"level": "x"}, "content": [txt("h")]}, None)
+        assert adf_to_md(doc) == "# h"
+
+    @pytest.mark.parametrize(
+        "doc",
+        [
+            adoc({"type": "table", "content": [{"type": "tableRow", "content": [{"type": "tableCell", "content": [para(None)]}]}]}),
+            adoc(para({"type": "text", "text": "a", "marks": 5})),
+            adoc(para({"type": "text", "text": "a", "marks": [{"type": "link", "attrs": "x"}]})),
+            adoc({"type": "heading", "attrs": "x", "content": [txt("h")]}),
+            adoc({"type": "codeBlock", "attrs": [1], "content": [txt("c")]}),
+            adoc(para({"type": "text", "text": None})),
+        ],
+        ids=["cell-none", "marks-int", "link-attrs-str", "heading-attrs-str", "code-attrs-list", "text-none"],
+    )
+    def test_wrong_typed_fields_never_raise(self, doc):  # #129 review: nothing raises
+        assert isinstance(adf_to_md(doc), str)
