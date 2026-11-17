@@ -17,6 +17,7 @@
 | ADRs | [ADR-0041](../../adr/0041-tracker-abstraction.md), [ADR-0018](../../adr/0018-epic-task-organisation.md), [ADR-0037](../../adr/0037-incremental-session-logging.md) |
 | Depends on | [lld-v3-e3-1-tracker-script.md](lld-v3-e3-1-tracker-script.md) (contract, dispatch), [lld-v3-e3-2-jira-backend.md](lld-v3-e3-2-jira-backend.md) (Jira ACs verified after it) |
 | Epic id | `v3-e3-3` |
+| Revised | 2026-11-17 — Issue #143: §1.1 resolver signatures and internal decomposition |
 
 ---
 
@@ -428,10 +429,12 @@ tests/
 
 ```python
 # _feature_id.py
+def main_checkout_root() -> pathlib.Path: ...                   # parent of the common .git dir; TrackerError outside git
 def derive_feature_prefix(root: pathlib.Path) -> str: ...      # moved verbatim from tag-session.py
 def resolve_feature_id(ref: str, root: pathlib.Path) -> str:
-    """Jira: the key, upper-cased — accepts exactly what `_tracker_jira._parse_ref` accepts (a test
-    compares sample refs, e.g. 'scrum-42', against it). GitHub: f"{prefix}-{digits}" from '#87' or '87'.
+    """Jira: the key, upper-cased — any `KEY-n` shape. The resolver never reads Jira settings, so it
+    cannot check the space; the backend does that on first use. A test compares sample refs, e.g.
+    'scrum-42', against `_tracker_jira._parse_ref`. GitHub: f"{prefix}-{digits}" from '#87' or '87'.
     Raises TrackerError on a ref of the wrong shape for the active backend."""
 def issue_reference_lines(refs: list[str], root: pathlib.Path) -> str:
     """Jira: 'Jira: KEY' per ref. GitHub: 'Closes #N' per ref (bare or '#'-prefixed input)."""
@@ -446,7 +449,8 @@ def active_backend(env_root: pathlib.Path) -> str:
 
 #### Internal decomposition
 
-- `tag-session.py`: delete `derive_feature_prefix`; `feature_id = resolve_feature_id(args.issue, root)`. `issue` stays positional but is a ref string. `find_session_jsonl` search terms become `{feature_id}` plus `f"issue #{n}"` on GitHub only (Jira teammate prompts say `issue SCRUM-42`, which `feature_id` already matches).
+- `tag-session.py` and `append-checkpoint.py`: delete their `git_root()` copies and use `_feature_id.main_checkout_root()`. `query-feature-cost.py` keeps its own `git_root()` and takes only the prefix from `_feature_id.derive_feature_prefix` (its `--issue` stays an int until Task 6).
+- `tag-session.py`: delete `derive_feature_prefix`; `feature_id = resolve_feature_id(args.issue, root)`. `issue` stays positional but is a ref string. `find_session_jsonl(claude_dir, feature_id, issue_number)` searches `{feature_id}` plus `f"issue #{n}"` when `issue_number` (a GitHub number) is given (Jira teammate prompts say `issue SCRUM-42`, which `feature_id` already matches).
 - `append-checkpoint.py`: delete its copy; `--issue` loses `type=int`; log lookup and the Prometheus query use `resolve_feature_id`.
 - `create-feature-pr.sh`: replace lines 72–84 with `FEATURE_ID=$(… feature-id.py id "$ISSUE")` and `CLOSES_LINES=$(… feature-id.py reference-lines "${ISSUES[@]}")` (variable renamed `ISSUE_LINES`). `--issue` accepts opaque refs; no integer check.
 

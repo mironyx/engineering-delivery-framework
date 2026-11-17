@@ -38,35 +38,6 @@ class TestDeriveProjectKey:
         assert key == "-mnt-c-projects-app"
 
 
-# ── derive_feature_prefix ────────────────────────────────────────────────────
-
-
-class TestDeriveFeaturePrefix:
-    def test_from_env(self, monkeypatch):
-        monkeypatch.setenv("EDF_FEATURE_PREFIX", "CUSTOM")
-        root = pathlib.Path("/tmp/test-project")
-        prefix = tag_session.derive_feature_prefix(root)
-        assert prefix == "CUSTOM"
-
-    def test_from_dotenv(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("EDF_FEATURE_PREFIX", raising=False)
-        (tmp_path / ".env").write_text("EDF_FEATURE_PREFIX=FROMFILE\n")
-        prefix = tag_session.derive_feature_prefix(tmp_path)
-        assert prefix == "FROMFILE"
-
-    def test_derive_from_multi_word_repo(self, monkeypatch):
-        monkeypatch.delenv("EDF_FEATURE_PREFIX", raising=False)
-        root = pathlib.Path("/tmp/engineering-delivery-framework")
-        prefix = tag_session.derive_feature_prefix(root)
-        assert prefix == "EDF"
-
-    def test_derive_single_word(self, monkeypatch):
-        monkeypatch.delenv("EDF_FEATURE_PREFIX", raising=False)
-        root = pathlib.Path("/tmp/myproject")
-        prefix = tag_session.derive_feature_prefix(root)
-        assert prefix == "MYPROJECT"
-
-
 # ── _edf_env.read_dotenv ─────────────────────────────────────────────────────
 # (moved from tag-session._read_dotenv to shared _edf_env module)
 

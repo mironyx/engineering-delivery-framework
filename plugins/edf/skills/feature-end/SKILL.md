@@ -72,8 +72,8 @@ If no argument was provided (original behaviour):
 
 In both cases:
 - Extract the **base branch**, **PR number**, and **URL**.
-- Find the associated issue number from the PR body (look for `Closes #N` or `#N` references).
-- Derive the feature ID: `FEATURE_ID="${EDF_FEATURE_PREFIX}-<issue-number>"`. Read `EDF_FEATURE_PREFIX` from `.env`.
+- Find the associated issue ref from the PR body (look for `Closes #N`, `Jira: KEY` or `#N` references).
+- Derive the feature ID: `FEATURE_ID=$(bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/feature-id.py id <issue-ref>)`.
 - **Check review status:** `gh pr view <number> --json reviewDecision --jq .reviewDecision`. If the result is `CHANGES_REQUESTED`, stop and report per the Blocker policy. (Empty/null or `APPROVED` are fine — repos without required reviews will return empty.)
 - Read the latest session log in `docs/sessions/` (search recursively — session logs are organised in `YYYY-MM/` monthly folders per ADR-0036). **Skip this in crash recovery mode** (`OLD_SESSION_ID` set) — the JSONL read in Step 2 provides the implementation history instead.
 

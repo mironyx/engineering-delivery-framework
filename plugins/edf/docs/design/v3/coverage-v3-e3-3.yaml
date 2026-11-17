@@ -17,8 +17,15 @@ entries:
   - req: REQ-pipeline-on-jira-jira-references-in-prs-and-logs
     lld: lld-v3-e3-3-pipeline-call-sites.md#LLD-v3-e3-3-feature-identity
     issue: 143
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/bin/_feature_id.py
+      - plugins/edf/bin/feature-id.py
+      - plugins/edf/bin/tracker.py
+      - plugins/edf/bin/tag-session.py
+      - plugins/edf/bin/append-checkpoint.py
+      - plugins/edf/bin/query-feature-cost.py
+      - plugins/edf/bin/create-feature-pr.sh
+    status: Revised
     lld_revision: r1
     # Story 2.2 AC1-AC3, AC6 here (also #148, #149) (identity, log name, PR body). AC4/AC5 (close only after merge)
     # are /feature-end call-site behaviour in #LLD-v3-e3-3-call-site-migration; Jira close mechanics: E3.2.

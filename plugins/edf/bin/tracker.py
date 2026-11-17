@@ -183,6 +183,11 @@ def _resolve_context(env_root: pathlib.Path, repo_root: pathlib.Path | None) -> 
     return TrackerContext(env_root, repo_root, "jira", jira)
 
 
+def active_backend(env_root: pathlib.Path) -> str:
+    """'github' | 'jira' — what `tracker.py tracker` prints: same validation, no network."""
+    return _resolve_context(env_root, None).tracker
+
+
 def _load_backend(name: str) -> ModuleType:
     return importlib.import_module(_BACKENDS[name])
 
