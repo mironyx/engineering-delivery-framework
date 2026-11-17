@@ -15,6 +15,9 @@
 | 5 | 2026-11-17T09:19:28Z | $0.82 | 5,738 in / 18,205 out | green on attempt 2 (python3 -m pytest; e2e skip; audit skipped, uv missing) [models: claude-sonnet-5-5 $0.82, claude-haiku-5-5 $0.00] |
 | 6 | 2026-11-17T09:19:28Z | $0.82 | 5,738 in / 18,205 out | diag unavailable (uv missing); justification ok; HTTP mocking check n/a (fake_jira) [models: claude-sonnet-5-5 $0.82, claude-haiku-5-5 $0.00] |
 | 6b | 2026-11-17T09:20:10Z | $0.97 | 6,899 in / 21,212 out | evaluator: PASS WITH WARNINGS (0 adversarial tests; 2 silent risks logged) — brief: used as-is [models: claude-sonnet-5-5 $0.97, claude-haiku-5-5 $0.00] |
+| 8 | 2026-11-17T09:20:32Z | $0.99 | 6,903 in / 22,092 out | [PR #141](https://github.com/mironyx/engineering-delivery-framework/pull/141) [models: claude-sonnet-5-5 $0.99, claude-haiku-5-5 $0.00] |
+| 9 | 2026-11-17T09:20:57Z | $1.23 | 6,920 in / 24,902 out | review clean (0 findings) [models: claude-sonnet-5-5 $1.23, claude-haiku-5-5 $0.00] |
+| 10 | 2026-11-17T09:20:58Z | $1.23 | 6,920 in / 24,902 out | report done; ci: none (no workflow run for head); PR marked ready [models: claude-sonnet-5-5 $1.23, claude-haiku-5-5 $0.00] |
 
 ## Concerns & Deferred Items
 - `edf:test-author` agent type is not registered in this session ("Agent type not found"); ran a `general-purpose` agent instructed to follow `agents/test-author.md` instead. Same stand-in planned for `edf:feature-evaluator` if it is also unregistered.
