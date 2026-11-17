@@ -1,0 +1,29 @@
+epic: v3-e3-3
+entries:
+  - req: REQ-pipeline-on-jira-native-epics
+    lld: lld-v3-e3-3-pipeline-call-sites.md#LLD-v3-e3-3-epic-progress
+    issue: 144
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 2.1 AC1-AC4 (also #149, #145). Primary: epic progress (AC2). AC1 and AC3 are call-site behaviour in
+    # #LLD-v3-e3-3-call-site-migration; AC4 (GitHub checkbox) is unchanged E3.1 behaviour.
+    # Jira ACs verified after E3.2. Task 2 also revises Story 1.3 AC1 (eighth key: child_statuses).
+
+  - req: REQ-pipeline-on-jira-jira-references-in-prs-and-logs
+    lld: lld-v3-e3-3-pipeline-call-sites.md#LLD-v3-e3-3-feature-identity
+    issue: 143
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 2.2 AC1-AC3, AC6 here (also #148, #149) (identity, log name, PR body). AC4/AC5 (close only after merge)
+    # are /feature-end call-site behaviour in #LLD-v3-e3-3-call-site-migration; Jira close mechanics: E3.2.
+
+  - req: REQ-pipeline-on-jira-route-all-issue-calls-through-tracker-script
+    lld: lld-v3-e3-3-pipeline-call-sites.md#LLD-v3-e3-3-call-site-migration
+    issue: 145
+    files: []
+    status: Approved
+    lld_revision: r1
+    # Story 2.3 also #146, #147, #149. AC1 is satisfied only by Task 8 (#150) (#LLD-v3-e3-3-guard-and-shims); AC2-AC7 by #145-#149.
+    # End-to-end ACs are checked by the manual /qa run on SCRUM.
