@@ -179,7 +179,7 @@ Step 3b handles `lld_revision` and `status` for both cases.
 
 ### Step 3d (refactor mode only): Refactor LLD lifecycle at epic close
 
-If the issue is in refactor mode AND its parent epic (per `## Parent epic` in the body, or via `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <epic-ref>`) has `epic` + (`kind:refactor` or `kind:lld-sweep`) labels AND **the parent epic's task checklist is now fully closed** (every ref in the epic's `children` has status `done` in `tracker.py list --status done`), handle refactor LLD retirement per the cross-cutting-refactor-lld-discipline ADR §"Refactor LLD lifecycle". Otherwise (epic still has open tasks), skip this step.
+If the issue is in refactor mode AND its parent epic (per `## Parent epic` in the body, or via `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py view <epic-ref>`) has `epic` + (`kind:refactor` or `kind:lld-sweep`) labels AND **the parent epic's task checklist is now fully closed** (`bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/epic-progress.py <epic-ref> --remaining` prints nothing), handle refactor LLD retirement per the cross-cutting-refactor-lld-discipline ADR §"Refactor LLD lifecycle". Otherwise (epic still has open tasks), skip this step.
 
 If retirement applies:
 

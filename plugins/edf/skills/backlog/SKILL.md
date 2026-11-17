@@ -33,7 +33,7 @@ Read broadly. Do not cap inputs arbitrarily — if a file is relevant, read it.
 - `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list` — every open issue with ref, title, labels, body, status and parent (bodies are needed for acceptance-criteria checks). The `status` field is the board column on GitHub and the workflow status on Jira. Refs are opaque (`#123`, `SCRUM-123`) — report them as given, never as integers.
 - `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status todo` — the Todo queue, in rank order.
 - `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status done` — recent closes, to compute "progress since last grooming".
-- For an epic, `tracker.py view <epic-ref>` — its `children` lists the tasks; match them against the `list` output for status.
+- For an epic, `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/epic-progress.py <epic-ref>` — prints `N of M done` and each child's status; add `--remaining` to list only the children that are not done.
 
 **Requirements — read ALL files in `docs/requirements/`**, not just the current version. Include:
 - Current version (e.g. `v1-requirements.md`).

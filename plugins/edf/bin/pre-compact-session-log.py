@@ -21,6 +21,8 @@ import sys
 from collections import Counter
 from datetime import datetime
 
+import _edf_env
+
 
 # ---------------------------------------------------------------------------
 # JSONL parsing helpers
@@ -402,7 +404,7 @@ def main() -> None:
     # falling back to event.cwd for non-worktree sessions.
     project_root = facts.get("project_root") or cwd
     root = pathlib.Path(project_root)
-    if not (root / "docs" / "sessions").exists():
+    if not (root / _edf_env.docs_dir(root) / "sessions").exists():
         return  # Not a project with session logs — skip silently
 
     section = render_section(facts, session_id, compact_time)

@@ -997,6 +997,20 @@ class TestParkDocs:
         assert run("show", "origin/main:docs/lld.md").stdout == "v2 synced\n"
         assert "#7" in run("log", "-1", "--format=%s", "origin/main").stdout
 
+    def test_docs_dir_from_dotenv_is_parked_instead_of_root_docs(self, tmp_path):
+        repo, run = self._repos(tmp_path)
+        (repo / ".env").write_text("EDF_DOCS_DIR=plugins/x/docs\n")
+        run("checkout", "-qb", "feat")
+        (repo / "plugins" / "x" / "docs" / "sessions").mkdir(parents=True)
+        (repo / "plugins" / "x" / "docs" / "sessions" / "log-EDF-7.md").write_text("log\n")
+        (repo / "docs" / "lld.md").write_text("root docs edit\n")
+
+        parked = _bash(BIN_DIR / "park-docs.sh", "park", "7", cwd=repo)
+        assert parked.returncode == 0, parked.stderr
+        assert parked.stdout.startswith("park: parked 1")  # only the configured dir
+        assert not (repo / "plugins" / "x" / "docs" / "sessions" / "log-EDF-7.md").exists()
+        assert "docs/lld.md" in run("status", "--porcelain").stdout  # root docs/ untouched
+
     def test_land_does_not_pick_another_issues_stash(self, tmp_path):
         repo, run = self._repos(tmp_path)
         (repo / "docs" / "lld.md").write_text("for 71\n")

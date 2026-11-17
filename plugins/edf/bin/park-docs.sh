@@ -7,7 +7,7 @@
 # head that merges is not the head CI verified.
 #
 # Usage:
-#   park-docs.sh park <issue>   # stash uncommitted docs/ and kb/ changes (incl. untracked)
+#   park-docs.sh park <issue>   # stash uncommitted docs-dir and kb/ changes (incl. untracked)
 #   park-docs.sh land <issue>   # on the up-to-date base branch: restore, commit all docs/ and kb/
 #                               # changes (incl. post-merge manifest/kb edits), push
 #
@@ -22,7 +22,15 @@ if [[ -z "$MODE" || -z "$ISSUE" || ! "$ISSUE" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 TAG="edf-docs-${ISSUE}"
-PATHS=(docs kb)
+# Docs dir: $EDF_DOCS_DIR, then .env in the main checkout, then `docs` (see _edf_env.docs_dir).
+MAIN_ROOT="$(dirname "$(git rev-parse --git-common-dir 2>/dev/null)")"
+DOCS_DIR="${EDF_DOCS_DIR:-}"
+if [[ -z "$DOCS_DIR" && -f "$MAIN_ROOT/.env" ]]; then
+  DOCS_DIR="$(grep -E '^EDF_DOCS_DIR=' "$MAIN_ROOT/.env" | tail -1 | cut -d= -f2- | tr -d "\"'" | tr -d '\r')"
+fi
+DOCS_DIR="${DOCS_DIR:-docs}"
+DOCS_DIR="${DOCS_DIR#/}"; DOCS_DIR="${DOCS_DIR%/}"
+PATHS=("$DOCS_DIR" kb)
 
 find_stash() {
   git stash list --format='%gd %s' | awk -v tag="$TAG" '$0 ~ (": " tag "$") {print $1; exit}'

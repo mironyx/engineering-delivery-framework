@@ -172,3 +172,33 @@ def test_missing_log_for_issue_fails_loudly(tmp_path):
     )
     assert result.returncode == 1
     assert "Session log not found" in result.stderr
+
+
+def test_docs_dir_override_finds_log_outside_root_docs(tmp_path):
+    """EDF_DOCS_DIR points find_session_log at a non-default docs directory."""
+    sys.path.insert(0, str(BIN_DIR))
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("append_checkpoint", BIN_DIR / "append-checkpoint.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        import _edf_env
+    finally:
+        sys.path.remove(str(BIN_DIR))
+    log = tmp_path / "plugins" / "x" / "docs" / "sessions" / "2026-11" / "2026-11-17-session-1-a-EDF-9.md"
+    log.parent.mkdir(parents=True)
+    log.write_text("# s\n", encoding="utf-8")
+    (tmp_path / ".env").write_text("EDF_DOCS_DIR=plugins/x/docs/\n", encoding="utf-8")
+    assert _edf_env.docs_dir(tmp_path) == "plugins/x/docs"
+    assert mod.find_session_log(tmp_path, "EDF-9") is None
+    assert mod.find_session_log(tmp_path, "EDF-9", _edf_env.docs_dir(tmp_path)) == log
+
+
+def test_docs_dir_defaults_to_docs(tmp_path, monkeypatch):
+    sys.path.insert(0, str(BIN_DIR))
+    try:
+        import _edf_env
+    finally:
+        sys.path.remove(str(BIN_DIR))
+    monkeypatch.delenv("EDF_DOCS_DIR", raising=False)
+    assert _edf_env.docs_dir(tmp_path) == "docs"
