@@ -20,7 +20,7 @@ entries:
     issue: 132
     files:
       - plugins/edf/bin/_tracker_jira.py
-    status: Implemented
+    status: Revised
     lld_revision: r1
     # Story 1.2 Jira AC1-AC6, AC7 (dry-run), AC8 (JQL escaping).
 

@@ -24,3 +24,52 @@
 - Test fix (#133): `test_status_filter_in_code_still_fills_the_cap` misread V3 (In Review→in progress, so all 120 matched); reworked to 250 mixed issues expecting the 100 cap. Assertion intent unchanged.
 - `uv` missing: Step 5 full suite run as `python3 -m pytest tests` (1868 passed); `run-lint.sh`, `edf:diag` and audit could not run. Old stub-dispatch tests for view/list in `tests/test_tracker.py` and `tests/test_jira_client.py` repointed to still-stubbed ops (as #132 did for create).
 - Evaluator (PASS WITH WARNINGS, 0 adversarial tests): `_tracker_jira.py` `_search_all` 20-page guard silently truncates a very selective `--status` list (LLD's own guard); `list_issues` treats an issue with missing `fields` as an empty `todo` where `view` errors. Both accepted/deferred.
+
+## Work completed
+- [PR #141](https://github.com/mironyx/engineering-delivery-framework/pull/141): Jira `view` and `list` in `plugins/edf/bin/_tracker_jira.py` (`_status_of`, `_to_issue`, `_FIELDS`, `_STATUS_NAMES`).
+- `_search_all` now returns issue dicts; `_find_open_by_title` takes the key from the first.
+- 38 new tests in `tests/test_tracker_jira.py`; two stub-dispatch tests repointed to still-stubbed ops.
+
+## Decisions made
+- Shared one pagination loop by widening `_search_all`'s return type rather than adding a second search helper.
+- Stand-in agent and tooling gaps: see Concerns & Deferred Items.
+
+## Review feedback addressed
+- `edf:pr-review` (PR #141): no findings; the comment is on the PR.
+- [evaluator] `_tracker_jira.py:61-71` — 20-page guard truncation: deferred, LLD's own guard.
+- [evaluator] `_tracker_jira.py:177` — `list` tolerates missing `fields`: deferred, logged above.
+
+## LLD Sync report
+## LLD Sync — Issue #133: Jira backend view and list
+
+### Corrections (spec was wrong)
+- `_search_all` return type: spec said `list[str]` keys → built `list[dict]` (key + fields), because `list` needs the fields; §1.3 text updated.
+
+### Additions (not in spec)
+- `view` raises `Jira returned an unreadable response` when the issue response has no `fields`; `_CATEGORY_STATUS` holds the category fallback map. Both in §1.4.
+
+### Omissions (in spec but not built)
+- None.
+
+### Confirmations (notable)
+- `view`/`list` flows, 100 cap, derived-status filtering and rank order built as specified (§1.4).
+
+### LLD updated
+File: plugins/edf/docs/design/v3/lld-v3-e3-2-jira-backend.md §1.3, §1.4
+Version: 0.4 → 0.5. Manifest: #132 entry (§1.3 touched) → Revised; #133 stays Implemented.
+
+## Cost retrospective
+| Bucket | Cost |
+|--------|------|
+| 3c → 5 (design, tests, implementation, fixes) | $0.53 |
+| 5 → 8 (diag, evaluator, commit/push) | $0.17 |
+| 8 → 9 (review) | $0.24 |
+| Total at report | $1.23 |
+
+- Largest driver is the test-author stand-in (3c→4bF, $0.37); one fix cycle came from a test misreading V3.
+- Improvement: add the "unmapped status → category" rule to the test-author checklist for status tests.
+- `query-feature-cost.py` undercounts in this repo, so the final label was skipped; checkpoint table is the source.
+
+## Next steps
+- #134 Jira edit, comment, status and close (reads `_STATUS_NAMES`).
+- SCRUM smoke run, recorded on #134's PR.

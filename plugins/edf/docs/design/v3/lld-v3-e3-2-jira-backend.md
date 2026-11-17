@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.4 |
+| Version | 0.5 |
 | Status | Revised |
 | Author | LS / Claude |
 | Created | 2026-11-16 |
@@ -18,6 +18,7 @@
 | Revised | 2026-11-16 — Issue #131: §1.2 `JiraClient` private helpers |
 | Revised | 2026-11-17 — Issue #129: §1.1 `adf_to_md` decomposition |
 | Revised | 2026-11-17 — Issue #132: §1.2 `fake_jira` JQL escapes, §1.3 `create` guards |
+| Revised | 2026-11-17 — Issue #133: §1.3 `_search_all` returns issue dicts, §1.4 `view`/`list` detail |
 
 ---
 
@@ -733,14 +734,15 @@ create(args, ctx) -> int
 _find_open_by_title(client, space, title) -> str | None
   - jql = f'project = {_jql_str(space)} AND statusCategory != Done AND summary ~ {_jql_phrase(title)}'
   - _search_all(client, jql, fields=["summary"], limit=100, keep=lambda f: f["summary"] == title)
-  - return the first key kept, else None; a title with more than 100 phrase matches is outside the
+  - return the key of the first item kept, else None; a title with more than 100 phrase matches is outside the
     accepted limit
   - POST /rest/api/3/issue answering 2xx without `key` → TrackerError("Jira returned an unreadable
     response") (the issue may exist; the caller sees an error, not a traceback)
 
-_search_all(client, jql, *, fields, limit, keep) -> list[str]
+_search_all(client, jql, *, fields, limit, keep) -> list[dict]
   - follows `nextPageToken` for at most 20 pages (`_MAX_PAGES`, guard against a repeating token),
-    keeping only items for which `keep(item["fields"])` is true, and returns at most `limit` keys
+    keeping only items for which `keep(item["fields"])` is true, and returns at most `limit` issue
+    dicts (`key` and `fields`); callers take the keys they need (`list` reads the fields too)
 
 _jql_str(value: str) -> str       # '"' + value with \ → \\, " → \", \n → \\n, \r, \t escaped + '"'
 _jql_phrase(value: str) -> str    # _jql_str('"' + _escape_text_search(value) + '"'): phrase search; the
@@ -772,8 +774,8 @@ _STATUS_NAMES = {"todo": "To Do", "in progress": "In Progress", "blocked": "Bloc
 
 _status_of(fields: dict) -> str
   - name = fields["status"]["name"]; reverse-lookup in _STATUS_NAMES (case-sensitive match)
-  - otherwise by fields["status"]["statusCategory"]["key"]: done → "done", indeterminate →
-    "in progress", else "todo"                                          (Open question 5)
+  - otherwise by fields["status"]["statusCategory"]["key"] (`_CATEGORY_STATUS`): done → "done",
+    indeterminate → "in progress", else "todo"                          (Open question 5)
 
 _to_issue(key: str, fields: dict, children: list[str]) -> Issue
   - body = adf_to_md(fields.get("description")); parent = (fields.get("parent") or {}).get("key");
@@ -781,9 +783,10 @@ _to_issue(key: str, fields: dict, children: list[str]) -> Issue
 
 view(args, ctx) -> int
   - key = _parse_ref(args.ref, space); GET /rest/api/3/issue/{key}?fields=<_FIELDS>
-  - (404, _) → TrackerError(f"{key} not found")
+  - (404, _) → TrackerError(f"{key} not found"); a response without `fields` →
+    TrackerError("Jira returned an unreadable response")
   - Epic → _search_all(client, f'project = {_jql_str(space)} AND parent = {key} ORDER BY Rank ASC',
-    fields=["summary"], limit=100) → child keys
+    fields=["summary"], limit=100) → the items' keys
   - print(issue_json(_to_issue(...)))
 
 list_issues(args, ctx) -> int
