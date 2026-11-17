@@ -590,6 +590,7 @@ class TestIssueJson:
             "status": "in progress",
             "parent": "7",
             "children": ["43", "44"],
+            "child_statuses": {"43": "done", "44": "todo"},
         }
         fields.update(overrides)
         return Issue(**fields)
@@ -604,7 +605,7 @@ class TestIssueJson:
         from _tracker_contract import issue_json
 
         parsed = json.loads(issue_json(self._issue()))
-        assert list(parsed) == ["ref", "title", "body", "labels", "status", "parent", "children"]
+        assert list(parsed) == ["ref", "title", "body", "labels", "status", "parent", "children", "child_statuses"]
 
     def test_non_ascii_not_escaped(self):
         from _tracker_contract import issue_json
@@ -625,6 +626,15 @@ class TestIssueJson:
         assert parsed["parent"] is None
         assert parsed["labels"] == []
         assert parsed["children"] == []
+
+    def test_child_statuses_defaults_to_empty_object_and_serialises_last(self):  # #144 I6
+        from _tracker_contract import Issue, issue_json
+
+        issue = Issue(ref="1", title="t", body="", labels=[], status="todo", parent=None, children=[])
+        assert issue.child_statuses == {}
+        parsed = json.loads(issue_json(issue))
+        assert list(parsed)[-1] == "child_statuses"
+        assert parsed["child_statuses"] == {}
 
     def test_list_of_issues(self):
         from _tracker_contract import issue_json

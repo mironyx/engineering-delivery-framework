@@ -128,7 +128,7 @@ Every other epic depends on this one. It builds the single entry point, with a G
 
 **Acceptance Criteria:**
 
-- Given an issue exists, when view runs with its reference, then it prints JSON with `ref`, `title`, `body` (Markdown), `labels`, `status` (EDF board status), `parent` and `children` (refs).
+- Given an issue exists, when view runs with its reference, then it prints JSON with `ref`, `title`, `body` (Markdown), `labels`, `status` (EDF board status), `parent`, `children` (refs) and `child_statuses` (child ref → EDF status; `{}` for non-epics and for `list`).
 - Given a body using every Supported Markdown construct, when it is created and then viewed, then the returned Markdown has the same headings, list structure, code block content and language, link text and targets, and table cells.
 - Given a body created in Jira's own UI, when it is viewed, then `body` is Markdown, and any ADF node outside the supported set is rendered as its text content.
 - Given a body containing an unsupported Markdown construct (e.g. raw HTML), when it is created, then the text survives as a plain paragraph and the create succeeds.

@@ -255,10 +255,11 @@ issues — `/feature-end` does that via C3.1 after a successful merge.
 
 Answers "how far along is this epic?" for either tracker (Story 2.1).
 
-- Jira: children from `view`, status of each child; reports `done of total` and per-child
-  status.
-- GitHub: checkbox behaviour unchanged — ticked by C3.2's `close`, progress read from the
-  `children` that `view` parses from the checklist; C3.6 makes no direct GitHub call.
+- Both trackers: `view <epic>` returns `children` and `child_statuses`; C3.6 reports `done of total`
+  and per-child status, and `--remaining` lists children not done.
+- GitHub: checkbox behaviour unchanged — ticked by C3.2's `close`; `view` fills `child_statuses`
+  with one aliased GraphQL query. A checklist ref to a missing issue is omitted and shown `unknown`.
+  C3.6 makes no direct GitHub call.
 
 **Non-responsibilities:** never closes or transitions an epic.
 
@@ -389,9 +390,9 @@ Level 4 contract is the node mapping table and the round-trip equivalence rules 
 
 ### Flow 5: Epic progress
 
-C3.6 calls `view <epic>` through C3.1, then `view` on each child ref, and reports
-`done of total` with per-child status. Contract to pin: whether `view` adds a per-child status
-field to avoid N calls (see Open Question 1). Edit, comment and `/setup` are single-hop and
+C3.6 calls `view <epic>` through C3.1 and reports `done of total` with per-child status from
+`child_statuses` (Jira: no extra request; GitHub: one aliased GraphQL query), so there are no
+per-child calls. Edit, comment and `/setup` are single-hop and
 need no diagram.
 
 ---
@@ -409,8 +410,7 @@ need no diagram.
 
 ## Open Questions (for LLD)
 
-1. **Epic progress shape.** `view` returns `children` as refs only (Story 1.3). C3.6 either
-   calls `view` per child or the `view` JSON gains child statuses. Decide in the Epic 2 LLD.
+1. **Epic progress shape.** Resolved (#144): `view` JSON gains `child_statuses`; no per-child calls.
 
 ## References
 

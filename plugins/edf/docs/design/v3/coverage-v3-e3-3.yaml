@@ -3,8 +3,12 @@ entries:
   - req: REQ-pipeline-on-jira-native-epics
     lld: lld-v3-e3-3-pipeline-call-sites.md#LLD-v3-e3-3-epic-progress
     issue: 144
-    files: []
-    status: Approved
+    files:
+      - plugins/edf/bin/_tracker_contract.py
+      - plugins/edf/bin/_tracker_github.py
+      - plugins/edf/bin/_tracker_jira.py
+      - plugins/edf/bin/epic-progress.py
+    status: Revised
     lld_revision: r1
     # Story 2.1 AC1-AC4 (also #149, #145). Primary: epic progress (AC2). AC1 and AC3 are call-site behaviour in
     # #LLD-v3-e3-3-call-site-migration; AC4 (GitHub checkbox) is unchanged E3.1 behaviour.

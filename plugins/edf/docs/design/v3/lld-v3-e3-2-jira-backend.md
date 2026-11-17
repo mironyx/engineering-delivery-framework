@@ -19,6 +19,7 @@
 | Revised | 2026-11-17 — Issue #129: §1.1 `adf_to_md` decomposition |
 | Revised | 2026-11-17 — Issue #132: §1.2 `fake_jira` JQL escapes, §1.3 `create` guards |
 | Revised | 2026-11-17 — Issue #133: §1.3 `_search_all` returns issue dicts, §1.4 `view`/`list` detail |
+| Revised | 2026-11-17 — Issue #144: `view` child search also requests `status` and fills `child_statuses` |
 | Revised | 2026-11-17 — Issue #134: §1.5 `_not_found` helper, 404 on the transition `POST` |
 
 ---

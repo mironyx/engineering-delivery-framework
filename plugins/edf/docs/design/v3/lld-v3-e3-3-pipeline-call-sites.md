@@ -9,6 +9,7 @@
 | Author | LS / Claude |
 | Revised | 2026-11-17 — Issue #145: §1.3 gh-issue-manager, kickoff epic creation |
 | Created | 2026-11-17 |
+| Revised | 2026-11-17 — Issue #144: §1.2 `_child_statuses` signature (no `repo`), shared `_BOARD_FIELDS`, reader error path |
 | Epic | [#116](https://github.com/mironyx/engineering-delivery-framework/issues/116) |
 | Parent | [v3-design.md](v3-design.md) (v0.4) — [C3.5](v3-design.md#c35-feature-identity-resolver), [C3.6](v3-design.md#c36-epic-progress-reader), [C3.7](v3-design.md#c37-pipeline-call-sites), [C3.8](v3-design.md#c38-issue-access-guard) |
 | Requirements | [v3-requirements.md](../../requirements/v3-requirements.md) — Stories 2.1, 2.2, 2.3 |
@@ -507,10 +508,12 @@ class Issue:
     child_statuses: dict[str, str] = field(default_factory=dict)   # ref -> status; keys ⊆ children
 
 # _tracker_github.py
-_CHILD_STATUS_FIELDS = "state projectItems(first: 10) { nodes { id project { id } fieldValues(first: 20) { ... } } }"
-    # reuse the projectItems selection already inside ISSUE_FIELDS; no body, labels or comments
-def _child_statuses(children: list[str], board: Board | None, repo: str | None) -> dict[str, str]:
-    """One `gh api graphql` call: aliases c0..cN = issue(number: N){…}. null node -> omitted.
+_BOARD_FIELDS = "projectItems(first:10){nodes{id project{id} fieldValues(first:20){nodes{…}}}}"
+    # shared: ISSUE_FIELDS = _BASE_FIELDS + " " + _BOARD_FIELDS; a child selects "state" plus _BOARD_FIELDS
+    # only when a board is configured — no body, labels or comments
+def _child_statuses(children: list[str], board: Board | None) -> dict[str, str]:
+    """One `gh api graphql` call ({owner}/{repo} placeholders): aliases c0..cN = issue(number: N){…},
+    read back as data.repository.c<i>. null node -> omitted.
     Status via _derive_status. Empty children -> {} with no call. Children beyond the first 100 are not
     queried, matching Jira's cap and `list`."""
 
@@ -530,7 +533,8 @@ def main(argv: list[str] | None = None) -> int
 
 #### Error handling
 
-`tracker.py view` non-zero → the reader prints the tracker's `Error:` line and exits 1. In `_child_statuses`, on a
+`tracker.py view` non-zero → the reader prints the tracker's `Error:` line and exits 1; unparseable `view` output
+prints `Error: unexpected tracker view output` and exits 1. In `_child_statuses`, on a
 non-zero `gh` exit: parse `data` and drop null aliases if every non-empty stderr line contains the existing
 `_NOT_FOUND` marker; otherwise raise `TrackerError("gh api graphql failed: …")` as `view` does today.
 
