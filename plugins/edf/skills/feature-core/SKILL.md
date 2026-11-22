@@ -118,25 +118,51 @@ if needed.
 
 ### Step 3b: Pick the simplest approach and challenge the LLD
 
-Before writing any code, list 2-3 approaches in 1-2 sentences each. Pick the one that fixes the root cause with the least code. State why. Prefer fixing data at the source over adding complexity downstream (CLAUDE.md: "Simplicity first").
+Before writing any code, list 2-3 approaches in 1-2 sentences each. Pick the one that fixes the root cause with the least code. State why. Prefer fixing data at the source over adding complexity downstream.
 
-**Challenge the LLD in writing.** Answer these three questions before coding.
+**Challenge the LLD in writing.** Answer these four questions before coding.
 Write an answer to each, even when the answer is "no change needed" — silence
 is not an answer.
 
 1. Does the LLD reinvent something the repo already has? (grep before answering)
 2. Is there a simpler way to get the same behaviour? "Simpler" means fewer of
    something you can count — statements, round trips, branches, files, concepts,
-   moving parts. If you cannot name what got smaller, it is not simpler.
+   moving parts. If you cannot name what got smaller, it is not simpler. This test
+   judges *alternatives to what the LLD proposes*; it does not argue against adding
+   something the change genuinely needs (see question 4).
 3. Would you build it this way if the LLD didn't exist? If not, what differs?
+4. **What does this change need that the LLD is silent on?** The LLD can only contain what
+   its author thought of; omissions are invisible to every downstream check (tests,
+   evaluator and conformance review all measure against the LLD). Walk this list against
+   the queries, writes and flows you are about to build:
+   - **Indexes** for every new filter, join, sort or foreign-key column on a table that can grow
+   - **Constraints** — uniqueness, NOT NULL, foreign keys, check constraints
+   - **Idempotency / retries / concurrency** — duplicate delivery, double submit, races
+   - **Failure paths** — what happens on partial failure; cleanup and rollback
+   - **Bounds** — pagination or limits on unbounded reads; timeouts on outbound calls
+   - **Observability** — logging of failures a human would need to diagnose
+
+   "LLD didn't mention it" is not a reason to skip an item. Skipping needs a reason
+   the item does not apply.
 
 Then act on what you found:
 
 - **Your version keeps the acceptance criteria and the public contract
-  identical** — build your version. Note it in the PR body under a
-  `## Design deviations` section so `/lld-sync` reconciles the LLD later.
-- **Your version changes acceptance criteria, the public contract, the schema,
-  or another task's files** — stop and ask the user first.
+  identical** — build your version. This includes **additive, backwards-compatible
+  additions the LLD omitted** (an index, a constraint that existing data already
+  satisfies, a limit, a log line, a retry guard): just add them. Do not stop to ask.
+  Note each under `## Design deviations` so `/lld-sync` reconciles the LLD later.
+- **Your version changes acceptance criteria, the public contract, the schema's
+  existing shape (dropping/renaming/retyping columns, constraints that could reject
+  existing rows), or another task's files** — stop and ask the user first. Adding an
+  index or a new nullable column is *not* in this category — unless the project's
+  CLAUDE.md reserves schema changes for a designated task (e.g. an epic's schema-foundations
+  task). Then a missing index is a stop-and-ask, or a Concerns & Deferred Items entry, not
+  an in-task addition.
+- **Considered but not done** — if you weighed an improvement and decided against it,
+  append a bullet to the session log's Concerns & Deferred Items section
+  **immediately** (see Critical rules): what, why not. Mentioning it only in the Step 10
+  report does not count.
 
 The LLD is a strong starting point, not a specification to transcribe. Most of
 the time you will keep its shape and improve details within it.
@@ -389,11 +415,21 @@ spec, add the test yourself and note this **in the session log's Concerns & Defe
 Items section, immediately** (so we can feed it back into the sub-agent's prompt) — not
 only in the Step 10 report.
 
+**Second challenge pass — the implementation now exists, so re-ask Step 3b question 4.**
+Gaps like a missing index only become visible once the real query or loop is written.
+Re-read your own diff and answer in one line each: what did writing this show that the LLD
+did not anticipate (new query predicates needing an index, unbounded reads, unguarded
+retries, missing constraints, unlogged failures)? Apply Step 3b's rules: additive,
+contract-preserving fixes are built now (with a `## Design deviations` note); contract or
+existing-schema changes stop and ask; anything considered but not done goes into
+Concerns & Deferred Items immediately. If there is truly nothing, write "none found" in
+the checkpoint note below — do not leave the pass unrecorded.
+
 **Full track:** after self-check passes, append a cost checkpoint row:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
   --step "4dF" \
-  --note "implementation complete" \
+  --note "implementation complete — second challenge pass: <none found | N additions, M deferred>" \
   --issue <N>
 ```
 

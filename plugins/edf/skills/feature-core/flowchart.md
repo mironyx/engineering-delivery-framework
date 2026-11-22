@@ -18,7 +18,7 @@ flowchart TD
         S3A_NEW -->|"Yes"| S3A_FETCH(("Sub-agent: fetch docs<br/>return compact summary"))
         S3A_FETCH --> S3B
         S3A_NEW -->|"No"| S3B["S3b: List 2-3 approaches,<br/>pick simplest"]
-        S3B --> S3B_Q["S3b: Answer 3 LLD challenge<br/>questions in writing<br/>reinvention / simpler / would you"]
+        S3B --> S3B_Q["S3b: Answer 4 LLD challenge<br/>questions in writing<br/>reinvention / simpler / would you / what is the LLD silent on"]
         S3B_Q --> S3B_LLD{"Improvement found?"}
         S3B_LLD -->|"Changes AC, contract,<br/>schema, other tasks' files"| STOP_ASK(["fa:fa-ban Stop: ask user"])
         S3B_LLD -->|"AC + contract unchanged<br/>— build your version"| S3B_DEV["Note deviation for<br/>PR Design deviations"]
@@ -46,7 +46,7 @@ flowchart TD
         F3 --> F3_CHK{"Tests pass?"}
         F3_CHK -->|"No"| F3_FIX["Fix implementation"]
         F3_FIX --> F3
-        F3_CHK -->|"Yes"| F4["4dF: Self-check coverage"]
+        F3_CHK -->|"Yes"| F4["4dF: Self-check coverage +<br/>second challenge pass (LLD omissions)"]
         F4 --> F4_CP["Append cost checkpoint<br/>step 4dF: implementation"]
     end
 
