@@ -6,3 +6,10 @@ claude_session_feature{session_id="7e181c5f-ef95-46e8-b60d-f6f61cfbc9da",feature
 claude_session_feature{session_id="7e181c5f-ef95-46e8-b60d-f6f61cfbc9da",feature_id="EDF-63"} 1
 claude_session_feature{session_id="3f312d4c-13cb-4719-8b3b-24fbdc6eacd7",feature_id="EDF-78"} 1
 claude_session_feature{session_id="f8624624-74a3-4065-89aa-c32d34a5e399",feature_id="EDF-79"} 1
+claude_session_feature{session_id="59af6d2d-6fa7-43e4-a18f-28624bda05cc",feature_id="REQ-oiag9"} 1
+claude_session_feature{session_id="0cc1ce21-3c71-4f80-9d27-935cb89e83ff",feature_id="KICK-oig5f"} 1
+claude_session_feature{session_id="1c2487a2-08e6-4f21-8f09-2673b05eecf9",feature_id="KICK-ojixe"} 1
+claude_session_feature{session_id="cb807566-8499-4ec6-aea1-93a9dbce95d7",feature_id="ARCH-ok6fd"} 1
+claude_session_feature{session_id="580b779d-33f4-4e75-875a-5041b1626834",feature_id="EDF-114"} 1
+claude_session_feature{session_id="608062c6-46fc-45ca-b93c-c591c3a9c0b2",feature_id="EDF-118"} 1
+claude_session_feature{session_id="d24f3352-cdaf-4507-8cc1-93a8cc267934",feature_id="EDF-119"} 1
