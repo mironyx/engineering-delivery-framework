@@ -409,4 +409,4 @@ implementation.
 - **Keep the HLD proportional.** Three levels covering the main shape —
   not an exhaustive design. Level 4 detail belongs in LLDs produced by
   `edf:architect`. Concise, never thin — per `doc-writing.md`.
-- **British English.** No Co-Authored-By trailers.
+- **British English.** Commit trailers follow the project's CLAUDE.md convention.

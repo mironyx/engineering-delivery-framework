@@ -95,8 +95,19 @@ a retro action.
 ### 5. Execute quick-win actions in-session
 
 Any retro action that takes <5 minutes (e.g., move issues on board, update a status field,
-add a CLAUDE.md line) should be executed during the retro session itself, not carried as
+record a lesson) should be executed during the retro session itself, not carried as
 future work. Update the actions table to show them as **Done**.
+
+Put a lesson where it will actually be applied:
+
+- **Code pattern to avoid** → `kb/anti-patterns.md` (read by `/pr-review` and `/lld-sync`).
+- **Hard prohibition** (an action that must never happen) → a PreToolUse hook or
+  `permissions.deny`. CLAUDE.md is context, not enforcement.
+- **Rule for one area of the repo** → `.claude/rules/<topic>.md` with `paths:` frontmatter.
+- **Multi-step procedure** → a skill, or the skill that owns that step.
+- **Fact Claude cannot discover from the repo, already corrected twice** → one line in
+  CLAUDE.md. When adding a line, remove one that the code now makes obvious; keep the file
+  under 200 lines.
 
 ### 6. Summarise
 

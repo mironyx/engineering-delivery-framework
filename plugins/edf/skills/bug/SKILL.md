@@ -313,6 +313,6 @@ automatically.
   preserve context the reporter added. Append investigation results, do not
   replace the original description.
 - **British English** in all output.
-- **No Co-Authored-By trailers** in commit messages.
+- **Commit trailers** follow the project's CLAUDE.md convention.
 - **Check before creating.** Always check for existing issues first.
   Duplicate issues cause confusion.

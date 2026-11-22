@@ -41,8 +41,10 @@ part and apply only the universal SOLID heuristics:
 
 ## CLAUDE.md compliance
 Only check these:
-- No `Co-Authored-By` trailers in commit messages (block)
-- Every commit uses conventional format AND references an issue (warn)
+- Commit-message rules stated in CLAUDE.md (format, issue reference, required or forbidden
+  trailers such as `Co-Authored-By`, markers). If CLAUDE.md states none, check only that
+  commits use conventional format AND reference an issue (warn). Never flag a trailer that
+  CLAUDE.md requires.
 - Any language-specific compliance rule listed in `{{ANTI_PATTERNS}}` under "Language conventions" (severity per the rule).
 
 ## Project anti-patterns (always check, no web search)

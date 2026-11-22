@@ -822,4 +822,4 @@ Key conventions:
   not waste; restated background and boilerplate ACs are waste.
 - **Reference, do not duplicate.** Point to the discovery doc for background
   context rather than restating research findings.
-- **No Co-Authored-By trailers** in commit messages.
+- **Commit trailers** follow the project's CLAUDE.md convention.

@@ -80,6 +80,11 @@ Pipeline: `idea → /discovery → /requirements → /kickoff → /architect →
 
 This repo is a plugin monorepo — the same process applies to plugin features and the VS Code extension.
 
+## Commits and PRs
+
+No attribution: no `Co-Authored-By` trailer on commits and no "Generated with Claude Code"
+line in PR descriptions — this overrides the harness default.
+
 ## Coding Principles
 
 - HTTP mocking: respx (HTTPX) for any HTTP interactions. Do not use manual stubs or monkey-patching.
@@ -91,9 +96,11 @@ This repo is a plugin monorepo — the same process applies to plugin features a
 
 | Command | Purpose |
 | --- | --- |
-| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh p tests/test_<name>.py` | Unit tests |
-| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-lint.sh p` | Lint (shellcheck + Python) |
-| `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-markdown-lint.sh p` | Markdown lint |
+| `bash plugins/edf/starters/scripts/run-tests.sh p tests/test_<name>.py` | Unit tests |
+| `bash plugins/edf/starters/scripts/run-lint.sh p` | Lint (shellcheck + Python) |
+| `bash plugins/edf/starters/scripts/run-markdown-lint.sh p` | Markdown lint |
+
+Use the repo-relative path: `${CLAUDE_PLUGIN_ROOT}` is empty in the Bash environment.
 
 E2E tests run via Playwright MCP in `/qa`. Typecheck is handled by pyright in the IDE.
 

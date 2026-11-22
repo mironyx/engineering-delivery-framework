@@ -38,9 +38,9 @@ Survey the project to understand what exists and what's missing.
 Run ALL of the following in parallel:
 
 1. Read `CLAUDE.md` (root). Note which EDF-required sections are present and
-   which are missing. The required sections are: Verification Commands, Path
-   Conventions, Engineering Process, Coding Principles, Knowledge Base (kb/),
-   Key Directories.
+   which are missing. The required sections are: Verification Commands,
+   Engineering Process, Coding Principles, Knowledge Base (kb/), Key Directories.
+   Also note the line count — flag a CLAUDE.md over 200 lines for trimming.
 
 2. Detect project language. Check for, in order:
    - `package.json` → **TypeScript/JavaScript**
@@ -98,11 +98,14 @@ Copy the template from `${CLAUDE_PLUGIN_ROOT}/starters/CLAUDE.md.template` to
 2. **Verification Commands** — if a `package.json` exists, read its `scripts`
    and map `test`, `typecheck`/`type-check`, `lint`, `build` to the table.
    If `pyproject.toml`, read `[tool.pytest]` and similar.
-3. **Path Conventions** — set the test file convention based on language:
-   - TypeScript: `tests/<area>/<unit>.test.ts`
-   - Python: `tests/<area>/test_<unit>.py`
-   Set source directory and eval test path.
-4. **Key Directories** — fill in from the project's actual structure.
+3. **Key Directories** — only directories whose role is not obvious from their
+   name, each with the rule that makes it special. Test-path conventions go in
+   `kb/conventions.md` (Step 2b), not CLAUDE.md.
+
+Follow the guidance comment at the top of the template: CLAUDE.md holds only
+facts Claude cannot discover from the repo. Procedures belong in skills,
+area-specific rules in `.claude/rules/` (with `paths:` frontmatter) or a nested
+CLAUDE.md, and hard prohibitions in hooks or `permissions.deny`.
 
 **If CLAUDE.md already exists:**
 
@@ -110,8 +113,7 @@ Do NOT overwrite. Instead, read it and check for each required section:
 
 | Section | Check |
 |---------|-------|
-| Verification Commands | Table with 5 run script references |
-| Path Conventions | Test file convention, source directory, eval test path |
+| Verification Commands | Table of the project's native test/typecheck/lint/build commands (no `${CLAUDE_PLUGIN_ROOT}` — it does not expand in CLAUDE.md) |
 | Engineering Process | Pipeline reference |
 | Coding Principles | HTTP mocking convention, test runner, typechecker |
 | Knowledge Base (kb/) | Table with 4 kb/ file references |
@@ -449,7 +451,7 @@ Summarise everything that was done:
 ### Verification
 - 7/7 EDF scripts reachable
 - 4/4 kb files present
-- 6/6 CLAUDE.md sections present
+- 5/5 CLAUDE.md sections present
 - 3/3 .env variables set
 - 2/2 .gitignore patterns present
 - .mcp.json present with playwright server
@@ -459,11 +461,12 @@ Summarise everything that was done:
    architecture rules as soon as possible — `/pr-review` reads them on every
    review. Add entries to `kb/anti-patterns.md` as the team discovers
    recurring issues.
-2. **Scripts referenced via `${CLAUDE_PLUGIN_ROOT}`.** The CLAUDE.md
-   template uses `${CLAUDE_PLUGIN_ROOT}/starters/scripts/` directly
-   (Claude Code resolves this in markdown). The `.env` also sets
-   `EDF_SCRIPTS` for scripts that prefer the shorter alias.
-   Example: `bash ${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-tests.sh ts tests/foo.test.ts`.
+2. **Wrapper scripts stay in the plugin.** EDF skills invoke
+   `${CLAUDE_PLUGIN_ROOT}/starters/scripts/run-*.sh` themselves — the variable
+   expands in skill markdown and hooks only, not in CLAUDE.md or the Bash
+   environment. CLAUDE.md lists the project's native commands instead. Don't
+   copy the wrapper scripts into the project: they locate the plugin relative
+   to their own path and break when moved.
 3. **`.github/project.env` is not yet configured.** Board-aware skills will
    fail until it's set up.
 
@@ -486,7 +489,7 @@ Summarise everything that was done:
 - **User gates at key decisions.** Stop and confirm before: (a) the setup plan,
   (b) CLAUDE.md merges, (c) kb value proposals.
 - **British English** in all output.
-- **No Co-Authored-By trailers** in commit messages.
+- **Commit trailers** follow the project's CLAUDE.md convention.
 - **No commits during setup.** The user commits as part of their normal
   workflow.
 - **The project is not broken if something fails.** Each phase is independent.
