@@ -82,6 +82,14 @@ Refactor-mode adjustments per step are tagged **[refactor]**. When unmarked, bot
 **Confirmations** — things the LLD specified that were built exactly as designed.
 - Only note these if they are non-obvious (worth confirming for future readers).
 
+**[feature] Delivery assumptions** — for every third-party delivery the implementation
+relies on (webhooks, queues, event streams, callbacks), check what the LLD says about
+retries, redelivery, duplicates and ordering against `kb/anti-patterns.md` (skip if absent)
+and against what the code actually handles. Where the LLD's assumption contradicts the kb
+— e.g. it says exactly-once or in-order where the kb records at-least-once or unordered —
+record it as a **Correction** and fix the LLD text in Step 3, even if the code already
+copes. The next epic reads the LLD, not the code.
+
 ### Step 3: Update the LLD
 
 **[refactor]** Edits are mechanical (file path renames, function renames, internal-decomposition block updates) per the issue body's `## Design references`. DO NOT add Rev N blocks; refactors don't introduce them. DO NOT auto-modify `docs/design/lld-refactor-*.md` — those are spec artefacts the implementing PR followed; they are managed at refactor-LLD lifecycle time (Step 3d). For each existing LLD section listed in `## Design references`: open it, find the prose / code blocks / file lists that referenced the old path/name/structure, replace with the new (post-refactor) form. Preserve `<a id="LLD-...">` anchors per ADR-0026.

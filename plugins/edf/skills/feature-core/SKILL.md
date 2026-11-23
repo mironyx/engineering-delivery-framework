@@ -265,6 +265,30 @@ This file is the session log. No rename later — `/feature-end` appends the rem
 sections (work completed, LLD sync report, cost retrospective) into the same file.
 Do NOT use a `-draft` suffix — that is reserved for the compaction hook.
 
+### Step 4a: Pre-implementation reuse search (both tracks)
+
+Before writing any code on either track, spend one short pass finding what the change
+should reuse and which project rules apply to it. Post-PR rework most often comes from
+re-implementing something the repo already has, or from breaking a rule the kb already
+records.
+
+1. **Reuse search** — grep the codebase for existing code the change could reuse instead
+   of re-creating it:
+   - UI changes: existing components (same role, same props shape) and shared style
+     classes, design tokens or utility classes — never hand-roll a button, card, table or
+     colour that already exists.
+   - Non-UI changes: helpers, types and fixtures with the same job (`kb/architecture.md`
+     lists the curated ones).
+2. **Matching anti-patterns** — read the `kb/anti-patterns.md` sections (skip if absent)
+   that match the changed area: the layer, framework or language of the files you are about
+   to touch, plus the general and helper-reuse sections. Treat each matching rule as a
+   constraint on the implementation, not something for `/pr-review` to catch later.
+
+Carry the findings into the implementation (Step 4L or Step 4bF onwards). If a match was
+considered and not reused, append the reason to the session log's Concerns & Deferred Items
+section immediately (see Critical rules). If nothing matched, say so in one line in the next
+checkpoint note — do not leave the pass unrecorded.
+
 ---
 
 ## Light track — bug fixes, <30 src lines, <=3 files
@@ -779,8 +803,8 @@ Then branch on fix size:
   exceed the threshold will trigger re-review.
 
 **Threshold rationale:** 20 lines mirrors the spirit of pr-review Step 2's `DIFF_LINE_COUNT
-< 150` single-vs-two-agent split — a post-review fix is inherently smaller than the original
-change, so the threshold is proportionally lower (~13% of the 150-line split). At ≤20 lines
+< 300` single-vs-two-agent split — a post-review fix is inherently smaller than the original
+change, so the threshold is proportionally lower (~7% of the 300-line split). At ≤20 lines
 a reviewer can verify correctness at a glance; above that, or when new files enter the diff,
 the change is large enough to warrant automated review. This threshold makes the second
 pr-review invocation conditional — most post-review fixes are small and take the lightweight

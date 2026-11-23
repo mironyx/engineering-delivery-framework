@@ -6,20 +6,20 @@ Visual overview of the adaptive code review pipeline. Cost-adaptive: diff size s
 flowchart TD
     START(["fa:fa-play /pr-review invoked"]) --> S1
 
-    S1["S1: Gather context<br/>review-package.sh writes the diff<br/>to a file (path + numstat only),<br/>CLAUDE.md, kb/architecture.md,<br/>kb/anti-patterns.md, manifest"] --> S1_CHK{"Diff empty?<br/>(script exit 3)"}
+    S1["S1: Gather context<br/>review-package.sh writes the diff<br/>to a file (path + numstat only),<br/>CLAUDE.md, manifest,<br/>kb/architecture.md + kb/anti-patterns.md<br/>sections matching changed paths<br/>(no match → full files)"] --> S1_CHK{"Diff empty?<br/>(script exit 3)"}
     S1_CHK -->|"Yes"| STOP_EMPTY(["fa:fa-ban Nothing to review"])
     S1_CHK -->|"No"| S2
 
     S2["S2: Classify<br/>DIFF_LINE_COUNT, CHANGED_FILES,<br/>EXTERNAL_SURFACES, NEW_SURFACES,<br/>SURFACE_RESEARCH"] --> S2_SIZE{"Diff size?"}
 
-    S2_SIZE -->|"< 150 lines"| S3_SINGLE
-    S2_SIZE -->|">= 150 lines"| S3_MULTI
+    S2_SIZE -->|"< 300 lines"| S3_SINGLE
+    S2_SIZE -->|">= 300 lines"| S3_MULTI
 
     S3_SINGLE(("Agent Q: Quality<br/>All checks in one pass<br/>Bugs, justification, design,<br/>compliance, anti-patterns,<br/>design conformance, helper reuse"))
 
     S3_SINGLE --> S3_SURF
 
-    subgraph PARALLEL["Parallel Agents (>= 150 lines)"]
+    subgraph PARALLEL["Parallel Agents (>= 300 lines)"]
         S3A(("Agent A: Code Quality<br/>Bugs, justification,<br/>design principles,<br/>CLAUDE.md compliance,<br/>anti-patterns"))
         S3C(("Agent C: Design Conformance<br/>LLD matching, silent swallow,<br/>diagnostics, helper reuse,<br/>DB efficiency"))
     end

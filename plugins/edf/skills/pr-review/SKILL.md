@@ -12,8 +12,8 @@ Two modes:
 - `/pr-review <pr-number>` — reviews a pull request; posts the result as a PR comment
 
 **Cost-adaptive architecture.** Agent count scales with diff size:
-- Diff < 150 lines → **1 agent** (Quality, covering all checks)
-- Diff ≥ 150 lines → **2 agents** (Quality + Design Conformance in parallel)
+- Diff < 300 lines → **1 agent** (Quality, covering all checks)
+- Diff ≥ 300 lines → **2 agents** (Quality + Design Conformance in parallel)
 - Agent B (surface currency) runs on either path, but only on first use of an external surface, or when dependency/config files changed
 
 ---
@@ -54,9 +54,27 @@ Build the review package first, then run the rest in parallel.
 
 2. Read `CLAUDE.md` (root).
 3. Read the project's dependency manifest if one exists (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc.) — capture exact versions of direct dependencies. Skip if none present.
-4. Read `kb/architecture.md` — the project's architecture rules. Pass its full contents to the review agent(s) as `{{ARCHITECTURE_RULES}}`. Skip if absent.
-5. Read `kb/anti-patterns.md` — the project's anti-pattern checklist (framework-specific patterns, language conventions, helper-reuse rules). Pass its full contents as `{{ANTI_PATTERNS}}`. Skip if absent.
-6. Pass `kb/architecture.md` contents (already read in step 4) as `{{KB_ARCHITECTURE}}` — it doubles as the reusable helper catalogue. Skip if the file has no API composition pattern entries (helper-reuse checks rely on `{{ANTI_PATTERNS}}` content instead).
+4. Read `kb/architecture.md` — the project's architecture rules. Pass the **relevant
+   sections** (see "kb section filter" below) to the review agent(s) as
+   `{{ARCHITECTURE_RULES}}`. Skip if absent.
+5. Read `kb/anti-patterns.md` — the project's anti-pattern checklist (framework-specific patterns, language conventions, helper-reuse rules). Pass its **relevant sections** as `{{ANTI_PATTERNS}}`. Skip if absent.
+6. Pass the same filtered `kb/architecture.md` sections (from step 4) as `{{KB_ARCHITECTURE}}` — it doubles as the reusable helper catalogue. Skip if the file has no API composition pattern entries (helper-reuse checks rely on `{{ANTI_PATTERNS}}` content instead).
+
+**kb section filter.** Agents receive only the kb sections that apply to this diff, not
+the full files — most of a mature kb is about layers the change never touches. For each kb
+file, split it on `##`/`###` headings and keep a section when either:
+
+- its heading or body names a path, directory or file pattern that matches a changed path
+  in the numstat table (e.g. `src/app/api/`, `*.sql`, `middleware.ts`), or a framework or
+  language whose files are in the changed set (e.g. a `### TypeScript` section when `.ts`
+  files changed); or
+- it is general — no path, framework or language scope (e.g. `## General`, `## Helper
+  reuse`, `## Boundary rule`). General sections always pass.
+
+Keep the file's title and intro paragraph. **Fallback: if no scoped section matches any
+changed path, pass the full file** — a kb with no path-scoped headings cannot be filtered
+safely, and an empty rule set would silently skip checks. When unsure whether a section
+applies, keep it.
 
 ### Step 2: Classify the review
 
@@ -127,7 +145,7 @@ with `<file>` and the placeholder values as given per agent below.
 
 ---
 
-#### If DIFF_LINE_COUNT < 150: launch ONE agent
+#### If DIFF_LINE_COUNT < 300: launch ONE agent
 
 **Agent Q — Quality (all checks, single agent)** — `prompts/agent-q.md`
 
@@ -145,7 +163,7 @@ Skip to **Step 4** with the single agent's output. Do not launch Agent A or Agen
 
 ---
 
-#### If DIFF_LINE_COUNT ≥ 150: launch TWO agents in parallel (single message)
+#### If DIFF_LINE_COUNT ≥ 300: launch TWO agents in parallel (single message)
 
 **Agent A — Code Quality & Correctness** — `prompts/agent-a.md`
 
@@ -173,7 +191,7 @@ empty), `{{DIFF_FILE}}` (Step 1.1), `{{CHANGED_FILES}}` (Step 2).
 If `SURFACE_RESEARCH` is false, **skip Agent B entirely.**
 
 If `SURFACE_RESEARCH` is true, launch Agent B on **either** size path, in the same message as
-the other agents — alongside Agent Q under 150 lines, or alongside Agent A and Agent C at or
+the other agents — alongside Agent Q under 300 lines, or alongside Agent A and Agent C at or
 above it.
 
 Substitute: `{{ANTI_PATTERNS}}` (Step 1.5, or empty), `{{DIFF_FILE}}` (Step 1.1),
@@ -249,15 +267,15 @@ Append to terminal output (not to the PR comment):
 ## Notes
 
 - Do not run builds, type-checks, or tests — CI handles those.
-- In the ≥ 150 line path: launch Agent A and Agent C (and Agent B if SURFACE_RESEARCH)
-  in the **same message** so they run concurrently. In the < 150 line path: launch Agent Q
+- In the ≥ 300 line path: launch Agent A and Agent C (and Agent B if SURFACE_RESEARCH)
+  in the **same message** so they run concurrently. In the < 300 line path: launch Agent Q
   (and Agent B if SURFACE_RESEARCH) the same way. Agent B's trigger is independent of diff
   size — a first integration against an external spec can be small and still be invented.
 - If the diff is empty, `review-package.sh` exits 3 without writing a package: report
   "Nothing to review — diff is empty." and stop.
 - The review package is scratch, written to a self-ignoring `.edf/review/` at the repo
   root. It is never committed, and there is nothing to clean up.
-- The 150-line threshold is a guide. If a large diff is mostly trivial changes (whitespace,
+- The 300-line threshold is a guide. If a large diff is mostly trivial changes (whitespace,
   renames, generated code), use judgment and prefer the single-agent path.
 - The static anti-pattern list (`kb/anti-patterns.md`, surfaced as `{{ANTI_PATTERNS}}`)
   runs on EVERY review at no extra cost — no web search, no extra agent. Agent B

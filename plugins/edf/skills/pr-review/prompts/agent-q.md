@@ -31,6 +31,9 @@ Scope: diff only — edf:diag owns whole-file metrics.
 
 ## Part 3: Design principles (block if severe)
 The project's architecture rules are in `{{ARCHITECTURE_RULES}}` (from `kb/architecture.md`).
+The kb placeholders hold only the sections relevant to the changed paths (general
+sections always included); if a changed file needs a rule that is not there, read the
+full `kb/` file yourself.
 Apply each rule literally. If `{{ARCHITECTURE_RULES}}` is empty, skip this part.
 
 Also apply the universal SOLID heuristics:

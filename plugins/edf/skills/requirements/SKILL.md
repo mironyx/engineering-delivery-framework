@@ -513,6 +513,29 @@ Before presenting Gate 1, verify coverage:
 
 Present the cross-reference summary as part of the Gate 1 presentation.
 
+### Step 3d: Integration constraints check
+
+Before Gate 1, for every story that integrates with an external platform (a third-party
+API, webhook, OAuth provider, app marketplace, CI or tracker service) or extends existing
+code:
+
+1. **Platform rules** — read the platform's published docs for the rules the story depends
+   on: rate limits, permission/scope model, payload limits, delivery semantics (retries,
+   redelivery, ordering), app-review or marketplace policies. Use `WebFetch`/`WebSearch`;
+   cite the doc URL next to each finding. A rule you cannot verify is marked
+   `Unverified — recall-based` instead of stated as fact.
+2. **Current code** — grep the codebase for what already exists for this integration
+   (clients, handlers, stored tokens, config). A story that assumes a capability the
+   current code lacks, or duplicates one it has, is a finding.
+3. **Record findings as constraints** — add each to the story's Notes (or to
+   `## Design Principles / Constraints` if it spans stories), with its cited source. A
+   finding that changes scope (the platform forbids the behaviour, or the code contradicts
+   the story) goes to Open Questions and is raised at Gate 1.
+
+Skip with a one-line note when no story integrates with an external platform or existing
+code. Doing this before Gate 1 is cheaper than discovering the constraint in `/lld` or
+after a PR is open.
+
 ### Gate 1 — Structure review
 
 Present to the user:
@@ -522,7 +545,8 @@ Present to the user:
 - Role summary
 - Mapping coverage: which discovery features/journeys are covered, which are
   deferred
-- Cross-reference summary from Step 3b
+- Cross-reference summary from Step 3c
+- Integration constraints from Step 3d (with cited sources), or "none — no integration stories"
 - Any open questions or ambiguities found during structuring
 
 Ask explicitly: **"Are these the right epics and stories? Is the priority
