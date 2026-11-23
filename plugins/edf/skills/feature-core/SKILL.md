@@ -761,7 +761,8 @@ REVIEWED_SHA=$(git rev-parse HEAD)
 ```
 
 **As soon as the review returns, before triage**, append the Step 9 cost checkpoint row —
-every time, including a clean review with nothing to fix. The pr-review cost line is a
+every time, including a clean review with nothing to fix, and again after each re-review
+(each `edf:pr-review` run gets its own `9` row). The pr-review cost line is a
 report, not this checkpoint; only `append-checkpoint.py` writes the row and the Grafana
 marker, and feature-end's audit (`check-checkpoints.py --stage end`) reports a missing one:
 ```bash

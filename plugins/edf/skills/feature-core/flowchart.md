@@ -113,7 +113,7 @@ flowchart TD
         S9_SZ_CHK -->|"Yes"| S9_SELF["Lightweight self-check:<br/>confirm findings fixed,<br/>run target test file(s)"]
         S9_SELF --> S9_D
         S9_SZ_CHK -->|"No"| S9RERUN["Re-run edf:pr-review"]
-        S9RERUN --> S9_T
+        S9RERUN --> S9_CP
         S9_B -->|"No"| S9_D["Fix or defer"]
         S9_D --> S10["S10: Reconcile CI<br/>ci-status.py --wait 9"]
         S10 --> S10_CI{"CI?"}
