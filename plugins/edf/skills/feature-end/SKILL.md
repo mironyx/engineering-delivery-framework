@@ -162,6 +162,17 @@ by feature-core (per ADR-0037). Append these sections **in this exact order with
 The log is written through the conversation and re-read by later sessions — every extra
 paragraph is paid for twice. Do not repeat content between sections.
 
+**2.2b — Checkpoint audit**
+
+Run the checkpoint checker against the log (both paths — 2.1 and 2.2):
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/check-checkpoints.py --issue <issue-ref>
+```
+Any `missing: …` or `bulk: …` line it prints is a finding, not a blocker here (the PR is
+already reviewed): append each line verbatim as a bullet to `## Concerns & Deferred Items`
+and repeat it in the Step 7 report. `checkpoints: ok` needs no action. Never add or edit a
+checkpoint row to make a finding go away.
+
 **2.3 — Stage**
 
 Stage the session log:
@@ -197,7 +208,11 @@ bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/query-f
 ```
 Then read `/tmp/cost-output.txt` with the Read tool — never `cat`, which can silently produce empty output on some platforms.
 
-Post the output as a PR comment:
+**Zero cost:** if the output contains `- No Prometheus data for <ID> (cost 0) — labels not
+applied`, the script applied no labels. Relay that line in the session log and the Step 7
+report, and **do not post a PR comment** — a $0 comment reads as a real measurement.
+
+Otherwise post the output as a PR comment:
 
 ```bash
 gh pr comment <number> --body "$COST_OUTPUT"
@@ -224,9 +239,11 @@ draft at `.edf/session-drafts/*-<first 8 chars of session id>.md` (files touched
 agent spawns). Read it as supplementary cost-driver input. Never copy or commit it — the
 directory is self-ignored and the hook prunes it; no cleanup is needed.
 
-1. **Cost summary:** PR-creation cost (from PR body `Usage` section) vs final total.
-   Delta = post-PR work (review fixes, re-runs, extra commits).
-   On Full track, the Step 8 checkpoint row IS the PR-creation cost.
+1. **Cost summary:** post-PR (recovery) cost = **final − pr**: the `ai-cost-final:*` label
+   minus the `ai-cost-pr:*` label (fall back to the PR body `Usage` section when a label is
+   missing). It covers review fixes, re-runs and extra commits. On Full track, the Step 8
+   checkpoint row IS the PR-creation cost. If either figure is missing or zero (Step 2.5 cost-0
+   line), state "post-PR cost unknown" rather than computing a delta.
 
 2. **Identify cost drivers.** For Full track, read the checkpoint table:
    - "green on attempt N" where N > 1 → fix cycles were expensive
@@ -334,7 +351,8 @@ Then chain all cleanup in a **single Bash call**:
 cd "$MAIN_REPO" && git checkout <base-branch> && git pull --rebase \
   && { [ "$IS_WORKTREE" = "yes" ] && git worktree remove "$WORKTREE_PATH" --force 2>&1 || true; } \
   && { git branch -d <feature-branch> 2>&1 || true; } \
-  && { bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py close <issue-ref> 2>&1 || true; }
+  && { bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py close <issue-ref> 2>&1 || true; } \
+  && { bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/unblock-dependants.py <issue-ref> 2>&1 || true; }
 ```
 
 The `|| true` inside `{ }` groups ensures:
@@ -343,6 +361,10 @@ The `|| true` inside `{ }` groups ensures:
 - `close` marks the task done on the tracker in one call (board status, epic checklist tick and issue close on GitHub; the Done transition on Jira). An already-closed issue is a no-op. The parent epic is never touched on Jira.
 - If `close` prints an `Error:` line, report it in Step 7 — the merge already succeeded, so do not undo it.
 - If `cd` or `git pull` fails, the chain **stops** rather than running from the wrong directory.
+- `unblock-dependants.py` moves every Blocked issue whose `## Depends on` names this issue,
+  and whose other dependencies are all closed, to Todo — one `unblocked: <ref>` line each
+  (`unblock: none` when nothing moved). Report the moved refs in Step 7; a
+  `unblock: skipped — …` line is best-effort noise, not a failure.
 
 **Do not run separate Bash calls** for branch delete and tracker close — they must be one call.
 
@@ -416,6 +438,8 @@ Summarise what was done:
 - PR merged (link)
 - Issue closed
 - Now on branch `<base-branch>`, up to date with remote
+- Checkpoint findings from Step 2.2b (`missing:` / `bulk:` lines), the Step 2.5 cost-0 line if
+  printed, and any `unblocked:` refs from Step 5+6
 - Suggested next item: run `bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/tracker.py list --status todo --label kind:task`, print the first 3 refs with titles. This is the only additional query allowed here.
 
 

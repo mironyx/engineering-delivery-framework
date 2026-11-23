@@ -8,6 +8,7 @@
 | Status | Revised |
 | Author | LS / Claude |
 | Revised | 2026-11-17 — Issue #150: §1.4 guard tests, repoint scope, removed live-gh dry-run cases |
+| Revised | 2026-11-23 — Issue #168: §1.1 Cost labels — zero-cost guard (no labels, explicit line) |
 | Revised | 2026-11-17 — Issue #148: §1.1 Cost labels (`_tracker`/`_stale` helpers, best-effort config guard) |
 | Revised | 2026-11-17 — Issue #145: §1.3 gh-issue-manager, kickoff epic creation |
 | Revised | 2026-11-17 — Issue #147: §1.3 T5 notes |
@@ -485,6 +486,9 @@ Tests: new `tests/test_query_feature_cost.py` on `fake_gh` / `fake_jira` — sta
 call on both backends, GitHub-only `label create`, PR-label route, Jira run makes no `gh` call.
 Failure policy is unchanged: best-effort, output suppressed, never blocks the PR — including a bad backend
 configuration, which makes `apply_labels` return without labelling (the PR-label JSON parse is guarded the same way).
+**Zero cost** (Issue #168): when `query_metrics` returns `cost == 0` — sessions are tagged but Prometheus holds no
+usage for them — `main` prints `- No Prometheus data for <ID> (cost 0) — labels not applied` under the usual
+`## [Final ]Usage` heading and skips `apply_labels`, so no `ai-cost-*:0.0000` label is written. Non-zero cost is unchanged.
 Internals: `_tracker(*args)` runs `tracker.py` as a subprocess; `_stale(existing, new)` picks same-prefix labels that
 differ from the new ones and serves both the issue (`view` labels) and the PR (`gh pr view` labels) side.
 `set_pr_labels` takes the caller-computed `remove` list; it never reads labels itself.

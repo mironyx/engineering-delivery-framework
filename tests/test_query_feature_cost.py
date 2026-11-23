@@ -206,3 +206,40 @@ def test_bad_backend_config_does_not_raise_from_apply_labels(fake_gh, monkeypatc
     monkeypatch.setenv("JIRA_HOST", "https://example.invalid")  # companions missing
     cost.apply_labels("SCRUM-1", METRICS, "pr")
     assert fake_gh.calls() == []
+
+
+class TestZeroCostGuard:
+    """#168 §3 — cost 0 means Prometheus has no data for the feature; writing $0 labels would
+    overwrite real figures, so labels are skipped with one explicit line."""
+
+    def _main(self, monkeypatch, capsys, metrics, *extra):
+        applied: list[tuple] = []
+        monkeypatch.setattr(cost, "read_session_ids", lambda fid: ["sess-1"])
+        monkeypatch.setattr(cost, "query_metrics", lambda fid: metrics)
+        monkeypatch.setattr(cost, "apply_labels", lambda *a, **kw: applied.append((a, kw)))
+        monkeypatch.setattr(sys, "argv", ["query-feature-cost.py", "EDF-168", "--issue", "#168", *extra])
+        try:
+            cost.main()
+        except SystemExit as exc:
+            assert exc.code in (0, None)
+        return applied, capsys.readouterr().out.splitlines()
+
+    def test_zero_cost_prints_no_data_line_and_skips_labels(self, monkeypatch, capsys):
+        zero = cost.UsageMetrics(cost=0.0, inp=0.0, out=0.0, cr=0.0, cc=0.0)
+        applied, lines = self._main(monkeypatch, capsys, zero)
+        assert "- No Prometheus data for EDF-168 (cost 0) — labels not applied" in lines
+        assert applied == []
+
+    def test_zero_cost_final_stage_also_skips_labels(self, monkeypatch, capsys):
+        zero = cost.UsageMetrics(cost=0.0, inp=0.0, out=0.0, cr=0.0, cc=0.0)
+        applied, lines = self._main(monkeypatch, capsys, zero, "--stage", "final")
+        assert "- No Prometheus data for EDF-168 (cost 0) — labels not applied" in lines
+        assert applied == []
+
+    def test_non_zero_cost_still_applies_labels(self, monkeypatch, capsys):
+        applied, lines = self._main(monkeypatch, capsys, METRICS)
+        assert len(applied) == 1
+        args, _kw = applied[0]
+        assert args[0] == "#168" and args[1] == METRICS and args[2] == "pr"
+        assert not any("No Prometheus data" in ln for ln in lines)
+        assert any("$1.2346" in ln for ln in lines)

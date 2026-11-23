@@ -299,6 +299,11 @@ def main() -> None:
         print(f"## {heading}Usage\n- Prometheus unreachable at {PROM} — is the monitoring stack running?")
         sys.exit(0)
 
+    if metrics.cost == 0:
+        # Tagged sessions but no usage in Prometheus: a $0 label would read as a measurement.
+        print(f"## {heading}Usage\n- No Prometheus data for {args.feature_id} (cost 0) — labels not applied")
+        sys.exit(0)
+
     time_line = build_time_line(args.feature_id, args.pr) if args.pr is not None else ""
 
     print(

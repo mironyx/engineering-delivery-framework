@@ -190,7 +190,12 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 >    ```
 > 4. Run `edf:feature-core <N>`. This covers everything from reading the design through PR
 >    creation and review. Follow all coding principles in CLAUDE.md. Do not ask for
->    confirmation between steps.
+>    confirmation between steps. Do not skip test-author (4bF), feature-evaluator (6b),
+>    pr-review or any cost checkpoint — Step 8 refuses to open the PR while a required
+>    checkpoint row is missing.
+> 4a. Send the lead **one** idle notification per state change (PR opened, blocked,
+>    feature-end done) — never repeat an unchanged status. If you offer the lead an action
+>    ("shall I …?"), wait for the answer before acting on it.
 > 5. Report back to the lead with the PR URL and wait — **do not exit**. Do **not** run
 >    `edf:feature-end`, merge, or close the issue on your own — a clean review and green CI
 >    are not merge approval.
@@ -202,10 +207,17 @@ Each teammate receives this self-contained prompt (fill in the placeholders):
 
 ### Step 5: Monitor
 
-Teammates notify the lead automatically when idle (PR created or blocked).
+Teammates notify the lead automatically when idle (PR created or blocked) — once per state
+change. A repeated notification with no new state needs no reply.
 
 If a teammate reports a blocker: relay it to the user without interrupting other teammates.
 Do not shut down the team on a single failure.
+
+**Board moves need no user approval.** Moving an item between Todo, In Progress and Blocked
+is routine bookkeeping — the lead (or a teammate) does it directly via `tracker.py status`.
+
+**Answer offered actions.** When a teammate offers an action and waits, reply with a yes or
+no — a teammate never acts on its own offer without the lead's answer.
 
 ### Step 6: Report PRs and wait
 
@@ -214,6 +226,10 @@ When all teammates have reported their PR URLs, summarise:
 - Any blockers or deferred findings per teammate
 
 **Do NOT send shutdown_request yet.** Teammates stay alive in their panes, waiting for feature-end.
+
+**Shut down each teammate as soon as its feature-end completes** — send its
+`shutdown_request` the moment it reports feature-end done, without waiting for the rest of
+the wave. An idle, merged teammate only burns context.
 
 When the user runs `edf:feature-end <N>` in the lead pane, forward it to the relevant teammate
 via SendMessage: "Please run `edf:feature-end <N>`."
