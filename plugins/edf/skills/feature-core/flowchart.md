@@ -29,7 +29,8 @@ flowchart TD
         S3C_SEC -->|"Yes — verification = Standard"| F3DF["3dF: Create session log<br/>Approach rationale +<br/>cost checkpoint table"]
     end
 
-    F3DF --> S3C_TIER{"Tier?"}
+    F3DF --> S4A["4a: Pre-implementation reuse search<br/>grep UI components, shared style classes,<br/>helpers + matching kb/anti-patterns.md rules"]
+    S4A --> S3C_TIER{"Tier?"}
 
     %% ── Light track ──
     subgraph LIGHT["Light Track (<30 lines)"]
@@ -135,7 +136,7 @@ flowchart TD
     classDef stop fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S3,S3_READ,S3_BRIEF,S3A,S3B,S3B_Q,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6S,S6J,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_BACK,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S9_SZ,S9_SELF,S9RERUN,S10,S10_F,S10_RDY,S10_OK,S10_CP,S10_W process
+    class S3,S3_READ,S3_BRIEF,S3A,S3B,S3B_Q,S3B_DEV,S3C,F3DF,S4A,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6S,S6J,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_BACK,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S9_SZ,S9_SELF,S9RERUN,S10,S10_F,S10_RDY,S10_OK,S10_CP,S10_W process
     class S3A_FETCH,S8B,F2,S5,S5_E2E_RUN,S5_AUDIT,S6B,S6B_REV agent
     class S3_EPIC,S3A_NEW,S3B_LLD,S3C_SEC,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6B_GATE,S6B_V,S6B_V2,S8_DEV,S8_TRACK,S8_GATE,S9_B,S9_SZ_CHK,S10_CI decision
     class STOP_EPIC,STOP_SPEC,STOP_ASK,S6B_STOP stop

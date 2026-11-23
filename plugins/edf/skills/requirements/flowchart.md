@@ -33,7 +33,9 @@ flowchart TD
 
     S3C["S3c: Cross-reference validation<br/>Discovery features → stories,<br/>implicit requirements, tensions"]
 
-    S3C --> GATE1(["fa:fa-hand-o-right Gate 1: Structure review<br/>Right epics? Right priority?"])
+    S3C --> S3D["S3d: Integration constraints<br/>Platform docs (cite URL or Unverified)<br/>+ current code → story constraints"]
+
+    S3D --> GATE1(["fa:fa-hand-o-right Gate 1: Structure review<br/>Right epics? Right priority?"])
 
     GATE1 --> S4["S4: Write acceptance criteria<br/>Given/When/Then format,<br/>INVEST check per story"]
 
@@ -71,7 +73,7 @@ flowchart TD
     classDef human fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S1,S1A,RV,S2,S3,S3A,S3B_FIX,S3C,S4,S5,S5B_FIX,S6,S6A,S6C,S6C_NOTE,S7 process
+    class S1,S1A,RV,S2,S3,S3A,S3B_FIX,S3C,S3D,S4,S5,S5B_FIX,S6,S6A,S6C,S6C_NOTE,S7 process
     class S3B,S5B agent
     class S1_RV,S1_MODE,S3B_TRIAGE,S5B_TRIAGE decision
     class S2_CONFIRM,GATE1,GATE2,S6B_GATE human

@@ -55,7 +55,7 @@ flowchart TD
 
     %% ── Steps 2.5-2.6: Quality loop ──
     subgraph QUALITY["Quality Gates (Steps 2.5-2.6)"]
-        S2_5["S2.5: Self-critique pass<br/>Adversarial checklist review<br/>Acceptance ↔ BDD ↔ Invariants<br/>External contracts vs docs<br/>Task sizing · Error paths · Reuse"]
+        S2_5["S2.5: Self-critique pass<br/>Adversarial checklist review<br/>Acceptance ↔ BDD ↔ Invariants<br/>External contracts vs docs<br/>Delivery assumptions vs kb/anti-patterns.md<br/>(contradiction = blocker)<br/>Task sizing · Error paths · Reuse"]
         S2_5 --> S2_5_PARSE{"All diagrams parse?"}
         S2_5_PARSE -->|"No"| S2_5_PARSE_FAIL["Report offending block<br/>by type and line<br/>Skip that diagram's<br/>remaining checks"]
         S2_5_PARSE -->|"Yes"| S2_5_NAV["Navigability · path form<br/>file existence · fragments<br/>palette · annotations<br/>Findings name the offender"]

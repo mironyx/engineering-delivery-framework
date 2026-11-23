@@ -16,6 +16,7 @@ Grammar:
   tracker.py comment REF --body MD
   tracker.py status  REF S [--add-to-board]
   tracker.py close   REF
+  tracker.py --help | -h | <op> --help
 """
 
 from __future__ import annotations
@@ -43,6 +44,7 @@ _CREATE_VALUE_FLAGS = {"--title": "title", "--body": "body", "--labels": "labels
                        "--parent": "parent", "--board-status": "board_status"}
 _CREATE_BOOL_FLAGS = {"--add-to-board": "add_to_board", "--dry-run": "dry_run"}
 _EDIT_CHANGE_FLAGS = ("title", "body", "add_label", "remove_label")
+_HELP_FLAGS = ("--help", "-h")
 
 
 @dataclass(frozen=True)
@@ -196,8 +198,12 @@ def _load_backend(name: str) -> ModuleType:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if any(flag in argv[:2] for flag in _HELP_FLAGS):  # before config validation: help needs none
+        print(__doc__[__doc__.index("Grammar:"):].rstrip())
+        return 0
     try:
-        args = _parse(sys.argv[1:] if argv is None else argv)
+        args = _parse(argv)
         ctx = _resolve_context(_env_root(), _repo_root())
         if args.op == "tracker":
             print(ctx.tracker)

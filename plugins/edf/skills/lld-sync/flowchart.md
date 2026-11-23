@@ -20,7 +20,9 @@ flowchart TD
     S2 -->|"feature"| S2_FEAT["Analyse delta:<br/>Additions / Corrections /<br/>Omissions / Confirmations"]
 
     S2_REF --> S3
-    S2_FEAT --> S3
+    S2_FEAT --> S2_DELIV
+
+    S2_DELIV["S2: Delivery assumptions<br/>Retries / redelivery / ordering<br/>vs kb/anti-patterns.md<br/>Contradiction → Correction"] --> S3
 
     S3["S3: Update the LLD<br/>Surgical edits, implementation<br/>notes for Corrections,<br/>preserve stable anchors"]
 
@@ -45,6 +47,6 @@ flowchart TD
     classDef decision fill:#f7eed6,stroke:#8a6d2d,color:#443a1a
 
     class START,DONE startend
-    class REFACTOR,FEATURE,S1,S2_REF,S2_FEAT,S3,S3A,S3B,S3C,S3D,S4 process
+    class REFACTOR,FEATURE,S1,S2_REF,S2_FEAT,S2_DELIV,S3,S3A,S3B,S3C,S3D,S4 process
     class MODE,S2,S3D_CHECK decision
 ```

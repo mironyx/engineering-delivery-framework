@@ -219,7 +219,7 @@ Base on local `main` (not `origin/main`) so a committed-but-unpushed plan is
 included. If the plan file itself is **uncommitted**, flag it now — it cannot be
 part of the PR; the user should commit it first or accept it stays out of scope.
 
-If the user cancels at the Step 2 gate, clean up before stopping:
+If the user cancels at the Step 2c gate, clean up before stopping:
 `git worktree remove "../${REPO}-docs-$SLUG"` and `cd` back to the main repo.
 
 ### Step 2: Analyse and present overview
@@ -230,13 +230,27 @@ For each in-scope epic, determine:
 2. **Input sources** — what files, issues, or design docs to read.
 3. **Output** — what artefact will be produced and where.
 4. **Decomposition** — see Step 2b below.
+5. **Task size and files** — for every proposed task (after any Step 2b split), estimate
+   the total PR diff against the 200-line rule and list the files it edits (create or
+   modify). Do this now, before the gate — sizing after the LLD is written means a split
+   found there costs a second design pass. Read the current code to get the file list;
+   do not guess it from the plan.
+6. **Vendor payload shapes** — for every task that consumes or produces a third-party
+   payload (webhook body, API request/response, SDK event), check the field names, types
+   and required-ness against the vendor's published schema with `WebFetch`/`WebSearch` and
+   cite the doc URL in the task's `## What` section. If it cannot be verified, mark the shape
+   `> **Unverified — recall-based:**` there instead. This mirrors `/lld` Step 2.5's
+   external-surface check, one stage earlier, so a wrong shape never reaches the LLD.
 
 Present a summary table to the user:
 
 ```
-| # | Epic | Artefact type | Output path | Depends on | Split? |
-|---|------|---------------|-------------|------------|--------|
+| # | Epic / task | Artefact type | Output path | Est. diff lines | Files edited | Depends on | Split? |
+|---|-------------|---------------|-------------|-----------------|--------------|------------|--------|
 ```
+
+Any task estimated above 200 lines without a proposed split must say why in the table's
+`Split?` column (e.g. "no clean seam — Step 2b").
 
 Include a preliminary execution waves proposal below the table:
 
@@ -262,9 +276,7 @@ graph LR
 
 Nodes use the format `#<issue> · <short title>\n(<layer>)`. Dashed arrows (`-.->` with label) indicate soft coupling such as a shared migration. Nodes that have no incoming arrows are parallelisable from the start. Add a plain-English summary below the diagram stating which tasks can start immediately in parallel and which must be sequential.
 
-**Hard rule — shared files force sequential waves:** Any two tasks that both write to the same source file (e.g. `tables.sql`, `functions.sql`, any shared migration) must be placed in different waves, even if their logical coupling is soft. Parallel PRs on the same file always produce a merge conflict. Encode this as a solid arrow in the dependency graph, not a dashed one.
-
-**Wait for user confirmation** before producing artefacts. The user may re-prioritise, skip items, redirect artefact types, adjust wave assignments, or reject a proposed split.
+**Hard rule — shared files force sequential waves:** Any two tasks that both write to the same source file (e.g. `tables.sql`, `functions.sql`, any shared migration) must be placed in different waves, even if their logical coupling is soft. Parallel PRs on the same file always produce a merge conflict. Encode this as a solid arrow in the dependency graph, not a dashed one. **Shared types, interfaces and allowlists count as shared files** — two tasks that both add to the same type or interface definition, a shared enum or union, or a registry/allowlist (e.g. an architecture-test allowlist, a route table) go in different waves, even when each task's own code lives in separate files. Use the `Files edited` column to find them.
 
 ### Step 2b: Decomposition assessment
 
@@ -284,6 +296,13 @@ When a split is warranted, propose the task issues with explicit dependency orde
 If set, and the epic adds new tables, columns, RPCs, indexes, or CHECK changes (whether via `<schema-dir>` for declarative projects, or as new files in `<migration-dir>` for hand-authored projects), the LLD task breakdown **must** include a "DB schema foundations" task as Task 1. All schema additions for the epic land in that one task. Downstream tasks must be read-only on `<schema-dir>` (declarative) and must not add new files to `<migration-dir>` (either workflow).
 
 Rationale: schema files in `<schema-dir>` are textually shared across tasks, and `<migration-dir>` files are timestamp-ordered. Parallel tasks editing schema produce both textual merge conflicts and migration-ordering ambiguity. One foundations task eliminates both.
+
+### Step 2c: Overview gate
+
+Present the Step 2 overview — summary table with per-task size and files edited, waves,
+dependency graph — including any Step 2b split.
+
+**Wait for user confirmation** before producing artefacts. The user may re-prioritise, skip items, redirect artefact types, adjust wave assignments, or reject a proposed split.
 
 ### Step 3: Read all input sources
 
@@ -321,7 +340,7 @@ Delegate to the `edf:lld` skill:
 Skill({skill: "edf:lld", args: "epic <epic-issue-number> v<version> --non-interactive"})
 ```
 
-`<epic-issue-number>` is the GitHub issue number of the epic. `<version>` is the project version slug (`v11`, `v12`, …). The `--non-interactive` flag skips `edf:lld`'s Step 1 overview — `/architect`'s Step 2 already obtained user approval on the batch.
+`<epic-issue-number>` is the GitHub issue number of the epic. `<version>` is the project version slug (`v11`, `v12`, …). The `--non-interactive` flag skips `edf:lld`'s Step 1 overview — `/architect`'s Step 2c gate already obtained user approval on the batch.
 
 `edf:lld` produces:
 - `docs/design/v<N>/lld-<epic-id>-<short-name>.md` — the LLD with Part A, Part B, self-critique pass, `## Tasks`, and execution order.

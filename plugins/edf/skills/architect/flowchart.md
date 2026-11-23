@@ -10,9 +10,13 @@ flowchart TD
 
     S1A["S1a: Create docs worktree<br/>git worktree add ../&lt;repo&gt;-docs-&lt;slug&gt;<br/>-b docs/&lt;slug&gt; main, verify CWD"] --> S2
 
-    S2["S2: Analyse & present overview<br/>Artefact type, input sources,<br/>output paths, decomposition"] --> S2B
+    S2["S2: Analyse overview<br/>Artefact type, input sources,<br/>output paths, decomposition"] --> S2_SIZE
 
-    S2B["S2b: Decomposition assessment<br/>Split if >200 lines AND<br/>natural seam exists"] --> S2_GATE(["fa:fa-hand-o-right Wait for user confirmation"])
+    S2_SIZE["S2: Per task — est. diff vs 200 lines,<br/>files edited (from current code),<br/>vendor payload shapes: cite URL or Unverified"] --> S2_WAVES
+
+    S2_WAVES["S2: Waves + dependency graph<br/>Shared files, shared types / interfaces /<br/>allowlists → different waves"] --> S2B
+
+    S2B["S2b: Decomposition assessment<br/>Split if >200 lines AND<br/>natural seam exists"] --> S2_GATE(["fa:fa-hand-o-right S2c: Wait for user confirmation"])
 
     S2_GATE --> S3["S3: Read all input sources<br/>Issues, design docs, ADRs,<br/>source files, requirements"]
 
@@ -53,7 +57,7 @@ flowchart TD
     classDef human fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S1,S1A,S2,S2B,S3,S4_1,S4_4,S4_5,S5,S6,S7,S8,S10,S10_NOTE process
+    class S1,S1A,S2,S2_SIZE,S2_WAVES,S2B,S3,S4_1,S4_4,S4_5,S5,S6,S7,S8,S10,S10_NOTE process
     class S4_2,S4_3 agent
     class S2_GATE,S9_GATE human
 ```

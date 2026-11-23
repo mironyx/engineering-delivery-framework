@@ -12,6 +12,7 @@ gh calls they make instead (behaviour: test_tracker_github.py).
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import pathlib
@@ -697,3 +698,68 @@ class TestEvaluatorGaps:
             env={"PATH": str(tmp_path / "no-such-dir")},
         )  # fmt: skip
         _assert_error(result, "Error: git is not installed or not on PATH")
+
+
+# ---------------------------------------------------------------- --help (#169)
+
+
+def _docstring_grammar() -> list[str]:
+    """The `tracker.py <op>` lines of the module docstring's Grammar block, whitespace-normalised."""
+    doc = ast.get_docstring(ast.parse(TRACKER.read_text(encoding="utf-8"))) or ""
+    lines = [" ".join(line.split()) for line in doc.splitlines() if line.strip().startswith("tracker.py ")]
+    assert len(lines) >= 8, f"docstring grammar block not found: {lines}"
+    return lines
+
+
+def _normalised(text: str) -> str:
+    return "\n".join(" ".join(line.split()) for line in text.splitlines())
+
+
+class TestHelp:
+    """#169 — `tracker.py --help` / `-h` / `create --help` print the docstring grammar, exit 0."""
+
+    @pytest.mark.parametrize("flag", ["--help", "-h"])
+    def test_top_level_help_prints_every_grammar_line(self, fake_gh, flag):
+        result = _run(fake_gh.repo, flag)
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        out = _normalised(result.stdout)
+        for line in _docstring_grammar():
+            assert line in out, f"--help output is missing grammar line {line!r}"
+        assert "Error" not in result.stderr
+        assert "Traceback" not in result.stderr
+
+    def test_create_help_exits_zero_with_create_usage(self, fake_gh):
+        result = _run(fake_gh.repo, "create", "--help")
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        create_line = next(line for line in _docstring_grammar() if line.startswith("tracker.py create"))
+        assert create_line in _normalised(result.stdout)
+        assert "--title is required" not in result.stderr
+        assert "Error" not in result.stderr
+
+    @pytest.mark.parametrize("argv", [["--help"], ["-h"], ["create", "--help"]], ids=["help", "h", "create-help"])
+    def test_help_makes_no_gh_call(self, fake_gh, argv):
+        fake_gh.rules([{"argv_prefix": [], "stdout": "", "exit": 0}])
+        result = _run(fake_gh.repo, *argv)
+        assert result.returncode == 0, result.stderr
+        assert fake_gh.calls() == []
+
+    @pytest.mark.parametrize("argv", [["--help"], ["create", "--help"]], ids=["help", "create-help"])
+    @pytest.mark.parametrize(
+        "env",
+        [
+            pytest.param({"JIRA_HOST": HOST}, id="missing-companions"),
+            pytest.param({**FULL_JIRA, "JIRA_HOST": "http://example.atlassian.net"}, id="http-host"),
+        ],
+    )
+    def test_help_precedes_jira_config_validation(self, fake_gh, monkeypatch, env, argv):
+        _set_env(monkeypatch, env)
+        result = _run(fake_gh.repo, *argv)
+        assert result.returncode == 0, result.stderr
+        assert "tracker.py create" in result.stdout
+        assert "Error" not in result.stderr
+        assert TOKEN not in result.stdout + result.stderr
+
+    def test_help_does_not_change_missing_operation_error(self, fake_gh):
+        """No-args stays an error (I5); --help is additive, not a new default."""
+        result = _run(fake_gh.repo)
+        _assert_error(result)

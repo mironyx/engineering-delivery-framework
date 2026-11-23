@@ -45,6 +45,10 @@ For each match: **block** finding. Fallback behaviour does not excuse missing ob
 
 ## Step 4: Helper reuse (reusable helpers — block re-implementation)
 
+The kb placeholders hold only the sections relevant to the changed paths (general
+sections always included); if a changed file needs a rule that is not there, read the
+full `kb/` file yourself.
+
 If `{{KB_ARCHITECTURE}}` is non-empty, it lists the project's reusable helpers. The
 "Helper reuse" section of `{{ANTI_PATTERNS}}` lists inline-pattern → reusable-helper mappings.
 Apply these checks:
