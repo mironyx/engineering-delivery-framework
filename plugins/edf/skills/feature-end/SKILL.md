@@ -1,7 +1,6 @@
 ---
 name: feature-end
-description: User-invoked only (enforced by disable-model-invocation). Wraps up a feature after the human has reviewed the PR — writes session log, merges PR, cleans up. The user typing /feature-end is the merge approval; the model deciding to run it is not.
-disable-model-invocation: true
+description: Wraps up a feature after the human has reviewed the PR — writes session log, merges PR, cleans up. The user typing /feature-end is the merge approval; the model deciding to run it is not.
 allowed-tools: Read, Write, Edit, MultiEdit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 ---
 
