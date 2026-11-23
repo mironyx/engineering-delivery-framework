@@ -17,8 +17,12 @@ flowchart TD
     S1_5_CHK -->|"No"| S1_5_RUN(("edf:lld-sync"))
     S1_5_RUN --> S2
 
-    S2["S2: Find session log by feature ID<br/>Append narrative sections<br/>(or write full log if not found)"] --> S2_5["S2.5: Query final cost<br/>query-feature-cost.py --stage final"]
-    S2_5 --> S2_6["S2.6: Cost retrospective<br/>Read checkpoint table from<br/>session log (if Full track)<br/>+ .edf/session-drafts snapshots"]
+    S2["S2: Find session log by feature ID<br/>Append narrative sections<br/>(or write full log if not found)<br/>check-checkpoints.py: log missing/bulk"] --> S2_5["S2.5: Query final cost<br/>query-feature-cost.py --stage final"]
+    S2_5 --> S2_5_CHK{"Cost 0?"}
+    S2_5_CHK -->|"Yes: no labels"| S2_5_ZERO["Relay 'No Prometheus data' line<br/>no PR comment"]
+    S2_5_CHK -->|"No"| S2_5_POST["gh pr comment cost output"]
+    S2_5_ZERO --> S2_6
+    S2_5_POST --> S2_6["S2.6: Cost retrospective<br/>Read checkpoint table from<br/>session log (if Full track)<br/>+ .edf/session-drafts snapshots<br/>post-PR cost = final − pr"]
 
     S2_6 --> S3["S3: park-docs.sh park<br/>(docs/ + kb/ stashed, not pushed)<br/>commit + push remaining code only"]
     S3 --> S3_5["S3.5: Rebase onto latest base<br/>git rebase origin/base"]
@@ -30,11 +34,11 @@ flowchart TD
     S4_CHK -->|"No"| STOP_MERGE(["fa:fa-ban Stop: merge failed"])
     S4_CHK -->|"Yes"| S5
 
-    S5["S5+6: Clean up & update board<br/>Delete branch,<br/>tracker.py close (after merge only)"] --> S6_4["S6.4: Update coverage manifest<br/>Flip status to Implemented,<br/>populate files:"]
+    S5["S5+6: Clean up & update board<br/>Delete branch,<br/>tracker.py close (after merge only)<br/>unblock-dependants.py → Todo"] --> S6_4["S6.4: Update coverage manifest<br/>Flip status to Implemented,<br/>populate files:"]
     S6_4 --> S6_5["S6.5: kb/ coverage check"]
-    S6_5 --> S6_6["S6.6: park-docs.sh land<br/>one docs commit on base, push"]
+    S6_5 --> S6_6["S6.6: park-docs.sh land<br/>(flock-serialised, 120 s)<br/>one docs commit on base, push"]
 
-    S6_6 --> S7["S7: Report<br/>PR merged, issue closed,<br/>suggest next item"]
+    S6_6 --> S7["S7: Report<br/>PR merged, issue closed,<br/>checkpoint/cost findings,<br/>unblocked refs, next item"]
 
     S7 --> DONE(["fa:fa-check Feature end complete"])
 
@@ -46,8 +50,8 @@ flowchart TD
     classDef stop fill:#f7d6d6,stroke:#8a2d2d,color:#441a1a
 
     class START,DONE startend
-    class S1,S1_5,S2,S2_5,S2_6,S3,S3_5,S4,S5,S6_4,S6_5,S6_6,S7 process
+    class S1,S1_5,S2,S2_5,S2_5_ZERO,S2_5_POST,S2_6,S3,S3_5,S4,S5,S6_4,S6_5,S6_6,S7 process
     class S1_5_RUN agent
-    class S0,S1_CHK,S1_5_CHK,S3_5_CHK,S4_CHK decision
+    class S0,S1_CHK,S1_5_CHK,S2_5_CHK,S3_5_CHK,S4_CHK decision
     class STOP_GATE,STOP_REVIEW,STOP_CONFLICT,STOP_MERGE stop
 ```

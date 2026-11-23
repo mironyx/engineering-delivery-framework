@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 import pytest
 
@@ -1045,6 +1046,101 @@ class TestParkDocs:
 
     def test_rejects_bad_usage(self, tmp_path):
         assert _bash(BIN_DIR / "park-docs.sh", "park", "abc", cwd=tmp_path).returncode == 2
+
+    # ── #168 §4: `land` serialises on a lock in the shared git dir ──
+
+    def _lock_path(self, repo):
+        common = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=repo,
+                                check=True, capture_output=True, text=True).stdout.strip()
+        return (repo / common).resolve() / "edf-park-docs.lock"
+
+    def _hold_lock(self, lock, seconds):
+        """Hold the lock from another process; return once it is actually held."""
+        holder = subprocess.Popen(["flock", str(lock), "sleep", str(seconds)])
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            probe = subprocess.run(["flock", "-n", str(lock), "true"], capture_output=True)
+            if probe.returncode != 0:
+                return holder
+            time.sleep(0.05)
+        holder.kill()
+        pytest.fail("test could not take the park-docs lock")
+
+    def _land(self, repo, ref, wait=None):
+        env = dict(os.environ)
+        if wait is not None:
+            env["EDF_PARK_DOCS_LOCK_WAIT"] = str(wait)
+        return subprocess.Popen([_BASH_EXE, _to_msys2_path(BIN_DIR / "park-docs.sh"), "land", ref],
+                                cwd=repo, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True)
+
+    def _park_on_feat(self, repo, run, ref, name):
+        run("checkout", "-qB", f"feat-{ref}", "main")
+        (repo / "docs" / name).write_text(f"log {ref}\n")
+        parked = _bash(BIN_DIR / "park-docs.sh", "park", ref, cwd=repo)
+        assert parked.returncode == 0, parked.stderr
+        run("checkout", "-q", "main")
+
+    @pytest.mark.skipif(shutil.which("flock") is None, reason="flock not installed")
+    def test_land_waits_for_the_lock_then_completes(self, tmp_path):
+        repo, run = self._repos(tmp_path)
+        self._park_on_feat(repo, run, "7", "session-log-X-7.md")
+        holder = self._hold_lock(self._lock_path(repo), 3)
+        try:
+            start = time.monotonic()
+            land = self._land(repo, "7", wait=30)
+            time.sleep(1)
+            assert land.poll() is None, "land ran while another land held the lock"
+            assert "docs/session-log-X-7.md" not in run("ls-tree", "-r", "--name-only", "origin/main").stdout
+            out, err = land.communicate(timeout=30)
+            elapsed = time.monotonic() - start
+        finally:
+            holder.kill()
+            holder.wait()
+        assert land.returncode == 0, err
+        assert out.startswith("land: committed and pushed")
+        assert elapsed >= 2
+        assert "docs/session-log-X-7.md" in run("ls-tree", "-r", "--name-only", "origin/main").stdout
+
+    @pytest.mark.skipif(shutil.which("flock") is None, reason="flock not installed")
+    def test_land_times_out_with_one_line(self, tmp_path):
+        repo, run = self._repos(tmp_path)
+        self._park_on_feat(repo, run, "7", "session-log-X-7.md")
+        holder = self._hold_lock(self._lock_path(repo), 60)
+        try:
+            start = time.monotonic()
+            land = self._land(repo, "7", wait=1)
+            out, err = land.communicate(timeout=30)
+            elapsed = time.monotonic() - start
+        finally:
+            holder.kill()
+            holder.wait()
+        assert land.returncode != 0
+        assert elapsed < 20
+        lines = [ln for ln in (out + err).splitlines() if ln.strip()]
+        assert len(lines) == 1, lines
+        assert lines[0].startswith("land:")
+        # Nothing was landed: the stash is still parked.
+        assert "edf-docs-7" in run("stash", "list").stdout
+
+    @pytest.mark.skipif(shutil.which("flock") is None, reason="flock not installed")
+    def test_two_concurrent_lands_both_commit(self, tmp_path):
+        repo, run = self._repos(tmp_path)
+        self._park_on_feat(repo, run, "7", "session-log-X-7.md")
+        self._park_on_feat(repo, run, "8", "session-log-X-8.md")
+        holder = self._hold_lock(self._lock_path(repo), 1)
+        try:
+            first, second = self._land(repo, "7", wait=30), self._land(repo, "8", wait=30)
+            out1, err1 = first.communicate(timeout=60)
+            out2, err2 = second.communicate(timeout=60)
+        finally:
+            holder.kill()
+            holder.wait()
+        assert first.returncode == 0, err1
+        assert second.returncode == 0, err2
+        remote_files = run("ls-tree", "-r", "--name-only", "origin/main").stdout
+        assert "docs/session-log-X-7.md" in remote_files
+        assert "docs/session-log-X-8.md" in remote_files
 
 
 class TestCreateFeaturePrMultiIssue:

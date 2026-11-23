@@ -633,6 +633,21 @@ One commit per issue. Do not batch multiple issues.
 
 ### Step 8: Push and create PR
 
+**Checkpoint gate — Full track (Standard/Heavy) only, run before pushing.** Light track
+has no session log at this point, so it skips the gate (feature-end Step 2.2b audits it later).
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/check-checkpoints.py --issue <N>
+```
+
+It reads the session log's `Pressure:` line and `## Cost checkpoints` table. **Exit 1
+(`missing: 4bF,6b` or `missing: session log`) — stop: do not push or create the PR.** Go back
+and run each missing step (test-author for 4bF, feature-evaluator for 6b) with its
+checkpoint, then re-run the gate. A hand-written row does not count — the rows come only
+from `append-checkpoint.py`. A `bulk: <steps>` line is a warning (several rows written
+within a minute, i.e. batched rather than live): append it to the session log's
+Concerns & Deferred Items section and continue.
+
 ```bash
 git push -u origin HEAD
 ```

@@ -57,6 +57,18 @@ case "$MODE" in
     ;;
   land)
     cd "$(git rev-parse --show-toplevel)" || exit 1
+    # Parallel teammates land on the same base branch from one object store: serialise the
+    # pop/commit/push so two lands never interleave. The lock lives in the shared .git dir.
+    if command -v flock >/dev/null 2>&1; then
+      LOCK_WAIT="${EDF_PARK_DOCS_LOCK_WAIT:-120}"
+      exec 9>"$(git rev-parse --git-common-dir)/edf-park-docs.lock"
+      if ! flock -w "$LOCK_WAIT" 9; then
+        echo "land: FAILED — another park-docs land held the lock for ${LOCK_WAIT}s; re-run when it finishes" >&2
+        exit 1
+      fi
+    else
+      echo "land: warning — flock not installed; landing without the lock" >&2
+    fi
     ref="$(find_stash)"
     if [[ -z "$ref" ]]; then
       echo "land: nothing parked for $ISSUE_LABEL ($TAG not found)"
