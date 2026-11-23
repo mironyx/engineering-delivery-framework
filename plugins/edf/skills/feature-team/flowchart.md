@@ -69,7 +69,7 @@ flowchart TD
 
     %% ── Steps 7-9: Teardown ──
     subgraph TEARDOWN["Steps 7-9: Teardown"]
-        S7["S7: Final summary<br/>Issue → PR → merged<br/>Notes from feature-ends"]
+        S7["S7: Final summary<br/>Issue → PR → merged<br/>Notes from feature-ends<br/>LLD Sync report per task?<br/>missing → edf:lld-sync"]
         S7 --> S7_EPIC{"Epic mode?"}
         S7_EPIC -->|"Yes"| S7_CLOSE["Close epic:<br/>tracker.py comment<br/>tracker.py close"]
         S7_EPIC -->|"No"| S8

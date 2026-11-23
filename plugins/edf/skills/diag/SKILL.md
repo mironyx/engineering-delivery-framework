@@ -74,10 +74,15 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
       server registers different ones depending on its configuration; check in this order:
       - `mcp__sonarqube__analyze_file_list` (SonarQube for IDE connected) — one call with
         the absolute paths of all changed files.
-      - `mcp__sonarqube__analyze_code_snippet` — one call per file. Read the file and pass
-        its full content as `fileContent`, plus `language` and `scope` (`TEST` for test
-        files, else `MAIN`). This works from any folder, including worktrees, because the
-        server never needs to see the file system.
+      - `mcp__sonarqube__analyze_code_snippet` — one call per file with `filePath`
+        (project-relative, e.g. `src/foo/bar.ts`), `language` and `scope` (`TEST` for test
+        files, else `MAIN`). The server reads the file itself from the folder it mounted
+        when it started — the directory the Claude Code session was launched in. A file
+        outside that mount (a git worktree at another path, a sibling repo) returns
+        `Could not read file`: treat that as unavailable for this path — emit the
+        `SonarQube: skipped` line with the mount reason (below) and do not retry with other
+        path forms.
+        (`codeSnippet` only filters which issues are reported; it is not the file body.)
       - `mcp__sonarqube__run_advanced_code_analysis` (needs a Vortex subscription and the
         workspace mounted into the server) — one call per file with `projectKey`,
         `branch` (`git branch --show-current`), `filePath` relative to the repo root, and
@@ -93,6 +98,13 @@ A [flowchart.md](flowchart.md) companion file visualises this pipeline. Update i
       SonarQube: skipped — the SonarQube MCP exposes no analysis tool in this session
       (needs analyze_code_snippet: start the server with SONARQUBE_FORCE_LOCAL_ANALYSIS=true
       and the `analysis` toolset, or connect SonarQube for IDE for analyze_file_list).
+      ```
+
+      On `Could not read file`:
+
+      ```text
+      SonarQube: skipped — <path> is outside the SonarQube MCP server's mounted workspace
+      (Could not read file); run the session from this checkout to analyse it.
       ```
 
    3. **Sort each issue:**

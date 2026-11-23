@@ -165,9 +165,9 @@ paragraph is paid for twice. Do not repeat content between sections.
 
 Run the checkpoint checker against the log (both paths — 2.1 and 2.2):
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/check-checkpoints.py --issue <issue-ref>
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/check-checkpoints.py --issue <issue-ref> --stage end
 ```
-Any `missing: …` or `bulk: …` line it prints is a finding, not a blocker here (the PR is
+`--stage end` also requires the Step 9 review row. Any `missing: …` or `bulk: …` line it prints is a finding, not a blocker here (the PR is
 already reviewed): append each line verbatim as a bullet to `## Concerns & Deferred Items`
 and repeat it in the Step 7 report. `checkpoints: ok` needs no action. Never add or edit a
 checkpoint row to make a finding go away.

@@ -104,7 +104,8 @@ flowchart TD
         S8_PATCH --> S8_CP
         S8_CP --> S8B(("S8b: edf:ci-probe<br/>background"))
         S8B --> S9["S9: edf:pr-review<br/>Record REVIEWED_SHA"]
-        S9 --> S9_T["Triage findings"]
+        S9 --> S9_CP["Checkpoint: step 9<br/>(every review, before triage)"]
+        S9_CP --> S9_T["Triage findings"]
         S9_T --> S9_B{"Blocker?"}
         S9_B -->|"Yes"| S9_FIX["Fix -> re-run S5 -> push"]
         S9_FIX --> S9_SZ["Compute fix size:<br/>git diff REVIEWED_SHA..HEAD"]
@@ -114,8 +115,7 @@ flowchart TD
         S9_SZ_CHK -->|"No"| S9RERUN["Re-run edf:pr-review"]
         S9RERUN --> S9_T
         S9_B -->|"No"| S9_D["Fix or defer"]
-        S9_D --> S9_CP["Append cost checkpoint<br/>step 9: review clean"]
-        S9_CP --> S10["S10: Reconcile CI<br/>ci-status.py --wait 9"]
+        S9_D --> S10["S10: Reconcile CI<br/>ci-status.py --wait 9"]
         S10 --> S10_CI{"CI?"}
         S10_CI -->|"pass / none"| S10_RDY["gh pr ready"]
         S10_RDY --> S10_OK["Summarize report"]

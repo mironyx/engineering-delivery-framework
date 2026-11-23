@@ -377,7 +377,7 @@ Each task entry follows this format:
 **Layer:** DB | BE | FE
 **Depends on:** Task M (if any), or — (no dependencies)
 **Stories:** [requirement story numbers]
-**HLD reference:** [link to relevant HLD section]
+**HLD reference:** [link to relevant HLD section — only when this version's HLD (`docs/design/v<N>/v<N>-design.md`) exists; otherwise omit the line. Never fall back to an older version's HLD.]
 
 **What:** [1-2 sentences on what to implement]
 

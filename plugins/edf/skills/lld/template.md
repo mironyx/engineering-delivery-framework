@@ -314,7 +314,7 @@ path and any async/webhook side paths. Link between them with prose references.
 
 #### State diagram
 
-```mermaid
+`` ```mermaid
 stateDiagram-v2
     [*] --> Loading
     Loading --> Empty : no data
@@ -333,7 +333,7 @@ stateDiagram-v2
     %% click comes after the states, and carries NO _self — see the support matrix.
     click Loading href "../../../src/lib/example/useResource.ts"
     click Success href "#LLD-v1-e1-resource-view"
-```
+`` ```
 
 **When required:** The section has a UI states table (Loading, Error, Empty, Success)
 **and** at least one transition between those states is non-trivial — retry from error,
@@ -346,7 +346,7 @@ pure backend, CLI, or schema work.
 
 #### Decision flowchart
 
-```mermaid
+`` ```mermaid
 flowchart TD
     A["Incoming request"] --> B{"AuthZ check"}
     B -->|"allowed"| C["Process request"]
@@ -371,7 +371,7 @@ flowchart TD
     %% click directives come LAST — see the declaration-order rule above.
     click B href "../../../src/lib/auth/guard.ts" _self
     click H href "#LLD-v1-e1-payment-adapter" _self
-```
+`` ```
 
 **When required:** The flow branches on two or more conditions — auth rules, feature flags,
 routing decisions, business rule evaluation. Count the decision points: two or more is the
@@ -617,7 +617,7 @@ For every non-trivial API route or component, add an explicit internal decomposi
 **before implementation begins**. Name every function, class, or interface that will exist
 internally and state what is forbidden.
 
-```
+`` ```
 Controller (stays in route.ts, ≤ 5 lines):
 - const ctx = await createApiContext(request)   // per-request composition root: assembles all clients
 - return json(await service.fn(ctx, params))    // injects context into service
@@ -631,7 +631,7 @@ Service ([endpoint]/service.ts):
 
 Extracted to helpers.ts (if applicable):
 - `pureFunction(...)` — [why extracted: testability, reuse]
-```
+`` ```
 
 Use `> **Constraint:**` for notes written **before** implementation (hard limits for the implementing
 agent). Use `> **Implementation note (issue #N):**` only to document decisions made **after**

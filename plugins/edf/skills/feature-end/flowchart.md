@@ -17,7 +17,7 @@ flowchart TD
     S1_5_CHK -->|"No"| S1_5_RUN(("edf:lld-sync"))
     S1_5_RUN --> S2
 
-    S2["S2: Find session log by feature ID<br/>Append narrative sections<br/>(or write full log if not found)<br/>check-checkpoints.py: log missing/bulk"] --> S2_5["S2.5: Query final cost<br/>query-feature-cost.py --stage final"]
+    S2["S2: Find session log by feature ID<br/>Append narrative sections<br/>(or write full log if not found)<br/>check-checkpoints.py --stage end:<br/>missing (incl. 9)/bulk"] --> S2_5["S2.5: Query final cost<br/>query-feature-cost.py --stage final"]
     S2_5 --> S2_5_CHK{"Cost 0?"}
     S2_5_CHK -->|"Yes: no labels"| S2_5_ZERO["Relay 'No Prometheus data' line<br/>no PR comment"]
     S2_5_CHK -->|"No"| S2_5_POST["gh pr comment cost output"]
