@@ -48,7 +48,7 @@ Skill files under `plugins/edf/skills/` are markdown with YAML frontmatter. Key 
 Agent .md files under `plugins/edf/agents/` use frontmatter with a `model` field. There are
 exactly two valid values, and `tests/test_agent_schema.py` enforces the split:
 
-- **Mechanical agents** (`ci-probe`, `diagnostics-checker`, `gh-issue-manager`,
+- **Mechanical agents** (`ci-probe`, `gh-issue-manager`,
   `qa-contracts`, `qa-coverage`, `test-runner`) pin `model: haiku` to keep cost low. They
   execute pre-assembled commands and string substitution — no judgement to preserve.
 - **Every other agent** uses `model: inherit`, so its depth tracks whatever model the

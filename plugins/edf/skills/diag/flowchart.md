@@ -18,8 +18,9 @@ flowchart TD
 
     S3_GATE{"'sonar' in<br/>$ARGUMENTS?"} -->|"No (default)"| S4
     S3_GATE -->|"Yes"| S3_TOOL{"MCP analysis tool?<br/>analyze_file_list /<br/>analyze_code_snippet /<br/>run_advanced_code_analysis"}
-    S3_TOOL -->|"None"| S3_SKIP["Report skipped + config hint<br/>(never sonar CLI)"]
+    S3_TOOL -->|"None"| S3_SKIP["Report skipped + reason<br/>(config hint or mount)<br/>(never sonar CLI)"]
     S3_TOOL -->|"Available"| S3["S3: changed-lines.py →<br/>analyse changed files"]
+    S3 -->|"Could not read file<br/>(path outside server mount)"| S3_SKIP
     S3 --> S3_FIX["Fix all issues on changed lines<br/>+ top 2 pre-existing by severity"]
     S3_FIX --> S3_RE["Re-analyse once"]
     S3_RE --> S4

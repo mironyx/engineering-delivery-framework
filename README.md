@@ -47,7 +47,7 @@ Use an absolute path in `.env` when the directory is outside this repo.
 ## What's included
 
 - **25 skills** — `/edf:feature`, `/edf:feature-core`, `/edf:feature-end`, `/edf:feature-team`, `/edf:test`, `/edf:diag`, `/edf:qa`, `/edf:pr-review`, `/edf:architect`, `/edf:refactor-architect`, `/edf:frontend-architect`, `/edf:kickoff`, `/edf:discovery`, `/edf:requirements`, `/edf:create-plan`, `/edf:lld`, `/edf:lld-sync`, `/edf:create-adr`, `/edf:create-mermaid-diagram`, `/edf:bug`, `/edf:backlog`, `/edf:baseline`, `/edf:drift-scan`, `/edf:retro`, `/edf:setup`
-- **14 agents** — ci-probe, diagnostics-checker, feature-evaluator, gh-issue-manager, hld-review, lld-review, qa-contracts, qa-coverage, qa-executor, qa-explorer, requirements-design-drift, requirements-review, test-author, test-runner
+- **13 agents** — ci-probe, feature-evaluator, gh-issue-manager, hld-review, lld-review, qa-contracts, qa-coverage, qa-executor, qa-explorer, requirements-design-drift, requirements-review, test-author, test-runner
 - **3 hooks** — PostToolUse diagnostics + editor open, PreCompact session log
 - **21 utility scripts** — issue tracker access (`tracker.py`), session tagging, cost tracking, PR creation, review packaging, coverage manifest, test output summarizers (vitest, pytest)
 
@@ -150,7 +150,7 @@ add the variables by hand:
 
 EDF agents fall into two groups. Agents that exercise judgement (`feature-evaluator`, `hld-review`, `lld-review`, `qa-executor`, `qa-explorer`, `requirements-design-drift`, `requirements-review`, `test-author`) use `model: inherit`, so they run on whatever model your session is using — run Opus and your reviewers are Opus, run Sonnet and they are Sonnet. Nothing to configure.
 
-Mechanical agents (`ci-probe`, `diagnostics-checker`, `gh-issue-manager`, `qa-contracts`, `qa-coverage`, `test-runner`) pin `model: haiku` to keep cost low on work that is command execution and string substitution. This relies on the calling environment having a `haiku` model available — either:
+Mechanical agents (`ci-probe`, `gh-issue-manager`, `qa-contracts`, `qa-coverage`, `test-runner`) pin `model: haiku` to keep cost low on work that is command execution and string substitution. This relies on the calling environment having a `haiku` model available — either:
 
 - **Anthropic API directly** — `claude-haiku-4-5` is selected automatically.
 - **External routing** — set `ANTHROPIC_DEFAULT_HAIKU_MODEL` (or your routing tool's equivalent) so the `haiku` selector resolves to your chosen backend (e.g. DeepSeek, a local model).

@@ -3,11 +3,14 @@
 Usage:
   py bin/check-checkpoints.py --issue <ref>
   py bin/check-checkpoints.py --session-log <path>
+  ... [--stage pr|end]   pr (default): rows required before the PR opens (4bF, 6b);
+                         end: also the review row 9 (feature-end's audit)
 
 Reads the session log's `## Cost checkpoints` table and its `Pressure:` line.
 
 Output (one line per finding):
-  missing: 4bF,6b      Standard/Heavy log without those rows (exit 1)
+  missing: 4bF,6b      Standard/Heavy log without those rows (exit 1); with --stage end
+                       the review row 9 is required too (`missing: 4bF,6b,9`)
   missing: session log no session log found for the issue (exit 1)
   bulk: 5,6,6b         >= 3 consecutive rows written within 60 s of the first — a
                        backfill signature (warning, exit 0); one line per run
@@ -33,6 +36,7 @@ import _feature_id
 from _tracker_contract import TrackerError
 
 REQUIRED = ("4bF", "6b")
+REQUIRED_AT_END = REQUIRED + ("9",)
 BULK_MIN_ROWS = 3
 BULK_WINDOW_SECONDS = 60
 
@@ -75,11 +79,12 @@ def parse_rows(text: str) -> list[tuple[str, datetime]] | None:
 
 
 # Justification: tested contract surface — the tier rule (light never missing) in isolation.
-def missing_steps(pressure: str | None, steps: list[str]) -> list[str]:
-    """REQUIRED steps absent from `steps` — always [] for 'light'; None counts as standard."""
+def missing_steps(pressure: str | None, steps: list[str], stage: str = "pr") -> list[str]:
+    """Steps required at `stage` absent from `steps` — always [] for 'light'; None counts as standard."""
     if pressure == "light":
         return []
-    return [step for step in REQUIRED if step not in steps]
+    required = REQUIRED_AT_END if stage == "end" else REQUIRED
+    return [step for step in required if step not in steps]
 
 
 # Justification: tested contract surface — the 60 s window rule in isolation.
@@ -120,6 +125,8 @@ def main(argv: list[str] | None = None) -> int:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--issue", help="Issue ref (number or Jira key)")
     source.add_argument("--session-log", help="Path to the session log .md file")
+    parser.add_argument("--stage", choices=("pr", "end"), default="pr",
+                        help="pr: before the PR opens (default); end: feature-end audit, also requires 9")
     args = parser.parse_args(argv)
 
     if args.session_log:
@@ -139,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     if rows is None:
         print("checkpoints: ok (no checkpoint table)")
         return 0
-    missing = missing_steps(parse_pressure(text), [step for step, _ in rows])
+    missing = missing_steps(parse_pressure(text), [step for step, _ in rows], args.stage)
     runs = bulk_runs(rows)
     if missing:
         print(f"missing: {','.join(missing)}")

@@ -262,6 +262,12 @@ When all are received, summarise:
 - Each issue → PR merged → board/issue closed
 - Any notes from individual feature-ends (rebases, review fixes, etc.)
 
+**LLD sync check.** Before reporting the team done, confirm each task's wrap-up really ran
+lld-sync: its session log (`docs/sessions/*/*-<FEATURE_ID>.md`) must contain
+`## LLD Sync report` (feature-end writes it even when it skips, with the reason). List
+the tasks whose log is missing it, run `edf:lld-sync <ref>` for each, and commit the LLD edits
+before going on. A merged PR with no sync report is the signature of a skipped feature-end.
+
 **Only now** is the team fully done. Individual task board items are handled by `edf:feature-end`.
 
 **If running in `epic` mode**, close the epic itself now that all tasks are shipped:

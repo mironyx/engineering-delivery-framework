@@ -397,6 +397,7 @@ The agent runs `tracker.py create` per task (with `--parent <epic_ref>` on Jira;
 [docs/design/v<N>/lld-<epic-id>-<short-name>.md §B.N](docs/design/v<N>/lld-<epic-id>-<short-name>.md#LLD-<epic-id>-<section-slug>)
 
 ## HLD reference
+<!-- Only when docs/design/v<N>/v<N>-design.md exists; otherwise omit this section. Never fall back to an older version's HLD. -->
 [v<N>-design.md §section](docs/design/v<N>/v<N>-design.md)
 
 ## What
@@ -431,6 +432,7 @@ DB | BE | FE
 [docs/design/v<N>/lld-<epic-id>-<short-name>.md](docs/design/v<N>/lld-<epic-id>-<short-name>.md)
 
 ### HLD reference
+<!-- Only when docs/design/v<N>/v<N>-design.md exists; otherwise omit this section. Never fall back to an older version's HLD. -->
 [v<N>-design.md §sections](docs/design/v<N>/v<N>-design.md)
 
 ### Related ADRs

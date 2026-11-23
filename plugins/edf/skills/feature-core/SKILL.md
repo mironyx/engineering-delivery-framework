@@ -760,6 +760,18 @@ are needed later:
 REVIEWED_SHA=$(git rev-parse HEAD)
 ```
 
+**As soon as the review returns, before triage**, append the Step 9 cost checkpoint row —
+every time, including a clean review with nothing to fix, and again after each re-review
+(each `edf:pr-review` run gets its own `9` row). The pr-review cost line is a
+report, not this checkpoint; only `append-checkpoint.py` writes the row and the Grafana
+marker, and feature-end's audit (`check-checkpoints.py --stage end`) reports a missing one:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
+  --step "9" \
+  --note "review: <N blockers, M warnings | clean>" \
+  --issue <N>
+```
+
 Triage each finding:
 
 - **Blocker / correctness issue** — fix it: update the code, re-run Step 5 (verification), add a commit, push. If fixing it surfaced something a future reader needs to know (a bug in the task's own tests, a measured finding outside this issue's scope, an assumption that turned out wrong), append it to the session log's Concerns & Deferred Items section immediately, not just the fix itself.
@@ -769,7 +781,7 @@ Triage each finding:
 - **Style / minor** — fix if trivial; otherwise note in the session log's Concerns & Deferred Items section and move on.
 
 **If no fixes were needed** (no blockers found, or only deferred non-blockers): skip the
-re-review section below and proceed straight to the cost checkpoint.
+re-review section below and proceed to Step 10.
 
 **If fixes were applied**, compute the fix size before deciding whether to re-review:
 
@@ -809,14 +821,6 @@ a reviewer can verify correctness at a glance; above that, or when new files ent
 the change is large enough to warrant automated review. This threshold makes the second
 pr-review invocation conditional — most post-review fixes are small and take the lightweight
 path.
-
-Once review is resolved (no blockers remain), append a cost checkpoint row:
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/append-checkpoint.py \
-  --step "9" \
-  --note "review clean$(<concise findings summary>)" \
-  --issue <N>
-```
 
 ### Step 10: Report
 

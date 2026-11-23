@@ -118,7 +118,7 @@ class TestAgentSchema:
         # inflates) an agent regardless of the session's model — that is what
         # `inherit` exists to prevent.
         mechanical = {
-            "ci-probe", "diagnostics-checker", "gh-issue-manager",
+            "ci-probe", "gh-issue-manager",
             "qa-contracts", "qa-coverage", "test-runner",
         }
         text = agent_path.read_text(encoding="utf-8")
