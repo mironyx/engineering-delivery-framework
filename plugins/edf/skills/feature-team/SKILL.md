@@ -1,6 +1,6 @@
 ---
 name: feature-team
-description: Parallel feature implementation using Claude Code agent teams. Lead defines tasks; each teammate autonomously implements one issue in its own git worktree. Requires Claude Code CLI.
+description: Feature implementation using Claude Code agent teams (one or more issues). Lead defines tasks; each teammate autonomously implements one issue in its own git worktree. Requires Claude Code CLI.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 ---
 
@@ -18,8 +18,11 @@ Terminal, Ghostty) — the default in-process mode works fine there.
 - `/feature-team 101 102 103` — implement three specific task issues in parallel
 - `/feature-team -n 3` — implement the top 3 Todo task items from the project board
 - `/feature-team epic 45` — implement all tasks from epic #45, wave-by-wave when the epic body declares dependencies
+- `/feature-team 101` or `/feature-team -n 1` — one teammate for one issue
 
-For a single issue, use `edf:feature` instead. Epic issues (label `epic`) cannot be implemented directly — pass task issues or use `epic <N>` mode.
+A single issue is a valid input: spawn one teammate and run the normal lead process (it keeps
+the lead free to coordinate and handles `/feature-end` the same way). Do not stop or redirect to
+`edf:feature` when given one issue. Epic issues (label `epic`) cannot be implemented directly — pass task issues or use `epic <N>` mode.
 
 **Wave handling:** When given an epic, the lead reads the epic body for an `## Execution Order` table or a `## Dependency graph` Mermaid diagram and spawns teammates wave-by-wave. Without either, all tasks spawn in parallel. See Step 1 for parsing rules.
 
