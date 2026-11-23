@@ -63,12 +63,14 @@ def parse_rows(text: str) -> list[tuple[str, datetime]] | None:
         if line.strip().startswith("## "):
             break
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) < 2:
-            continue
+        if len(cells) < 2 or cells[0] == "Step" or not cells[0].strip("-: "):
+            continue  # blank line, header or separator
         try:
             rows.append((cells[0], datetime.strptime(cells[1], _TIMESTAMP_FORMAT)))
         except ValueError:
-            continue  # header, separator, or a malformed row
+            # A data row that cannot be read would otherwise surface as "missing" with no reason.
+            print(f"warning: step {cells[0]} row has an unreadable timestamp '{cells[1]}' — skipped",
+                  file=sys.stderr)
     return rows
 
 

@@ -633,7 +633,8 @@ One commit per issue. Do not batch multiple issues.
 
 ### Step 8: Push and create PR
 
-**Checkpoint gate — run before pushing:**
+**Checkpoint gate — Full track (Standard/Heavy) only, run before pushing.** Light track
+has no session log at this point, so it skips the gate (feature-end Step 2.2b audits it later).
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/hooks/run-python.sh ${CLAUDE_PLUGIN_ROOT}/bin/check-checkpoints.py --issue <N>

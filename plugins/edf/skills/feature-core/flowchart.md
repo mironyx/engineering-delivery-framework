@@ -91,7 +91,9 @@ flowchart TD
 
     %% ── Shared delivery ──
     subgraph DELIVER["Shared Delivery"]
-        S7["S7: git add & commit"] --> S8_GATE{"S8 gate:<br/>check-checkpoints.py<br/>exit code?"}
+        S7["S7: git add & commit"] --> S8_TRACK{"Full track?"}
+        S8_TRACK -->|"Light: skip gate"| S8
+        S8_TRACK -->|"Standard / Heavy"| S8_GATE{"S8 gate:<br/>check-checkpoints.py<br/>exit code?"}
         S8_GATE -->|"1: missing 4bF / 6b"| S8_BACK["Run the missing step(s)<br/>with their checkpoints"]
         S8_BACK --> S8_GATE
         S8_GATE -->|"0 (bulk = warning,<br/>log it)"| S8["S8: git push + create<br/>DRAFT PR"]
@@ -135,6 +137,6 @@ flowchart TD
     class START,DONE startend
     class S3,S3_READ,S3_BRIEF,S3A,S3B,S3B_Q,S3B_DEV,S3C,F3DF,L1,L2,L3,F2_CP,F3,F3_FIX,F4,F4_CP,S5_CP,S6,S6_FIX,S6S,S6J,S6_CP,S6B_CP,S6B_W,S6B_F,S7,S8,S8_BACK,S8_CP,S8_PATCH,S9,S9_T,S9_D,S9_CP,S9_FIX,S9_SZ,S9_SELF,S9RERUN,S10,S10_F,S10_RDY,S10_OK,S10_CP,S10_W process
     class S3A_FETCH,S8B,F2,S5,S5_E2E_RUN,S5_AUDIT,S6B,S6B_REV agent
-    class S3_EPIC,S3A_NEW,S3B_LLD,S3C_SEC,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6B_GATE,S6B_V,S6B_V2,S8_DEV,S8_GATE,S9_B,S9_SZ_CHK,S10_CI decision
+    class S3_EPIC,S3A_NEW,S3B_LLD,S3C_SEC,S3C_TIER,F2_CHK,F3_CHK,S5_CHK,S5_E2E,S6_CHK,S6B_GATE,S6B_V,S6B_V2,S8_DEV,S8_TRACK,S8_GATE,S9_B,S9_SZ_CHK,S10_CI decision
     class STOP_EPIC,STOP_SPEC,STOP_ASK,S6B_STOP stop
 ```
