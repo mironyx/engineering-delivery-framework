@@ -545,6 +545,7 @@ tracker.py edit    REF [--title T] [--body MD] [--add-label L]... [--remove-labe
 tracker.py comment REF --body MD
 tracker.py status  REF S [--add-to-board]
 tracker.py close   REF
+tracker.py --help | -h | <op> --help
 ```
 
 - `REF` is an opaque string; each backend parses its own form. `S` is one argv element
@@ -581,6 +582,8 @@ Story 1.5 AC6 vocabulary and GitHub parity.
 
 ```text
 main(argv: list[str] | None = None) -> int
+  - if "--help"/"-h" is argv[0] or argv[1]: print the module docstring from "Grammar:", return 0
+    (before parsing and config validation; added by #169)
   - args = _parse(argv)                          # may raise TrackerError
   - ctx = _resolve_context(_env_root(), _repo_root())   # may raise TrackerError
   - if args.op == "tracker": print(ctx.tracker); return 0
