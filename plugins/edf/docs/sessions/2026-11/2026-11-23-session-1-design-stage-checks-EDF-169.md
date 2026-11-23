@@ -15,6 +15,7 @@
 | 5 | 2026-11-23T07:17:15Z | $3.78 | 9,925 in / 46,002 out | green on attempt 1 — 2048/2048 tests; e2e: skip (no e2e-dir); audit skipped (no uv/pip-audit); pyright/ruff unavailable on VM [models: claude-opus-5-5 $3.77, claude-haiku-5-5 $0.00] |
 | 6 | 2026-11-23T07:17:25Z | $3.94 | 9,933 in / 47,093 out | diag pass — CodeScene MCP not available in session; SonarQube: skipped (MCP exposes no analysis tool); .diagnostics missing (worktree); justification: skipped (no LLD, no new prod functions); HTTP-mock grep clean [models: claude-opus-5-5 $3.93, claude-haiku-5-5 $0.00] |
 | 6b | 2026-11-23T07:18:36Z | $4.72 | 11,368 in / 53,853 out | evaluator: PASS WITH WARNINGS — 8/8 ACs covered, 0 adversarial; CRLF regression on feature-core fixed — brief: used as-is [models: claude-opus-5-5 $4.71, claude-haiku-5-5 $0.00] |
+| 8 | 2026-11-23T07:19:08Z | $4.87 | 11,374 in / 55,360 out | [PR #170](https://github.com/mironyx/engineering-delivery-framework/pull/170) [models: claude-opus-5-5 $4.87, claude-haiku-5-5 $0.00] |
 
 ## Concerns & Deferred Items
 - `append-checkpoint.py` could not find the log: this repo keeps session logs under `plugins/edf/docs/` but `.env` has no `EDF_DOCS_DIR`. Decided: pass `EDF_DOCS_DIR=plugins/edf/docs` per call. Adding it to `.env` is out of scope.
@@ -25,3 +26,4 @@
 - Step 5: `pyright` and `ruff` are not installed on this VM, so typecheck and Python lint did not run. Fallback: `py_compile` plus a long-line scan; one line split. Typecheck happens in the IDE per CLAUDE.md. Repo-wide markdown lint has ~11k pre-existing issues (mostly MD013), and the new prose follows the surrounding style. Not gated: the repo has no CI workflows.
 - Evaluator found that my Python rewrite turned `feature-core/{SKILL,flowchart}.md` from CRLF into LF, so the diff showed ~2000 lines and would have conflicted with #168. Restored CRLF; the diff is now 233+/38-.
 - Evaluator silent risk: `tracker.py --help` relies on `__doc__`, which is `None` under `python -OO`. Not fixed: `run-python.sh` never passes `-OO`.
+- Review (PR #170, 2 warns): architect Step 2 item 5 contradicted the flowchart on when sizing happens relative to the 2b split, and item 6 put the vendor-shape citation in an issue that doesn't exist yet. Both fixed in architect/SKILL.md. Fix: 12 source lines; self-checked, skipped re-review.

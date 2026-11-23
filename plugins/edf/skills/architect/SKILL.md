@@ -230,16 +230,18 @@ For each in-scope epic, determine:
 2. **Input sources** — what files, issues, or design docs to read.
 3. **Output** — what artefact will be produced and where.
 4. **Decomposition** — see Step 2b below.
-5. **Task size and files** — for every proposed task (after any Step 2b split), estimate
-   the total PR diff against the 200-line rule and list the files it edits (create or
-   modify). Do this now, before the gate — sizing after the LLD is written means a split
+5. **Task size and files** — for every proposed task, estimate the total PR diff against
+   the 200-line rule and list the files it edits (create or modify). Step 2b uses this
+   estimate to decide splits; size each task a split produces the same way. Do this now, before the gate — sizing after the LLD is written means a split
    found there costs a second design pass. Read the current code to get the file list;
    do not guess it from the plan.
 6. **Vendor payload shapes** — for every task that consumes or produces a third-party
    payload (webhook body, API request/response, SDK event), check the field names, types
    and required-ness against the vendor's published schema with `WebFetch`/`WebSearch` and
-   cite the doc URL in the task's `## What` section. If it cannot be verified, mark the shape
-   `> **Unverified — recall-based:**` there instead. This mirrors `/lld` Step 2.5's
+   cite the doc URL in a `Vendor shapes` note under the summary table. If it cannot be
+   verified, mark the shape `Unverified — recall-based` there instead. Step 4 carries each
+   note into the LLD's External Surfaces table (via the `/lld` prompt) and into the task
+   issue's `## What` section. This mirrors `/lld` Step 2.5's
    external-surface check, one stage earlier, so a wrong shape never reaches the LLD.
 
 Present a summary table to the user:
