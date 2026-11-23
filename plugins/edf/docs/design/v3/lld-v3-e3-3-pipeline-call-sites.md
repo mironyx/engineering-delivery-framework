@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|-------|
-| Version | 0.6 |
+| Version | 0.7 |
 | Status | Revised |
 | Author | LS / Claude |
 | Revised | 2026-11-17 — Issue #150: §1.4 guard tests, repoint scope, removed live-gh dry-run cases |
